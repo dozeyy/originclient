@@ -1,0 +1,1367 @@
+Compiled from "AuthenticationService.java"
+public interface com.mojang.authlib.AuthenticationService {
+  public abstract com.mojang.authlib.minecraft.MinecraftSessionService createMinecraftSessionService();
+  public abstract com.mojang.authlib.GameProfileRepository createProfileRepository();
+}
+Compiled from "Environment.java"
+public final class com.mojang.authlib.Environment extends java.lang.Record {
+  private final java.lang.String sessionHost;
+  private final java.lang.String servicesHost;
+  private final java.lang.String profilesHost;
+  private final java.lang.String name;
+  public com.mojang.authlib.Environment(java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String sessionHost();
+  public java.lang.String servicesHost();
+  public java.lang.String profilesHost();
+  public java.lang.String name();
+}
+Compiled from "EnvironmentParser.java"
+public class com.mojang.authlib.EnvironmentParser {
+  private static java.lang.String environmentOverride;
+  private static final java.lang.String PROP_PREFIX;
+  private static final org.slf4j.Logger LOGGER;
+  public static final java.lang.String PROP_ENV;
+  public static final java.lang.String PROP_SESSION_HOST;
+  public static final java.lang.String PROP_SERVICES_HOST;
+  public static final java.lang.String PROP_PROFILES_HOST;
+  public com.mojang.authlib.EnvironmentParser();
+  public static void setEnvironmentOverride(java.lang.String);
+  public static java.util.Optional<com.mojang.authlib.Environment> getEnvironmentFromProperties();
+  private static java.util.Optional<com.mojang.authlib.Environment> fromHostNames();
+  static {};
+}
+Compiled from "GameProfile.java"
+public final class com.mojang.authlib.GameProfile extends java.lang.Record {
+  private final java.util.UUID id;
+  private final java.lang.String name;
+  private final com.mojang.authlib.properties.PropertyMap properties;
+  public com.mojang.authlib.GameProfile(java.util.UUID, java.lang.String, com.mojang.authlib.properties.PropertyMap);
+  public com.mojang.authlib.GameProfile(java.util.UUID, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID id();
+  public java.lang.String name();
+  public com.mojang.authlib.properties.PropertyMap properties();
+}
+Compiled from "GameProfileRepository.java"
+public interface com.mojang.authlib.GameProfileRepository {
+  public abstract void findProfilesByNames(java.lang.String[], com.mojang.authlib.ProfileLookupCallback);
+  public abstract java.util.Optional<com.mojang.authlib.yggdrasil.response.NameAndId> findProfileByName(java.lang.String);
+}
+Compiled from "HttpAuthenticationService.java"
+public abstract class com.mojang.authlib.HttpAuthenticationService implements com.mojang.authlib.AuthenticationService {
+  private final java.net.Proxy proxy;
+  protected com.mojang.authlib.HttpAuthenticationService(java.net.Proxy);
+  public java.net.Proxy getProxy();
+  public static java.net.URL constantURL(java.lang.String);
+  public static java.lang.String buildQuery(java.util.Map<java.lang.String, java.lang.Object>);
+  public static java.net.URL concatenateURL(java.net.URL, java.lang.String);
+}
+Compiled from "ProfileLookupCallback.java"
+public interface com.mojang.authlib.ProfileLookupCallback {
+  public abstract void onProfileLookupSucceeded(java.lang.String, java.util.UUID);
+  public abstract void onProfileLookupFailed(java.lang.String, java.lang.Exception);
+}
+Compiled from "SignatureState.java"
+public final class com.mojang.authlib.SignatureState extends java.lang.Enum<com.mojang.authlib.SignatureState> {
+  public static final com.mojang.authlib.SignatureState UNSIGNED;
+  public static final com.mojang.authlib.SignatureState INVALID;
+  public static final com.mojang.authlib.SignatureState SIGNED;
+  private static final com.mojang.authlib.SignatureState[] $VALUES;
+  public static com.mojang.authlib.SignatureState[] values();
+  public static com.mojang.authlib.SignatureState valueOf(java.lang.String);
+  private com.mojang.authlib.SignatureState();
+  private static com.mojang.authlib.SignatureState[] $values();
+  static {};
+}
+Compiled from "AuthenticationException.java"
+public class com.mojang.authlib.exceptions.AuthenticationException extends java.lang.Exception {
+  public com.mojang.authlib.exceptions.AuthenticationException();
+  public com.mojang.authlib.exceptions.AuthenticationException(java.lang.String);
+  public com.mojang.authlib.exceptions.AuthenticationException(java.lang.String, java.lang.Throwable);
+  public com.mojang.authlib.exceptions.AuthenticationException(java.lang.Throwable);
+}
+Compiled from "AuthenticationUnavailableException.java"
+public class com.mojang.authlib.exceptions.AuthenticationUnavailableException extends com.mojang.authlib.exceptions.AuthenticationException {
+  public com.mojang.authlib.exceptions.AuthenticationUnavailableException();
+  public com.mojang.authlib.exceptions.AuthenticationUnavailableException(java.lang.String);
+  public com.mojang.authlib.exceptions.AuthenticationUnavailableException(java.lang.String, java.lang.Throwable);
+  public com.mojang.authlib.exceptions.AuthenticationUnavailableException(java.lang.Throwable);
+}
+Compiled from "ForcedUsernameChangeException.java"
+public class com.mojang.authlib.exceptions.ForcedUsernameChangeException extends com.mojang.authlib.exceptions.AuthenticationException {
+  public com.mojang.authlib.exceptions.ForcedUsernameChangeException();
+}
+Compiled from "InsufficientPrivilegesException.java"
+public class com.mojang.authlib.exceptions.InsufficientPrivilegesException extends com.mojang.authlib.exceptions.AuthenticationException {
+  public com.mojang.authlib.exceptions.InsufficientPrivilegesException();
+  public com.mojang.authlib.exceptions.InsufficientPrivilegesException(java.lang.String);
+  public com.mojang.authlib.exceptions.InsufficientPrivilegesException(java.lang.String, java.lang.Throwable);
+  public com.mojang.authlib.exceptions.InsufficientPrivilegesException(java.lang.Throwable);
+}
+Compiled from "InvalidCredentialsException.java"
+public class com.mojang.authlib.exceptions.InvalidCredentialsException extends com.mojang.authlib.exceptions.AuthenticationException {
+  public com.mojang.authlib.exceptions.InvalidCredentialsException();
+  public com.mojang.authlib.exceptions.InvalidCredentialsException(java.lang.String);
+  public com.mojang.authlib.exceptions.InvalidCredentialsException(java.lang.String, java.lang.Throwable);
+  public com.mojang.authlib.exceptions.InvalidCredentialsException(java.lang.Throwable);
+}
+Compiled from "MinecraftClientException.java"
+public class com.mojang.authlib.exceptions.MinecraftClientException extends java.lang.RuntimeException {
+  protected final com.mojang.authlib.exceptions.MinecraftClientException$ErrorType type;
+  protected com.mojang.authlib.exceptions.MinecraftClientException(com.mojang.authlib.exceptions.MinecraftClientException$ErrorType, java.lang.String);
+  public com.mojang.authlib.exceptions.MinecraftClientException(com.mojang.authlib.exceptions.MinecraftClientException$ErrorType, java.lang.String, java.lang.Throwable);
+  public com.mojang.authlib.exceptions.MinecraftClientException$ErrorType getType();
+  public com.mojang.authlib.exceptions.AuthenticationException toAuthenticationException();
+}
+Compiled from "MinecraftClientException.java"
+public final class com.mojang.authlib.exceptions.MinecraftClientException$ErrorType extends java.lang.Enum<com.mojang.authlib.exceptions.MinecraftClientException$ErrorType> {
+  public static final com.mojang.authlib.exceptions.MinecraftClientException$ErrorType SERVICE_UNAVAILABLE;
+  public static final com.mojang.authlib.exceptions.MinecraftClientException$ErrorType HTTP_ERROR;
+  public static final com.mojang.authlib.exceptions.MinecraftClientException$ErrorType JSON_ERROR;
+  private static final com.mojang.authlib.exceptions.MinecraftClientException$ErrorType[] $VALUES;
+  public static com.mojang.authlib.exceptions.MinecraftClientException$ErrorType[] values();
+  public static com.mojang.authlib.exceptions.MinecraftClientException$ErrorType valueOf(java.lang.String);
+  private com.mojang.authlib.exceptions.MinecraftClientException$ErrorType();
+  private static com.mojang.authlib.exceptions.MinecraftClientException$ErrorType[] $values();
+  static {};
+}
+Compiled from "MinecraftClientHttpException.java"
+public class com.mojang.authlib.exceptions.MinecraftClientHttpException extends com.mojang.authlib.exceptions.MinecraftClientException {
+  public static final int UNAUTHORIZED;
+  public static final int FORBIDDEN;
+  private final int status;
+  private final com.mojang.authlib.yggdrasil.response.ErrorResponse response;
+  private final java.time.Duration retryAfter;
+  public com.mojang.authlib.exceptions.MinecraftClientHttpException(int);
+  public com.mojang.authlib.exceptions.MinecraftClientHttpException(int, com.mojang.authlib.yggdrasil.response.ErrorResponse);
+  public com.mojang.authlib.exceptions.MinecraftClientHttpException(int, com.mojang.authlib.yggdrasil.response.ErrorResponse, java.time.Duration);
+  public int getStatus();
+  public java.util.Optional<com.mojang.authlib.yggdrasil.response.ErrorResponse> getResponse();
+  public java.util.Optional<java.time.Duration> getRetryAfter();
+  public java.lang.String toString();
+  public com.mojang.authlib.exceptions.AuthenticationException toAuthenticationException();
+  private java.util.Optional<java.lang.String> getError();
+  private static java.lang.String getErrorMessage(int, com.mojang.authlib.yggdrasil.response.ErrorResponse);
+  private boolean hasError(java.lang.String);
+  private static boolean lambda$hasError$0(java.lang.String, java.lang.String);
+}
+Compiled from "UserBannedException.java"
+public class com.mojang.authlib.exceptions.UserBannedException extends com.mojang.authlib.exceptions.AuthenticationException {
+  public com.mojang.authlib.exceptions.UserBannedException();
+}
+Compiled from "BanDetails.java"
+public final class com.mojang.authlib.minecraft.BanDetails extends java.lang.Record {
+  private final java.util.UUID id;
+  private final java.time.Instant expires;
+  private final java.lang.String reason;
+  private final java.lang.String reasonMessage;
+  public static final java.lang.String MULTIPLAYER_SCOPE;
+  public com.mojang.authlib.minecraft.BanDetails(java.util.UUID, java.time.Instant, java.lang.String, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID id();
+  public java.time.Instant expires();
+  public java.lang.String reason();
+  public java.lang.String reasonMessage();
+}
+Compiled from "InsecurePublicKeyException.java"
+public class com.mojang.authlib.minecraft.InsecurePublicKeyException extends java.lang.RuntimeException {
+  public com.mojang.authlib.minecraft.InsecurePublicKeyException(java.lang.String);
+}
+Compiled from "InsecurePublicKeyException.java"
+public class com.mojang.authlib.minecraft.InsecurePublicKeyException$InvalidException extends com.mojang.authlib.minecraft.InsecurePublicKeyException {
+  public com.mojang.authlib.minecraft.InsecurePublicKeyException$InvalidException(java.lang.String);
+}
+Compiled from "InsecurePublicKeyException.java"
+public class com.mojang.authlib.minecraft.InsecurePublicKeyException$MissingException extends com.mojang.authlib.minecraft.InsecurePublicKeyException {
+  public com.mojang.authlib.minecraft.InsecurePublicKeyException$MissingException(java.lang.String);
+}
+Compiled from "MinecraftProfileTexture.java"
+public class com.mojang.authlib.minecraft.MinecraftProfileTexture {
+  public static final int PROFILE_TEXTURE_COUNT;
+  private final java.lang.String url;
+  private final java.util.Map<java.lang.String, java.lang.String> metadata;
+  public com.mojang.authlib.minecraft.MinecraftProfileTexture(java.lang.String, java.util.Map<java.lang.String, java.lang.String>);
+  public java.lang.String getUrl();
+  public java.lang.String getMetadata(java.lang.String);
+  public java.lang.String getHash();
+  public java.lang.String toString();
+  static {};
+}
+Compiled from "MinecraftProfileTexture.java"
+public final class com.mojang.authlib.minecraft.MinecraftProfileTexture$Type extends java.lang.Enum<com.mojang.authlib.minecraft.MinecraftProfileTexture$Type> {
+  public static final com.mojang.authlib.minecraft.MinecraftProfileTexture$Type SKIN;
+  public static final com.mojang.authlib.minecraft.MinecraftProfileTexture$Type CAPE;
+  public static final com.mojang.authlib.minecraft.MinecraftProfileTexture$Type ELYTRA;
+  private static final com.mojang.authlib.minecraft.MinecraftProfileTexture$Type[] $VALUES;
+  public static com.mojang.authlib.minecraft.MinecraftProfileTexture$Type[] values();
+  public static com.mojang.authlib.minecraft.MinecraftProfileTexture$Type valueOf(java.lang.String);
+  private com.mojang.authlib.minecraft.MinecraftProfileTexture$Type();
+  private static com.mojang.authlib.minecraft.MinecraftProfileTexture$Type[] $values();
+  static {};
+}
+Compiled from "MinecraftProfileTextures.java"
+public final class com.mojang.authlib.minecraft.MinecraftProfileTextures extends java.lang.Record {
+  private final com.mojang.authlib.minecraft.MinecraftProfileTexture skin;
+  private final com.mojang.authlib.minecraft.MinecraftProfileTexture cape;
+  private final com.mojang.authlib.minecraft.MinecraftProfileTexture elytra;
+  private final com.mojang.authlib.SignatureState signatureState;
+  public static final com.mojang.authlib.minecraft.MinecraftProfileTextures EMPTY;
+  public com.mojang.authlib.minecraft.MinecraftProfileTextures(com.mojang.authlib.minecraft.MinecraftProfileTexture, com.mojang.authlib.minecraft.MinecraftProfileTexture, com.mojang.authlib.minecraft.MinecraftProfileTexture, com.mojang.authlib.SignatureState);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.minecraft.MinecraftProfileTexture skin();
+  public com.mojang.authlib.minecraft.MinecraftProfileTexture cape();
+  public com.mojang.authlib.minecraft.MinecraftProfileTexture elytra();
+  public com.mojang.authlib.SignatureState signatureState();
+  static {};
+}
+Compiled from "MinecraftSessionService.java"
+public interface com.mojang.authlib.minecraft.MinecraftSessionService {
+  public abstract void joinServer(java.util.UUID, java.lang.String, java.lang.String) throws com.mojang.authlib.exceptions.AuthenticationException;
+  public abstract com.mojang.authlib.yggdrasil.ProfileResult hasJoinedServer(java.lang.String, java.lang.String, java.net.InetAddress) throws com.mojang.authlib.exceptions.AuthenticationUnavailableException;
+  public abstract com.mojang.authlib.properties.Property getPackedTextures(com.mojang.authlib.GameProfile);
+  public abstract com.mojang.authlib.minecraft.MinecraftProfileTextures unpackTextures(com.mojang.authlib.properties.Property);
+  public default com.mojang.authlib.minecraft.MinecraftProfileTextures getTextures(com.mojang.authlib.GameProfile);
+  public abstract com.mojang.authlib.yggdrasil.ProfileResult fetchProfile(java.util.UUID, boolean);
+  public abstract java.lang.String getSecurePropertyValue(com.mojang.authlib.properties.Property) throws com.mojang.authlib.minecraft.InsecurePublicKeyException;
+}
+Compiled from "TelemetryEvent.java"
+public interface com.mojang.authlib.minecraft.TelemetryEvent extends com.mojang.authlib.minecraft.TelemetryPropertyContainer {
+  public static final com.mojang.authlib.minecraft.TelemetryEvent EMPTY;
+  public abstract void send();
+  static {};
+}
+Compiled from "TelemetryEvent.java"
+class com.mojang.authlib.minecraft.TelemetryEvent$1 implements com.mojang.authlib.minecraft.TelemetryEvent {
+  com.mojang.authlib.minecraft.TelemetryEvent$1();
+  public void addProperty(java.lang.String, java.lang.String);
+  public void addProperty(java.lang.String, int);
+  public void addProperty(java.lang.String, long);
+  public void addProperty(java.lang.String, boolean);
+  public void addNullProperty(java.lang.String);
+  public void send();
+}
+Compiled from "TelemetryPropertyContainer.java"
+public interface com.mojang.authlib.minecraft.TelemetryPropertyContainer {
+  public abstract void addProperty(java.lang.String, java.lang.String);
+  public abstract void addProperty(java.lang.String, int);
+  public abstract void addProperty(java.lang.String, long);
+  public abstract void addProperty(java.lang.String, boolean);
+  public abstract void addNullProperty(java.lang.String);
+  public static com.mojang.authlib.minecraft.TelemetryPropertyContainer forJsonObject(com.google.gson.JsonObject);
+}
+Compiled from "TelemetryPropertyContainer.java"
+class com.mojang.authlib.minecraft.TelemetryPropertyContainer$1 implements com.mojang.authlib.minecraft.TelemetryPropertyContainer {
+  final com.google.gson.JsonObject val$object;
+  com.mojang.authlib.minecraft.TelemetryPropertyContainer$1();
+  public void addProperty(java.lang.String, java.lang.String);
+  public void addProperty(java.lang.String, int);
+  public void addProperty(java.lang.String, long);
+  public void addProperty(java.lang.String, boolean);
+  public void addNullProperty(java.lang.String);
+}
+Compiled from "TelemetrySession.java"
+public interface com.mojang.authlib.minecraft.TelemetrySession {
+  public static final com.mojang.authlib.minecraft.TelemetrySession DISABLED;
+  public abstract boolean isEnabled();
+  public abstract com.mojang.authlib.minecraft.TelemetryEvent createNewEvent(java.lang.String);
+  static {};
+}
+Compiled from "TelemetrySession.java"
+class com.mojang.authlib.minecraft.TelemetrySession$1 implements com.mojang.authlib.minecraft.TelemetrySession {
+  com.mojang.authlib.minecraft.TelemetrySession$1();
+  public boolean isEnabled();
+  public com.mojang.authlib.minecraft.TelemetryEvent createNewEvent(java.lang.String);
+}
+Compiled from "UserApiService.java"
+public interface com.mojang.authlib.minecraft.UserApiService {
+  public static final com.mojang.authlib.minecraft.UserApiService$UserProperties OFFLINE_PROPERTIES;
+  public static final com.mojang.authlib.minecraft.UserApiService OFFLINE;
+  public abstract com.mojang.authlib.minecraft.UserApiService$UserProperties fetchProperties() throws com.mojang.authlib.exceptions.AuthenticationException;
+  public abstract boolean isBlockedPlayer(java.util.UUID);
+  public abstract void refreshBlockList();
+  public abstract com.mojang.authlib.minecraft.TelemetrySession newTelemetrySession(java.util.concurrent.Executor);
+  public abstract com.mojang.authlib.yggdrasil.response.KeyPairResponse getKeyPair();
+  public abstract void reportAbuse(com.mojang.authlib.yggdrasil.request.AbuseReportRequest);
+  public abstract boolean canSendReports();
+  public abstract com.mojang.authlib.minecraft.report.AbuseReportLimits getAbuseReportLimits();
+  static {};
+}
+Compiled from "UserApiService.java"
+class com.mojang.authlib.minecraft.UserApiService$1 implements com.mojang.authlib.minecraft.UserApiService {
+  com.mojang.authlib.minecraft.UserApiService$1();
+  public com.mojang.authlib.minecraft.UserApiService$UserProperties fetchProperties();
+  public boolean isBlockedPlayer(java.util.UUID);
+  public void refreshBlockList();
+  public com.mojang.authlib.minecraft.TelemetrySession newTelemetrySession(java.util.concurrent.Executor);
+  public com.mojang.authlib.yggdrasil.response.KeyPairResponse getKeyPair();
+  public void reportAbuse(com.mojang.authlib.yggdrasil.request.AbuseReportRequest);
+  public boolean canSendReports();
+  public com.mojang.authlib.minecraft.report.AbuseReportLimits getAbuseReportLimits();
+}
+Compiled from "UserApiService.java"
+public final class com.mojang.authlib.minecraft.UserApiService$UserFlag extends java.lang.Enum<com.mojang.authlib.minecraft.UserApiService$UserFlag> {
+  public static final com.mojang.authlib.minecraft.UserApiService$UserFlag SERVERS_ALLOWED;
+  public static final com.mojang.authlib.minecraft.UserApiService$UserFlag REALMS_ALLOWED;
+  public static final com.mojang.authlib.minecraft.UserApiService$UserFlag CHAT_ALLOWED;
+  public static final com.mojang.authlib.minecraft.UserApiService$UserFlag CHAT_FRIENDS_ONLY;
+  public static final com.mojang.authlib.minecraft.UserApiService$UserFlag TELEMETRY_ENABLED;
+  public static final com.mojang.authlib.minecraft.UserApiService$UserFlag PROFANITY_FILTER_ENABLED;
+  public static final com.mojang.authlib.minecraft.UserApiService$UserFlag OPTIONAL_TELEMETRY_AVAILABLE;
+  public static final com.mojang.authlib.minecraft.UserApiService$UserFlag FRIENDS_ENABLED;
+  public static final com.mojang.authlib.minecraft.UserApiService$UserFlag ACCEPT_FRIEND_INVITES;
+  private static final com.mojang.authlib.minecraft.UserApiService$UserFlag[] $VALUES;
+  public static com.mojang.authlib.minecraft.UserApiService$UserFlag[] values();
+  public static com.mojang.authlib.minecraft.UserApiService$UserFlag valueOf(java.lang.String);
+  private com.mojang.authlib.minecraft.UserApiService$UserFlag();
+  private static com.mojang.authlib.minecraft.UserApiService$UserFlag[] $values();
+  static {};
+}
+Compiled from "UserApiService.java"
+public final class com.mojang.authlib.minecraft.UserApiService$UserProperties extends java.lang.Record {
+  private final java.util.Set<com.mojang.authlib.minecraft.UserApiService$UserFlag> flags;
+  private final java.util.Map<java.lang.String, com.mojang.authlib.minecraft.BanDetails> bannedScopes;
+  public com.mojang.authlib.minecraft.UserApiService$UserProperties(java.util.Set<com.mojang.authlib.minecraft.UserApiService$UserFlag>, java.util.Map<java.lang.String, com.mojang.authlib.minecraft.BanDetails>);
+  public boolean flag(com.mojang.authlib.minecraft.UserApiService$UserFlag);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.Set<com.mojang.authlib.minecraft.UserApiService$UserFlag> flags();
+  public java.util.Map<java.lang.String, com.mojang.authlib.minecraft.BanDetails> bannedScopes();
+}
+Compiled from "MinecraftClient.java"
+public class com.mojang.authlib.minecraft.client.MinecraftClient {
+  public static final int CONNECT_TIMEOUT_MS;
+  public static final int READ_TIMEOUT_MS;
+  private static final org.slf4j.Logger LOGGER;
+  private static final int HTTP_NOT_MODIFIED;
+  private final java.lang.String accessToken;
+  private final java.net.Proxy proxy;
+  private final com.mojang.authlib.minecraft.client.ObjectMapper objectMapper;
+  public com.mojang.authlib.minecraft.client.MinecraftClient(java.lang.String, java.net.Proxy);
+  public static com.mojang.authlib.minecraft.client.MinecraftClient unauthenticated(java.net.Proxy);
+  private static java.time.Duration parseRetryAfter(java.lang.String);
+  public <T> T get(java.net.URL, java.lang.Class<T>);
+  public <T> com.mojang.authlib.minecraft.client.MinecraftClient$ServiceResponse<T> getWithEtag(java.net.URL, java.lang.Class<T>, java.lang.String);
+  public <T> T post(java.net.URL, java.lang.Class<T>);
+  public <T> T post(java.net.URL, java.lang.Object, java.lang.Class<T>);
+  public <T> com.mojang.authlib.minecraft.client.MinecraftClient$ServiceResponse<T> postWithEtag(java.net.URL, java.lang.Object, java.lang.Class<T>, java.lang.String);
+  public <T> T put(java.net.URL, java.lang.Object, java.lang.Class<T>);
+  public <T> T delete(java.net.URL, java.lang.Class<T>);
+  private <T> com.mojang.authlib.minecraft.client.MinecraftClient$ServiceResponse<T> readServiceResponse(java.net.URL, java.lang.Class<T>, java.net.HttpURLConnection, java.lang.String);
+  private com.mojang.authlib.exceptions.MinecraftClientHttpException buildHttpException(java.net.URL, java.net.HttpURLConnection, int, java.time.Duration) throws java.io.IOException;
+  private java.net.HttpURLConnection prepareRequest(java.net.URL, java.lang.String);
+  private java.net.HttpURLConnection withBody(java.net.HttpURLConnection, java.lang.String, byte[]);
+  private byte[] serialize(java.lang.Object);
+  private java.net.HttpURLConnection createUrlConnection(java.net.URL);
+  static {};
+}
+Compiled from "MinecraftClient.java"
+public final class com.mojang.authlib.minecraft.client.MinecraftClient$ServiceResponse<T> extends java.lang.Record {
+  private final T body;
+  private final java.lang.String etag;
+  private final java.time.Duration retryAfter;
+  public com.mojang.authlib.minecraft.client.MinecraftClient$ServiceResponse(T, java.lang.String, java.time.Duration);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public T body();
+  public java.lang.String etag();
+  public java.time.Duration retryAfter();
+}
+Compiled from "ObjectMapper.java"
+public class com.mojang.authlib.minecraft.client.ObjectMapper {
+  private final com.google.gson.Gson gson;
+  public com.mojang.authlib.minecraft.client.ObjectMapper(com.google.gson.Gson);
+  public <T> T readValue(java.lang.String, java.lang.Class<T>);
+  public java.lang.String writeValueAsString(java.lang.Object);
+  public static com.mojang.authlib.minecraft.client.ObjectMapper create();
+}
+Compiled from "AbuseReport.java"
+public final class com.mojang.authlib.minecraft.report.AbuseReport extends java.lang.Record {
+  private final java.lang.String opinionComments;
+  private final java.lang.String reason;
+  private final com.mojang.authlib.minecraft.report.ReportEvidence evidence;
+  private final java.lang.String skinUrl;
+  private final com.mojang.authlib.minecraft.report.ReportedEntity reportedEntity;
+  private final java.time.Instant createdTime;
+  public com.mojang.authlib.minecraft.report.AbuseReport(java.lang.String, java.lang.String, com.mojang.authlib.minecraft.report.ReportEvidence, java.lang.String, com.mojang.authlib.minecraft.report.ReportedEntity, java.time.Instant);
+  public static com.mojang.authlib.minecraft.report.AbuseReport name(java.lang.String, com.mojang.authlib.minecraft.report.ReportedEntity, java.time.Instant);
+  public static com.mojang.authlib.minecraft.report.AbuseReport skin(java.lang.String, java.lang.String, java.lang.String, com.mojang.authlib.minecraft.report.ReportedEntity, java.time.Instant);
+  public static com.mojang.authlib.minecraft.report.AbuseReport chat(java.lang.String, java.lang.String, com.mojang.authlib.minecraft.report.ReportEvidence, com.mojang.authlib.minecraft.report.ReportedEntity, java.time.Instant);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String opinionComments();
+  public java.lang.String reason();
+  public com.mojang.authlib.minecraft.report.ReportEvidence evidence();
+  public java.lang.String skinUrl();
+  public com.mojang.authlib.minecraft.report.ReportedEntity reportedEntity();
+  public java.time.Instant createdTime();
+}
+Compiled from "AbuseReportLimits.java"
+public final class com.mojang.authlib.minecraft.report.AbuseReportLimits extends java.lang.Record {
+  private final int maxOpinionCommentsLength;
+  private final int maxReportedMessageCount;
+  private final int maxEvidenceMessageCount;
+  private final int leadingContextMessageCount;
+  private final int trailingContextMessageCount;
+  public static final com.mojang.authlib.minecraft.report.AbuseReportLimits DEFAULTS;
+  public com.mojang.authlib.minecraft.report.AbuseReportLimits(int, int, int, int, int);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public int maxOpinionCommentsLength();
+  public int maxReportedMessageCount();
+  public int maxEvidenceMessageCount();
+  public int leadingContextMessageCount();
+  public int trailingContextMessageCount();
+  static {};
+}
+Compiled from "ReportChatMessage.java"
+public final class com.mojang.authlib.minecraft.report.ReportChatMessage extends java.lang.Record {
+  private final int index;
+  private final java.util.UUID profileId;
+  private final java.util.UUID sessionId;
+  private final java.time.Instant timestamp;
+  private final long salt;
+  private final java.util.List<java.nio.ByteBuffer> lastSeen;
+  private final java.lang.String message;
+  private final java.nio.ByteBuffer signature;
+  private final boolean messageReported;
+  public com.mojang.authlib.minecraft.report.ReportChatMessage(int, java.util.UUID, java.util.UUID, java.time.Instant, long, java.util.List<java.nio.ByteBuffer>, java.lang.String, java.nio.ByteBuffer, boolean);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public int index();
+  public java.util.UUID profileId();
+  public java.util.UUID sessionId();
+  public java.time.Instant timestamp();
+  public long salt();
+  public java.util.List<java.nio.ByteBuffer> lastSeen();
+  public java.lang.String message();
+  public java.nio.ByteBuffer signature();
+  public boolean messageReported();
+}
+Compiled from "ReportEvidence.java"
+public final class com.mojang.authlib.minecraft.report.ReportEvidence extends java.lang.Record {
+  private final java.util.List<com.mojang.authlib.minecraft.report.ReportChatMessage> messages;
+  public com.mojang.authlib.minecraft.report.ReportEvidence(java.util.List<com.mojang.authlib.minecraft.report.ReportChatMessage>);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.List<com.mojang.authlib.minecraft.report.ReportChatMessage> messages();
+}
+Compiled from "ReportedEntity.java"
+public final class com.mojang.authlib.minecraft.report.ReportedEntity extends java.lang.Record {
+  private final java.util.UUID profileId;
+  public com.mojang.authlib.minecraft.report.ReportedEntity(java.util.UUID);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID profileId();
+}
+Compiled from "Property.java"
+public final class com.mojang.authlib.properties.Property extends java.lang.Record {
+  private final java.lang.String name;
+  private final java.lang.String value;
+  private final java.lang.String signature;
+  public com.mojang.authlib.properties.Property(java.lang.String, java.lang.String);
+  public com.mojang.authlib.properties.Property(java.lang.String, java.lang.String, java.lang.String);
+  public boolean hasSignature();
+  public boolean isSignatureValid(java.security.PublicKey);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String name();
+  public java.lang.String value();
+  public java.lang.String signature();
+}
+Compiled from "PropertyMap.java"
+public class com.mojang.authlib.properties.PropertyMap extends com.google.common.collect.ForwardingMultimap<java.lang.String, com.mojang.authlib.properties.Property> {
+  public static final com.mojang.authlib.properties.PropertyMap EMPTY;
+  private final com.google.common.collect.Multimap<java.lang.String, com.mojang.authlib.properties.Property> properties;
+  public com.mojang.authlib.properties.PropertyMap(com.google.common.collect.Multimap<java.lang.String, com.mojang.authlib.properties.Property>);
+  protected com.google.common.collect.Multimap<java.lang.String, com.mojang.authlib.properties.Property> delegate();
+  protected java.lang.Object delegate();
+  static {};
+}
+Compiled from "PropertyMap.java"
+public class com.mojang.authlib.properties.PropertyMap$Serializer implements com.google.gson.JsonSerializer<com.mojang.authlib.properties.PropertyMap>, com.google.gson.JsonDeserializer<com.mojang.authlib.properties.PropertyMap> {
+  public com.mojang.authlib.properties.PropertyMap$Serializer();
+  public com.mojang.authlib.properties.PropertyMap deserialize(com.google.gson.JsonElement, java.lang.reflect.Type, com.google.gson.JsonDeserializationContext) throws com.google.gson.JsonParseException;
+  public com.google.gson.JsonElement serialize(com.mojang.authlib.properties.PropertyMap, java.lang.reflect.Type, com.google.gson.JsonSerializationContext);
+  public com.google.gson.JsonElement serialize(java.lang.Object, java.lang.reflect.Type, com.google.gson.JsonSerializationContext);
+  public java.lang.Object deserialize(com.google.gson.JsonElement, java.lang.reflect.Type, com.google.gson.JsonDeserializationContext) throws com.google.gson.JsonParseException;
+}
+Compiled from "ChatToggleValue.java"
+public final class com.mojang.authlib.yggdrasil.ChatToggleValue extends java.lang.Enum<com.mojang.authlib.yggdrasil.ChatToggleValue> {
+  public static final com.mojang.authlib.yggdrasil.ChatToggleValue DISABLED;
+  public static final com.mojang.authlib.yggdrasil.ChatToggleValue FRIENDS_ONLY;
+  public static final com.mojang.authlib.yggdrasil.ChatToggleValue ENABLED;
+  private static final com.mojang.authlib.yggdrasil.ChatToggleValue[] $VALUES;
+  public static com.mojang.authlib.yggdrasil.ChatToggleValue[] values();
+  public static com.mojang.authlib.yggdrasil.ChatToggleValue valueOf(java.lang.String);
+  private com.mojang.authlib.yggdrasil.ChatToggleValue();
+  public boolean isEnabled();
+  public boolean isFriendsOnly();
+  public boolean isDisabled();
+  private static com.mojang.authlib.yggdrasil.ChatToggleValue[] $values();
+  static {};
+}
+Compiled from "FriendsService.java"
+public interface com.mojang.authlib.yggdrasil.FriendsService {
+  public abstract com.mojang.authlib.yggdrasil.FriendsService$ResultCode getFriendData(java.util.function.Consumer<com.mojang.authlib.yggdrasil.response.FriendData>);
+  public abstract com.mojang.authlib.yggdrasil.FriendsService$ResultCode removeFriend(java.util.UUID);
+  public abstract com.mojang.authlib.yggdrasil.FriendsService$ResultCode acceptIncomingFriendRequest(java.util.UUID);
+  public abstract com.mojang.authlib.yggdrasil.FriendsService$ResultCode declineIncomingFriendRequest(java.util.UUID);
+  public abstract com.mojang.authlib.yggdrasil.FriendsService$ResultCode sendFriendRequest(java.lang.String);
+  public abstract com.mojang.authlib.yggdrasil.FriendsService$ResultCode sendFriendRequest(java.util.UUID);
+  public abstract com.mojang.authlib.yggdrasil.FriendsService$ResultCode revokeOutgoingFriendRequest(java.util.UUID);
+  public abstract com.mojang.authlib.yggdrasil.FriendsService$ResultCode updateFriendSettings(boolean, boolean);
+  public abstract com.mojang.authlib.yggdrasil.response.PresenceResponse presence(java.lang.String);
+  public default java.util.Optional<java.time.Duration> getFriendsPollInterval();
+  public default java.util.Optional<java.time.Duration> getPresencePollInterval();
+}
+Compiled from "FriendsService.java"
+public final class com.mojang.authlib.yggdrasil.FriendsService$PlayerData extends java.lang.Record {
+  private final java.util.UUID id;
+  private final java.lang.String name;
+  public com.mojang.authlib.yggdrasil.FriendsService$PlayerData(java.util.UUID, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID id();
+  public java.lang.String name();
+}
+Compiled from "FriendsService.java"
+public final class com.mojang.authlib.yggdrasil.FriendsService$ResultCode extends java.lang.Enum<com.mojang.authlib.yggdrasil.FriendsService$ResultCode> {
+  public static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode SUCCESS;
+  public static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode ERROR;
+  public static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode SERVICE_NOT_AVAILABLE;
+  public static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode TOO_MANY_REQUESTS;
+  public static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode FORBIDDEN;
+  public static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode UPGRADE_NEEDED;
+  public static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode CONNECTION_ISSUE;
+  public static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode TEMPORARY_UNAVAILABLE;
+  public static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode UNKNOWN_PROFILE;
+  public static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode UNAUTHORIZED;
+  public static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode GENERIC_ERROR;
+  private static final com.mojang.authlib.yggdrasil.FriendsService$ResultCode[] $VALUES;
+  public static com.mojang.authlib.yggdrasil.FriendsService$ResultCode[] values();
+  public static com.mojang.authlib.yggdrasil.FriendsService$ResultCode valueOf(java.lang.String);
+  private com.mojang.authlib.yggdrasil.FriendsService$ResultCode();
+  private static com.mojang.authlib.yggdrasil.FriendsService$ResultCode[] $values();
+  static {};
+}
+Compiled from "ProfileActionType.java"
+public final class com.mojang.authlib.yggdrasil.ProfileActionType extends java.lang.Enum<com.mojang.authlib.yggdrasil.ProfileActionType> {
+  public static final com.mojang.authlib.yggdrasil.ProfileActionType FORCED_NAME_CHANGE;
+  public static final com.mojang.authlib.yggdrasil.ProfileActionType USING_BANNED_SKIN;
+  private static final com.mojang.authlib.yggdrasil.ProfileActionType[] $VALUES;
+  public static com.mojang.authlib.yggdrasil.ProfileActionType[] values();
+  public static com.mojang.authlib.yggdrasil.ProfileActionType valueOf(java.lang.String);
+  private com.mojang.authlib.yggdrasil.ProfileActionType();
+  private static com.mojang.authlib.yggdrasil.ProfileActionType[] $values();
+  static {};
+}
+Compiled from "ProfileNotFoundException.java"
+public class com.mojang.authlib.yggdrasil.ProfileNotFoundException extends java.lang.RuntimeException {
+  public com.mojang.authlib.yggdrasil.ProfileNotFoundException();
+  public com.mojang.authlib.yggdrasil.ProfileNotFoundException(java.lang.String);
+  public com.mojang.authlib.yggdrasil.ProfileNotFoundException(java.lang.String, java.lang.Throwable);
+  public com.mojang.authlib.yggdrasil.ProfileNotFoundException(java.lang.Throwable);
+}
+Compiled from "ProfileResult.java"
+public final class com.mojang.authlib.yggdrasil.ProfileResult extends java.lang.Record {
+  private final com.mojang.authlib.GameProfile profile;
+  private final java.util.Set<com.mojang.authlib.yggdrasil.ProfileActionType> actions;
+  public com.mojang.authlib.yggdrasil.ProfileResult(com.mojang.authlib.GameProfile);
+  public com.mojang.authlib.yggdrasil.ProfileResult(com.mojang.authlib.GameProfile, java.util.Set<com.mojang.authlib.yggdrasil.ProfileActionType>);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.GameProfile profile();
+  public java.util.Set<com.mojang.authlib.yggdrasil.ProfileActionType> actions();
+}
+Compiled from "ServicesKeyInfo.java"
+public interface com.mojang.authlib.yggdrasil.ServicesKeyInfo {
+  public abstract int keyBitCount();
+  public default int signatureBitCount();
+  public abstract java.security.Signature signature();
+  public abstract boolean validateProperty(com.mojang.authlib.properties.Property);
+}
+Compiled from "ServicesKeySet.java"
+public interface com.mojang.authlib.yggdrasil.ServicesKeySet {
+  public static final com.mojang.authlib.yggdrasil.ServicesKeySet EMPTY;
+  public static com.mojang.authlib.yggdrasil.ServicesKeySet lazy(java.util.function.Supplier<com.mojang.authlib.yggdrasil.ServicesKeySet>);
+  public abstract java.util.Collection<com.mojang.authlib.yggdrasil.ServicesKeyInfo> keys(com.mojang.authlib.yggdrasil.ServicesKeyType);
+  private static java.util.Collection lambda$lazy$1(java.util.function.Supplier, com.mojang.authlib.yggdrasil.ServicesKeyType);
+  private static java.util.Collection lambda$static$0(com.mojang.authlib.yggdrasil.ServicesKeyType);
+  static {};
+}
+Compiled from "ServicesKeyType.java"
+public final class com.mojang.authlib.yggdrasil.ServicesKeyType extends java.lang.Enum<com.mojang.authlib.yggdrasil.ServicesKeyType> {
+  public static final com.mojang.authlib.yggdrasil.ServicesKeyType PROFILE_PROPERTY;
+  public static final com.mojang.authlib.yggdrasil.ServicesKeyType PROFILE_KEY;
+  private static final com.mojang.authlib.yggdrasil.ServicesKeyType[] $VALUES;
+  public static com.mojang.authlib.yggdrasil.ServicesKeyType[] values();
+  public static com.mojang.authlib.yggdrasil.ServicesKeyType valueOf(java.lang.String);
+  private com.mojang.authlib.yggdrasil.ServicesKeyType();
+  private static com.mojang.authlib.yggdrasil.ServicesKeyType[] $values();
+  static {};
+}
+Compiled from "TextureUrlChecker.java"
+public class com.mojang.authlib.yggdrasil.TextureUrlChecker {
+  private static final java.util.Set<java.lang.String> ALLOWED_SCHEMES;
+  private static final java.util.Set<java.lang.String> ALLOWED_DOMAINS;
+  public com.mojang.authlib.yggdrasil.TextureUrlChecker();
+  public static boolean isAllowedTextureDomain(java.lang.String);
+  static {};
+}
+Compiled from "ToggleValue.java"
+public final class com.mojang.authlib.yggdrasil.ToggleValue extends java.lang.Enum<com.mojang.authlib.yggdrasil.ToggleValue> {
+  public static final com.mojang.authlib.yggdrasil.ToggleValue DISABLED;
+  public static final com.mojang.authlib.yggdrasil.ToggleValue ENABLED;
+  private static final com.mojang.authlib.yggdrasil.ToggleValue[] $VALUES;
+  public static com.mojang.authlib.yggdrasil.ToggleValue[] values();
+  public static com.mojang.authlib.yggdrasil.ToggleValue valueOf(java.lang.String);
+  private com.mojang.authlib.yggdrasil.ToggleValue();
+  public boolean isEnabled();
+  public boolean isDisabled();
+  private static com.mojang.authlib.yggdrasil.ToggleValue[] $values();
+  static {};
+}
+Compiled from "YggdrasilAuthenticationService.java"
+public class com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService extends com.mojang.authlib.HttpAuthenticationService {
+  private static final org.slf4j.Logger LOGGER;
+  private final com.mojang.authlib.Environment environment;
+  private final com.mojang.authlib.yggdrasil.ServicesKeySet servicesKeySet;
+  public com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService(java.net.Proxy);
+  public com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService(java.net.Proxy, com.mojang.authlib.Environment);
+  private com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService(java.net.Proxy, com.mojang.authlib.yggdrasil.ServicesKeySet, com.mojang.authlib.Environment);
+  public static com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService createOffline(java.net.Proxy);
+  public static com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService createOffline(java.net.Proxy, com.mojang.authlib.Environment);
+  private static com.mojang.authlib.Environment determineEnvironment();
+  public com.mojang.authlib.minecraft.MinecraftSessionService createMinecraftSessionService();
+  public com.mojang.authlib.GameProfileRepository createProfileRepository();
+  public com.mojang.authlib.minecraft.UserApiService createUserApiService(java.lang.String);
+  public com.mojang.authlib.yggdrasil.FriendsService createFriendsService(java.lang.String);
+  public com.mojang.authlib.yggdrasil.ServicesKeySet getServicesKeySet();
+  static {};
+}
+Compiled from "YggdrasilEnvironment.java"
+public final class com.mojang.authlib.yggdrasil.YggdrasilEnvironment extends java.lang.Enum<com.mojang.authlib.yggdrasil.YggdrasilEnvironment> {
+  public static final com.mojang.authlib.yggdrasil.YggdrasilEnvironment PROD;
+  public static final com.mojang.authlib.yggdrasil.YggdrasilEnvironment STAGING;
+  private final com.mojang.authlib.Environment environment;
+  private static final com.mojang.authlib.yggdrasil.YggdrasilEnvironment[] $VALUES;
+  public static com.mojang.authlib.yggdrasil.YggdrasilEnvironment[] values();
+  public static com.mojang.authlib.yggdrasil.YggdrasilEnvironment valueOf(java.lang.String);
+  private com.mojang.authlib.yggdrasil.YggdrasilEnvironment(java.lang.String, java.lang.String, java.lang.String);
+  public com.mojang.authlib.Environment getEnvironment();
+  public static java.util.Optional<com.mojang.authlib.Environment> fromString(java.lang.String);
+  private static boolean lambda$fromString$0(java.lang.String, com.mojang.authlib.yggdrasil.YggdrasilEnvironment);
+  private static com.mojang.authlib.yggdrasil.YggdrasilEnvironment[] $values();
+  static {};
+}
+Compiled from "YggdrasilFriendsService.java"
+public class com.mojang.authlib.yggdrasil.YggdrasilFriendsService implements com.mojang.authlib.yggdrasil.FriendsService {
+  private static final org.slf4j.Logger LOGGER;
+  private static final int HTTP_TOO_MANY_REQUESTS;
+  private static final long REQUEST_COOLDOWN_SECONDS;
+  private final java.net.URL routeFriends;
+  private final java.net.URL routePrivileges;
+  private final java.net.URL routePresence;
+  private final com.mojang.authlib.minecraft.client.MinecraftClient minecraftClient;
+  private java.lang.String friendsEtag;
+  private com.mojang.authlib.yggdrasil.response.FriendData friendsCache;
+  private java.lang.String presenceEtag;
+  private com.mojang.authlib.yggdrasil.response.PresenceResponse presenceCache;
+  private volatile java.time.Duration friendsPollInterval;
+  private volatile java.time.Duration presencePollInterval;
+  private final java.util.concurrent.atomic.AtomicBoolean requestPending;
+  private java.time.Instant requestCooldown;
+  public java.util.Optional<java.time.Duration> getFriendsPollInterval();
+  public java.util.Optional<java.time.Duration> getPresencePollInterval();
+  public com.mojang.authlib.yggdrasil.YggdrasilFriendsService(java.lang.String, java.net.Proxy, com.mojang.authlib.Environment);
+  public com.mojang.authlib.yggdrasil.FriendsService$ResultCode getFriendData(java.util.function.Consumer<com.mojang.authlib.yggdrasil.response.FriendData>);
+  private com.mojang.authlib.yggdrasil.FriendsService$ResultCode requestFriendData(java.util.function.Consumer<com.mojang.authlib.yggdrasil.response.FriendData>);
+  private boolean canMakeRequest();
+  public com.mojang.authlib.yggdrasil.FriendsService$ResultCode removeFriend(java.util.UUID);
+  public com.mojang.authlib.yggdrasil.FriendsService$ResultCode acceptIncomingFriendRequest(java.util.UUID);
+  public com.mojang.authlib.yggdrasil.FriendsService$ResultCode declineIncomingFriendRequest(java.util.UUID);
+  public com.mojang.authlib.yggdrasil.FriendsService$ResultCode sendFriendRequest(java.lang.String);
+  public com.mojang.authlib.yggdrasil.FriendsService$ResultCode sendFriendRequest(java.util.UUID);
+  public com.mojang.authlib.yggdrasil.FriendsService$ResultCode revokeOutgoingFriendRequest(java.util.UUID);
+  public com.mojang.authlib.yggdrasil.FriendsService$ResultCode updateFriendSettings(boolean, boolean);
+  private com.mojang.authlib.yggdrasil.FriendsService$ResultCode putFriendAction(com.mojang.authlib.yggdrasil.request.FriendActionRequest);
+  public com.mojang.authlib.yggdrasil.response.PresenceResponse presence(java.lang.String);
+  private com.mojang.authlib.yggdrasil.FriendsService$ResultCode handleHttpError(com.mojang.authlib.exceptions.MinecraftClientHttpException);
+  static {};
+}
+Compiled from "YggdrasilGameProfileRepository.java"
+public class com.mojang.authlib.yggdrasil.YggdrasilGameProfileRepository implements com.mojang.authlib.GameProfileRepository {
+  private static final org.slf4j.Logger LOGGER;
+  private static final int ENTRIES_PER_PAGE;
+  private static final int MAX_FAIL_COUNT;
+  private static final int DELAY_BETWEEN_PAGES;
+  private static final int DELAY_BETWEEN_FAILURES;
+  private final com.mojang.authlib.minecraft.client.MinecraftClient client;
+  private final java.net.URL searchPageUrl;
+  private final java.lang.String nameLookupUrl;
+  public com.mojang.authlib.yggdrasil.YggdrasilGameProfileRepository(java.net.Proxy, com.mojang.authlib.Environment);
+  public void findProfilesByNames(java.lang.String[], com.mojang.authlib.ProfileLookupCallback);
+  public java.util.Optional<com.mojang.authlib.yggdrasil.response.NameAndId> findProfileByName(java.lang.String);
+  private static java.lang.String normalizeName(java.lang.String);
+  private static boolean lambda$findProfilesByNames$0(java.lang.String);
+  static {};
+}
+Compiled from "YggdrasilMinecraftSessionService.java"
+public class com.mojang.authlib.yggdrasil.YggdrasilMinecraftSessionService implements com.mojang.authlib.minecraft.MinecraftSessionService {
+  private static final org.slf4j.Logger LOGGER;
+  private final com.mojang.authlib.minecraft.client.MinecraftClient client;
+  private final com.mojang.authlib.yggdrasil.ServicesKeySet servicesKeySet;
+  private final java.lang.String baseUrl;
+  private final java.net.URL joinUrl;
+  private final java.net.URL checkUrl;
+  private final com.google.gson.Gson gson;
+  private final com.google.common.cache.LoadingCache<java.util.UUID, java.util.Optional<com.mojang.authlib.yggdrasil.ProfileResult>> insecureProfiles;
+  protected com.mojang.authlib.yggdrasil.YggdrasilMinecraftSessionService(com.mojang.authlib.yggdrasil.ServicesKeySet, java.net.Proxy, com.mojang.authlib.Environment);
+  public void joinServer(java.util.UUID, java.lang.String, java.lang.String) throws com.mojang.authlib.exceptions.AuthenticationException;
+  public com.mojang.authlib.yggdrasil.ProfileResult hasJoinedServer(java.lang.String, java.lang.String, java.net.InetAddress) throws com.mojang.authlib.exceptions.AuthenticationUnavailableException;
+  public com.mojang.authlib.properties.Property getPackedTextures(com.mojang.authlib.GameProfile);
+  public com.mojang.authlib.minecraft.MinecraftProfileTextures unpackTextures(com.mojang.authlib.properties.Property);
+  public com.mojang.authlib.yggdrasil.ProfileResult fetchProfile(java.util.UUID, boolean);
+  public java.lang.String getSecurePropertyValue(com.mojang.authlib.properties.Property) throws com.mojang.authlib.minecraft.InsecurePublicKeyException;
+  private com.mojang.authlib.SignatureState getPropertySignatureState(com.mojang.authlib.properties.Property);
+  private com.mojang.authlib.yggdrasil.ProfileResult fetchProfileUncached(java.util.UUID, boolean);
+  private static java.util.Set<com.mojang.authlib.yggdrasil.ProfileActionType> extractProfileActionTypes(java.util.Set<com.mojang.authlib.yggdrasil.response.ProfileAction>);
+  private static boolean lambda$getPropertySignatureState$0(com.mojang.authlib.properties.Property, com.mojang.authlib.yggdrasil.ServicesKeyInfo);
+  static {};
+}
+Compiled from "YggdrasilMinecraftSessionService.java"
+class com.mojang.authlib.yggdrasil.YggdrasilMinecraftSessionService$1 extends com.google.common.cache.CacheLoader<java.util.UUID, java.util.Optional<com.mojang.authlib.yggdrasil.ProfileResult>> {
+  final com.mojang.authlib.yggdrasil.YggdrasilMinecraftSessionService this$0;
+  com.mojang.authlib.yggdrasil.YggdrasilMinecraftSessionService$1(com.mojang.authlib.yggdrasil.YggdrasilMinecraftSessionService);
+  public java.util.Optional<com.mojang.authlib.yggdrasil.ProfileResult> load(java.util.UUID);
+  public java.lang.Object load(java.lang.Object) throws java.lang.Exception;
+}
+Compiled from "YggdrasilMinecraftSessionService.java"
+class com.mojang.authlib.yggdrasil.YggdrasilMinecraftSessionService$2 {
+  static final int[] $SwitchMap$com$mojang$authlib$SignatureState;
+  static {};
+}
+Compiled from "YggdrasilServicesKeyInfo.java"
+public class com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo implements com.mojang.authlib.yggdrasil.ServicesKeyInfo {
+  private static final org.slf4j.Logger LOGGER;
+  private static final java.util.concurrent.ScheduledExecutorService FETCHER_EXECUTOR;
+  private static final int KEY_SIZE_BITS;
+  private static final java.lang.String KEY_ALGORITHM;
+  private static final java.lang.String SIGNATURE_ALGORITHM;
+  private static final int REFRESH_INTERVAL_HOURS;
+  private static final int BASE_FAILURE_INTERVAL_MINUTES;
+  private static final int MAX_BACKOFF_EXPONENT;
+  private final java.security.PublicKey publicKey;
+  private com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo(java.security.PublicKey);
+  public static com.mojang.authlib.yggdrasil.ServicesKeyInfo parse(byte[]);
+  private static java.util.List<com.mojang.authlib.yggdrasil.ServicesKeyInfo> parseList(java.util.List<com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeyData>);
+  public static com.mojang.authlib.yggdrasil.ServicesKeySet get(java.net.URL, com.mojang.authlib.minecraft.client.MinecraftClient);
+  private static java.util.Optional<com.mojang.authlib.yggdrasil.ServicesKeySet> fetch(java.net.URL, com.mojang.authlib.minecraft.client.MinecraftClient);
+  public java.security.Signature signature();
+  public int keyBitCount();
+  public boolean validateProperty(com.mojang.authlib.properties.Property);
+  private static java.util.Collection lambda$fetch$2(java.util.List, java.util.List, com.mojang.authlib.yggdrasil.ServicesKeyType);
+  private static com.mojang.authlib.yggdrasil.ServicesKeySet lambda$get$1(java.util.concurrent.CompletableFuture, java.util.concurrent.atomic.AtomicReference);
+  private static com.mojang.authlib.yggdrasil.ServicesKeyInfo lambda$parseList$0(com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeyData);
+  static {};
+}
+Compiled from "YggdrasilServicesKeyInfo.java"
+class com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$1 implements java.lang.Runnable {
+  private final java.util.concurrent.atomic.AtomicInteger failureCount;
+  final java.net.URL val$url;
+  final com.mojang.authlib.minecraft.client.MinecraftClient val$client;
+  final java.util.concurrent.atomic.AtomicReference val$keySet;
+  final java.util.concurrent.CompletableFuture val$ready;
+  com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$1();
+  public void run();
+  private void reschedule();
+}
+Compiled from "YggdrasilServicesKeyInfo.java"
+class com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$2 {
+  static final int[] $SwitchMap$com$mojang$authlib$yggdrasil$ServicesKeyType;
+  static {};
+}
+Compiled from "YggdrasilServicesKeyInfo.java"
+final class com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeyData extends java.lang.Record {
+  private final java.nio.ByteBuffer publicKey;
+  private com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeyData(java.nio.ByteBuffer);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.nio.ByteBuffer publicKey();
+}
+Compiled from "YggdrasilServicesKeyInfo.java"
+final class com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeySetResponse extends java.lang.Record {
+  private final java.util.List<com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeyData> profilePropertyKeys;
+  private final java.util.List<com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeyData> playerCertificateKeys;
+  private com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeySetResponse(java.util.List<com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeyData>, java.util.List<com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeyData>);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.List<com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeyData> profilePropertyKeys();
+  public java.util.List<com.mojang.authlib.yggdrasil.YggdrasilServicesKeyInfo$KeyData> playerCertificateKeys();
+}
+Compiled from "YggdrasilUserApiService.java"
+public class com.mojang.authlib.yggdrasil.YggdrasilUserApiService implements com.mojang.authlib.minecraft.UserApiService {
+  private static final long REQUEST_COOLDOWN_SECONDS;
+  private static final java.util.UUID ZERO_UUID;
+  private final java.net.URL routePrivileges;
+  private final java.net.URL routeBlocklist;
+  private final java.net.URL routeKeyPair;
+  private final java.net.URL routeAbuseReport;
+  private final com.mojang.authlib.minecraft.client.MinecraftClient minecraftClient;
+  private final com.mojang.authlib.Environment environment;
+  private java.time.Instant nextAcceptableRequest;
+  private java.util.Set<java.util.UUID> blockList;
+  public com.mojang.authlib.yggdrasil.YggdrasilUserApiService(java.lang.String, java.net.Proxy, com.mojang.authlib.Environment);
+  public com.mojang.authlib.minecraft.TelemetrySession newTelemetrySession(java.util.concurrent.Executor);
+  public com.mojang.authlib.yggdrasil.response.KeyPairResponse getKeyPair();
+  public boolean isBlockedPlayer(java.util.UUID);
+  public void refreshBlockList();
+  private java.util.Set<java.util.UUID> fetchBlockList();
+  private boolean canMakeRequest();
+  private java.util.Set<java.util.UUID> forceFetchBlockList();
+  public com.mojang.authlib.minecraft.UserApiService$UserProperties fetchProperties() throws com.mojang.authlib.exceptions.AuthenticationException;
+  private static void addFlagIfUserHasPrivilege(boolean, com.mojang.authlib.minecraft.UserApiService$UserFlag, com.google.common.collect.ImmutableSet$Builder<com.mojang.authlib.minecraft.UserApiService$UserFlag>);
+  public void reportAbuse(com.mojang.authlib.yggdrasil.request.AbuseReportRequest);
+  public boolean canSendReports();
+  public com.mojang.authlib.minecraft.report.AbuseReportLimits getAbuseReportLimits();
+  private static void lambda$fetchProperties$0(com.google.common.collect.ImmutableMap$Builder, java.lang.String, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$BanStatus$BannedScope);
+  static {};
+}
+Compiled from "YggdrassilTelemetryEvent.java"
+public class com.mojang.authlib.yggdrasil.YggdrassilTelemetryEvent implements com.mojang.authlib.minecraft.TelemetryEvent {
+  private final com.mojang.authlib.yggdrasil.YggdrassilTelemetrySession service;
+  private final java.lang.String type;
+  private com.google.gson.JsonObject data;
+  com.mojang.authlib.yggdrasil.YggdrassilTelemetryEvent(com.mojang.authlib.yggdrasil.YggdrassilTelemetrySession, java.lang.String);
+  private com.google.gson.JsonObject data();
+  public void addProperty(java.lang.String, java.lang.String);
+  public void addProperty(java.lang.String, int);
+  public void addProperty(java.lang.String, long);
+  public void addProperty(java.lang.String, boolean);
+  public void addNullProperty(java.lang.String);
+  public void send();
+}
+Compiled from "YggdrassilTelemetrySession.java"
+public class com.mojang.authlib.yggdrasil.YggdrassilTelemetrySession implements com.mojang.authlib.minecraft.TelemetrySession {
+  private static final org.slf4j.Logger LOGGER;
+  private static final java.lang.String SOURCE;
+  private final com.mojang.authlib.minecraft.client.MinecraftClient minecraftClient;
+  private final java.net.URL routeEvents;
+  private final java.util.concurrent.Executor ioExecutor;
+  com.mojang.authlib.yggdrasil.YggdrassilTelemetrySession(com.mojang.authlib.minecraft.client.MinecraftClient, com.mojang.authlib.Environment, java.util.concurrent.Executor);
+  public boolean isEnabled();
+  public com.mojang.authlib.minecraft.TelemetryEvent createNewEvent(java.lang.String);
+  void sendEvent(java.lang.String, com.google.gson.JsonObject);
+  private void lambda$sendEvent$0(com.mojang.authlib.yggdrasil.request.TelemetryEventsRequest$Event);
+  static {};
+}
+Compiled from "AbuseReportRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.AbuseReportRequest extends java.lang.Record {
+  private final int version;
+  private final java.util.UUID id;
+  private final com.mojang.authlib.minecraft.report.AbuseReport report;
+  private final com.mojang.authlib.yggdrasil.request.AbuseReportRequest$ClientInfo clientInfo;
+  private final com.mojang.authlib.yggdrasil.request.AbuseReportRequest$ThirdPartyServerInfo thirdPartyServerInfo;
+  private final com.mojang.authlib.yggdrasil.request.AbuseReportRequest$RealmInfo realmInfo;
+  private final java.lang.String reportType;
+  public com.mojang.authlib.yggdrasil.request.AbuseReportRequest(int, java.util.UUID, com.mojang.authlib.minecraft.report.AbuseReport, com.mojang.authlib.yggdrasil.request.AbuseReportRequest$ClientInfo, com.mojang.authlib.yggdrasil.request.AbuseReportRequest$ThirdPartyServerInfo, com.mojang.authlib.yggdrasil.request.AbuseReportRequest$RealmInfo, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public int version();
+  public java.util.UUID id();
+  public com.mojang.authlib.minecraft.report.AbuseReport report();
+  public com.mojang.authlib.yggdrasil.request.AbuseReportRequest$ClientInfo clientInfo();
+  public com.mojang.authlib.yggdrasil.request.AbuseReportRequest$ThirdPartyServerInfo thirdPartyServerInfo();
+  public com.mojang.authlib.yggdrasil.request.AbuseReportRequest$RealmInfo realmInfo();
+  public java.lang.String reportType();
+}
+Compiled from "AbuseReportRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.AbuseReportRequest$ClientInfo extends java.lang.Record {
+  private final java.lang.String clientVersion;
+  private final java.lang.String locale;
+  public com.mojang.authlib.yggdrasil.request.AbuseReportRequest$ClientInfo(java.lang.String, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String clientVersion();
+  public java.lang.String locale();
+}
+Compiled from "AbuseReportRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.AbuseReportRequest$RealmInfo extends java.lang.Record {
+  private final java.lang.String realmId;
+  private final int slotId;
+  public com.mojang.authlib.yggdrasil.request.AbuseReportRequest$RealmInfo(java.lang.String, int);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String realmId();
+  public int slotId();
+}
+Compiled from "AbuseReportRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.AbuseReportRequest$ThirdPartyServerInfo extends java.lang.Record {
+  private final java.lang.String address;
+  public com.mojang.authlib.yggdrasil.request.AbuseReportRequest$ThirdPartyServerInfo(java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String address();
+}
+Compiled from "FriendActionRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.FriendActionRequest extends java.lang.Record {
+  private final java.lang.String name;
+  private final java.util.UUID profileId;
+  private final com.mojang.authlib.yggdrasil.request.UpdateType updateType;
+  public com.mojang.authlib.yggdrasil.request.FriendActionRequest(java.lang.String, java.util.UUID, com.mojang.authlib.yggdrasil.request.UpdateType);
+  public static com.mojang.authlib.yggdrasil.request.FriendActionRequest byId(java.util.UUID, com.mojang.authlib.yggdrasil.request.UpdateType);
+  public static com.mojang.authlib.yggdrasil.request.FriendActionRequest byName(java.lang.String, com.mojang.authlib.yggdrasil.request.UpdateType);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String name();
+  public java.util.UUID profileId();
+  public com.mojang.authlib.yggdrasil.request.UpdateType updateType();
+}
+Compiled from "JoinMinecraftServerRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.JoinMinecraftServerRequest extends java.lang.Record {
+  private final java.lang.String accessToken;
+  private final java.util.UUID selectedProfile;
+  private final java.lang.String serverId;
+  public com.mojang.authlib.yggdrasil.request.JoinMinecraftServerRequest(java.lang.String, java.util.UUID, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String accessToken();
+  public java.util.UUID selectedProfile();
+  public java.lang.String serverId();
+}
+Compiled from "PresenceRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.PresenceRequest extends java.lang.Record {
+  private final com.mojang.authlib.yggdrasil.response.PresenceStatus status;
+  public com.mojang.authlib.yggdrasil.request.PresenceRequest(com.mojang.authlib.yggdrasil.response.PresenceStatus);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.yggdrasil.response.PresenceStatus status();
+}
+Compiled from "TelemetryEventsRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.TelemetryEventsRequest extends java.lang.Record {
+  private final java.util.List<com.mojang.authlib.yggdrasil.request.TelemetryEventsRequest$Event> events;
+  public com.mojang.authlib.yggdrasil.request.TelemetryEventsRequest(java.util.List<com.mojang.authlib.yggdrasil.request.TelemetryEventsRequest$Event>);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.List<com.mojang.authlib.yggdrasil.request.TelemetryEventsRequest$Event> events();
+}
+Compiled from "TelemetryEventsRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.TelemetryEventsRequest$Event extends java.lang.Record {
+  private final java.lang.String source;
+  private final java.lang.String name;
+  private final long timestamp;
+  private final com.google.gson.JsonObject data;
+  public com.mojang.authlib.yggdrasil.request.TelemetryEventsRequest$Event(java.lang.String, java.lang.String, java.time.Instant, com.google.gson.JsonObject);
+  public com.mojang.authlib.yggdrasil.request.TelemetryEventsRequest$Event(java.lang.String, java.lang.String, long, com.google.gson.JsonObject);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String source();
+  public java.lang.String name();
+  public long timestamp();
+  public com.google.gson.JsonObject data();
+}
+Compiled from "UpdateType.java"
+public final class com.mojang.authlib.yggdrasil.request.UpdateType extends java.lang.Enum<com.mojang.authlib.yggdrasil.request.UpdateType> {
+  public static final com.mojang.authlib.yggdrasil.request.UpdateType ADD;
+  public static final com.mojang.authlib.yggdrasil.request.UpdateType REMOVE;
+  private static final com.mojang.authlib.yggdrasil.request.UpdateType[] $VALUES;
+  public static com.mojang.authlib.yggdrasil.request.UpdateType[] values();
+  public static com.mojang.authlib.yggdrasil.request.UpdateType valueOf(java.lang.String);
+  private com.mojang.authlib.yggdrasil.request.UpdateType();
+  private static com.mojang.authlib.yggdrasil.request.UpdateType[] $values();
+  static {};
+}
+Compiled from "UserAttributesRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.UserAttributesRequest extends java.lang.Record {
+  private final com.mojang.authlib.yggdrasil.request.UserAttributesRequest$ProfanityFilterPreferences profanityFilterPreferences;
+  private final com.mojang.authlib.yggdrasil.request.UserAttributesRequest$FriendsPreferences friendsPreferences;
+  public com.mojang.authlib.yggdrasil.request.UserAttributesRequest(com.mojang.authlib.yggdrasil.request.UserAttributesRequest$ProfanityFilterPreferences, com.mojang.authlib.yggdrasil.request.UserAttributesRequest$FriendsPreferences);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.yggdrasil.request.UserAttributesRequest$ProfanityFilterPreferences profanityFilterPreferences();
+  public com.mojang.authlib.yggdrasil.request.UserAttributesRequest$FriendsPreferences friendsPreferences();
+}
+Compiled from "UserAttributesRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.UserAttributesRequest$FriendsPreferences extends java.lang.Record {
+  private final com.mojang.authlib.yggdrasil.ToggleValue friends;
+  private final com.mojang.authlib.yggdrasil.ToggleValue acceptInvites;
+  public com.mojang.authlib.yggdrasil.request.UserAttributesRequest$FriendsPreferences(com.mojang.authlib.yggdrasil.ToggleValue, com.mojang.authlib.yggdrasil.ToggleValue);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.yggdrasil.ToggleValue friends();
+  public com.mojang.authlib.yggdrasil.ToggleValue acceptInvites();
+}
+Compiled from "UserAttributesRequest.java"
+public final class com.mojang.authlib.yggdrasil.request.UserAttributesRequest$ProfanityFilterPreferences extends java.lang.Record {
+  private final boolean enabled;
+  public com.mojang.authlib.yggdrasil.request.UserAttributesRequest$ProfanityFilterPreferences(boolean);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public boolean enabled();
+}
+Compiled from "BlockListResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.BlockListResponse extends java.lang.Record {
+  private final java.util.Set<java.util.UUID> blockedProfiles;
+  public com.mojang.authlib.yggdrasil.response.BlockListResponse(java.util.Set<java.util.UUID>);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.Set<java.util.UUID> blockedProfiles();
+}
+Compiled from "ErrorResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.ErrorResponse extends java.lang.Record {
+  private final java.lang.String path;
+  private final java.lang.String error;
+  private final java.lang.String errorMessage;
+  private final java.util.Map<java.lang.String, java.lang.Object> details;
+  public com.mojang.authlib.yggdrasil.response.ErrorResponse(java.lang.String, java.lang.String, java.lang.String, java.util.Map<java.lang.String, java.lang.Object>);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String path();
+  public java.lang.String error();
+  public java.lang.String errorMessage();
+  public java.util.Map<java.lang.String, java.lang.Object> details();
+}
+Compiled from "FriendData.java"
+public final class com.mojang.authlib.yggdrasil.response.FriendData extends java.lang.Record {
+  private final java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> friends;
+  private final java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> incomingRequests;
+  private final java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> outgoingRequests;
+  public com.mojang.authlib.yggdrasil.response.FriendData(java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto>, java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto>, java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto>);
+  public static com.mojang.authlib.yggdrasil.response.FriendData empty();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> friends();
+  public java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> incomingRequests();
+  public java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> outgoingRequests();
+}
+Compiled from "FriendDto.java"
+public final class com.mojang.authlib.yggdrasil.response.FriendDto extends java.lang.Record {
+  private final java.util.UUID profileId;
+  private final java.lang.String name;
+  public com.mojang.authlib.yggdrasil.response.FriendDto(java.util.UUID, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID profileId();
+  public java.lang.String name();
+}
+Compiled from "FriendRequestsResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.FriendRequestsResponse extends java.lang.Record {
+  private final java.util.List<com.mojang.authlib.yggdrasil.FriendsService$PlayerData> requests;
+  public com.mojang.authlib.yggdrasil.response.FriendRequestsResponse(java.util.List<com.mojang.authlib.yggdrasil.FriendsService$PlayerData>);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.List<com.mojang.authlib.yggdrasil.FriendsService$PlayerData> requests();
+}
+Compiled from "FriendsErrorStatus.java"
+public final class com.mojang.authlib.yggdrasil.response.FriendsErrorStatus extends java.lang.Enum<com.mojang.authlib.yggdrasil.response.FriendsErrorStatus> {
+  public static final com.mojang.authlib.yggdrasil.response.FriendsErrorStatus UNKNOWN_PROFILE;
+  public static final com.mojang.authlib.yggdrasil.response.FriendsErrorStatus CANNOT_ADD_SELF;
+  public static final com.mojang.authlib.yggdrasil.response.FriendsErrorStatus DUPLICATED_PROFILES;
+  private static final com.mojang.authlib.yggdrasil.response.FriendsErrorStatus[] $VALUES;
+  public static com.mojang.authlib.yggdrasil.response.FriendsErrorStatus[] values();
+  public static com.mojang.authlib.yggdrasil.response.FriendsErrorStatus valueOf(java.lang.String);
+  private com.mojang.authlib.yggdrasil.response.FriendsErrorStatus();
+  private static com.mojang.authlib.yggdrasil.response.FriendsErrorStatus[] $values();
+  static {};
+}
+Compiled from "FriendsListResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.FriendsListResponse extends java.lang.Record {
+  private final java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> friends;
+  private final java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> incomingRequests;
+  private final java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> outgoingRequests;
+  public com.mojang.authlib.yggdrasil.response.FriendsListResponse(java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto>, java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto>, java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto>);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> friends();
+  public java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> incomingRequests();
+  public java.util.List<com.mojang.authlib.yggdrasil.response.FriendDto> outgoingRequests();
+}
+Compiled from "HasJoinedMinecraftServerResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.HasJoinedMinecraftServerResponse extends java.lang.Record {
+  private final java.util.UUID id;
+  private final com.mojang.authlib.properties.PropertyMap properties;
+  private final java.util.Set<com.mojang.authlib.yggdrasil.response.ProfileAction> profileActions;
+  public com.mojang.authlib.yggdrasil.response.HasJoinedMinecraftServerResponse(java.util.UUID, com.mojang.authlib.properties.PropertyMap, java.util.Set<com.mojang.authlib.yggdrasil.response.ProfileAction>);
+  public java.util.Set<com.mojang.authlib.yggdrasil.response.ProfileAction> profileActions();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID id();
+  public com.mojang.authlib.properties.PropertyMap properties();
+}
+Compiled from "KeyPairResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.KeyPairResponse extends java.lang.Record {
+  private final com.mojang.authlib.yggdrasil.response.KeyPairResponse$KeyPair keyPair;
+  private final java.nio.ByteBuffer publicKeySignature;
+  private final java.lang.String expiresAt;
+  private final java.lang.String refreshedAfter;
+  public com.mojang.authlib.yggdrasil.response.KeyPairResponse(com.mojang.authlib.yggdrasil.response.KeyPairResponse$KeyPair, java.nio.ByteBuffer, java.lang.String, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.yggdrasil.response.KeyPairResponse$KeyPair keyPair();
+  public java.nio.ByteBuffer publicKeySignature();
+  public java.lang.String expiresAt();
+  public java.lang.String refreshedAfter();
+}
+Compiled from "KeyPairResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.KeyPairResponse$KeyPair extends java.lang.Record {
+  private final java.lang.String privateKey;
+  private final java.lang.String publicKey;
+  public com.mojang.authlib.yggdrasil.response.KeyPairResponse$KeyPair(java.lang.String, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String privateKey();
+  public java.lang.String publicKey();
+}
+Compiled from "MinecraftProfilePropertiesResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.MinecraftProfilePropertiesResponse extends java.lang.Record {
+  private final java.util.UUID id;
+  private final java.lang.String name;
+  private final com.mojang.authlib.properties.PropertyMap properties;
+  private final java.util.Set<com.mojang.authlib.yggdrasil.response.ProfileAction> profileActions;
+  public com.mojang.authlib.yggdrasil.response.MinecraftProfilePropertiesResponse(java.util.UUID, java.lang.String, com.mojang.authlib.properties.PropertyMap, java.util.Set<com.mojang.authlib.yggdrasil.response.ProfileAction>);
+  public com.mojang.authlib.GameProfile profile();
+  public java.util.Set<com.mojang.authlib.yggdrasil.response.ProfileAction> profileActions();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID id();
+  public java.lang.String name();
+  public com.mojang.authlib.properties.PropertyMap properties();
+}
+Compiled from "MinecraftTexturesPayload.java"
+public final class com.mojang.authlib.yggdrasil.response.MinecraftTexturesPayload extends java.lang.Record {
+  private final long timestamp;
+  private final java.util.UUID profileId;
+  private final java.lang.String profileName;
+  private final boolean isPublic;
+  private final java.util.Map<com.mojang.authlib.minecraft.MinecraftProfileTexture$Type, com.mojang.authlib.minecraft.MinecraftProfileTexture> textures;
+  public com.mojang.authlib.yggdrasil.response.MinecraftTexturesPayload(long, java.util.UUID, java.lang.String, boolean, java.util.Map<com.mojang.authlib.minecraft.MinecraftProfileTexture$Type, com.mojang.authlib.minecraft.MinecraftProfileTexture>);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public long timestamp();
+  public java.util.UUID profileId();
+  public java.lang.String profileName();
+  public boolean isPublic();
+  public java.util.Map<com.mojang.authlib.minecraft.MinecraftProfileTexture$Type, com.mojang.authlib.minecraft.MinecraftProfileTexture> textures();
+}
+Compiled from "NameAndId.java"
+public final class com.mojang.authlib.yggdrasil.response.NameAndId extends java.lang.Record {
+  private final java.util.UUID id;
+  private final java.lang.String name;
+  public com.mojang.authlib.yggdrasil.response.NameAndId(java.util.UUID, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID id();
+  public java.lang.String name();
+}
+Compiled from "PresenceResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.PresenceResponse extends java.lang.Record {
+  private final java.util.List<com.mojang.authlib.yggdrasil.response.PresenceStatusDto> presence;
+  public com.mojang.authlib.yggdrasil.response.PresenceResponse(java.util.List<com.mojang.authlib.yggdrasil.response.PresenceStatusDto>);
+  public static com.mojang.authlib.yggdrasil.response.PresenceResponse empty();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.List<com.mojang.authlib.yggdrasil.response.PresenceStatusDto> presence();
+}
+Compiled from "PresenceStatus.java"
+public final class com.mojang.authlib.yggdrasil.response.PresenceStatus extends java.lang.Enum<com.mojang.authlib.yggdrasil.response.PresenceStatus> {
+  public static final com.mojang.authlib.yggdrasil.response.PresenceStatus ONLINE;
+  public static final com.mojang.authlib.yggdrasil.response.PresenceStatus PLAYING_OFFLINE;
+  public static final com.mojang.authlib.yggdrasil.response.PresenceStatus PLAYING_REALMS;
+  public static final com.mojang.authlib.yggdrasil.response.PresenceStatus PLAYING_SERVER;
+  public static final com.mojang.authlib.yggdrasil.response.PresenceStatus PLAYING_HOSTED_SERVER;
+  public static final com.mojang.authlib.yggdrasil.response.PresenceStatus OFFLINE;
+  private static final com.mojang.authlib.yggdrasil.response.PresenceStatus[] $VALUES;
+  public static com.mojang.authlib.yggdrasil.response.PresenceStatus[] values();
+  public static com.mojang.authlib.yggdrasil.response.PresenceStatus valueOf(java.lang.String);
+  private com.mojang.authlib.yggdrasil.response.PresenceStatus();
+  private static com.mojang.authlib.yggdrasil.response.PresenceStatus[] $values();
+  static {};
+}
+Compiled from "PresenceStatusDto.java"
+public final class com.mojang.authlib.yggdrasil.response.PresenceStatusDto extends java.lang.Record {
+  private final java.util.UUID profileId;
+  private final java.util.UUID pmid;
+  private final com.mojang.authlib.yggdrasil.response.PresenceStatus status;
+  private final java.time.Instant lastUpdated;
+  public com.mojang.authlib.yggdrasil.response.PresenceStatusDto(java.util.UUID, java.util.UUID, com.mojang.authlib.yggdrasil.response.PresenceStatus, java.time.Instant);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID profileId();
+  public java.util.UUID pmid();
+  public com.mojang.authlib.yggdrasil.response.PresenceStatus status();
+  public java.time.Instant lastUpdated();
+}
+Compiled from "ProfileAction.java"
+public final class com.mojang.authlib.yggdrasil.response.ProfileAction extends java.lang.Record {
+  private final com.mojang.authlib.yggdrasil.ProfileActionType type;
+  public com.mojang.authlib.yggdrasil.response.ProfileAction(com.mojang.authlib.yggdrasil.ProfileActionType);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.yggdrasil.ProfileActionType type();
+}
+Compiled from "ProfileSearchResultsResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.ProfileSearchResultsResponse extends java.lang.Record {
+  private final java.util.List<com.mojang.authlib.yggdrasil.response.NameAndId> profiles;
+  public static final java.lang.reflect.Type LIST_TYPE;
+  public com.mojang.authlib.yggdrasil.response.ProfileSearchResultsResponse(java.util.List<com.mojang.authlib.yggdrasil.response.NameAndId>);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.List<com.mojang.authlib.yggdrasil.response.NameAndId> profiles();
+  static {};
+}
+Compiled from "ProfileSearchResultsResponse.java"
+public class com.mojang.authlib.yggdrasil.response.ProfileSearchResultsResponse$Serializer implements com.google.gson.JsonDeserializer<com.mojang.authlib.yggdrasil.response.ProfileSearchResultsResponse> {
+  public com.mojang.authlib.yggdrasil.response.ProfileSearchResultsResponse$Serializer();
+  public com.mojang.authlib.yggdrasil.response.ProfileSearchResultsResponse deserialize(com.google.gson.JsonElement, java.lang.reflect.Type, com.google.gson.JsonDeserializationContext) throws com.google.gson.JsonParseException;
+  public java.lang.Object deserialize(com.google.gson.JsonElement, java.lang.reflect.Type, com.google.gson.JsonDeserializationContext) throws com.google.gson.JsonParseException;
+}
+Compiled from "UserAttributesResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.UserAttributesResponse extends java.lang.Record {
+  private final com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges privileges;
+  private final com.mojang.authlib.yggdrasil.response.UserAttributesResponse$ProfanityFilterPreferences profanityFilterPreferences;
+  private final com.mojang.authlib.yggdrasil.response.UserAttributesResponse$FriendsPreferences friendsPreferences;
+  private final com.mojang.authlib.yggdrasil.response.UserAttributesResponse$ChatPreferences chatPreferences;
+  private final com.mojang.authlib.yggdrasil.response.UserAttributesResponse$BanStatus banStatus;
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse(com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$ProfanityFilterPreferences, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$FriendsPreferences, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$ChatPreferences, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$BanStatus);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges privileges();
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$ProfanityFilterPreferences profanityFilterPreferences();
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$FriendsPreferences friendsPreferences();
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$ChatPreferences chatPreferences();
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$BanStatus banStatus();
+}
+Compiled from "UserAttributesResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.UserAttributesResponse$BanStatus extends java.lang.Record {
+  private final java.util.Map<java.lang.String, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$BanStatus$BannedScope> bannedScopes;
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$BanStatus(java.util.Map<java.lang.String, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$BanStatus$BannedScope>);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.Map<java.lang.String, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$BanStatus$BannedScope> bannedScopes();
+}
+Compiled from "UserAttributesResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.UserAttributesResponse$BanStatus$BannedScope extends java.lang.Record {
+  private final java.util.UUID banId;
+  private final java.time.Instant expires;
+  private final java.lang.String reason;
+  private final java.lang.String reasonMessage;
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$BanStatus$BannedScope(java.util.UUID, java.time.Instant, java.lang.String, java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID banId();
+  public java.time.Instant expires();
+  public java.lang.String reason();
+  public java.lang.String reasonMessage();
+}
+Compiled from "UserAttributesResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.UserAttributesResponse$ChatPreferences extends java.lang.Record {
+  private final com.mojang.authlib.yggdrasil.ChatToggleValue textCommunication;
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$ChatPreferences(com.mojang.authlib.yggdrasil.ChatToggleValue);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.yggdrasil.ChatToggleValue textCommunication();
+}
+Compiled from "UserAttributesResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.UserAttributesResponse$FriendsPreferences extends java.lang.Record {
+  private final com.mojang.authlib.yggdrasil.ToggleValue friends;
+  private final com.mojang.authlib.yggdrasil.ToggleValue acceptInvites;
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$FriendsPreferences(com.mojang.authlib.yggdrasil.ToggleValue, com.mojang.authlib.yggdrasil.ToggleValue);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.yggdrasil.ToggleValue friends();
+  public com.mojang.authlib.yggdrasil.ToggleValue acceptInvites();
+}
+Compiled from "UserAttributesResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges extends java.lang.Record {
+  private final com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege onlineChat;
+  private final com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege multiplayerServer;
+  private final com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege multiplayerRealms;
+  private final com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege telemetry;
+  private final com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege optionalTelemetry;
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges(com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege, com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege);
+  public boolean getOnlineChat();
+  public boolean getMultiplayerServer();
+  public boolean getMultiplayerRealms();
+  public boolean getTelemetry();
+  public boolean getOptionalTelemetry();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege onlineChat();
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege multiplayerServer();
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege multiplayerRealms();
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege telemetry();
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege optionalTelemetry();
+}
+Compiled from "UserAttributesResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege extends java.lang.Record {
+  private final boolean enabled;
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$Privileges$Privilege(boolean);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public boolean enabled();
+}
+Compiled from "UserAttributesResponse.java"
+public final class com.mojang.authlib.yggdrasil.response.UserAttributesResponse$ProfanityFilterPreferences extends java.lang.Record {
+  private final boolean enabled;
+  public com.mojang.authlib.yggdrasil.response.UserAttributesResponse$ProfanityFilterPreferences(boolean);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public boolean enabled();
+}

@@ -1,0 +1,20 @@
+tab switch, UI thread ms per click (switch + layout), median / worst of 11
+  Home      median 1.39  worst 1.95
+  Mods      median 0.95  worst 1.58
+  Profiles  median 1.16  worst 2.28
+  Settings  median 1.99  worst 5.85
+tab switch plus its deferred refresh, median / worst of 11
+  Home      median 3.91  worst 6.25
+  Mods      median 3.30  worst 3.80
+  Profiles  median 4.92  worst 6.48
+  Settings  median 2.87  worst 10.05
+picker open (Show + layout): first 12.11  median of rest 0.41
+window with the picker up, one full render (CPU rasteriser): median 141.48  best 140.23
+full CPU render, shadow on the sheet (old): median 108.33
+cards bobbing, shadow on the sheet (old): 10.3 fps, frame median 109.38 ms, worst 203.13 ms
+full CPU render, shadow own layer (new)  : median 142.20
+cards bobbing, shadow own layer (new)  : 13.3 fps, frame median 109.38 ms, worst 156.25 ms
+full CPU render, shadow on the sheet (old): median 109.22
+cards bobbing, shadow on the sheet (old): 9.5 fps, frame median 140.63 ms, worst 203.13 ms
+full CPU render, shadow own layer (new)  : median 141.58
+cards bobbing, shadow own layer (new)  : 13.4 fps, frame median 78.13 ms, worst 140.63 ms

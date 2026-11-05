@@ -1,0 +1,3 @@
+960x600 card 1.18: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead
+1180x740 card 1.18: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead
+1920x1080 card 1.18: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead

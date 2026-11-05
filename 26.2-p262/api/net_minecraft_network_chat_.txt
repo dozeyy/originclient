@@ -1,0 +1,1714 @@
+Compiled from "ChatDecorator.java"
+public interface net.minecraft.network.chat.ChatDecorator {
+  public static final net.minecraft.network.chat.ChatDecorator PLAIN;
+  public abstract net.minecraft.network.chat.Component decorate(net.minecraft.server.level.ServerPlayer, net.minecraft.network.chat.Component);
+  private static net.minecraft.network.chat.Component lambda$static$0(net.minecraft.server.level.ServerPlayer, net.minecraft.network.chat.Component);
+  static {};
+}
+Compiled from "ChatType.java"
+public final class net.minecraft.network.chat.ChatType extends java.lang.Record {
+  private final net.minecraft.network.chat.ChatTypeDecoration chat;
+  private final net.minecraft.network.chat.ChatTypeDecoration narration;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.ChatType> DIRECT_CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.ChatType> DIRECT_STREAM_CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.core.Holder<net.minecraft.network.chat.ChatType>> STREAM_CODEC;
+  public static final net.minecraft.network.chat.ChatTypeDecoration DEFAULT_CHAT_DECORATION;
+  public static final net.minecraft.resources.ResourceKey<net.minecraft.network.chat.ChatType> CHAT;
+  public static final net.minecraft.resources.ResourceKey<net.minecraft.network.chat.ChatType> SAY_COMMAND;
+  public static final net.minecraft.resources.ResourceKey<net.minecraft.network.chat.ChatType> MSG_COMMAND_INCOMING;
+  public static final net.minecraft.resources.ResourceKey<net.minecraft.network.chat.ChatType> MSG_COMMAND_OUTGOING;
+  public static final net.minecraft.resources.ResourceKey<net.minecraft.network.chat.ChatType> TEAM_MSG_COMMAND_INCOMING;
+  public static final net.minecraft.resources.ResourceKey<net.minecraft.network.chat.ChatType> TEAM_MSG_COMMAND_OUTGOING;
+  public static final net.minecraft.resources.ResourceKey<net.minecraft.network.chat.ChatType> EMOTE_COMMAND;
+  public net.minecraft.network.chat.ChatType(net.minecraft.network.chat.ChatTypeDecoration, net.minecraft.network.chat.ChatTypeDecoration);
+  private static net.minecraft.resources.ResourceKey<net.minecraft.network.chat.ChatType> create(java.lang.String);
+  public static void bootstrap(net.minecraft.data.worldgen.BootstrapContext<net.minecraft.network.chat.ChatType>);
+  public static net.minecraft.network.chat.ChatType$Bound bind(net.minecraft.resources.ResourceKey<net.minecraft.network.chat.ChatType>, net.minecraft.world.entity.Entity);
+  public static net.minecraft.network.chat.ChatType$Bound bind(net.minecraft.resources.ResourceKey<net.minecraft.network.chat.ChatType>, net.minecraft.commands.CommandSourceStack);
+  public static net.minecraft.network.chat.ChatType$Bound bind(net.minecraft.resources.ResourceKey<net.minecraft.network.chat.ChatType>, net.minecraft.core.RegistryAccess, net.minecraft.network.chat.Component);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.network.chat.ChatTypeDecoration chat();
+  public net.minecraft.network.chat.ChatTypeDecoration narration();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "ChatType.java"
+public final class net.minecraft.network.chat.ChatType$Bound extends java.lang.Record {
+  private final net.minecraft.core.Holder<net.minecraft.network.chat.ChatType> chatType;
+  private final net.minecraft.network.chat.Component name;
+  private final java.util.Optional<net.minecraft.network.chat.Component> targetName;
+  public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.ChatType$Bound> STREAM_CODEC;
+  private net.minecraft.network.chat.ChatType$Bound(net.minecraft.core.Holder<net.minecraft.network.chat.ChatType>, net.minecraft.network.chat.Component);
+  public net.minecraft.network.chat.ChatType$Bound(net.minecraft.core.Holder<net.minecraft.network.chat.ChatType>, net.minecraft.network.chat.Component, java.util.Optional<net.minecraft.network.chat.Component>);
+  public net.minecraft.network.chat.Component decorate(net.minecraft.network.chat.Component);
+  public net.minecraft.network.chat.Component decorateNarration(net.minecraft.network.chat.Component);
+  public net.minecraft.network.chat.ChatType$Bound withTargetName(net.minecraft.network.chat.Component);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.core.Holder<net.minecraft.network.chat.ChatType> chatType();
+  public net.minecraft.network.chat.Component name();
+  public java.util.Optional<net.minecraft.network.chat.Component> targetName();
+  static {};
+}
+Compiled from "ChatTypeDecoration.java"
+public final class net.minecraft.network.chat.ChatTypeDecoration extends java.lang.Record {
+  private final java.lang.String translationKey;
+  private final java.util.List<net.minecraft.network.chat.ChatTypeDecoration$Parameter> parameters;
+  private final net.minecraft.network.chat.Style style;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.ChatTypeDecoration> CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.ChatTypeDecoration> STREAM_CODEC;
+  public net.minecraft.network.chat.ChatTypeDecoration(java.lang.String, java.util.List<net.minecraft.network.chat.ChatTypeDecoration$Parameter>, net.minecraft.network.chat.Style);
+  public static net.minecraft.network.chat.ChatTypeDecoration withSender(java.lang.String);
+  public static net.minecraft.network.chat.ChatTypeDecoration incomingDirectMessage(java.lang.String);
+  public static net.minecraft.network.chat.ChatTypeDecoration outgoingDirectMessage(java.lang.String);
+  public static net.minecraft.network.chat.ChatTypeDecoration teamMessage(java.lang.String);
+  public net.minecraft.network.chat.Component decorate(net.minecraft.network.chat.Component, net.minecraft.network.chat.ChatType$Bound);
+  private net.minecraft.network.chat.Component[] resolveParameters(net.minecraft.network.chat.Component, net.minecraft.network.chat.ChatType$Bound);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String translationKey();
+  public java.util.List<net.minecraft.network.chat.ChatTypeDecoration$Parameter> parameters();
+  public net.minecraft.network.chat.Style style();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "ChatTypeDecoration.java"
+public final class net.minecraft.network.chat.ChatTypeDecoration$Parameter extends java.lang.Enum<net.minecraft.network.chat.ChatTypeDecoration$Parameter> implements net.minecraft.util.StringRepresentable {
+  public static final net.minecraft.network.chat.ChatTypeDecoration$Parameter SENDER;
+  public static final net.minecraft.network.chat.ChatTypeDecoration$Parameter TARGET;
+  public static final net.minecraft.network.chat.ChatTypeDecoration$Parameter CONTENT;
+  private static final java.util.function.IntFunction<net.minecraft.network.chat.ChatTypeDecoration$Parameter> BY_ID;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.ChatTypeDecoration$Parameter> CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<io.netty.buffer.ByteBuf, net.minecraft.network.chat.ChatTypeDecoration$Parameter> STREAM_CODEC;
+  private final int id;
+  private final java.lang.String name;
+  private final net.minecraft.network.chat.ChatTypeDecoration$Parameter$Selector selector;
+  private static final net.minecraft.network.chat.ChatTypeDecoration$Parameter[] $VALUES;
+  public static net.minecraft.network.chat.ChatTypeDecoration$Parameter[] values();
+  public static net.minecraft.network.chat.ChatTypeDecoration$Parameter valueOf(java.lang.String);
+  private net.minecraft.network.chat.ChatTypeDecoration$Parameter(int, java.lang.String, net.minecraft.network.chat.ChatTypeDecoration$Parameter$Selector);
+  public net.minecraft.network.chat.Component select(net.minecraft.network.chat.Component, net.minecraft.network.chat.ChatType$Bound);
+  public java.lang.String getSerializedName();
+  private static net.minecraft.network.chat.ChatTypeDecoration$Parameter[] $values();
+  private static int lambda$static$4(net.minecraft.network.chat.ChatTypeDecoration$Parameter);
+  private static int lambda$static$3(net.minecraft.network.chat.ChatTypeDecoration$Parameter);
+  private static net.minecraft.network.chat.Component lambda$static$2(net.minecraft.network.chat.Component, net.minecraft.network.chat.ChatType$Bound);
+  private static net.minecraft.network.chat.Component lambda$static$1(net.minecraft.network.chat.Component, net.minecraft.network.chat.ChatType$Bound);
+  private static net.minecraft.network.chat.Component lambda$static$0(net.minecraft.network.chat.Component, net.minecraft.network.chat.ChatType$Bound);
+  static {};
+}
+Compiled from "ChatTypeDecoration.java"
+public interface net.minecraft.network.chat.ChatTypeDecoration$Parameter$Selector {
+  public abstract net.minecraft.network.chat.Component select(net.minecraft.network.chat.Component, net.minecraft.network.chat.ChatType$Bound);
+}
+Compiled from "ClickEvent.java"
+public interface net.minecraft.network.chat.ClickEvent {
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.ClickEvent> CODEC;
+  public abstract net.minecraft.network.chat.ClickEvent$Action action();
+  private static com.mojang.serialization.MapCodec lambda$static$0(net.minecraft.network.chat.ClickEvent$Action);
+  static {};
+}
+Compiled from "ClickEvent.java"
+public final class net.minecraft.network.chat.ClickEvent$Action extends java.lang.Enum<net.minecraft.network.chat.ClickEvent$Action> implements net.minecraft.util.StringRepresentable {
+  public static final net.minecraft.network.chat.ClickEvent$Action OPEN_URL;
+  public static final net.minecraft.network.chat.ClickEvent$Action OPEN_FILE;
+  public static final net.minecraft.network.chat.ClickEvent$Action RUN_COMMAND;
+  public static final net.minecraft.network.chat.ClickEvent$Action SUGGEST_COMMAND;
+  public static final net.minecraft.network.chat.ClickEvent$Action SHOW_DIALOG;
+  public static final net.minecraft.network.chat.ClickEvent$Action CHANGE_PAGE;
+  public static final net.minecraft.network.chat.ClickEvent$Action COPY_TO_CLIPBOARD;
+  public static final net.minecraft.network.chat.ClickEvent$Action CUSTOM;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.ClickEvent$Action> UNSAFE_CODEC;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.ClickEvent$Action> CODEC;
+  private final boolean allowFromServer;
+  private final java.lang.String name;
+  private final com.mojang.serialization.MapCodec<? extends net.minecraft.network.chat.ClickEvent> codec;
+  private static final net.minecraft.network.chat.ClickEvent$Action[] $VALUES;
+  public static net.minecraft.network.chat.ClickEvent$Action[] values();
+  public static net.minecraft.network.chat.ClickEvent$Action valueOf(java.lang.String);
+  private net.minecraft.network.chat.ClickEvent$Action(java.lang.String, boolean, com.mojang.serialization.MapCodec<? extends net.minecraft.network.chat.ClickEvent>);
+  public boolean isAllowedFromServer();
+  public java.lang.String getSerializedName();
+  public com.mojang.serialization.MapCodec<? extends net.minecraft.network.chat.ClickEvent> valueCodec();
+  public static com.mojang.serialization.DataResult<net.minecraft.network.chat.ClickEvent$Action> filterForSerialization(net.minecraft.network.chat.ClickEvent$Action);
+  private static net.minecraft.network.chat.ClickEvent$Action[] $values();
+  private static java.lang.String lambda$filterForSerialization$0(net.minecraft.network.chat.ClickEvent$Action);
+  static {};
+}
+Compiled from "ClickEvent.java"
+public final class net.minecraft.network.chat.ClickEvent$ChangePage extends java.lang.Record implements net.minecraft.network.chat.ClickEvent {
+  private final int page;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.ClickEvent$ChangePage> CODEC;
+  public net.minecraft.network.chat.ClickEvent$ChangePage(int);
+  public net.minecraft.network.chat.ClickEvent$Action action();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public int page();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "ClickEvent.java"
+public final class net.minecraft.network.chat.ClickEvent$CopyToClipboard extends java.lang.Record implements net.minecraft.network.chat.ClickEvent {
+  private final java.lang.String value;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.ClickEvent$CopyToClipboard> CODEC;
+  public net.minecraft.network.chat.ClickEvent$CopyToClipboard(java.lang.String);
+  public net.minecraft.network.chat.ClickEvent$Action action();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String value();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "ClickEvent.java"
+public final class net.minecraft.network.chat.ClickEvent$Custom extends java.lang.Record implements net.minecraft.network.chat.ClickEvent {
+  private final net.minecraft.resources.Identifier id;
+  private final java.util.Optional<net.minecraft.nbt.Tag> payload;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.ClickEvent$Custom> CODEC;
+  public net.minecraft.network.chat.ClickEvent$Custom(net.minecraft.resources.Identifier, java.util.Optional<net.minecraft.nbt.Tag>);
+  public net.minecraft.network.chat.ClickEvent$Action action();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.resources.Identifier id();
+  public java.util.Optional<net.minecraft.nbt.Tag> payload();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "ClickEvent.java"
+public final class net.minecraft.network.chat.ClickEvent$OpenFile extends java.lang.Record implements net.minecraft.network.chat.ClickEvent {
+  private final java.lang.String path;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.ClickEvent$OpenFile> CODEC;
+  public net.minecraft.network.chat.ClickEvent$OpenFile(java.io.File);
+  public net.minecraft.network.chat.ClickEvent$OpenFile(java.nio.file.Path);
+  public net.minecraft.network.chat.ClickEvent$OpenFile(java.lang.String);
+  public java.io.File file();
+  public net.minecraft.network.chat.ClickEvent$Action action();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String path();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "ClickEvent.java"
+public final class net.minecraft.network.chat.ClickEvent$OpenUrl extends java.lang.Record implements net.minecraft.network.chat.ClickEvent {
+  private final java.net.URI uri;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.ClickEvent$OpenUrl> CODEC;
+  public net.minecraft.network.chat.ClickEvent$OpenUrl(java.net.URI);
+  public net.minecraft.network.chat.ClickEvent$Action action();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.net.URI uri();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "ClickEvent.java"
+public final class net.minecraft.network.chat.ClickEvent$RunCommand extends java.lang.Record implements net.minecraft.network.chat.ClickEvent {
+  private final java.lang.String command;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.ClickEvent$RunCommand> CODEC;
+  public net.minecraft.network.chat.ClickEvent$RunCommand(java.lang.String);
+  public net.minecraft.network.chat.ClickEvent$Action action();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String command();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "ClickEvent.java"
+public final class net.minecraft.network.chat.ClickEvent$ShowDialog extends java.lang.Record implements net.minecraft.network.chat.ClickEvent {
+  private final net.minecraft.core.Holder<net.minecraft.server.dialog.Dialog> dialog;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.ClickEvent$ShowDialog> CODEC;
+  public net.minecraft.network.chat.ClickEvent$ShowDialog(net.minecraft.core.Holder<net.minecraft.server.dialog.Dialog>);
+  public net.minecraft.network.chat.ClickEvent$Action action();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.core.Holder<net.minecraft.server.dialog.Dialog> dialog();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "ClickEvent.java"
+public final class net.minecraft.network.chat.ClickEvent$SuggestCommand extends java.lang.Record implements net.minecraft.network.chat.ClickEvent {
+  private final java.lang.String command;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.ClickEvent$SuggestCommand> CODEC;
+  public net.minecraft.network.chat.ClickEvent$SuggestCommand(java.lang.String);
+  public net.minecraft.network.chat.ClickEvent$Action action();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String command();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "CommonComponents.java"
+public class net.minecraft.network.chat.CommonComponents {
+  public static final net.minecraft.network.chat.Component EMPTY;
+  public static final net.minecraft.network.chat.Component OPTION_ON;
+  public static final net.minecraft.network.chat.Component OPTION_OFF;
+  public static final net.minecraft.network.chat.Component GUI_DONE;
+  public static final net.minecraft.network.chat.Component GUI_CANCEL;
+  public static final net.minecraft.network.chat.Component GUI_YES;
+  public static final net.minecraft.network.chat.Component GUI_REMOVE;
+  public static final net.minecraft.network.chat.Component GUI_NO;
+  public static final net.minecraft.network.chat.Component GUI_OK;
+  public static final net.minecraft.network.chat.Component GUI_PROCEED;
+  public static final net.minecraft.network.chat.Component GUI_CONTINUE;
+  public static final net.minecraft.network.chat.Component GUI_BACK;
+  public static final net.minecraft.network.chat.Component GUI_TO_TITLE;
+  public static final net.minecraft.network.chat.Component GUI_ACKNOWLEDGE;
+  public static final net.minecraft.network.chat.Component GUI_OPEN_IN_BROWSER;
+  public static final net.minecraft.network.chat.Component GUI_COPY_TO_CLIPBOARD;
+  public static final net.minecraft.network.chat.Component GUI_COPY_LINK_TO_CLIPBOARD;
+  public static final net.minecraft.network.chat.Component GUI_DISCONNECT;
+  public static final net.minecraft.network.chat.Component GUI_RETURN_TO_MENU;
+  public static final net.minecraft.network.chat.Component TRANSFER_CONNECT_FAILED;
+  public static final net.minecraft.network.chat.Component CONNECT_FAILED;
+  public static final net.minecraft.network.chat.Component NEW_LINE;
+  public static final net.minecraft.network.chat.Component NARRATION_SEPARATOR;
+  public static final net.minecraft.network.chat.Component ELLIPSIS;
+  public static final net.minecraft.network.chat.Component SPACE;
+  public net.minecraft.network.chat.CommonComponents();
+  public static net.minecraft.network.chat.MutableComponent space();
+  public static net.minecraft.network.chat.MutableComponent days(long);
+  public static net.minecraft.network.chat.MutableComponent hours(long);
+  public static net.minecraft.network.chat.MutableComponent minutes(long);
+  public static net.minecraft.network.chat.Component optionStatus(boolean);
+  public static net.minecraft.network.chat.Component disconnectButtonLabel(boolean);
+  public static net.minecraft.network.chat.MutableComponent optionStatus(net.minecraft.network.chat.Component, boolean);
+  public static net.minecraft.network.chat.MutableComponent optionNameValue(net.minecraft.network.chat.Component, net.minecraft.network.chat.Component);
+  public static net.minecraft.network.chat.MutableComponent joinForNarration(net.minecraft.network.chat.Component...);
+  public static net.minecraft.network.chat.Component joinLines(net.minecraft.network.chat.Component...);
+  public static net.minecraft.network.chat.Component joinLines(java.util.Collection<? extends net.minecraft.network.chat.Component>);
+  static {};
+}
+Compiled from "Component.java"
+public interface net.minecraft.network.chat.Component extends com.mojang.brigadier.Message,net.minecraft.network.chat.FormattedText {
+  public abstract net.minecraft.network.chat.Style getStyle();
+  public abstract net.minecraft.network.chat.ComponentContents getContents();
+  public default java.lang.String getString();
+  public default java.lang.String getString(int);
+  public abstract java.util.List<net.minecraft.network.chat.Component> getSiblings();
+  public default java.lang.String tryCollapseToString();
+  public default net.minecraft.network.chat.MutableComponent plainCopy();
+  public default net.minecraft.network.chat.MutableComponent copy();
+  public abstract net.minecraft.util.FormattedCharSequence getVisualOrderText();
+  public default <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+  public default <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public default java.util.List<net.minecraft.network.chat.Component> toFlatList();
+  public default java.util.List<net.minecraft.network.chat.Component> toFlatList(net.minecraft.network.chat.Style);
+  public default boolean contains(net.minecraft.network.chat.Component);
+  public static net.minecraft.network.chat.Component nullToEmpty(java.lang.String);
+  public static net.minecraft.network.chat.MutableComponent literal(java.lang.String);
+  public static net.minecraft.network.chat.MutableComponent translatable(java.lang.String);
+  public static net.minecraft.network.chat.MutableComponent translatable(java.lang.String, java.lang.Object...);
+  public static net.minecraft.network.chat.MutableComponent translatableEscape(java.lang.String, java.lang.Object...);
+  public static net.minecraft.network.chat.MutableComponent translatableWithFallback(java.lang.String, java.lang.String);
+  public static net.minecraft.network.chat.MutableComponent translatableWithFallback(java.lang.String, java.lang.String, java.lang.Object...);
+  public static net.minecraft.network.chat.MutableComponent empty();
+  public static net.minecraft.network.chat.MutableComponent keybind(java.lang.String);
+  public static net.minecraft.network.chat.MutableComponent nbt(net.minecraft.util.CompilableString<net.minecraft.commands.arguments.NbtPathArgument$NbtPath>, boolean, boolean, java.util.Optional<net.minecraft.network.chat.Component>, net.minecraft.network.chat.contents.data.DataSource);
+  public static net.minecraft.network.chat.MutableComponent score(net.minecraft.util.CompilableString<net.minecraft.commands.arguments.selector.EntitySelector>, java.lang.String);
+  public static net.minecraft.network.chat.MutableComponent score(java.lang.String, java.lang.String);
+  public static net.minecraft.network.chat.MutableComponent selector(net.minecraft.util.CompilableString<net.minecraft.commands.arguments.selector.EntitySelector>, java.util.Optional<net.minecraft.network.chat.Component>);
+  public static net.minecraft.network.chat.MutableComponent object(net.minecraft.network.chat.contents.objects.ObjectInfo);
+  public static net.minecraft.network.chat.MutableComponent object(net.minecraft.network.chat.contents.objects.ObjectInfo, net.minecraft.network.chat.Component);
+  public static net.minecraft.network.chat.Component translationArg(java.util.Date);
+  public static net.minecraft.network.chat.Component translationArg(com.mojang.brigadier.Message);
+  public static net.minecraft.network.chat.Component translationArg(java.util.UUID);
+  public static net.minecraft.network.chat.Component translationArg(net.minecraft.resources.Identifier);
+  public static net.minecraft.network.chat.Component translationArg(net.minecraft.world.level.ChunkPos);
+  public static net.minecraft.network.chat.Component translationArg(java.net.URI);
+  private static java.util.Optional lambda$toFlatList$0(java.util.List, net.minecraft.network.chat.Style, java.lang.String);
+  private static java.util.Optional lambda$getString$0(int, java.lang.StringBuilder, java.lang.String);
+}
+Compiled from "ComponentContents.java"
+public interface net.minecraft.network.chat.ComponentContents {
+  public default <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+  public default <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public default net.minecraft.network.chat.MutableComponent resolve(net.minecraft.network.chat.ResolutionContext, int) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  public abstract com.mojang.serialization.MapCodec<? extends net.minecraft.network.chat.ComponentContents> codec();
+}
+Compiled from "ComponentSerialization.java"
+public class net.minecraft.network.chat.ComponentSerialization {
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.Component> CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.Component> STREAM_CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, java.util.Optional<net.minecraft.network.chat.Component>> OPTIONAL_STREAM_CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.Component> TRUSTED_STREAM_CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, java.util.Optional<net.minecraft.network.chat.Component>> TRUSTED_OPTIONAL_STREAM_CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<io.netty.buffer.ByteBuf, net.minecraft.network.chat.Component> TRUSTED_CONTEXT_FREE_STREAM_CODEC;
+  public net.minecraft.network.chat.ComponentSerialization();
+  public static com.mojang.serialization.Codec<net.minecraft.network.chat.Component> flatRestrictedCodec(int);
+  private static net.minecraft.network.chat.MutableComponent createFromList(java.util.List<net.minecraft.network.chat.Component>);
+  public static <T> com.mojang.serialization.MapCodec<T> createLegacyComponentMatcher(net.minecraft.util.ExtraCodecs$LateBoundIdMapper<java.lang.String, com.mojang.serialization.MapCodec<? extends T>>, java.util.function.Function<T, com.mojang.serialization.MapCodec<? extends T>>, java.lang.String);
+  private static com.mojang.serialization.Codec<net.minecraft.network.chat.Component> createCodec(com.mojang.serialization.Codec<net.minecraft.network.chat.Component>);
+  private static void bootstrap(net.minecraft.util.ExtraCodecs$LateBoundIdMapper<java.lang.String, com.mojang.serialization.MapCodec<? extends net.minecraft.network.chat.ComponentContents>>);
+  private static com.mojang.datafixers.util.Either lambda$createCodec$4(net.minecraft.network.chat.Component);
+  private static net.minecraft.network.chat.Component lambda$createCodec$1(com.mojang.datafixers.util.Either);
+  private static net.minecraft.network.chat.Component lambda$createCodec$3(net.minecraft.network.chat.Component);
+  private static net.minecraft.network.chat.Component lambda$createCodec$2(com.mojang.datafixers.util.Either);
+  private static com.mojang.datafixers.kinds.App lambda$createCodec$0(com.mojang.serialization.MapCodec, com.mojang.serialization.Codec, com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  private static com.mojang.serialization.MapCodec lambda$createLegacyComponentMatcher$0(com.mojang.serialization.MapCodec);
+  static {};
+}
+Compiled from "ComponentSerialization.java"
+class net.minecraft.network.chat.ComponentSerialization$1 implements com.mojang.serialization.Codec<net.minecraft.network.chat.Component> {
+  final int val$maxFlatSize;
+  net.minecraft.network.chat.ComponentSerialization$1(int);
+  public <T> com.mojang.serialization.DataResult<com.mojang.datafixers.util.Pair<net.minecraft.network.chat.Component, T>> decode(com.mojang.serialization.DynamicOps<T>, T);
+  public <T> com.mojang.serialization.DataResult<T> encode(net.minecraft.network.chat.Component, com.mojang.serialization.DynamicOps<T>, T);
+  private <T> boolean isTooLarge(com.mojang.serialization.DynamicOps<T>, net.minecraft.network.chat.Component);
+  private static <T> com.mojang.serialization.DynamicOps<com.google.gson.JsonElement> asJsonOps(com.mojang.serialization.DynamicOps<T>);
+  public com.mojang.serialization.DataResult encode(java.lang.Object, com.mojang.serialization.DynamicOps, java.lang.Object);
+  private com.mojang.serialization.DataResult lambda$decode$0(com.mojang.serialization.DynamicOps, int, com.mojang.datafixers.util.Pair);
+  private static java.lang.String lambda$decode$1(int);
+}
+Compiled from "ComponentSerialization.java"
+class net.minecraft.network.chat.ComponentSerialization$FuzzyCodec<T> extends com.mojang.serialization.MapCodec<T> {
+  private final java.util.Collection<com.mojang.serialization.MapCodec<? extends T>> codecs;
+  private final java.util.function.Function<T, ? extends com.mojang.serialization.MapEncoder<? extends T>> encoderGetter;
+  public net.minecraft.network.chat.ComponentSerialization$FuzzyCodec(java.util.Collection<com.mojang.serialization.MapCodec<? extends T>>, java.util.function.Function<T, ? extends com.mojang.serialization.MapEncoder<? extends T>>);
+  public <S> com.mojang.serialization.DataResult<T> decode(com.mojang.serialization.DynamicOps<S>, com.mojang.serialization.MapLike<S>);
+  public <S> com.mojang.serialization.RecordBuilder<S> encode(T, com.mojang.serialization.DynamicOps<S>, com.mojang.serialization.RecordBuilder<S>);
+  public <S> java.util.stream.Stream<S> keys(com.mojang.serialization.DynamicOps<S>);
+  public java.lang.String toString();
+  private static java.util.stream.Stream lambda$keys$0(com.mojang.serialization.DynamicOps, com.mojang.serialization.MapCodec);
+  private static java.lang.String lambda$decode$0();
+}
+Compiled from "ComponentSerialization.java"
+class net.minecraft.network.chat.ComponentSerialization$StrictEither<T> extends com.mojang.serialization.MapCodec<T> {
+  private final java.lang.String typeFieldName;
+  private final com.mojang.serialization.MapCodec<T> typed;
+  private final com.mojang.serialization.MapCodec<T> fuzzy;
+  public net.minecraft.network.chat.ComponentSerialization$StrictEither(java.lang.String, com.mojang.serialization.MapCodec<T>, com.mojang.serialization.MapCodec<T>);
+  public <O> com.mojang.serialization.DataResult<T> decode(com.mojang.serialization.DynamicOps<O>, com.mojang.serialization.MapLike<O>);
+  public <O> com.mojang.serialization.RecordBuilder<O> encode(T, com.mojang.serialization.DynamicOps<O>, com.mojang.serialization.RecordBuilder<O>);
+  public <T1> java.util.stream.Stream<T1> keys(com.mojang.serialization.DynamicOps<T1>);
+}
+Compiled from "ComponentUtils.java"
+public class net.minecraft.network.chat.ComponentUtils {
+  public static final java.lang.String DEFAULT_SEPARATOR_TEXT;
+  public static final net.minecraft.network.chat.Component DEFAULT_SEPARATOR;
+  public static final net.minecraft.network.chat.Component DEFAULT_NO_STYLE_SEPARATOR;
+  public net.minecraft.network.chat.ComponentUtils();
+  public static net.minecraft.network.chat.MutableComponent mergeStyles(net.minecraft.network.chat.MutableComponent, net.minecraft.network.chat.Style);
+  public static net.minecraft.network.chat.Component mergeStyles(net.minecraft.network.chat.Component, net.minecraft.network.chat.Style);
+  public static java.util.Optional<net.minecraft.network.chat.MutableComponent> resolve(net.minecraft.network.chat.ResolutionContext, java.util.Optional<net.minecraft.network.chat.Component>, int) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  public static net.minecraft.network.chat.MutableComponent resolve(net.minecraft.network.chat.ResolutionContext, net.minecraft.network.chat.Component) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  public static net.minecraft.network.chat.MutableComponent resolve(net.minecraft.network.chat.ResolutionContext, net.minecraft.network.chat.Component, int) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  private static net.minecraft.network.chat.Style resolveStyle(net.minecraft.network.chat.ResolutionContext, net.minecraft.network.chat.Style, int) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  public static net.minecraft.network.chat.Component formatList(java.util.Collection<java.lang.String>);
+  public static <T extends java.lang.Comparable<T>> net.minecraft.network.chat.Component formatAndSortList(java.util.Collection<T>, java.util.function.Function<T, net.minecraft.network.chat.Component>);
+  public static <T> net.minecraft.network.chat.Component formatList(java.util.Collection<? extends T>, java.util.function.Function<T, net.minecraft.network.chat.Component>);
+  public static <T> net.minecraft.network.chat.MutableComponent formatList(java.util.Collection<? extends T>, java.util.Optional<? extends net.minecraft.network.chat.Component>, java.util.function.Function<T, net.minecraft.network.chat.Component>);
+  public static net.minecraft.network.chat.Component formatList(java.util.Collection<? extends net.minecraft.network.chat.Component>, net.minecraft.network.chat.Component);
+  public static <T> net.minecraft.network.chat.MutableComponent formatList(java.util.Collection<? extends T>, net.minecraft.network.chat.Component, java.util.function.Function<T, net.minecraft.network.chat.Component>);
+  public static net.minecraft.network.chat.MutableComponent wrapInSquareBrackets(net.minecraft.network.chat.Component);
+  public static net.minecraft.network.chat.Component fromMessage(com.mojang.brigadier.Message);
+  public static boolean isTranslationResolvable(net.minecraft.network.chat.Component);
+  public static net.minecraft.network.chat.MutableComponent copyOnClickText(java.lang.String);
+  private static net.minecraft.network.chat.Style lambda$copyOnClickText$0(java.lang.String, net.minecraft.network.chat.Style);
+  private static net.minecraft.network.chat.Component lambda$formatList$0(java.lang.String);
+  static {};
+}
+Compiled from "ComponentUtils.java"
+class net.minecraft.network.chat.ComponentUtils$1 {
+  static final int[] $SwitchMap$net$minecraft$network$chat$ResolutionContext$LimitBehavior;
+  static {};
+}
+Compiled from "FilterMask.java"
+public class net.minecraft.network.chat.FilterMask {
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.FilterMask> CODEC;
+  public static final net.minecraft.network.chat.FilterMask FULLY_FILTERED;
+  public static final net.minecraft.network.chat.FilterMask PASS_THROUGH;
+  public static final net.minecraft.network.chat.Style FILTERED_STYLE;
+  private static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.FilterMask> PASS_THROUGH_CODEC;
+  private static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.FilterMask> FULLY_FILTERED_CODEC;
+  private static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.FilterMask> PARTIALLY_FILTERED_CODEC;
+  private static final char HASH;
+  private final java.util.BitSet mask;
+  private final net.minecraft.network.chat.FilterMask$Type type;
+  private net.minecraft.network.chat.FilterMask(java.util.BitSet, net.minecraft.network.chat.FilterMask$Type);
+  private net.minecraft.network.chat.FilterMask(java.util.BitSet);
+  public net.minecraft.network.chat.FilterMask(int);
+  private net.minecraft.network.chat.FilterMask$Type type();
+  private java.util.BitSet mask();
+  public static net.minecraft.network.chat.FilterMask read(net.minecraft.network.FriendlyByteBuf);
+  public static void write(net.minecraft.network.FriendlyByteBuf, net.minecraft.network.chat.FilterMask);
+  public void setFiltered(int);
+  public java.lang.String apply(java.lang.String);
+  public net.minecraft.network.chat.Component applyWithFormatting(java.lang.String);
+  public boolean isEmpty();
+  public boolean isFullyFiltered();
+  public boolean equals(java.lang.Object);
+  public int hashCode();
+  static {};
+}
+Compiled from "FilterMask.java"
+final class net.minecraft.network.chat.FilterMask$Type extends java.lang.Enum<net.minecraft.network.chat.FilterMask$Type> implements net.minecraft.util.StringRepresentable {
+  public static final net.minecraft.network.chat.FilterMask$Type PASS_THROUGH;
+  public static final net.minecraft.network.chat.FilterMask$Type FULLY_FILTERED;
+  public static final net.minecraft.network.chat.FilterMask$Type PARTIALLY_FILTERED;
+  private final java.lang.String serializedName;
+  private final java.util.function.Supplier<com.mojang.serialization.MapCodec<net.minecraft.network.chat.FilterMask>> codec;
+  private static final net.minecraft.network.chat.FilterMask$Type[] $VALUES;
+  public static net.minecraft.network.chat.FilterMask$Type[] values();
+  public static net.minecraft.network.chat.FilterMask$Type valueOf(java.lang.String);
+  private net.minecraft.network.chat.FilterMask$Type(java.lang.String, java.util.function.Supplier<com.mojang.serialization.MapCodec<net.minecraft.network.chat.FilterMask>>);
+  public java.lang.String getSerializedName();
+  private com.mojang.serialization.MapCodec<net.minecraft.network.chat.FilterMask> codec();
+  private static net.minecraft.network.chat.FilterMask$Type[] $values();
+  private static com.mojang.serialization.MapCodec lambda$static$2();
+  private static com.mojang.serialization.MapCodec lambda$static$1();
+  private static com.mojang.serialization.MapCodec lambda$static$0();
+  static {};
+}
+Compiled from "FontDescription.java"
+public interface net.minecraft.network.chat.FontDescription {
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.FontDescription> CODEC;
+  public static final net.minecraft.network.chat.FontDescription$Resource DEFAULT;
+  private static com.mojang.serialization.DataResult lambda$static$0(net.minecraft.network.chat.FontDescription);
+  private static java.lang.String lambda$static$1(net.minecraft.network.chat.FontDescription);
+  static {};
+}
+Compiled from "FontDescription.java"
+public final class net.minecraft.network.chat.FontDescription$AtlasSprite extends java.lang.Record implements net.minecraft.network.chat.FontDescription {
+  private final net.minecraft.resources.Identifier atlasId;
+  private final net.minecraft.resources.Identifier spriteId;
+  public net.minecraft.network.chat.FontDescription$AtlasSprite(net.minecraft.resources.Identifier, net.minecraft.resources.Identifier);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.resources.Identifier atlasId();
+  public net.minecraft.resources.Identifier spriteId();
+}
+Compiled from "FontDescription.java"
+public final class net.minecraft.network.chat.FontDescription$PlayerSprite extends java.lang.Record implements net.minecraft.network.chat.FontDescription {
+  private final net.minecraft.world.item.component.ResolvableProfile profile;
+  private final boolean hat;
+  public net.minecraft.network.chat.FontDescription$PlayerSprite(net.minecraft.world.item.component.ResolvableProfile, boolean);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.world.item.component.ResolvableProfile profile();
+  public boolean hat();
+}
+Compiled from "FontDescription.java"
+public final class net.minecraft.network.chat.FontDescription$Resource extends java.lang.Record implements net.minecraft.network.chat.FontDescription {
+  private final net.minecraft.resources.Identifier id;
+  public net.minecraft.network.chat.FontDescription$Resource(net.minecraft.resources.Identifier);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.resources.Identifier id();
+}
+Compiled from "FormattedText.java"
+public interface net.minecraft.network.chat.FormattedText {
+  public static final java.util.Optional<net.minecraft.util.Unit> STOP_ITERATION;
+  public static final net.minecraft.network.chat.FormattedText EMPTY;
+  public abstract <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public abstract <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+  public static net.minecraft.network.chat.FormattedText of(java.lang.String);
+  public static net.minecraft.network.chat.FormattedText of(java.lang.String, net.minecraft.network.chat.Style);
+  public static net.minecraft.network.chat.FormattedText composite(net.minecraft.network.chat.FormattedText...);
+  public static net.minecraft.network.chat.FormattedText composite(java.util.List<? extends net.minecraft.network.chat.FormattedText>);
+  public default java.lang.String getString();
+  private static java.util.Optional lambda$getString$0(java.lang.StringBuilder, java.lang.String);
+  static {};
+}
+Compiled from "FormattedText.java"
+class net.minecraft.network.chat.FormattedText$1 implements net.minecraft.network.chat.FormattedText {
+  net.minecraft.network.chat.FormattedText$1();
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+}
+Compiled from "FormattedText.java"
+class net.minecraft.network.chat.FormattedText$2 implements net.minecraft.network.chat.FormattedText {
+  final java.lang.String val$text;
+  net.minecraft.network.chat.FormattedText$2();
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+}
+Compiled from "FormattedText.java"
+class net.minecraft.network.chat.FormattedText$3 implements net.minecraft.network.chat.FormattedText {
+  final java.lang.String val$text;
+  final net.minecraft.network.chat.Style val$style;
+  net.minecraft.network.chat.FormattedText$3();
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+}
+Compiled from "FormattedText.java"
+class net.minecraft.network.chat.FormattedText$4 implements net.minecraft.network.chat.FormattedText {
+  final java.util.List val$parts;
+  net.minecraft.network.chat.FormattedText$4();
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+}
+Compiled from "FormattedText.java"
+public interface net.minecraft.network.chat.FormattedText$ContentConsumer<T> {
+  public abstract java.util.Optional<T> accept(java.lang.String);
+}
+Compiled from "FormattedText.java"
+public interface net.minecraft.network.chat.FormattedText$StyledContentConsumer<T> {
+  public abstract java.util.Optional<T> accept(net.minecraft.network.chat.Style, java.lang.String);
+}
+Compiled from "HoverEvent.java"
+public interface net.minecraft.network.chat.HoverEvent {
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.HoverEvent> CODEC;
+  public abstract net.minecraft.network.chat.HoverEvent$Action action();
+  private static com.mojang.serialization.MapCodec lambda$static$0(net.minecraft.network.chat.HoverEvent$Action);
+  static {};
+}
+Compiled from "HoverEvent.java"
+public final class net.minecraft.network.chat.HoverEvent$Action extends java.lang.Enum<net.minecraft.network.chat.HoverEvent$Action> implements net.minecraft.util.StringRepresentable {
+  public static final net.minecraft.network.chat.HoverEvent$Action SHOW_TEXT;
+  public static final net.minecraft.network.chat.HoverEvent$Action SHOW_ITEM;
+  public static final net.minecraft.network.chat.HoverEvent$Action SHOW_ENTITY;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.HoverEvent$Action> UNSAFE_CODEC;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.HoverEvent$Action> CODEC;
+  private final java.lang.String name;
+  private final boolean allowFromServer;
+  private final com.mojang.serialization.MapCodec<? extends net.minecraft.network.chat.HoverEvent> codec;
+  private static final net.minecraft.network.chat.HoverEvent$Action[] $VALUES;
+  public static net.minecraft.network.chat.HoverEvent$Action[] values();
+  public static net.minecraft.network.chat.HoverEvent$Action valueOf(java.lang.String);
+  private net.minecraft.network.chat.HoverEvent$Action(java.lang.String, boolean, com.mojang.serialization.MapCodec<? extends net.minecraft.network.chat.HoverEvent>);
+  public boolean isAllowedFromServer();
+  public java.lang.String getSerializedName();
+  public java.lang.String toString();
+  private static com.mojang.serialization.DataResult<net.minecraft.network.chat.HoverEvent$Action> filterForSerialization(net.minecraft.network.chat.HoverEvent$Action);
+  private static net.minecraft.network.chat.HoverEvent$Action[] $values();
+  private static java.lang.String lambda$filterForSerialization$0(net.minecraft.network.chat.HoverEvent$Action);
+  static {};
+}
+Compiled from "HoverEvent.java"
+public class net.minecraft.network.chat.HoverEvent$EntityTooltipInfo {
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.HoverEvent$EntityTooltipInfo> CODEC;
+  public final net.minecraft.world.entity.EntityType<?> type;
+  public final java.util.UUID uuid;
+  public final java.util.Optional<net.minecraft.network.chat.Component> name;
+  private java.util.List<net.minecraft.network.chat.Component> linesCache;
+  public net.minecraft.network.chat.HoverEvent$EntityTooltipInfo(net.minecraft.world.entity.EntityType<?>, java.util.UUID, net.minecraft.network.chat.Component);
+  public net.minecraft.network.chat.HoverEvent$EntityTooltipInfo(net.minecraft.world.entity.EntityType<?>, java.util.UUID, java.util.Optional<net.minecraft.network.chat.Component>);
+  public java.util.List<net.minecraft.network.chat.Component> getTooltipLines();
+  public boolean equals(java.lang.Object);
+  public int hashCode();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  private static java.util.Optional lambda$static$3(net.minecraft.network.chat.HoverEvent$EntityTooltipInfo);
+  private static java.util.UUID lambda$static$2(net.minecraft.network.chat.HoverEvent$EntityTooltipInfo);
+  private static net.minecraft.world.entity.EntityType lambda$static$1(net.minecraft.network.chat.HoverEvent$EntityTooltipInfo);
+  static {};
+}
+Compiled from "HoverEvent.java"
+public final class net.minecraft.network.chat.HoverEvent$ShowEntity extends java.lang.Record implements net.minecraft.network.chat.HoverEvent {
+  private final net.minecraft.network.chat.HoverEvent$EntityTooltipInfo entity;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.HoverEvent$ShowEntity> CODEC;
+  public net.minecraft.network.chat.HoverEvent$ShowEntity(net.minecraft.network.chat.HoverEvent$EntityTooltipInfo);
+  public net.minecraft.network.chat.HoverEvent$Action action();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.network.chat.HoverEvent$EntityTooltipInfo entity();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "HoverEvent.java"
+public final class net.minecraft.network.chat.HoverEvent$ShowItem extends java.lang.Record implements net.minecraft.network.chat.HoverEvent {
+  private final net.minecraft.world.item.ItemStackTemplate item;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.HoverEvent$ShowItem> CODEC;
+  public net.minecraft.network.chat.HoverEvent$ShowItem(net.minecraft.world.item.ItemStackTemplate);
+  public net.minecraft.network.chat.HoverEvent$Action action();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.world.item.ItemStackTemplate item();
+  static {};
+}
+Compiled from "HoverEvent.java"
+public final class net.minecraft.network.chat.HoverEvent$ShowText extends java.lang.Record implements net.minecraft.network.chat.HoverEvent {
+  private final net.minecraft.network.chat.Component value;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.HoverEvent$ShowText> CODEC;
+  public net.minecraft.network.chat.HoverEvent$ShowText(net.minecraft.network.chat.Component);
+  public net.minecraft.network.chat.HoverEvent$Action action();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.network.chat.Component value();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "LastSeenMessages.java"
+public final class net.minecraft.network.chat.LastSeenMessages extends java.lang.Record {
+  private final java.util.List<net.minecraft.network.chat.MessageSignature> entries;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.LastSeenMessages> CODEC;
+  public static final net.minecraft.network.chat.LastSeenMessages EMPTY;
+  public static final int LAST_SEEN_MESSAGES_MAX_LENGTH;
+  public net.minecraft.network.chat.LastSeenMessages(java.util.List<net.minecraft.network.chat.MessageSignature>);
+  public void updateSignature(net.minecraft.util.SignatureUpdater$Output) throws java.security.SignatureException;
+  public net.minecraft.network.chat.LastSeenMessages$Packed pack(net.minecraft.network.chat.MessageSignatureCache);
+  public byte computeChecksum();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.List<net.minecraft.network.chat.MessageSignature> entries();
+  private static net.minecraft.network.chat.MessageSignature$Packed lambda$pack$0(net.minecraft.network.chat.MessageSignatureCache, net.minecraft.network.chat.MessageSignature);
+  static {};
+}
+Compiled from "LastSeenMessages.java"
+public final class net.minecraft.network.chat.LastSeenMessages$Packed extends java.lang.Record {
+  private final java.util.List<net.minecraft.network.chat.MessageSignature$Packed> entries;
+  public static final net.minecraft.network.chat.LastSeenMessages$Packed EMPTY;
+  public net.minecraft.network.chat.LastSeenMessages$Packed(net.minecraft.network.FriendlyByteBuf);
+  public net.minecraft.network.chat.LastSeenMessages$Packed(java.util.List<net.minecraft.network.chat.MessageSignature$Packed>);
+  public void write(net.minecraft.network.FriendlyByteBuf);
+  public java.util.Optional<net.minecraft.network.chat.LastSeenMessages> unpack(net.minecraft.network.chat.MessageSignatureCache);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.List<net.minecraft.network.chat.MessageSignature$Packed> entries();
+  static {};
+}
+Compiled from "LastSeenMessages.java"
+public final class net.minecraft.network.chat.LastSeenMessages$Update extends java.lang.Record {
+  private final int offset;
+  private final java.util.BitSet acknowledged;
+  private final byte checksum;
+  public static final byte IGNORE_CHECKSUM;
+  public net.minecraft.network.chat.LastSeenMessages$Update(net.minecraft.network.FriendlyByteBuf);
+  public net.minecraft.network.chat.LastSeenMessages$Update(int, java.util.BitSet, byte);
+  public void write(net.minecraft.network.FriendlyByteBuf);
+  public boolean verifyChecksum(net.minecraft.network.chat.LastSeenMessages);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public int offset();
+  public java.util.BitSet acknowledged();
+  public byte checksum();
+}
+Compiled from "LastSeenMessagesTracker.java"
+public class net.minecraft.network.chat.LastSeenMessagesTracker {
+  private final net.minecraft.network.chat.LastSeenTrackedEntry[] trackedMessages;
+  private int tail;
+  private int offset;
+  private net.minecraft.network.chat.MessageSignature lastTrackedMessage;
+  public net.minecraft.network.chat.LastSeenMessagesTracker(int);
+  public boolean addPending(net.minecraft.network.chat.MessageSignature, boolean);
+  private void addEntry(net.minecraft.network.chat.LastSeenTrackedEntry);
+  public void ignorePending(net.minecraft.network.chat.MessageSignature);
+  public int getAndClearOffset();
+  public net.minecraft.network.chat.LastSeenMessagesTracker$Update generateAndApplyUpdate();
+  public int offset();
+}
+Compiled from "LastSeenMessagesTracker.java"
+public final class net.minecraft.network.chat.LastSeenMessagesTracker$Update extends java.lang.Record {
+  private final net.minecraft.network.chat.LastSeenMessages lastSeen;
+  private final net.minecraft.network.chat.LastSeenMessages$Update update;
+  public net.minecraft.network.chat.LastSeenMessagesTracker$Update(net.minecraft.network.chat.LastSeenMessages, net.minecraft.network.chat.LastSeenMessages$Update);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.network.chat.LastSeenMessages lastSeen();
+  public net.minecraft.network.chat.LastSeenMessages$Update update();
+}
+Compiled from "LastSeenMessagesValidator.java"
+public class net.minecraft.network.chat.LastSeenMessagesValidator {
+  private final int lastSeenCount;
+  private final it.unimi.dsi.fastutil.objects.ObjectList<net.minecraft.network.chat.LastSeenTrackedEntry> trackedMessages;
+  private net.minecraft.network.chat.MessageSignature lastPendingMessage;
+  public net.minecraft.network.chat.LastSeenMessagesValidator(int);
+  public void addPending(net.minecraft.network.chat.MessageSignature);
+  public int trackedMessagesCount();
+  public void applyOffset(int) throws net.minecraft.network.chat.LastSeenMessagesValidator$ValidationException;
+  public net.minecraft.network.chat.LastSeenMessages applyUpdate(net.minecraft.network.chat.LastSeenMessages$Update) throws net.minecraft.network.chat.LastSeenMessagesValidator$ValidationException;
+}
+Compiled from "LastSeenMessagesValidator.java"
+public class net.minecraft.network.chat.LastSeenMessagesValidator$ValidationException extends java.lang.Exception {
+  public net.minecraft.network.chat.LastSeenMessagesValidator$ValidationException(java.lang.String);
+}
+Compiled from "LastSeenTrackedEntry.java"
+public final class net.minecraft.network.chat.LastSeenTrackedEntry extends java.lang.Record {
+  private final net.minecraft.network.chat.MessageSignature signature;
+  private final boolean pending;
+  public net.minecraft.network.chat.LastSeenTrackedEntry(net.minecraft.network.chat.MessageSignature, boolean);
+  public net.minecraft.network.chat.LastSeenTrackedEntry acknowledge();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.network.chat.MessageSignature signature();
+  public boolean pending();
+}
+Compiled from "LocalChatSession.java"
+public final class net.minecraft.network.chat.LocalChatSession extends java.lang.Record {
+  private final java.util.UUID sessionId;
+  private final net.minecraft.world.entity.player.ProfileKeyPair keyPair;
+  public net.minecraft.network.chat.LocalChatSession(java.util.UUID, net.minecraft.world.entity.player.ProfileKeyPair);
+  public static net.minecraft.network.chat.LocalChatSession create(net.minecraft.world.entity.player.ProfileKeyPair);
+  public net.minecraft.network.chat.SignedMessageChain$Encoder createMessageEncoder(java.util.UUID);
+  public net.minecraft.network.chat.RemoteChatSession asRemote();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID sessionId();
+  public net.minecraft.world.entity.player.ProfileKeyPair keyPair();
+}
+Compiled from "MessageSignature.java"
+public final class net.minecraft.network.chat.MessageSignature extends java.lang.Record {
+  private final byte[] bytes;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.MessageSignature> CODEC;
+  public static final int BYTES;
+  public net.minecraft.network.chat.MessageSignature(byte[]);
+  public static net.minecraft.network.chat.MessageSignature read(net.minecraft.network.FriendlyByteBuf);
+  public static void write(net.minecraft.network.FriendlyByteBuf, net.minecraft.network.chat.MessageSignature);
+  public boolean verify(net.minecraft.util.SignatureValidator, net.minecraft.util.SignatureUpdater);
+  public java.nio.ByteBuffer asByteBuffer();
+  public boolean equals(java.lang.Object);
+  public int hashCode();
+  public java.lang.String toString();
+  public static java.lang.String describe(net.minecraft.network.chat.MessageSignature);
+  public net.minecraft.network.chat.MessageSignature$Packed pack(net.minecraft.network.chat.MessageSignatureCache);
+  public int checksum();
+  public byte[] bytes();
+  static {};
+}
+Compiled from "MessageSignature.java"
+public final class net.minecraft.network.chat.MessageSignature$Packed extends java.lang.Record {
+  private final int id;
+  private final net.minecraft.network.chat.MessageSignature fullSignature;
+  public static final int FULL_SIGNATURE;
+  public net.minecraft.network.chat.MessageSignature$Packed(net.minecraft.network.chat.MessageSignature);
+  public net.minecraft.network.chat.MessageSignature$Packed(int);
+  public net.minecraft.network.chat.MessageSignature$Packed(int, net.minecraft.network.chat.MessageSignature);
+  public static net.minecraft.network.chat.MessageSignature$Packed read(net.minecraft.network.FriendlyByteBuf);
+  public static void write(net.minecraft.network.FriendlyByteBuf, net.minecraft.network.chat.MessageSignature$Packed);
+  public java.util.Optional<net.minecraft.network.chat.MessageSignature> unpack(net.minecraft.network.chat.MessageSignatureCache);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public int id();
+  public net.minecraft.network.chat.MessageSignature fullSignature();
+}
+Compiled from "MessageSignatureCache.java"
+public class net.minecraft.network.chat.MessageSignatureCache {
+  public static final int NOT_FOUND;
+  private static final int DEFAULT_CAPACITY;
+  private final net.minecraft.network.chat.MessageSignature[] entries;
+  public net.minecraft.network.chat.MessageSignatureCache(int);
+  public static net.minecraft.network.chat.MessageSignatureCache createDefault();
+  public int pack(net.minecraft.network.chat.MessageSignature);
+  public net.minecraft.network.chat.MessageSignature unpack(int);
+  public void push(net.minecraft.network.chat.SignedMessageBody, net.minecraft.network.chat.MessageSignature);
+  void push(java.util.List<net.minecraft.network.chat.MessageSignature>);
+  private void push(java.util.ArrayDeque<net.minecraft.network.chat.MessageSignature>);
+}
+Compiled from "MutableComponent.java"
+public final class net.minecraft.network.chat.MutableComponent implements net.minecraft.network.chat.Component {
+  private final net.minecraft.network.chat.ComponentContents contents;
+  private final java.util.List<net.minecraft.network.chat.Component> siblings;
+  private net.minecraft.network.chat.Style style;
+  private net.minecraft.util.FormattedCharSequence visualOrderText;
+  private net.minecraft.locale.Language decomposedWith;
+  net.minecraft.network.chat.MutableComponent(net.minecraft.network.chat.ComponentContents, java.util.List<net.minecraft.network.chat.Component>, net.minecraft.network.chat.Style);
+  public static net.minecraft.network.chat.MutableComponent create(net.minecraft.network.chat.ComponentContents);
+  public net.minecraft.network.chat.ComponentContents getContents();
+  public java.util.List<net.minecraft.network.chat.Component> getSiblings();
+  public net.minecraft.network.chat.MutableComponent setStyle(net.minecraft.network.chat.Style);
+  public net.minecraft.network.chat.Style getStyle();
+  public net.minecraft.network.chat.MutableComponent append(java.lang.String);
+  public net.minecraft.network.chat.MutableComponent append(net.minecraft.network.chat.Component);
+  public net.minecraft.network.chat.MutableComponent withStyle(java.util.function.UnaryOperator<net.minecraft.network.chat.Style>);
+  public net.minecraft.network.chat.MutableComponent withStyle(net.minecraft.network.chat.Style);
+  public net.minecraft.network.chat.MutableComponent withStyle(net.minecraft.ChatFormatting...);
+  public net.minecraft.network.chat.MutableComponent withStyle(net.minecraft.ChatFormatting);
+  public net.minecraft.network.chat.MutableComponent withColor(int);
+  public net.minecraft.network.chat.MutableComponent withColor(net.minecraft.network.chat.TextColor);
+  public net.minecraft.network.chat.MutableComponent withoutShadow();
+  public net.minecraft.util.FormattedCharSequence getVisualOrderText();
+  public boolean equals(java.lang.Object);
+  public int hashCode();
+  public java.lang.String toString();
+}
+Compiled from "OutgoingChatMessage.java"
+public interface net.minecraft.network.chat.OutgoingChatMessage {
+  public abstract net.minecraft.network.chat.Component content();
+  public abstract void sendToPlayer(net.minecraft.server.level.ServerPlayer, boolean, net.minecraft.network.chat.ChatType$Bound);
+  public static net.minecraft.network.chat.OutgoingChatMessage create(net.minecraft.network.chat.PlayerChatMessage);
+}
+Compiled from "OutgoingChatMessage.java"
+public final class net.minecraft.network.chat.OutgoingChatMessage$Disguised extends java.lang.Record implements net.minecraft.network.chat.OutgoingChatMessage {
+  private final net.minecraft.network.chat.Component content;
+  public net.minecraft.network.chat.OutgoingChatMessage$Disguised(net.minecraft.network.chat.Component);
+  public net.minecraft.network.chat.Component content();
+  public void sendToPlayer(net.minecraft.server.level.ServerPlayer, boolean, net.minecraft.network.chat.ChatType$Bound);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+}
+Compiled from "OutgoingChatMessage.java"
+public final class net.minecraft.network.chat.OutgoingChatMessage$Player extends java.lang.Record implements net.minecraft.network.chat.OutgoingChatMessage {
+  private final net.minecraft.network.chat.PlayerChatMessage message;
+  public net.minecraft.network.chat.OutgoingChatMessage$Player(net.minecraft.network.chat.PlayerChatMessage);
+  public net.minecraft.network.chat.Component content();
+  public void sendToPlayer(net.minecraft.server.level.ServerPlayer, boolean, net.minecraft.network.chat.ChatType$Bound);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.network.chat.PlayerChatMessage message();
+}
+Compiled from "PlayerChatMessage.java"
+public final class net.minecraft.network.chat.PlayerChatMessage extends java.lang.Record {
+  private final net.minecraft.network.chat.SignedMessageLink link;
+  private final net.minecraft.network.chat.MessageSignature signature;
+  private final net.minecraft.network.chat.SignedMessageBody signedBody;
+  private final net.minecraft.network.chat.Component unsignedContent;
+  private final net.minecraft.network.chat.FilterMask filterMask;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.PlayerChatMessage> MAP_CODEC;
+  private static final java.util.UUID SYSTEM_SENDER;
+  public static final java.time.Duration MESSAGE_EXPIRES_AFTER_SERVER;
+  public static final java.time.Duration MESSAGE_EXPIRES_AFTER_CLIENT;
+  public net.minecraft.network.chat.PlayerChatMessage(net.minecraft.network.chat.SignedMessageLink, net.minecraft.network.chat.MessageSignature, net.minecraft.network.chat.SignedMessageBody, net.minecraft.network.chat.Component, net.minecraft.network.chat.FilterMask);
+  public static net.minecraft.network.chat.PlayerChatMessage system(java.lang.String);
+  public static net.minecraft.network.chat.PlayerChatMessage unsigned(java.util.UUID, java.lang.String);
+  public net.minecraft.network.chat.PlayerChatMessage withUnsignedContent(net.minecraft.network.chat.Component);
+  public net.minecraft.network.chat.PlayerChatMessage removeUnsignedContent();
+  public net.minecraft.network.chat.PlayerChatMessage filter(net.minecraft.network.chat.FilterMask);
+  public net.minecraft.network.chat.PlayerChatMessage filter(boolean);
+  public net.minecraft.network.chat.PlayerChatMessage removeSignature();
+  public static void updateSignature(net.minecraft.util.SignatureUpdater$Output, net.minecraft.network.chat.SignedMessageLink, net.minecraft.network.chat.SignedMessageBody) throws java.security.SignatureException;
+  public boolean verify(net.minecraft.util.SignatureValidator);
+  public java.lang.String signedContent();
+  public net.minecraft.network.chat.Component decoratedContent();
+  public java.time.Instant timeStamp();
+  public long salt();
+  public boolean hasExpiredServer(java.time.Instant);
+  public boolean hasExpiredClient(java.time.Instant);
+  public java.util.UUID sender();
+  public boolean isSystem();
+  public boolean hasSignature();
+  public boolean hasSignatureFrom(java.util.UUID);
+  public boolean isFullyFiltered();
+  public static java.lang.String describeSigned(net.minecraft.network.chat.PlayerChatMessage);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.network.chat.SignedMessageLink link();
+  public net.minecraft.network.chat.MessageSignature signature();
+  public net.minecraft.network.chat.SignedMessageBody signedBody();
+  public net.minecraft.network.chat.Component unsignedContent();
+  public net.minecraft.network.chat.FilterMask filterMask();
+  private static java.lang.String lambda$describeSigned$0(net.minecraft.network.chat.MessageSignature);
+  private net.minecraft.network.chat.Component lambda$decoratedContent$0();
+  private void lambda$verify$0(net.minecraft.util.SignatureUpdater$Output) throws java.security.SignatureException;
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  private static net.minecraft.network.chat.PlayerChatMessage lambda$static$3(net.minecraft.network.chat.SignedMessageLink, java.util.Optional, net.minecraft.network.chat.SignedMessageBody, java.util.Optional, net.minecraft.network.chat.FilterMask);
+  private static java.util.Optional lambda$static$2(net.minecraft.network.chat.PlayerChatMessage);
+  private static java.util.Optional lambda$static$1(net.minecraft.network.chat.PlayerChatMessage);
+  static {};
+}
+Compiled from "RemoteChatSession.java"
+public final class net.minecraft.network.chat.RemoteChatSession extends java.lang.Record {
+  private final java.util.UUID sessionId;
+  private final net.minecraft.world.entity.player.ProfilePublicKey profilePublicKey;
+  public net.minecraft.network.chat.RemoteChatSession(java.util.UUID, net.minecraft.world.entity.player.ProfilePublicKey);
+  public net.minecraft.network.chat.SignedMessageValidator createMessageValidator(java.time.Duration);
+  public net.minecraft.network.chat.SignedMessageChain$Decoder createMessageDecoder(java.util.UUID);
+  public net.minecraft.network.chat.RemoteChatSession$Data asData();
+  public boolean hasExpired();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID sessionId();
+  public net.minecraft.world.entity.player.ProfilePublicKey profilePublicKey();
+  private boolean lambda$createMessageValidator$0(java.time.Duration);
+}
+Compiled from "RemoteChatSession.java"
+public final class net.minecraft.network.chat.RemoteChatSession$Data extends java.lang.Record {
+  private final java.util.UUID sessionId;
+  private final net.minecraft.world.entity.player.ProfilePublicKey$Data profilePublicKey;
+  public net.minecraft.network.chat.RemoteChatSession$Data(java.util.UUID, net.minecraft.world.entity.player.ProfilePublicKey$Data);
+  public static net.minecraft.network.chat.RemoteChatSession$Data read(net.minecraft.network.FriendlyByteBuf);
+  public static void write(net.minecraft.network.FriendlyByteBuf, net.minecraft.network.chat.RemoteChatSession$Data);
+  public net.minecraft.network.chat.RemoteChatSession validate(com.mojang.authlib.GameProfile, net.minecraft.util.SignatureValidator) throws net.minecraft.world.entity.player.ProfilePublicKey$ValidationException;
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.UUID sessionId();
+  public net.minecraft.world.entity.player.ProfilePublicKey$Data profilePublicKey();
+}
+Compiled from "ResolutionContext.java"
+public final class net.minecraft.network.chat.ResolutionContext extends java.lang.Record {
+  private final net.minecraft.commands.CommandSourceStack source;
+  private final net.minecraft.world.entity.Entity defaultScoreboardEntity;
+  private final java.util.function.Predicate<net.minecraft.network.chat.contents.objects.ObjectInfo> objectInfoValidator;
+  private final int depthLimit;
+  private final net.minecraft.network.chat.ResolutionContext$LimitBehavior depthLimitBehavior;
+  public net.minecraft.network.chat.ResolutionContext(net.minecraft.commands.CommandSourceStack, net.minecraft.world.entity.Entity, java.util.function.Predicate<net.minecraft.network.chat.contents.objects.ObjectInfo>, int, net.minecraft.network.chat.ResolutionContext$LimitBehavior);
+  public net.minecraft.network.chat.contents.objects.ObjectInfo validate(net.minecraft.network.chat.contents.objects.ObjectInfo);
+  public static net.minecraft.network.chat.ResolutionContext create(net.minecraft.commands.CommandSourceStack);
+  public static net.minecraft.network.chat.ResolutionContext$Builder builder();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.commands.CommandSourceStack source();
+  public net.minecraft.world.entity.Entity defaultScoreboardEntity();
+  public java.util.function.Predicate<net.minecraft.network.chat.contents.objects.ObjectInfo> objectInfoValidator();
+  public int depthLimit();
+  public net.minecraft.network.chat.ResolutionContext$LimitBehavior depthLimitBehavior();
+}
+Compiled from "ResolutionContext.java"
+public class net.minecraft.network.chat.ResolutionContext$Builder {
+  private net.minecraft.commands.CommandSourceStack source;
+  private net.minecraft.world.entity.Entity defaultScoreboardEntity;
+  private java.util.function.Predicate<net.minecraft.network.chat.contents.objects.ObjectInfo> objectInfoValidator;
+  private int depthLimit;
+  private net.minecraft.network.chat.ResolutionContext$LimitBehavior depthLimitBehavior;
+  public net.minecraft.network.chat.ResolutionContext$Builder();
+  public net.minecraft.network.chat.ResolutionContext$Builder withSource(net.minecraft.commands.CommandSourceStack);
+  public net.minecraft.network.chat.ResolutionContext$Builder withEntityOverride(net.minecraft.world.entity.Entity);
+  public net.minecraft.network.chat.ResolutionContext$Builder withObjectInfoValidator(java.util.function.Predicate<net.minecraft.network.chat.contents.objects.ObjectInfo>);
+  public net.minecraft.network.chat.ResolutionContext$Builder setDepthLimit(int);
+  public net.minecraft.network.chat.ResolutionContext$Builder setDepthLimitBehavior(net.minecraft.network.chat.ResolutionContext$LimitBehavior);
+  public net.minecraft.network.chat.ResolutionContext build();
+  private static boolean lambda$new$0(net.minecraft.network.chat.contents.objects.ObjectInfo);
+}
+Compiled from "ResolutionContext.java"
+public final class net.minecraft.network.chat.ResolutionContext$LimitBehavior extends java.lang.Enum<net.minecraft.network.chat.ResolutionContext$LimitBehavior> {
+  public static final net.minecraft.network.chat.ResolutionContext$LimitBehavior DISCARD_REMAINING;
+  public static final net.minecraft.network.chat.ResolutionContext$LimitBehavior STOP_PROCESSING_AND_COPY_REMAINING;
+  private static final net.minecraft.network.chat.ResolutionContext$LimitBehavior[] $VALUES;
+  public static net.minecraft.network.chat.ResolutionContext$LimitBehavior[] values();
+  public static net.minecraft.network.chat.ResolutionContext$LimitBehavior valueOf(java.lang.String);
+  private net.minecraft.network.chat.ResolutionContext$LimitBehavior();
+  private static net.minecraft.network.chat.ResolutionContext$LimitBehavior[] $values();
+  static {};
+}
+Compiled from "SignableCommand.java"
+public final class net.minecraft.network.chat.SignableCommand<S> extends java.lang.Record {
+  private final java.util.List<net.minecraft.network.chat.SignableCommand$Argument<S>> arguments;
+  public net.minecraft.network.chat.SignableCommand(java.util.List<net.minecraft.network.chat.SignableCommand$Argument<S>>);
+  public static <S> boolean hasSignableArguments(com.mojang.brigadier.ParseResults<S>);
+  public static <S> net.minecraft.network.chat.SignableCommand<S> of(com.mojang.brigadier.ParseResults<S>);
+  public net.minecraft.network.chat.SignableCommand$Argument<S> getArgument(java.lang.String);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.util.List<net.minecraft.network.chat.SignableCommand$Argument<S>> arguments();
+}
+Compiled from "SignableCommand.java"
+class net.minecraft.network.chat.SignableCommand$1 implements net.minecraft.commands.ArgumentVisitor$Output<S> {
+  final java.lang.String val$commandString;
+  final java.util.List val$arguments;
+  net.minecraft.network.chat.SignableCommand$1(java.lang.String, java.util.List);
+  public <T> void accept(com.mojang.brigadier.context.CommandContextBuilder<S>, com.mojang.brigadier.tree.ArgumentCommandNode<S, T>, com.mojang.brigadier.context.ParsedArgument<S, T>);
+}
+Compiled from "SignableCommand.java"
+public final class net.minecraft.network.chat.SignableCommand$Argument<S> extends java.lang.Record {
+  private final com.mojang.brigadier.tree.ArgumentCommandNode<S, ?> node;
+  private final java.lang.String value;
+  public net.minecraft.network.chat.SignableCommand$Argument(com.mojang.brigadier.tree.ArgumentCommandNode<S, ?>, java.lang.String);
+  public java.lang.String name();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.brigadier.tree.ArgumentCommandNode<S, ?> node();
+  public java.lang.String value();
+}
+Compiled from "SignedMessageBody.java"
+public final class net.minecraft.network.chat.SignedMessageBody extends java.lang.Record {
+  private final java.lang.String content;
+  private final java.time.Instant timeStamp;
+  private final long salt;
+  private final net.minecraft.network.chat.LastSeenMessages lastSeen;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.SignedMessageBody> MAP_CODEC;
+  public net.minecraft.network.chat.SignedMessageBody(java.lang.String, java.time.Instant, long, net.minecraft.network.chat.LastSeenMessages);
+  public static net.minecraft.network.chat.SignedMessageBody unsigned(java.lang.String);
+  public void updateSignature(net.minecraft.util.SignatureUpdater$Output) throws java.security.SignatureException;
+  public net.minecraft.network.chat.SignedMessageBody$Packed pack(net.minecraft.network.chat.MessageSignatureCache);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String content();
+  public java.time.Instant timeStamp();
+  public long salt();
+  public net.minecraft.network.chat.LastSeenMessages lastSeen();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "SignedMessageBody.java"
+public final class net.minecraft.network.chat.SignedMessageBody$Packed extends java.lang.Record {
+  private final java.lang.String content;
+  private final java.time.Instant timeStamp;
+  private final long salt;
+  private final net.minecraft.network.chat.LastSeenMessages$Packed lastSeen;
+  public net.minecraft.network.chat.SignedMessageBody$Packed(net.minecraft.network.FriendlyByteBuf);
+  public net.minecraft.network.chat.SignedMessageBody$Packed(java.lang.String, java.time.Instant, long, net.minecraft.network.chat.LastSeenMessages$Packed);
+  public void write(net.minecraft.network.FriendlyByteBuf);
+  public java.util.Optional<net.minecraft.network.chat.SignedMessageBody> unpack(net.minecraft.network.chat.MessageSignatureCache);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String content();
+  public java.time.Instant timeStamp();
+  public long salt();
+  public net.minecraft.network.chat.LastSeenMessages$Packed lastSeen();
+  private net.minecraft.network.chat.SignedMessageBody lambda$unpack$0(net.minecraft.network.chat.LastSeenMessages);
+}
+Compiled from "SignedMessageChain.java"
+public class net.minecraft.network.chat.SignedMessageChain {
+  private static final org.slf4j.Logger LOGGER;
+  private net.minecraft.network.chat.SignedMessageLink nextLink;
+  private java.time.Instant lastTimeStamp;
+  public net.minecraft.network.chat.SignedMessageChain(java.util.UUID, java.util.UUID);
+  public net.minecraft.network.chat.SignedMessageChain$Encoder encoder(net.minecraft.util.Signer);
+  public net.minecraft.network.chat.SignedMessageChain$Decoder decoder(net.minecraft.world.entity.player.ProfilePublicKey);
+  private net.minecraft.network.chat.MessageSignature lambda$encoder$0(net.minecraft.util.Signer, net.minecraft.network.chat.SignedMessageBody);
+  private static void lambda$encoder$1(net.minecraft.network.chat.SignedMessageLink, net.minecraft.network.chat.SignedMessageBody, net.minecraft.util.SignatureUpdater$Output) throws java.security.SignatureException;
+  static {};
+}
+Compiled from "SignedMessageChain.java"
+class net.minecraft.network.chat.SignedMessageChain$1 implements net.minecraft.network.chat.SignedMessageChain$Decoder {
+  final net.minecraft.world.entity.player.ProfilePublicKey val$profilePublicKey;
+  final net.minecraft.util.SignatureValidator val$signatureValidator;
+  final net.minecraft.network.chat.SignedMessageChain this$0;
+  net.minecraft.network.chat.SignedMessageChain$1();
+  public net.minecraft.network.chat.PlayerChatMessage unpack(net.minecraft.network.chat.MessageSignature, net.minecraft.network.chat.SignedMessageBody) throws net.minecraft.network.chat.SignedMessageChain$DecodeException;
+  public void setChainBroken();
+}
+Compiled from "SignedMessageChain.java"
+public class net.minecraft.network.chat.SignedMessageChain$DecodeException extends net.minecraft.network.chat.ThrowingComponent {
+  private static final net.minecraft.network.chat.Component MISSING_PROFILE_KEY;
+  private static final net.minecraft.network.chat.Component CHAIN_BROKEN;
+  private static final net.minecraft.network.chat.Component EXPIRED_PROFILE_KEY;
+  private static final net.minecraft.network.chat.Component INVALID_SIGNATURE;
+  private static final net.minecraft.network.chat.Component OUT_OF_ORDER_CHAT;
+  public net.minecraft.network.chat.SignedMessageChain$DecodeException(net.minecraft.network.chat.Component);
+  static {};
+}
+Compiled from "SignedMessageChain.java"
+public interface net.minecraft.network.chat.SignedMessageChain$Decoder {
+  public static net.minecraft.network.chat.SignedMessageChain$Decoder unsigned(java.util.UUID, java.util.function.BooleanSupplier);
+  public abstract net.minecraft.network.chat.PlayerChatMessage unpack(net.minecraft.network.chat.MessageSignature, net.minecraft.network.chat.SignedMessageBody) throws net.minecraft.network.chat.SignedMessageChain$DecodeException;
+  public default void setChainBroken();
+  private static net.minecraft.network.chat.PlayerChatMessage lambda$unsigned$0(java.util.function.BooleanSupplier, java.util.UUID, net.minecraft.network.chat.MessageSignature, net.minecraft.network.chat.SignedMessageBody) throws net.minecraft.network.chat.SignedMessageChain$DecodeException;
+}
+Compiled from "SignedMessageChain.java"
+public interface net.minecraft.network.chat.SignedMessageChain$Encoder {
+  public static final net.minecraft.network.chat.SignedMessageChain$Encoder UNSIGNED;
+  public abstract net.minecraft.network.chat.MessageSignature pack(net.minecraft.network.chat.SignedMessageBody);
+  private static net.minecraft.network.chat.MessageSignature lambda$static$0(net.minecraft.network.chat.SignedMessageBody);
+  static {};
+}
+Compiled from "SignedMessageLink.java"
+public final class net.minecraft.network.chat.SignedMessageLink extends java.lang.Record {
+  private final int index;
+  private final java.util.UUID sender;
+  private final java.util.UUID sessionId;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.SignedMessageLink> CODEC;
+  public net.minecraft.network.chat.SignedMessageLink(int, java.util.UUID, java.util.UUID);
+  public static net.minecraft.network.chat.SignedMessageLink unsigned(java.util.UUID);
+  public static net.minecraft.network.chat.SignedMessageLink root(java.util.UUID, java.util.UUID);
+  public void updateSignature(net.minecraft.util.SignatureUpdater$Output) throws java.security.SignatureException;
+  public boolean isDescendantOf(net.minecraft.network.chat.SignedMessageLink);
+  public net.minecraft.network.chat.SignedMessageLink advance();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public int index();
+  public java.util.UUID sender();
+  public java.util.UUID sessionId();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "SignedMessageValidator.java"
+public interface net.minecraft.network.chat.SignedMessageValidator {
+  public static final org.slf4j.Logger LOGGER;
+  public static final net.minecraft.network.chat.SignedMessageValidator ACCEPT_UNSIGNED;
+  public static final net.minecraft.network.chat.SignedMessageValidator REJECT_ALL;
+  public abstract net.minecraft.network.chat.PlayerChatMessage updateAndValidate(net.minecraft.network.chat.PlayerChatMessage);
+  private static net.minecraft.network.chat.PlayerChatMessage lambda$static$0(net.minecraft.network.chat.PlayerChatMessage);
+  static {};
+}
+Compiled from "SignedMessageValidator.java"
+public class net.minecraft.network.chat.SignedMessageValidator$KeyBased implements net.minecraft.network.chat.SignedMessageValidator {
+  private final net.minecraft.util.SignatureValidator validator;
+  private final java.util.function.BooleanSupplier expired;
+  private net.minecraft.network.chat.PlayerChatMessage lastMessage;
+  private boolean isChainValid;
+  public net.minecraft.network.chat.SignedMessageValidator$KeyBased(net.minecraft.util.SignatureValidator, java.util.function.BooleanSupplier);
+  private boolean validateChain(net.minecraft.network.chat.PlayerChatMessage);
+  private boolean validate(net.minecraft.network.chat.PlayerChatMessage);
+  public net.minecraft.network.chat.PlayerChatMessage updateAndValidate(net.minecraft.network.chat.PlayerChatMessage);
+}
+Compiled from "Style.java"
+public final class net.minecraft.network.chat.Style {
+  public static final net.minecraft.network.chat.Style EMPTY;
+  public static final int NO_SHADOW;
+  private final net.minecraft.network.chat.TextColor color;
+  private final java.lang.Integer shadowColor;
+  private final java.lang.Boolean bold;
+  private final java.lang.Boolean italic;
+  private final java.lang.Boolean underlined;
+  private final java.lang.Boolean strikethrough;
+  private final java.lang.Boolean obfuscated;
+  private final net.minecraft.network.chat.ClickEvent clickEvent;
+  private final net.minecraft.network.chat.HoverEvent hoverEvent;
+  private final java.lang.String insertion;
+  private final net.minecraft.network.chat.FontDescription font;
+  private static net.minecraft.network.chat.Style create(java.util.Optional<net.minecraft.network.chat.TextColor>, java.util.Optional<java.lang.Integer>, java.util.Optional<java.lang.Boolean>, java.util.Optional<java.lang.Boolean>, java.util.Optional<java.lang.Boolean>, java.util.Optional<java.lang.Boolean>, java.util.Optional<java.lang.Boolean>, java.util.Optional<net.minecraft.network.chat.ClickEvent>, java.util.Optional<net.minecraft.network.chat.HoverEvent>, java.util.Optional<java.lang.String>, java.util.Optional<net.minecraft.network.chat.FontDescription>);
+  private net.minecraft.network.chat.Style(net.minecraft.network.chat.TextColor, java.lang.Integer, java.lang.Boolean, java.lang.Boolean, java.lang.Boolean, java.lang.Boolean, java.lang.Boolean, net.minecraft.network.chat.ClickEvent, net.minecraft.network.chat.HoverEvent, java.lang.String, net.minecraft.network.chat.FontDescription);
+  public net.minecraft.network.chat.TextColor getColor();
+  public java.lang.Integer getShadowColor();
+  public boolean isBold();
+  public boolean isItalic();
+  public boolean isStrikethrough();
+  public boolean isUnderlined();
+  public boolean isObfuscated();
+  public boolean isEmpty();
+  public net.minecraft.network.chat.ClickEvent getClickEvent();
+  public net.minecraft.network.chat.HoverEvent getHoverEvent();
+  public java.lang.String getInsertion();
+  public net.minecraft.network.chat.FontDescription getFont();
+  private static <T> net.minecraft.network.chat.Style checkEmptyAfterChange(net.minecraft.network.chat.Style, T, T);
+  public net.minecraft.network.chat.Style withColor(net.minecraft.network.chat.TextColor);
+  public net.minecraft.network.chat.Style withColor(net.minecraft.ChatFormatting);
+  public net.minecraft.network.chat.Style withColor(int);
+  public net.minecraft.network.chat.Style withShadowColor(int);
+  public net.minecraft.network.chat.Style withoutShadow();
+  public net.minecraft.network.chat.Style withBold(java.lang.Boolean);
+  public net.minecraft.network.chat.Style withItalic(java.lang.Boolean);
+  public net.minecraft.network.chat.Style withUnderlined(java.lang.Boolean);
+  public net.minecraft.network.chat.Style withStrikethrough(java.lang.Boolean);
+  public net.minecraft.network.chat.Style withObfuscated(java.lang.Boolean);
+  public net.minecraft.network.chat.Style withClickEvent(net.minecraft.network.chat.ClickEvent);
+  public net.minecraft.network.chat.Style withHoverEvent(net.minecraft.network.chat.HoverEvent);
+  public net.minecraft.network.chat.Style withInsertion(java.lang.String);
+  public net.minecraft.network.chat.Style withFont(net.minecraft.network.chat.FontDescription);
+  public net.minecraft.network.chat.Style applyFormat(net.minecraft.ChatFormatting);
+  public net.minecraft.network.chat.Style applyLegacyFormat(net.minecraft.ChatFormatting);
+  public net.minecraft.network.chat.Style applyFormats(net.minecraft.ChatFormatting...);
+  public net.minecraft.network.chat.Style applyTo(net.minecraft.network.chat.Style);
+  public java.lang.String toString();
+  public boolean equals(java.lang.Object);
+  public int hashCode();
+  static {};
+}
+Compiled from "Style.java"
+class net.minecraft.network.chat.Style$1 {
+  static final int[] $SwitchMap$net$minecraft$ChatFormatting;
+  static {};
+}
+Compiled from "Style.java"
+class net.minecraft.network.chat.Style$1Collector {
+  private boolean isNotFirst;
+  final java.lang.StringBuilder val$result;
+  net.minecraft.network.chat.Style$1Collector();
+  private void prependSeparator();
+  private void addFlagString(java.lang.String, java.lang.Boolean);
+  private void addValueString(java.lang.String, java.lang.Object);
+}
+Compiled from "Style.java"
+public class net.minecraft.network.chat.Style$Serializer {
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.Style> MAP_CODEC;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.Style> CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.Style> TRUSTED_STREAM_CODEC;
+  public net.minecraft.network.chat.Style$Serializer();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  private static java.util.Optional lambda$static$11(net.minecraft.network.chat.Style);
+  private static java.util.Optional lambda$static$10(net.minecraft.network.chat.Style);
+  private static java.util.Optional lambda$static$9(net.minecraft.network.chat.Style);
+  private static java.util.Optional lambda$static$8(net.minecraft.network.chat.Style);
+  private static java.util.Optional lambda$static$7(net.minecraft.network.chat.Style);
+  private static java.util.Optional lambda$static$6(net.minecraft.network.chat.Style);
+  private static java.util.Optional lambda$static$5(net.minecraft.network.chat.Style);
+  private static java.util.Optional lambda$static$4(net.minecraft.network.chat.Style);
+  private static java.util.Optional lambda$static$3(net.minecraft.network.chat.Style);
+  private static java.util.Optional lambda$static$2(net.minecraft.network.chat.Style);
+  private static java.util.Optional lambda$static$1(net.minecraft.network.chat.Style);
+  static {};
+}
+Compiled from "SubStringSource.java"
+public class net.minecraft.network.chat.SubStringSource {
+  private final java.lang.String plainText;
+  private final java.util.List<net.minecraft.network.chat.Style> charStyles;
+  private final it.unimi.dsi.fastutil.ints.Int2IntFunction reverseCharModifier;
+  private net.minecraft.network.chat.SubStringSource(java.lang.String, java.util.List<net.minecraft.network.chat.Style>, it.unimi.dsi.fastutil.ints.Int2IntFunction);
+  public java.lang.String getPlainText();
+  public java.util.List<net.minecraft.util.FormattedCharSequence> substring(int, int, boolean);
+  public static net.minecraft.network.chat.SubStringSource create(net.minecraft.network.chat.FormattedText);
+  public static net.minecraft.network.chat.SubStringSource create(net.minecraft.network.chat.FormattedText, it.unimi.dsi.fastutil.ints.Int2IntFunction, java.util.function.UnaryOperator<java.lang.String>);
+  private static java.util.Optional lambda$create$2(java.lang.StringBuilder, java.util.List, net.minecraft.network.chat.Style, java.lang.String);
+  private static boolean lambda$create$3(java.lang.StringBuilder, java.util.List, int, net.minecraft.network.chat.Style, int);
+  private static java.lang.String lambda$create$1(java.lang.String);
+  private static int lambda$create$0(int);
+}
+Compiled from "TextColor.java"
+public final class net.minecraft.network.chat.TextColor {
+  private static final java.lang.String CUSTOM_COLOR_PREFIX;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.TextColor> CODEC;
+  private static final java.util.Map<java.lang.String, net.minecraft.network.chat.TextColor> NAMED_COLORS;
+  public static final net.minecraft.network.chat.TextColor BLACK;
+  public static final net.minecraft.network.chat.TextColor DARK_BLUE;
+  public static final net.minecraft.network.chat.TextColor DARK_GREEN;
+  public static final net.minecraft.network.chat.TextColor DARK_AQUA;
+  public static final net.minecraft.network.chat.TextColor DARK_RED;
+  public static final net.minecraft.network.chat.TextColor DARK_PURPLE;
+  public static final net.minecraft.network.chat.TextColor GOLD;
+  public static final net.minecraft.network.chat.TextColor GRAY;
+  public static final net.minecraft.network.chat.TextColor DARK_GRAY;
+  public static final net.minecraft.network.chat.TextColor BLUE;
+  public static final net.minecraft.network.chat.TextColor GREEN;
+  public static final net.minecraft.network.chat.TextColor AQUA;
+  public static final net.minecraft.network.chat.TextColor RED;
+  public static final net.minecraft.network.chat.TextColor LIGHT_PURPLE;
+  public static final net.minecraft.network.chat.TextColor YELLOW;
+  public static final net.minecraft.network.chat.TextColor WHITE;
+  private final int value;
+  private final java.lang.String name;
+  private net.minecraft.network.chat.TextColor(int, java.lang.String);
+  private net.minecraft.network.chat.TextColor(int);
+  private static net.minecraft.network.chat.TextColor named(java.lang.String, int);
+  public int getValue();
+  public java.lang.String serialize();
+  public final java.lang.String formatValue();
+  public boolean equals(java.lang.Object);
+  public int hashCode();
+  public java.lang.String toString();
+  public static net.minecraft.network.chat.TextColor fromLegacyFormat(net.minecraft.ChatFormatting);
+  public static net.minecraft.network.chat.TextColor fromRgb(int);
+  public static com.mojang.serialization.DataResult<net.minecraft.network.chat.TextColor> parseColor(java.lang.String);
+  private static java.lang.String lambda$parseColor$2(java.lang.String);
+  private static java.lang.String lambda$parseColor$1(java.lang.String);
+  private static java.lang.String lambda$parseColor$0(java.lang.String);
+  static {};
+}
+Compiled from "TextColor.java"
+class net.minecraft.network.chat.TextColor$1 {
+  static final int[] $SwitchMap$net$minecraft$ChatFormatting;
+  static {};
+}
+Compiled from "ThrowingComponent.java"
+public class net.minecraft.network.chat.ThrowingComponent extends java.lang.Exception {
+  private final net.minecraft.network.chat.Component component;
+  public net.minecraft.network.chat.ThrowingComponent(net.minecraft.network.chat.Component);
+  public net.minecraft.network.chat.ThrowingComponent(net.minecraft.network.chat.Component, java.lang.Throwable);
+  public net.minecraft.network.chat.Component getComponent();
+}
+Compiled from "KeybindContents.java"
+public class net.minecraft.network.chat.contents.KeybindContents implements net.minecraft.network.chat.ComponentContents {
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.KeybindContents> MAP_CODEC;
+  private final java.lang.String name;
+  private java.util.function.Supplier<net.minecraft.network.chat.Component> nameResolver;
+  public net.minecraft.network.chat.contents.KeybindContents(java.lang.String);
+  private net.minecraft.network.chat.Component getNestedComponent();
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+  public boolean equals(java.lang.Object);
+  public int hashCode();
+  public java.lang.String toString();
+  public java.lang.String getName();
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.KeybindContents> codec();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  private static java.lang.String lambda$static$1(net.minecraft.network.chat.contents.KeybindContents);
+  static {};
+}
+Compiled from "KeybindResolver.java"
+public class net.minecraft.network.chat.contents.KeybindResolver {
+  static java.util.function.Function<java.lang.String, java.util.function.Supplier<net.minecraft.network.chat.Component>> keyResolver;
+  public net.minecraft.network.chat.contents.KeybindResolver();
+  public static void setKeyResolver(java.util.function.Function<java.lang.String, java.util.function.Supplier<net.minecraft.network.chat.Component>>);
+  private static java.util.function.Supplier lambda$static$0(java.lang.String);
+  private static net.minecraft.network.chat.Component lambda$static$1(java.lang.String);
+  static {};
+}
+Compiled from "NbtContents.java"
+public final class net.minecraft.network.chat.contents.NbtContents extends java.lang.Record implements net.minecraft.network.chat.ComponentContents {
+  private final net.minecraft.util.CompilableString<net.minecraft.commands.arguments.NbtPathArgument$NbtPath> nbtPath;
+  private final boolean interpreting;
+  private final boolean plain;
+  private final java.util.Optional<net.minecraft.network.chat.Component> separator;
+  private final net.minecraft.network.chat.contents.data.DataSource dataSource;
+  private static final org.slf4j.Logger LOGGER;
+  public static final com.mojang.serialization.Codec<net.minecraft.util.CompilableString<net.minecraft.commands.arguments.NbtPathArgument$NbtPath>> NBT_PATH_CODEC;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.NbtContents> MAP_CODEC;
+  public net.minecraft.network.chat.contents.NbtContents(net.minecraft.util.CompilableString<net.minecraft.commands.arguments.NbtPathArgument$NbtPath>, boolean, boolean, java.util.Optional<net.minecraft.network.chat.Component>, net.minecraft.network.chat.contents.data.DataSource);
+  public net.minecraft.network.chat.MutableComponent resolve(net.minecraft.network.chat.ResolutionContext, int) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.NbtContents> codec();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.util.CompilableString<net.minecraft.commands.arguments.NbtPathArgument$NbtPath> nbtPath();
+  public boolean interpreting();
+  public boolean plain();
+  public java.util.Optional<net.minecraft.network.chat.Component> separator();
+  public net.minecraft.network.chat.contents.data.DataSource dataSource();
+  private static net.minecraft.network.chat.MutableComponent lambda$resolve$4(net.minecraft.network.chat.Component, net.minecraft.network.chat.MutableComponent, net.minecraft.network.chat.MutableComponent);
+  private net.minecraft.network.chat.MutableComponent lambda$resolve$3(net.minecraft.nbt.Tag);
+  private static net.minecraft.network.chat.MutableComponent lambda$resolve$2(net.minecraft.network.chat.Component, net.minecraft.network.chat.MutableComponent, net.minecraft.network.chat.MutableComponent);
+  private static java.util.stream.Stream lambda$resolve$1(net.minecraft.resources.RegistryOps, net.minecraft.network.chat.ResolutionContext, int, net.minecraft.nbt.Tag);
+  private java.util.stream.Stream lambda$resolve$0(net.minecraft.nbt.CompoundTag);
+  private static com.mojang.serialization.DataResult lambda$static$1(net.minecraft.network.chat.contents.NbtContents);
+  private static java.lang.String lambda$static$2();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "NbtContents.java"
+class net.minecraft.network.chat.contents.NbtContents$1 extends net.minecraft.util.CompilableString$CommandParserHelper<net.minecraft.commands.arguments.NbtPathArgument$NbtPath> {
+  net.minecraft.network.chat.contents.NbtContents$1();
+  protected net.minecraft.commands.arguments.NbtPathArgument$NbtPath parse(com.mojang.brigadier.StringReader) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  protected java.lang.String errorMessage(java.lang.String, com.mojang.brigadier.exceptions.CommandSyntaxException);
+  protected java.lang.Object parse(com.mojang.brigadier.StringReader) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+}
+Compiled from "ObjectContents.java"
+public final class net.minecraft.network.chat.contents.ObjectContents extends java.lang.Record implements net.minecraft.network.chat.ComponentContents {
+  private final net.minecraft.network.chat.contents.objects.ObjectInfo contents;
+  private final java.util.Optional<net.minecraft.network.chat.Component> fallback;
+  private static final java.lang.String PLACEHOLDER;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.ObjectContents> MAP_CODEC;
+  public net.minecraft.network.chat.contents.ObjectContents(net.minecraft.network.chat.contents.objects.ObjectInfo, java.util.Optional<net.minecraft.network.chat.Component>);
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.ObjectContents> codec();
+  public net.minecraft.network.chat.MutableComponent resolve(net.minecraft.network.chat.ResolutionContext, int) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.network.chat.contents.objects.ObjectInfo contents();
+  public java.util.Optional<net.minecraft.network.chat.Component> fallback();
+  private static net.minecraft.network.chat.Component lambda$resolve$1(net.minecraft.network.chat.MutableComponent);
+  private net.minecraft.network.chat.MutableComponent lambda$resolve$0();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "PlainTextContents.java"
+public interface net.minecraft.network.chat.contents.PlainTextContents extends net.minecraft.network.chat.ComponentContents {
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.PlainTextContents> MAP_CODEC;
+  public static final net.minecraft.network.chat.contents.PlainTextContents EMPTY;
+  public static net.minecraft.network.chat.contents.PlainTextContents create(java.lang.String);
+  public abstract java.lang.String text();
+  public default com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.PlainTextContents> codec();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "PlainTextContents.java"
+class net.minecraft.network.chat.contents.PlainTextContents$1 implements net.minecraft.network.chat.contents.PlainTextContents {
+  net.minecraft.network.chat.contents.PlainTextContents$1();
+  public java.lang.String toString();
+  public java.lang.String text();
+}
+Compiled from "PlainTextContents.java"
+public final class net.minecraft.network.chat.contents.PlainTextContents$LiteralContents extends java.lang.Record implements net.minecraft.network.chat.contents.PlainTextContents {
+  private final java.lang.String text;
+  public net.minecraft.network.chat.contents.PlainTextContents$LiteralContents(java.lang.String);
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+  public java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public java.lang.String text();
+}
+Compiled from "ScoreContents.java"
+public final class net.minecraft.network.chat.contents.ScoreContents extends java.lang.Record implements net.minecraft.network.chat.ComponentContents {
+  private final com.mojang.datafixers.util.Either<net.minecraft.util.CompilableString<net.minecraft.commands.arguments.selector.EntitySelector>, java.lang.String> name;
+  private final java.lang.String objective;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.ScoreContents> INNER_CODEC;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.ScoreContents> MAP_CODEC;
+  public net.minecraft.network.chat.contents.ScoreContents(com.mojang.datafixers.util.Either<net.minecraft.util.CompilableString<net.minecraft.commands.arguments.selector.EntitySelector>, java.lang.String>, java.lang.String);
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.ScoreContents> codec();
+  private net.minecraft.world.scores.ScoreHolder findTargetName(net.minecraft.commands.CommandSourceStack) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  private net.minecraft.network.chat.MutableComponent getScore(net.minecraft.world.scores.ScoreHolder, net.minecraft.commands.CommandSourceStack);
+  public net.minecraft.network.chat.MutableComponent resolve(net.minecraft.network.chat.ResolutionContext, int) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  public java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.datafixers.util.Either<net.minecraft.util.CompilableString<net.minecraft.commands.arguments.selector.EntitySelector>, java.lang.String> name();
+  public java.lang.String objective();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "SelectorContents.java"
+public final class net.minecraft.network.chat.contents.SelectorContents extends java.lang.Record implements net.minecraft.network.chat.ComponentContents {
+  private final net.minecraft.util.CompilableString<net.minecraft.commands.arguments.selector.EntitySelector> selector;
+  private final java.util.Optional<net.minecraft.network.chat.Component> separator;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.SelectorContents> MAP_CODEC;
+  public net.minecraft.network.chat.contents.SelectorContents(net.minecraft.util.CompilableString<net.minecraft.commands.arguments.selector.EntitySelector>, java.util.Optional<net.minecraft.network.chat.Component>);
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.SelectorContents> codec();
+  public net.minecraft.network.chat.MutableComponent resolve(net.minecraft.network.chat.ResolutionContext, int) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.util.CompilableString<net.minecraft.commands.arguments.selector.EntitySelector> selector();
+  public java.util.Optional<net.minecraft.network.chat.Component> separator();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "TranslatableContents.java"
+public class net.minecraft.network.chat.contents.TranslatableContents implements net.minecraft.network.chat.ComponentContents {
+  public static final java.lang.Object[] NO_ARGS;
+  private static final com.mojang.serialization.Codec<java.lang.Object> PRIMITIVE_ARG_CODEC;
+  private static final com.mojang.serialization.Codec<java.lang.Object> ARG_CODEC;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.TranslatableContents> MAP_CODEC;
+  private static final net.minecraft.network.chat.FormattedText TEXT_PERCENT;
+  private static final net.minecraft.network.chat.FormattedText TEXT_NULL;
+  private final java.lang.String key;
+  private final java.lang.String fallback;
+  private final java.lang.Object[] args;
+  private net.minecraft.locale.Language decomposedWith;
+  private java.util.List<net.minecraft.network.chat.FormattedText> decomposedParts;
+  private static final java.util.regex.Pattern FORMAT_PATTERN;
+  private static com.mojang.serialization.DataResult<java.lang.Object> filterAllowedArguments(java.lang.Object);
+  public static boolean isAllowedPrimitiveArgument(java.lang.Object);
+  private static java.util.Optional<java.util.List<java.lang.Object>> adjustArgs(java.lang.Object[]);
+  private static java.lang.Object[] adjustArgs(java.util.Optional<java.util.List<java.lang.Object>>);
+  private static net.minecraft.network.chat.contents.TranslatableContents create(java.lang.String, java.util.Optional<java.lang.String>, java.util.Optional<java.util.List<java.lang.Object>>);
+  public net.minecraft.network.chat.contents.TranslatableContents(java.lang.String, java.lang.String, java.lang.Object[]);
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.TranslatableContents> codec();
+  private void decompose();
+  private void decomposeTemplate(java.lang.String, java.util.function.Consumer<net.minecraft.network.chat.FormattedText>);
+  public final net.minecraft.network.chat.FormattedText getArgument(int);
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$StyledContentConsumer<T>, net.minecraft.network.chat.Style);
+  public <T> java.util.Optional<T> visit(net.minecraft.network.chat.FormattedText$ContentConsumer<T>);
+  public net.minecraft.network.chat.MutableComponent resolve(net.minecraft.network.chat.ResolutionContext, int) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  public boolean equals(java.lang.Object);
+  public int hashCode();
+  public java.lang.String toString();
+  public java.lang.String getKey();
+  public java.lang.String getFallback();
+  public java.lang.Object[] getArgs();
+  private static java.lang.Object[] lambda$adjustArgs$0(java.util.List);
+  private static com.mojang.datafixers.kinds.App lambda$static$4(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  private static java.util.Optional lambda$static$7(net.minecraft.network.chat.contents.TranslatableContents);
+  private static java.util.Optional lambda$static$6(net.minecraft.network.chat.contents.TranslatableContents);
+  private static java.lang.String lambda$static$5(net.minecraft.network.chat.contents.TranslatableContents);
+  private static com.mojang.datafixers.util.Either lambda$static$3(java.lang.Object);
+  private static java.lang.Object lambda$static$0(com.mojang.datafixers.util.Either);
+  private static java.lang.Object lambda$static$2(net.minecraft.network.chat.Component);
+  private static java.lang.Object lambda$static$1(java.lang.Object);
+  private static java.lang.String lambda$filterAllowedArguments$0();
+  static {};
+}
+Compiled from "TranslatableFormatException.java"
+public class net.minecraft.network.chat.contents.TranslatableFormatException extends java.lang.IllegalArgumentException {
+  public net.minecraft.network.chat.contents.TranslatableFormatException(net.minecraft.network.chat.contents.TranslatableContents, java.lang.String);
+  public net.minecraft.network.chat.contents.TranslatableFormatException(net.minecraft.network.chat.contents.TranslatableContents, int);
+  public net.minecraft.network.chat.contents.TranslatableFormatException(net.minecraft.network.chat.contents.TranslatableContents, java.lang.Throwable);
+}
+Compiled from "BlockDataSource.java"
+public final class net.minecraft.network.chat.contents.data.BlockDataSource extends java.lang.Record implements net.minecraft.network.chat.contents.data.DataSource {
+  private final net.minecraft.util.CompilableString<net.minecraft.commands.arguments.coordinates.Coordinates> coordinates;
+  public static final com.mojang.serialization.Codec<net.minecraft.util.CompilableString<net.minecraft.commands.arguments.coordinates.Coordinates>> BLOCK_POS_CODEC;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.data.BlockDataSource> MAP_CODEC;
+  public net.minecraft.network.chat.contents.data.BlockDataSource(net.minecraft.util.CompilableString<net.minecraft.commands.arguments.coordinates.Coordinates>);
+  public java.util.stream.Stream<net.minecraft.nbt.CompoundTag> getData(net.minecraft.commands.CommandSourceStack);
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.data.BlockDataSource> codec();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.util.CompilableString<net.minecraft.commands.arguments.coordinates.Coordinates> coordinates();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "BlockDataSource.java"
+class net.minecraft.network.chat.contents.data.BlockDataSource$1 extends net.minecraft.util.CompilableString$CommandParserHelper<net.minecraft.commands.arguments.coordinates.Coordinates> {
+  net.minecraft.network.chat.contents.data.BlockDataSource$1();
+  protected net.minecraft.commands.arguments.coordinates.Coordinates parse(com.mojang.brigadier.StringReader) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  protected java.lang.String errorMessage(java.lang.String, com.mojang.brigadier.exceptions.CommandSyntaxException);
+  protected java.lang.Object parse(com.mojang.brigadier.StringReader) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+}
+Compiled from "DataSource.java"
+public interface net.minecraft.network.chat.contents.data.DataSource {
+  public abstract java.util.stream.Stream<net.minecraft.nbt.CompoundTag> getData(net.minecraft.commands.CommandSourceStack) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  public abstract com.mojang.serialization.MapCodec<? extends net.minecraft.network.chat.contents.data.DataSource> codec();
+}
+Compiled from "DataSources.java"
+public class net.minecraft.network.chat.contents.data.DataSources {
+  private static final net.minecraft.util.ExtraCodecs$LateBoundIdMapper<java.lang.String, com.mojang.serialization.MapCodec<? extends net.minecraft.network.chat.contents.data.DataSource>> ID_MAPPER;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.data.DataSource> CODEC;
+  public net.minecraft.network.chat.contents.data.DataSources();
+  static {};
+}
+Compiled from "EntityDataSource.java"
+public final class net.minecraft.network.chat.contents.data.EntityDataSource extends java.lang.Record implements net.minecraft.network.chat.contents.data.DataSource {
+  private final net.minecraft.util.CompilableString<net.minecraft.commands.arguments.selector.EntitySelector> selector;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.data.EntityDataSource> MAP_CODEC;
+  public net.minecraft.network.chat.contents.data.EntityDataSource(net.minecraft.util.CompilableString<net.minecraft.commands.arguments.selector.EntitySelector>);
+  public java.util.stream.Stream<net.minecraft.nbt.CompoundTag> getData(net.minecraft.commands.CommandSourceStack) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.data.EntityDataSource> codec();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.util.CompilableString<net.minecraft.commands.arguments.selector.EntitySelector> selector();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "StorageDataSource.java"
+public final class net.minecraft.network.chat.contents.data.StorageDataSource extends java.lang.Record implements net.minecraft.network.chat.contents.data.DataSource {
+  private final net.minecraft.resources.Identifier id;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.data.StorageDataSource> MAP_CODEC;
+  public net.minecraft.network.chat.contents.data.StorageDataSource(net.minecraft.resources.Identifier);
+  public java.util.stream.Stream<net.minecraft.nbt.CompoundTag> getData(net.minecraft.commands.CommandSourceStack);
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.data.StorageDataSource> codec();
+  public java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.resources.Identifier id();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "package-info.java"
+interface net.minecraft.network.chat.contents.data.package-info {
+}
+Compiled from "AtlasSprite.java"
+public final class net.minecraft.network.chat.contents.objects.AtlasSprite extends java.lang.Record implements net.minecraft.network.chat.contents.objects.ObjectInfo {
+  private final net.minecraft.resources.Identifier atlas;
+  private final net.minecraft.resources.Identifier sprite;
+  public static final net.minecraft.resources.Identifier DEFAULT_ATLAS;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.objects.AtlasSprite> MAP_CODEC;
+  public net.minecraft.network.chat.contents.objects.AtlasSprite(net.minecraft.resources.Identifier, net.minecraft.resources.Identifier);
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.objects.AtlasSprite> codec();
+  public net.minecraft.network.chat.FontDescription fontDescription();
+  private static java.lang.String toShortName(net.minecraft.resources.Identifier);
+  public java.lang.String defaultFallback();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.resources.Identifier atlas();
+  public net.minecraft.resources.Identifier sprite();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "ObjectInfo.java"
+public interface net.minecraft.network.chat.contents.objects.ObjectInfo {
+  public abstract net.minecraft.network.chat.FontDescription fontDescription();
+  public abstract java.lang.String defaultFallback();
+  public abstract com.mojang.serialization.MapCodec<? extends net.minecraft.network.chat.contents.objects.ObjectInfo> codec();
+}
+Compiled from "ObjectInfos.java"
+public class net.minecraft.network.chat.contents.objects.ObjectInfos {
+  private static final net.minecraft.util.ExtraCodecs$LateBoundIdMapper<java.lang.String, com.mojang.serialization.MapCodec<? extends net.minecraft.network.chat.contents.objects.ObjectInfo>> ID_MAPPER;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.objects.ObjectInfo> CODEC;
+  public net.minecraft.network.chat.contents.objects.ObjectInfos();
+  static {};
+}
+Compiled from "PlayerSprite.java"
+public final class net.minecraft.network.chat.contents.objects.PlayerSprite extends java.lang.Record implements net.minecraft.network.chat.contents.objects.ObjectInfo {
+  private final net.minecraft.world.item.component.ResolvableProfile player;
+  private final boolean hat;
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.objects.PlayerSprite> MAP_CODEC;
+  public net.minecraft.network.chat.contents.objects.PlayerSprite(net.minecraft.world.item.component.ResolvableProfile, boolean);
+  public net.minecraft.network.chat.FontDescription fontDescription();
+  public java.lang.String defaultFallback();
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.contents.objects.PlayerSprite> codec();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.world.item.component.ResolvableProfile player();
+  public boolean hat();
+  private static java.lang.String lambda$defaultFallback$0(java.lang.String);
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "package-info.java"
+interface net.minecraft.network.chat.contents.objects.package-info {
+}
+Compiled from "package-info.java"
+interface net.minecraft.network.chat.contents.package-info {
+}
+Compiled from "BlankFormat.java"
+public class net.minecraft.network.chat.numbers.BlankFormat implements net.minecraft.network.chat.numbers.NumberFormat {
+  public static final net.minecraft.network.chat.numbers.BlankFormat INSTANCE;
+  public static final net.minecraft.network.chat.numbers.NumberFormatType<net.minecraft.network.chat.numbers.BlankFormat> TYPE;
+  private net.minecraft.network.chat.numbers.BlankFormat();
+  public net.minecraft.network.chat.MutableComponent format(int);
+  public net.minecraft.network.chat.numbers.NumberFormatType<net.minecraft.network.chat.numbers.BlankFormat> type();
+  static {};
+}
+Compiled from "BlankFormat.java"
+class net.minecraft.network.chat.numbers.BlankFormat$1 implements net.minecraft.network.chat.numbers.NumberFormatType<net.minecraft.network.chat.numbers.BlankFormat> {
+  private static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.numbers.BlankFormat> CODEC;
+  private static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.numbers.BlankFormat> STREAM_CODEC;
+  net.minecraft.network.chat.numbers.BlankFormat$1();
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.numbers.BlankFormat> mapCodec();
+  public net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.numbers.BlankFormat> streamCodec();
+  static {};
+}
+Compiled from "FixedFormat.java"
+public final class net.minecraft.network.chat.numbers.FixedFormat extends java.lang.Record implements net.minecraft.network.chat.numbers.NumberFormat {
+  private final net.minecraft.network.chat.Component value;
+  public static final net.minecraft.network.chat.numbers.NumberFormatType<net.minecraft.network.chat.numbers.FixedFormat> TYPE;
+  public net.minecraft.network.chat.numbers.FixedFormat(net.minecraft.network.chat.Component);
+  public net.minecraft.network.chat.MutableComponent format(int);
+  public net.minecraft.network.chat.numbers.NumberFormatType<net.minecraft.network.chat.numbers.FixedFormat> type();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.network.chat.Component value();
+  static {};
+}
+Compiled from "FixedFormat.java"
+class net.minecraft.network.chat.numbers.FixedFormat$1 implements net.minecraft.network.chat.numbers.NumberFormatType<net.minecraft.network.chat.numbers.FixedFormat> {
+  private static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.numbers.FixedFormat> CODEC;
+  private static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.numbers.FixedFormat> STREAM_CODEC;
+  net.minecraft.network.chat.numbers.FixedFormat$1();
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.numbers.FixedFormat> mapCodec();
+  public net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.numbers.FixedFormat> streamCodec();
+  static {};
+}
+Compiled from "NumberFormat.java"
+public interface net.minecraft.network.chat.numbers.NumberFormat {
+  public abstract net.minecraft.network.chat.MutableComponent format(int);
+  public abstract net.minecraft.network.chat.numbers.NumberFormatType<? extends net.minecraft.network.chat.numbers.NumberFormat> type();
+}
+Compiled from "NumberFormatType.java"
+public interface net.minecraft.network.chat.numbers.NumberFormatType<T extends net.minecraft.network.chat.numbers.NumberFormat> {
+  public abstract com.mojang.serialization.MapCodec<T> mapCodec();
+  public abstract net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, T> streamCodec();
+}
+Compiled from "NumberFormatTypes.java"
+public class net.minecraft.network.chat.numbers.NumberFormatTypes {
+  public static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.numbers.NumberFormat> MAP_CODEC;
+  public static final com.mojang.serialization.Codec<net.minecraft.network.chat.numbers.NumberFormat> CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.numbers.NumberFormat> STREAM_CODEC;
+  public static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, java.util.Optional<net.minecraft.network.chat.numbers.NumberFormat>> OPTIONAL_STREAM_CODEC;
+  public net.minecraft.network.chat.numbers.NumberFormatTypes();
+  public static net.minecraft.network.chat.numbers.NumberFormatType<?> bootstrap(net.minecraft.core.Registry<net.minecraft.network.chat.numbers.NumberFormatType<?>>);
+  static {};
+}
+Compiled from "StyledFormat.java"
+public final class net.minecraft.network.chat.numbers.StyledFormat extends java.lang.Record implements net.minecraft.network.chat.numbers.NumberFormat {
+  private final net.minecraft.network.chat.Style style;
+  public static final net.minecraft.network.chat.numbers.NumberFormatType<net.minecraft.network.chat.numbers.StyledFormat> TYPE;
+  public static final net.minecraft.network.chat.numbers.StyledFormat NO_STYLE;
+  public static final net.minecraft.network.chat.numbers.StyledFormat SIDEBAR_DEFAULT;
+  public static final net.minecraft.network.chat.numbers.StyledFormat PLAYER_LIST_DEFAULT;
+  public net.minecraft.network.chat.numbers.StyledFormat(net.minecraft.network.chat.Style);
+  public net.minecraft.network.chat.MutableComponent format(int);
+  public net.minecraft.network.chat.numbers.NumberFormatType<net.minecraft.network.chat.numbers.StyledFormat> type();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public net.minecraft.network.chat.Style style();
+  static {};
+}
+Compiled from "StyledFormat.java"
+class net.minecraft.network.chat.numbers.StyledFormat$1 implements net.minecraft.network.chat.numbers.NumberFormatType<net.minecraft.network.chat.numbers.StyledFormat> {
+  private static final com.mojang.serialization.MapCodec<net.minecraft.network.chat.numbers.StyledFormat> CODEC;
+  private static final net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.numbers.StyledFormat> STREAM_CODEC;
+  net.minecraft.network.chat.numbers.StyledFormat$1();
+  public com.mojang.serialization.MapCodec<net.minecraft.network.chat.numbers.StyledFormat> mapCodec();
+  public net.minecraft.network.codec.StreamCodec<net.minecraft.network.RegistryFriendlyByteBuf, net.minecraft.network.chat.numbers.StyledFormat> streamCodec();
+  static {};
+}
+Compiled from "package-info.java"
+interface net.minecraft.network.chat.numbers.package-info {
+}
+Compiled from "package-info.java"
+interface net.minecraft.network.chat.package-info {
+}

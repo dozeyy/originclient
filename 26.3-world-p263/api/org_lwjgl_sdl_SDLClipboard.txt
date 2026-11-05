@@ -1,0 +1,43 @@
+Compiled from "SDLClipboard.java"
+public class org.lwjgl.sdl.SDLClipboard {
+  protected org.lwjgl.sdl.SDLClipboard();
+  public static boolean nSDL_SetClipboardText(long);
+  public static boolean SDL_SetClipboardText(java.nio.ByteBuffer);
+  public static boolean SDL_SetClipboardText(java.lang.CharSequence);
+  public static long nSDL_GetClipboardText();
+  public static java.lang.String SDL_GetClipboardText();
+  public static boolean SDL_HasClipboardText();
+  public static boolean nSDL_SetPrimarySelectionText(long);
+  public static boolean SDL_SetPrimarySelectionText(java.nio.ByteBuffer);
+  public static boolean SDL_SetPrimarySelectionText(java.lang.CharSequence);
+  public static long nSDL_GetPrimarySelectionText();
+  public static java.lang.String SDL_GetPrimarySelectionText();
+  public static boolean SDL_HasPrimarySelectionText();
+  public static boolean nSDL_SetClipboardData(long, long, long, long, long);
+  public static boolean SDL_SetClipboardData(org.lwjgl.sdl.SDL_ClipboardDataCallbackI, org.lwjgl.sdl.SDL_ClipboardCleanupCallbackI, long, org.lwjgl.PointerBuffer);
+  public static boolean SDL_ClearClipboardData();
+  public static long nSDL_GetClipboardData(long, long);
+  public static java.nio.ByteBuffer SDL_GetClipboardData(java.nio.ByteBuffer);
+  public static java.nio.ByteBuffer SDL_GetClipboardData(java.lang.CharSequence);
+  public static boolean nSDL_HasClipboardData(long);
+  public static boolean SDL_HasClipboardData(java.nio.ByteBuffer);
+  public static boolean SDL_HasClipboardData(java.lang.CharSequence);
+  public static long nSDL_GetClipboardMimeTypes(long);
+  public static org.lwjgl.PointerBuffer SDL_GetClipboardMimeTypes();
+}
+Compiled from "SDLClipboard.java"
+public final class org.lwjgl.sdl.SDLClipboard$Functions {
+  public static final long SetClipboardText;
+  public static final long GetClipboardText;
+  public static final long HasClipboardText;
+  public static final long SetPrimarySelectionText;
+  public static final long GetPrimarySelectionText;
+  public static final long HasPrimarySelectionText;
+  public static final long SetClipboardData;
+  public static final long ClearClipboardData;
+  public static final long GetClipboardData;
+  public static final long HasClipboardData;
+  public static final long GetClipboardMimeTypes;
+  private org.lwjgl.sdl.SDLClipboard$Functions();
+  static {};
+}

@@ -1,0 +1,838 @@
+Picked up JAVA_TOOL_OPTIONS:  -Dorigin.handoff=0123456789abcdef0123456789abcdef
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-9.5.1-bin.zip
+.............10%.............20%..............30%.............40%.............50%..............60%.............70%..............80%.............90%.............100%
+
+Welcome to Gradle 9.5.1!
+
+Here are the highlights of this release:
+ - Task provenance in reports and failure messages
+ - Type-safe accessors for precompiled Kotlin Settings plugins
+
+For more details see https://docs.gradle.org/9.5.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.17.21
+
+> Task :compileJava
+> Task :processResources
+> Task :classes
+
+> Task :compileClientJava
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:61: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static final Map<String, IJeiConfigValue<?>> HANDLES = new LinkedHashMap<>();
+	                                 ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] getConfigManager() in IJeiRuntime has been deprecated and marked for removal
+			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+			                             ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+			     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:118: warning: [removal] IJeiConfigCategory in mezz.jei.api.runtime.config has been deprecated and marked for removal
+				for (IJeiConfigCategory cat : file.getCategories()) {
+				     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:120: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+					for (IJeiConfigValue<?> v : cat.getConfigValues()) {
+					     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:141: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static ModOption build(String category, IJeiConfigValue<?> v) {
+	                                                ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:144: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			IJeiConfigValueSerializer<?> ser = v.getSerializer();
+			^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:148: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			if (ser instanceof IJeiConfigListValueSerializer<?> ls) {
+			                   ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:184: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:200: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:217: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:242: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:255: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> String readTyped(IJeiConfigValue<T> v) {
+	                                    ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:259: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> void writeTyped(IJeiConfigValue<T> v, String s) {
+	                                   ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:260: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValueSerializer.IDeserializeResult<T> r = v.getSerializer().deserialize(s);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:269: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> List<String> validTokens(IJeiConfigValueSerializer<T> ser) {
+	                                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:281: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <E> List<String> elementChoices(IJeiConfigListValueSerializer<E> ls) {
+	                                               ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:287: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static double[] bounds(String key, IJeiConfigValueSerializer<?> ser, int pivot) {
+	                                           ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:314: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static int probeMin(IJeiConfigValueSerializer<?> ser, int pivot) {
+	                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:330: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static int probeMax(IJeiConfigValueSerializer<?> ser, int pivot) {
+	                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:346: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static boolean validInt(IJeiConfigValueSerializer<?> ser, int x) {
+	                                ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:356: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static String fileName(IJeiConfigFile file) {
+	                               ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+22 warnings
+
+> Task :processClientResources
+> Task :clientClasses
+> Task :generateLog4jConfig
+> Task :generateDLIConfig
+> Task :configureLaunch
+> Task :downloadAssets
+> Task :configureClientLaunch
+
+> Task :runClient
+Picked up JAVA_TOOL_OPTIONS:  -Dorigin.handoff=0123456789abcdef0123456789abcdef
+[0.002s][info][gc] Using G1
+[16:07:54] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.3 with Fabric Loader 0.19.5
+[16:07:54] [main/INFO] (FabricLoader/Mappings) Mappings not present!
+[0.999s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 73M->20M(264M) 6.777ms
+[16:07:55] [main/INFO] (FabricLoader) Loading 54 mods:
+	- fabric-advancement-api-v1 1.0.0+38c7a2d55d
+	- fabric-api 0.162.0+26.3
+	- fabric-api-base 2.0.6+fcdff87f5d
+	- fabric-api-lookup-api-v1 2.0.24+3434d6d95d
+	- fabric-biome-api-v1 20.1.0+c6aa69a85d
+	- fabric-block-api-v1 3.1.0+0ae6f9115d
+	- fabric-block-getter-api-v2 2.0.9+3434d6d95d
+	- fabric-client-gametest-api-v1 6.0.8+4be74c3f5d
+	- fabric-command-api-v2 3.1.2+fcdff87f5d
+	- fabric-content-registries-v0 15.0.4+74ed1ea55d
+	- fabric-convention-tags-v2 4.10.3+6b5b47fd5d
+	- fabric-crash-report-info-v1 1.0.7+fcdff87f5d
+	- fabric-creative-tab-api-v1 5.0.21+fcdff87f5d
+	- fabric-data-attachment-api-v1 2.2.31+b9b88df45d
+	- fabric-data-generation-api-v1 27.3.0+5be2453c5d
+	- fabric-debug-api-v1 1.0.4+3434d6d95d
+	- fabric-dimensions-v1 5.1.19+47f74c985d
+	- fabric-entity-events-v1 6.0.4+3434d6d95d
+	- fabric-events-interaction-v0 5.3.7+b9b88df45d
+	- fabric-game-rule-api-v1 4.0.10+3434d6d95d
+	- fabric-gametest-api-v1 4.0.33+3434d6d95d
+	- fabric-item-api-v1 14.7.0+cf6bc2db5d
+	- fabric-key-mapping-api-v1 2.0.8+3434d6d95d
+	- fabric-lifecycle-events-v1 4.1.9+ffef5f675d
+	- fabric-loot-api-v3 4.0.8+4068fd645d
+	- fabric-menu-api-v1 2.0.28+ed66f0a35d
+	- fabric-message-api-v1 7.0.10+3434d6d95d
+	- fabric-model-loading-api-v1 8.0.35+fcdff87f5d
+	- fabric-networking-api-v1 6.3.9+b9b88df45d
+	- fabric-object-builder-api-v1 24.1.10+3434d6d95d
+	- fabric-particles-v1 5.0.25+3434d6d95d
+	- fabric-permission-api-v1 1.0.8+fcdff87f5d
+	- fabric-recipe-api-v1 10.0.9+b9b88df45d
+	- fabric-registry-sync-v0 8.0.2+1ca9f6365d
+	- fabric-renderer-api-v1 17.0.15+79385d0b5d
+	- fabric-renderer-indigo 9.1.23+b9d63e335d
+	- fabric-rendering-fluids-v1 6.0.6+3434d6d95d
+	- fabric-rendering-v1 27.0.14+901a437c5d
+	- fabric-resource-conditions-api-v1 6.2.0+0d124ae85d
+	- fabric-resource-loader-v0 3.3.26+4fc5413f5d
+	- fabric-resource-loader-v1 3.0.4+fcdff87f5d
+	- fabric-screen-api-v1 5.2.4+48607d035d
+	- fabric-serialization-api-v1 2.0.7+74ed1ea55d
+	- fabric-sound-api-v1 2.0.7+3434d6d95d
+	- fabric-tag-api-v1 2.1.10+fcdff87f5d
+	- fabric-transfer-api-v1 8.0.25+fcdff87f5d
+	- fabric-transitive-access-wideners-v1 8.1.16+52268a0e5d
+	- fabricloader 0.19.5
+	- java 25
+	- jei 31.12.0.65
+	   \-- mezz_config 0.6.6
+	- minecraft 26.3
+	- mixinextras 0.5.5
+	- originclient 0.4.2
+[16:07:55] [main/INFO] (FabricLoader/Mixin) SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/5f66cc9f59b8efaa942155a3d5a30599bf6640dd/sponge-mixin-0.17.4+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[1.660s][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 108M->32M(264M) 6.938ms
+[16:07:55] [main/WARN] (FabricLoader/Mixin) Error loading class: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives (java.lang.ClassNotFoundException: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives)
+[1.936s][info][gc] GC(2) Pause Young (Normal) (G1 Evacuation Pause) 120M->41M(264M) 11.456ms
+[2.192s][info][gc] GC(3) Pause Young (Concurrent Start) (G1 Evacuation Pause) 129M->48M(264M) 12.044ms
+[2.192s][info][gc] GC(4) Concurrent Mark Cycle
+[2.229s][info][gc] GC(4) Pause Remark 63M->63M(192M) 3.475ms
+[2.244s][info][gc] GC(4) Pause Cleanup 67M->67M(192M) 0.021ms
+[2.248s][info][gc] GC(4) Concurrent Mark Cycle 55.468ms
+[16:07:56] [main/INFO] (Origin) origin-handoff 0123456789abcdef0123456789abcdef hello
+[16:07:56] [main/INFO] (FabricLoader/MixinExtras|Service) Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.5).
+[2.722s][info][gc] GC(5) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 112M->49M(192M) 10.313ms
+[3.416s][info][gc] GC(6) Pause Young (Mixed) (Metadata GC Threshold) 97M->45M(192M) 6.476ms
+[3.443s][info][gc] GC(7) Pause Young (Concurrent Start) (Metadata GC Threshold) 50M->46M(192M) 1.982ms
+[3.443s][info][gc] GC(8) Concurrent Mark Cycle
+[3.501s][info][gc] GC(8) Pause Remark 53M->53M(192M) 6.170ms
+[3.538s][info][gc] GC(8) Pause Cleanup 55M->55M(192M) 0.019ms
+[3.539s][info][gc] GC(8) Concurrent Mark Cycle 95.739ms
+[3.961s][info][gc] GC(9) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 110M->55M(192M) 9.435ms
+[4.297s][info][gc] GC(10) Pause Young (Mixed) (G1 Evacuation Pause) 135M->78M(232M) 19.526ms
+[4.642s][info][gc] GC(11) Pause Young (Concurrent Start) (G1 Evacuation Pause) 158M->94M(232M) 31.237ms
+[4.642s][info][gc] GC(12) Concurrent Mark Cycle
+[16:07:58] [Datafixer Bootstrap #0/INFO] (Minecraft) 307 Datafixer optimizations took 647 milliseconds
+[4.783s][info][gc] GC(12) Pause Remark 105M->105M(232M) 7.901ms
+[4.838s][info][gc] GC(12) Pause Cleanup 105M->105M(232M) 0.025ms
+[4.839s][info][gc] GC(12) Concurrent Mark Cycle 196.571ms
+[5.409s][info][gc] GC(13) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 174M->100M(232M) 18.264ms
+[5.905s][info][gc] GC(14) Pause Young (Mixed) (G1 Evacuation Pause) 180M->99M(232M) 22.418ms
+[6.471s][info][gc] GC(15) Pause Young (Concurrent Start) (G1 Evacuation Pause) 179M->104M(232M) 7.702ms
+[6.471s][info][gc] GC(16) Concurrent Mark Cycle
+[6.631s][info][gc] GC(16) Pause Remark 126M->126M(232M) 10.882ms
+[6.688s][info][gc] GC(16) Pause Cleanup 134M->134M(232M) 0.023ms
+[6.690s][info][gc] GC(16) Concurrent Mark Cycle 218.604ms
+[6.912s][info][gc] GC(17) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 184M->110M(232M) 10.964ms
+[7.153s][info][gc] GC(18) Pause Young (Mixed) (G1 Evacuation Pause) 190M->113M(344M) 18.043ms
+[7.904s][info][gc] GC(19) Pause Young (Normal) (G1 Evacuation Pause) 241M->118M(344M) 9.012ms
+[8.513s][info][gc] GC(20) Pause Young (Normal) (G1 Evacuation Pause) 246M->123M(344M) 8.830ms
+[8.891s][info][gc] GC(21) Pause Young (Normal) (G1 Evacuation Pause) 251M->127M(344M) 6.131ms
+[9.166s][info][gc] GC(22) Pause Young (Normal) (G1 Evacuation Pause) 255M->132M(344M) 9.353ms
+[9.703s][info][gc] GC(23) Pause Young (Normal) (G1 Evacuation Pause) 260M->136M(440M) 7.245ms
+[10.169s][info][gc] GC(24) Pause Young (Concurrent Start) (Metadata GC Threshold) 259M->139M(440M) 8.294ms
+[10.169s][info][gc] GC(25) Concurrent Mark Cycle
+[10.388s][info][gc] GC(25) Pause Remark 187M->187M(440M) 6.647ms
+[10.470s][info][gc] GC(25) Pause Cleanup 193M->193M(440M) 0.024ms
+[10.471s][info][gc] GC(25) Concurrent Mark Cycle 302.611ms
+[16:08:04] [Render thread/INFO] (Minecraft) Environment: Environment[discoveryUrl=https://discovery.minecraftservices.com/minecraft/client, name=PROD]
+[16:08:04] [Render thread/INFO] (Minecraft) Setting user: Player629
+[16:08:04] [Render thread/INFO] (originclient) Origin Client initializing
+[11.027s][info][gc] GC(26) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 307M->158M(440M) 14.409ms
+[16:08:05] [Render thread/INFO] (originclient) Seeded new instance from bundled default-mods-config.json
+[16:08:05] [Render thread/INFO] (originclient) [dev-shots] style override 'vanilla' (was buttons=Origin, menu=Origin)
+[16:08:05] [Render thread/INFO] (originclient) Origin: MSDF text, icon SDF and colour-grade pipelines build on first use (26.2).
+[16:08:05] [Render thread/INFO] (PluginCaller) Sending ConfigManager...
+[16:08:05] [Render thread/INFO] (PluginCaller) Sending ConfigManager took 1.085 milliseconds
+[16:08:05] [Render thread/INFO] (Indigo) [Indigo] Registering Indigo renderer!
+[16:08:05] [Render thread/INFO] (Minecraft) Backend library: LWJGL version 3.4.3-snapshot
+[16:08:05] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App name: Minecraft
+[16:08:05] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App version: 26.3
+[16:08:05] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App ID: com.mojang.minecraft
+[16:08:05] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: SDL revision: SDL-3.4.14--128-NOTFOUND
+[16:08:07] [Render thread/INFO] (Minecraft) Using graphics backend OpenGL, using drivers: 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.4
+[16:08:07] [Render thread/INFO] (Minecraft) Using graphics device: llvmpipe (LLVM 20.1.2, 256 bits) (Mesa)
+[16:08:07] [Render thread/INFO] (Minecraft) Using graphics device extensions: GL_ARB_multi_draw_indirect, GL_ARB_buffer_storage, GL_ARB_shader_draw_parameters, GL_ARB_base_instance, GL_KHR_debug, GL_ARB_draw_indirect, GL_ARB_clip_control, GL_ARB_vertex_attrib_binding, GL_ARB_direct_state_access, GL_EXT_texture_filter_anisotropic
+[16:08:07] [Render thread/INFO] (Minecraft) Created window using SDL video driver: x11
+[13.460s][info][gc] GC(27) Pause Young (Mixed) (G1 Evacuation Pause) 326M->162M(440M) 20.318ms
+[16:08:08] [Download-2/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
+[16:08:08] [Render thread/ERROR] (Minecraft) Error while loading the narrator
+
+com.mojang.text2speech.Narrator$InitializeException: Failed to load library flite
+	at knot//com.mojang.text2speech.NarratorLinux$FliteLibrary.loadNative(NarratorLinux.java:82)
+	at knot//com.mojang.text2speech.NarratorLinux.<init>(NarratorLinux.java:19)
+	at knot//com.mojang.text2speech.Narrator.getNarrator(Narrator.java:41)
+	at knot//net.minecraft.client.GameNarrator.<init>(GameNarrator.java:20)
+	at knot//net.minecraft.client.Minecraft.<init>(Minecraft.java:740)
+	at knot//net.minecraft.client.main.Main.main(Main.java:278)
+	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:517)
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
+	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
+Caused by: java.lang.UnsatisfiedLinkError: Unable to load library 'flite':
+libflite.so: cannot open shared object file: No such file or directory
+libflite.so: cannot open shared object file: No such file or directory
+Native library (linux-x86-64/libflite.so) not found in resource path (/home/runner/work/originclient/originclient/src/mods/versions/26.3/build/classes/java/client:/home/runner/work/originclient/originclient/src/mods/versions/26.3/build/resources/client:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/fabric-loader/0.19.5/ff9e65cffca4a67f31523e1807fe0855940fcbfa/fabric-loader-0.19.5.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api/0.162.0+26.3/273cd2dcbd92d1559edcc91c9f23fee47f6ff93f/fabric-api-0.162.0+26.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/maven.modrinth/jei/31.12.0.65/ba5a0bf10e0a8625bcab57e9a0dec43118ec6e74/jei-31.12.0.65.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-webp/3.12.0/390599d525f6af2af4d94bd549411d6e1d47ea07/imageio-webp-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.10.1/ada2141c0cc52ee8f5c48cd5fa4ce0e794f22236/asm-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-analysis/9.10.1/8d49f14d51f632cb1d87c88d1ceaf50db0d8af1b/asm-analysis-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-commons/9.10.1/4229e4c55fd8e01c23f9fe9884075cc628aacc50/asm-commons-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-tree/9.10.1/e244332a17564c1d1572449399a842de35881be2/asm-tree-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-util/9.10.1/7bb9d450e8d4cbf9f9e04096c44bbfe7fba80b15/asm-util-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/5f66cc9f59b8efaa942155a3d5a30599bf6640dd/sponge-mixin-0.17.4+mixin.0.8.7.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.github.llamalad7/mixinextras-fabric/0.5.5/d1055b99c0ab08a8403fe2da3d79ca28e6340a76/mixinextras-fabric-0.5.5.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/dev-launch-injector/0.2.1+build.8/da8bef7e6e2f952da707f282bdb46882a0fce5e3/dev-launch-injector-0.2.1+build.8.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/fabric-log4j-util/1.0.2/ef0b3fb613356feb75a67d54f2fad6f03a006648/fabric-log4j-util-1.0.2.jar:/home/runner/.gradle/caches/modules-2/files-2.1/at.yawk.lz4/lz4-java/1.10.1/f541d7f910fe3d76f38f799c507c48cc81b12ecb/lz4-java-1.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.azure/azure-json/1.4.0/fcc1d354dbc3e0300e5276b1bf124d0247799cd8/azure-json-1.4.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.github.oshi/oshi-core/6.9.0/3224870731860cfcd7744581a05b559e94291e7/oshi-core-6.9.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/2.14.0/efc0e34ede4e3204eaefb84a00e55e8c86634382/gson-2.14.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.guava/failureaccess/1.0.3/aeaffd00d57023a2c947393ed251f0354f0985fc/failureaccess-1.0.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/33.6.0-jre/c376b13067cc99a5774403530953f7b05a91e218/guava-33.6.0-jre.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.ibm.icu/icu4j/78.3/6a851a53bb1f25689fc418dcc8935b0d93580adf/icu4j-78.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.microsoft.azure/msal4j/1.24.1/c233f2d047b9755f7041adf21a858c680e4c9242/msal4j-1.24.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/authlib/10.0.77/add8754cda96cf0cd840441632875648836f8a71/authlib-10.0.77.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/blocklist/1.0.10/5c685c5ffa94c4cd39496c7184c1d122e515ecef/blocklist-1.0.10.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/brigadier/1.3.11/3373d1e7bf00c8b99bed1ea4efb8c47344e4a887/brigadier-1.3.11.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/datafixerupper/10.0.21/b6b2ae770c02e0c1eb90f9985b151e9085a38d0b/datafixerupper-10.0.21.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/jtracy/1.14.38/cc2ad81342001b4281c305a298d7f50332354058/jtracy-1.14.38.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/jtracy/1.14.38/d2433300f8a4e99595d513546d19ecddc3eaa15e/jtracy-1.14.38-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/logging/1.7.12/351cea64a5233361327d8d54c44277041beed97f/logging-1.7.12.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/patchy/2.2.10/da05971b07cbb379d002cf7eaec6a2048211fefc/patchy-2.2.10.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/text2speech/1.19.12/2e517a75c79d34d32de2b5d68422150836c2133e/text2speech-1.19.12.jar:/home/runner/.gradle/caches/modules-2/files-2.1/commons-codec/commons-codec/1.22.0/6b3eb4beb7058c2a638f5f17bcb388649fd339dd/commons-codec-1.22.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/commons-io/commons-io/2.20.0/36f3474daec2849c149e877614e7f979b2082cd2/commons-io-2.20.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-buffer/4.2.16.Final/5397ef65dcb60670e0e0dba4854522873af3070/netty-buffer-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-base/4.2.16.Final/1a01d45a9efc228c6d747525848b065e0656b5f/netty-codec-base-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-compression/4.2.16.Final/bdbbcfcdbe217b95c14a04df4fc5d31213d5c27c/netty-codec-compression-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-http/4.2.16.Final/b5e0715df90047ee5a0138c8f704f43c751009e4/netty-codec-http-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-common/4.2.16.Final/c2bc7fa5acfa2afc777e944d84f0aa65559cc81e/netty-common-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-handler/4.2.16.Final/cc82873ae4b6d14effe480740ad838de09add70d/netty-handler-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-resolver/4.2.16.Final/fcea6d64273b59ab9127b68c16ae98af34642139/netty-resolver-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-epoll/4.2.16.Final/cf90c7b892e284ba9f1545dce170168369b3b9d6/netty-transport-classes-epoll-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-kqueue/4.2.16.Final/fa2bcf8c71626510f6fae173f78182117b70f7a/netty-transport-classes-kqueue-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-epoll/4.2.16.Final/eed34f3b37b4c46a0cbb49456ccc4e3bd7195e4c/netty-transport-native-epoll-4.2.16.Final-linux-aarch_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-epoll/4.2.16.Final/439c24f5c27c220deb042b42e4048d606edeb78d/netty-transport-native-epoll-4.2.16.Final-linux-x86_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-unix-common/4.2.16.Final/3cf32390f1b80af890ac44aa0698c2ff58c2a4d7/netty-transport-native-unix-common-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport/4.2.16.Final/ae87a3bec51d503475a19fbd718bf777f2fc06c6/netty-transport-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/it.unimi.dsi/fastutil/8.5.18/a6cff377eecc19c2037bf31568a6d7106b50ba1f/fastutil-8.5.18.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna-platform/5.17.0/a4934c44d25a9d8c2ddf4203affd20330cb3426f/jna-platform-5.17.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.17.0/33d12735bef894440780fce64f9758d420c7bae2/jna-5.17.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.sf.jopt-simple/jopt-simple/5.0.4/4fdac2fbe92dfad86aa6e9301736f6b4342a3f5c/jopt-simple-5.0.4.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-compress/1.28.0/e482f2c7a88dac3c497e96aa420b6a769f59c8d7/commons-compress-1.28.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-lang3/3.20.0/65897b3e5731220962e659e001904af3c3cbeba9/commons-lang3-3.20.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-api/2.26.0/ad52af0ecf054a7e3f275a2e180ee06d9c490951/log4j-api-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-core/2.26.0/d267ca60b27ddb075e0b4e75e7875859717bf85f/log4j-core-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-slf4j2-impl/2.26.0/668c0f0e813d83f00a7182533aa658ec7e7a0a0d/log4j-slf4j2-impl-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.jcraft/jorbis/0.0.17/8872d22b293e8f5d7d56ff92be966e6dc28ebdc6/jorbis-0.0.17.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.joml/joml/1.10.9/438e036486bad66b189bff385dd07dea4f74a146/joml-1.10.9.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.jspecify/jspecify/1.0.0/7425a601c1c7ec76645a78d22b8c6a627edee507/jspecify-1.0.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-freetype/3.4.3/d2b12961d44f92860fb1ab501f9c69b7a2975236/lwjgl-freetype-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-freetype/3.4.3/38f27c9a0fbe000bfb38b295c32944d699e246e9/lwjgl-freetype-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-jemalloc/3.4.3/350f317eaf5295b1e53f6664ef5fdeeaaa7dcbf0/lwjgl-jemalloc-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-jemalloc/3.4.3/ca21b4b4c6d223907de645a18436ef6f677a5d4f/lwjgl-jemalloc-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-openal/3.4.3/32b52cda5af6937a4e4bd321bdb83082025cb332/lwjgl-openal-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-openal/3.4.3/7daa62f9f7b38b30e8a3d3bc7069e9b2e3cd52f0/lwjgl-openal-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-opengl/3.4.3/b81769ee48050f8c71e70839505f350bf9219d90/lwjgl-opengl-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-opengl/3.4.3/ec6fb42167943e94f7f0b14707c1737653c4044b/lwjgl-opengl-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-sdl/3.4.3/c02146735d6ff70d070c73532b435e5c893a346b/lwjgl-sdl-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-sdl/3.4.3/6ed1b80b7c211a491612c70e43f27ba1f42cccd0/lwjgl-sdl-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-shaderc/3.4.3/ba9fbc8fc4d50b3e4b436cc958ddb4abdb05867c/lwjgl-shaderc-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-shaderc/3.4.3/37faa5824f75901f4961e56805aedf68e13cf8b/lwjgl-shaderc-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-spvc/3.4.3/98e5b5ef5159100b26a169a9aed6c24e820e3eaa/lwjgl-spvc-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-spvc/3.4.3/709eb01deec4bdafb7634b125a63fd8de172fc50/lwjgl-spvc-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-stb/3.4.3/cdce54785bd3758e44a81f345d6260774d921c78/lwjgl-stb-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-stb/3.4.3/3878e44ce27c12791e570b5c8754ef3b68401dd3/lwjgl-stb-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vma/3.4.3/816a6ac87f1e447e5346ca0e7a1078353f51fbd6/lwjgl-vma-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vma/3.4.3/3a9a95d3e83f7fc49c6ed8d0e1c853b77662d90e/lwjgl-vma-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vulkan/3.4.3/ffdaf1898192059f059d66f9fa37e3debcac10e0/lwjgl-vulkan-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl/3.4.3/7ab5265a73d8a959ed62332d546536ae6be2f0d5/lwjgl-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl/3.4.3/2800e134537db1a175eba41c430b1018eddc48f0/lwjgl-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/2.0.17/d9e58ac9c7779ba3bf8142aff6c830617a7fe60f/slf4j-api-2.0.17.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.3/.gradle/loom-cache/minecraftMaven/net/minecraft/minecraft-clientOnly-6be6298dfc/26.3/minecraft-clientOnly-6be6298dfc-26.3.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.3/.gradle/loom-cache/minecraftMaven/net/minecraft/minecraft-common-6be6298dfc/26.3/minecraft-common-6be6298dfc-26.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-kqueue/4.2.16.Final/dd9d41b06355a6a1815d902ee087a693aab83755/netty-transport-native-kqueue-4.2.16.Final-osx-x86_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-kqueue/4.2.16.Final/ddb942cad6c0e978caa2215757512b36c5ffacec/netty-transport-native-kqueue-4.2.16.Final-osx-aarch_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-advancement-api-v1/1.0.0+38c7a2d55d/54c209419f01d579761838892772d4196436752b/fabric-advancement-api-v1-1.0.0+38c7a2d55d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-transfer-api-v1/8.0.25+fcdff87f5d/4680f760ffbd28c38f899488ded76fd7c26082c8/fabric-transfer-api-v1-8.0.25+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api-lookup-api-v1/2.0.24+3434d6d95d/29c412a6baf8e69bf71cab6b7a65b5096ff29a3/fabric-api-lookup-api-v1-2.0.24+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-block-api-v1/3.1.0+0ae6f9115d/78badf0c664259627830111f2ac0ad2f9f0ff2f7/fabric-block-api-v1-3.1.0+0ae6f9115d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-command-api-v2/3.1.2+fcdff87f5d/69de6c0f1f5926309dad2cd9569027a6d4d99493/fabric-command-api-v2-3.1.2+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-content-registries-v0/15.0.4+74ed1ea55d/c316198aeaa747228437e01f8c81efb134dca9f2/fabric-content-registries-v0-15.0.4+74ed1ea55d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-data-generation-api-v1/27.3.0+5be2453c5d/65dc79f8002df45acf305f333f97ee513469818c/fabric-data-generation-api-v1-27.3.0+5be2453c5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-convention-tags-v2/4.10.3+6b5b47fd5d/4e4591576deeb6317809bc11e50ecf32a0212c1f/fabric-convention-tags-v2-4.10.3+6b5b47fd5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-creative-tab-api-v1/5.0.21+fcdff87f5d/c0d1736c1f7b6166f1925eb0bd79f9c97cd1494/fabric-creative-tab-api-v1-5.0.21+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-data-attachment-api-v1/2.2.31+b9b88df45d/8fda0bdcee0503001139a672c5262b5f5c0a928d/fabric-data-attachment-api-v1-2.2.31+b9b88df45d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-debug-api-v1/1.0.4+3434d6d95d/e4812b5812a9d92b97604bdf2737780d3cc7612e/fabric-debug-api-v1-1.0.4+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-dimensions-v1/5.1.19+47f74c985d/2d10026da0876c1e887b512b26d2813a1646c132/fabric-dimensions-v1-5.1.19+47f74c985d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-entity-events-v1/6.0.4+3434d6d95d/731754a9bdfc6784a41d8fb17cd6c08f58fe31e0/fabric-entity-events-v1-6.0.4+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-events-interaction-v0/5.3.7+b9b88df45d/bb48236344859461366565b719766f60e12fbaa5/fabric-events-interaction-v0-5.3.7+b9b88df45d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-game-rule-api-v1/4.0.10+3434d6d95d/3f73b9e94995f6f8a0d38955b98b67ac8d6bb089/fabric-game-rule-api-v1-4.0.10+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-gametest-api-v1/4.0.33+3434d6d95d/5d86ccd1fded7b5fd0f6982e01a60305346528ae/fabric-gametest-api-v1-4.0.33+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-item-api-v1/14.7.0+cf6bc2db5d/9d9e319928f67f49029c86ae56d0414997a534ac/fabric-item-api-v1-14.7.0+cf6bc2db5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-recipe-api-v1/10.0.9+b9b88df45d/5d9592d00e5971ccfd77d3cc77b94268fd471ca9/fabric-recipe-api-v1-10.0.9+b9b88df45d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-model-loading-api-v1/8.0.35+fcdff87f5d/51079fee66e5b86d8092981bb1cd19d40a97491e/fabric-model-loading-api-v1-8.0.35+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-renderer-indigo/9.1.23+b9d63e335d/d3277e5c11edc7f939ac3ed7f189de56905561c7/fabric-renderer-indigo-9.1.23+b9d63e335d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-renderer-api-v1/17.0.15+79385d0b5d/48172c900e57dbf125490cd132e04fdfdecac7e8/fabric-renderer-api-v1-17.0.15+79385d0b5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-rendering-v1/27.0.14+901a437c5d/b7b356249f2c16fa58410e8c7694c75f0468a403/fabric-rendering-v1-27.0.14+901a437c5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-lifecycle-events-v1/4.1.9+ffef5f675d/4184b98a6c1dbfcf6c63dab29cf7f5812d9eaf73/fabric-lifecycle-events-v1-4.1.9+ffef5f675d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-loot-api-v3/4.0.8+4068fd645d/3f74e49f671c5ef812512b9ff6ca35a531f06cf7/fabric-loot-api-v3-4.0.8+4068fd645d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-menu-api-v1/2.0.28+ed66f0a35d/16aeebb1d0a85cc8a3bd059becbfb25219acef1c/fabric-menu-api-v1-2.0.28+ed66f0a35d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-message-api-v1/7.0.10+3434d6d95d/5b224f019d030f7bb70584866f4f6329fa9a21b3/fabric-message-api-v1-7.0.10+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-client-gametest-api-v1/6.0.8+4be74c3f5d/8e7f6093950eb25e02ec35be8de49778f8b209fa/fabric-client-gametest-api-v1-6.0.8+4be74c3f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-particles-v1/5.0.25+3434d6d95d/ad3a112c42ba7dd77f477c400ab959641ac7c91/fabric-particles-v1-5.0.25+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-object-builder-api-v1/24.1.10+3434d6d95d/de90a874171237d51cc72ca7e5476f38fab1930/fabric-object-builder-api-v1-24.1.10+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-registry-sync-v0/8.0.2+1ca9f6365d/9163aa6c5b0c7780f387be085dc7e64336a812d3/fabric-registry-sync-v0-8.0.2+1ca9f6365d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-networking-api-v1/6.3.9+b9b88df45d/7280f2da0e0bb097faf7c70538237f627d53b132/fabric-networking-api-v1-6.3.9+b9b88df45d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-permission-api-v1/1.0.8+fcdff87f5d/b5ffb6d1e882755032aa6b79265e32699be57c88/fabric-permission-api-v1-1.0.8+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-rendering-fluids-v1/6.0.6+3434d6d95d/f346710e5fb0751998cb84d4772b1b2827e1ad57/fabric-rendering-fluids-v1-6.0.6+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-screen-api-v1/5.2.4+48607d035d/43207d0cbe1a0098cc0281b62a9a246f05771f9d/fabric-screen-api-v1-5.2.4+48607d035d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-tag-api-v1/2.1.10+fcdff87f5d/6b70d67fcea94ef97a08cda0d7810fd89238a83/fabric-tag-api-v1-2.1.10+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-loader-v0/3.3.26+4fc5413f5d/2fd2238d86a13d9f43244d030ae0a33ee8e4d092/fabric-resource-loader-v0-3.3.26+4fc5413f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-loader-v1/3.0.4+fcdff87f5d/23991cd88d413af9c9bc9fdaa43e1a4f7156917a/fabric-resource-loader-v1-3.0.4+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api-base/2.0.6+fcdff87f5d/449053de5093613bbdf6d439bedd431a7ad77da2/fabric-api-base-2.0.6+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-biome-api-v1/20.1.0+c6aa69a85d/ecfb25242648597911c734d78b233ac0aafe68d4/fabric-biome-api-v1-20.1.0+c6aa69a85d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-block-getter-api-v2/2.0.9+3434d6d95d/56fd2980cfdb2e557bd51dfa743d92bb7befcdb6/fabric-block-getter-api-v2-2.0.9+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-crash-report-info-v1/1.0.7+fcdff87f5d/a5531952f47841e359bc2ca8cb807add8c76c5c5/fabric-crash-report-info-v1-1.0.7+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-key-mapping-api-v1/2.0.8+3434d6d95d/89eb86ef13d05ebc9f725f0c55d9db69abc6fc06/fabric-key-mapping-api-v1-2.0.8+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-conditions-api-v1/6.2.0+0d124ae85d/bf3ef3a1aa93f1f80bdaee508fa03ec9461e9b1f/fabric-resource-conditions-api-v1-6.2.0+0d124ae85d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-serialization-api-v1/2.0.7+74ed1ea55d/6461e300b93b46986d74f092660dd9d39a1125c0/fabric-serialization-api-v1-2.0.7+74ed1ea55d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-sound-api-v1/2.0.7+3434d6d95d/59e460c1b9e943d662fd0827f0461ff60b7f23d1/fabric-sound-api-v1-2.0.7+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-transitive-access-wideners-v1/8.1.16+52268a0e5d/8322e1bc6d3e3993dce826a41f4a199944269bcb/fabric-transitive-access-wideners-v1-8.1.16+52268a0e5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-metadata/3.12.0/6997264db25396a2c8fddf6520174c9a907e3403/imageio-metadata-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-core/3.12.0/4a57990b52fd36fe60c356a3e5fd57054a85a502/imageio-core-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-image/3.12.0/1ffc9fb885eea7f0bdab0f6e7f780d3e41b5ad01/common-image-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-io/3.12.0/1f739ad65a48fd2bc7b8c0a8bb54218c0e219c84/common-io-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-lang/3.12.0/170b88f23daa4d4d64189285ebebe4eb59d51c93/common-lang-3.12.0.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.3/build/classes/java/main:/home/runner/work/originclient/originclient/src/mods/versions/26.3/build/resources/main)
+	at knot//com.sun.jna.NativeLibrary.loadLibrary(NativeLibrary.java:325)
+	at knot//com.sun.jna.NativeLibrary.getInstance(NativeLibrary.java:481)
+	at knot//com.sun.jna.NativeLibrary.getInstance(NativeLibrary.java:423)
+	at knot//com.mojang.text2speech.NarratorLinux$FliteLibrary.loadNative(NarratorLinux.java:80)
+	... 9 more
+	Suppressed: java.lang.UnsatisfiedLinkError: libflite.so: cannot open shared object file: No such file or directory
+		at knot//com.sun.jna.Native.open(Native Method)
+		at knot//com.sun.jna.NativeLibrary.loadLibrary(NativeLibrary.java:213)
+		... 12 more
+	Suppressed: java.lang.UnsatisfiedLinkError: libflite.so: cannot open shared object file: No such file or directory
+		at knot//com.sun.jna.Native.open(Native Method)
+		at knot//com.sun.jna.NativeLibrary.loadLibrary(NativeLibrary.java:226)
+		... 12 more
+	Suppressed: java.io.IOException: Native library (linux-x86-64/libflite.so) not found in resource path (/home/runner/work/originclient/originclient/src/mods/versions/26.3/build/classes/java/client:/home/runner/work/originclient/originclient/src/mods/versions/26.3/build/resources/client:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/fabric-loader/0.19.5/ff9e65cffca4a67f31523e1807fe0855940fcbfa/fabric-loader-0.19.5.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api/0.162.0+26.3/273cd2dcbd92d1559edcc91c9f23fee47f6ff93f/fabric-api-0.162.0+26.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/maven.modrinth/jei/31.12.0.65/ba5a0bf10e0a8625bcab57e9a0dec43118ec6e74/jei-31.12.0.65.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-webp/3.12.0/390599d525f6af2af4d94bd549411d6e1d47ea07/imageio-webp-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.10.1/ada2141c0cc52ee8f5c48cd5fa4ce0e794f22236/asm-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-analysis/9.10.1/8d49f14d51f632cb1d87c88d1ceaf50db0d8af1b/asm-analysis-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-commons/9.10.1/4229e4c55fd8e01c23f9fe9884075cc628aacc50/asm-commons-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-tree/9.10.1/e244332a17564c1d1572449399a842de35881be2/asm-tree-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-util/9.10.1/7bb9d450e8d4cbf9f9e04096c44bbfe7fba80b15/asm-util-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/5f66cc9f59b8efaa942155a3d5a30599bf6640dd/sponge-mixin-0.17.4+mixin.0.8.7.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.github.llamalad7/mixinextras-fabric/0.5.5/d1055b99c0ab08a8403fe2da3d79ca28e6340a76/mixinextras-fabric-0.5.5.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/dev-launch-injector/0.2.1+build.8/da8bef7e6e2f952da707f282bdb46882a0fce5e3/dev-launch-injector-0.2.1+build.8.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/fabric-log4j-util/1.0.2/ef0b3fb613356feb75a67d54f2fad6f03a006648/fabric-log4j-util-1.0.2.jar:/home/runner/.gradle/caches/modules-2/files-2.1/at.yawk.lz4/lz4-java/1.10.1/f541d7f910fe3d76f38f799c507c48cc81b12ecb/lz4-java-1.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.azure/azure-json/1.4.0/fcc1d354dbc3e0300e5276b1bf124d0247799cd8/azure-json-1.4.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.github.oshi/oshi-core/6.9.0/3224870731860cfcd7744581a05b559e94291e7/oshi-core-6.9.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/2.14.0/efc0e34ede4e3204eaefb84a00e55e8c86634382/gson-2.14.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.guava/failureaccess/1.0.3/aeaffd00d57023a2c947393ed251f0354f0985fc/failureaccess-1.0.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/33.6.0-jre/c376b13067cc99a5774403530953f7b05a91e218/guava-33.6.0-jre.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.ibm.icu/icu4j/78.3/6a851a53bb1f25689fc418dcc8935b0d93580adf/icu4j-78.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.microsoft.azure/msal4j/1.24.1/c233f2d047b9755f7041adf21a858c680e4c9242/msal4j-1.24.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/authlib/10.0.77/add8754cda96cf0cd840441632875648836f8a71/authlib-10.0.77.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/blocklist/1.0.10/5c685c5ffa94c4cd39496c7184c1d122e515ecef/blocklist-1.0.10.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/brigadier/1.3.11/3373d1e7bf00c8b99bed1ea4efb8c47344e4a887/brigadier-1.3.11.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/datafixerupper/10.0.21/b6b2ae770c02e0c1eb90f9985b151e9085a38d0b/datafixerupper-10.0.21.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/jtracy/1.14.38/cc2ad81342001b4281c305a298d7f50332354058/jtracy-1.14.38.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/jtracy/1.14.38/d2433300f8a4e99595d513546d19ecddc3eaa15e/jtracy-1.14.38-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/logging/1.7.12/351cea64a5233361327d8d54c44277041beed97f/logging-1.7.12.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/patchy/2.2.10/da05971b07cbb379d002cf7eaec6a2048211fefc/patchy-2.2.10.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/text2speech/1.19.12/2e517a75c79d34d32de2b5d68422150836c2133e/text2speech-1.19.12.jar:/home/runner/.gradle/caches/modules-2/files-2.1/commons-codec/commons-codec/1.22.0/6b3eb4beb7058c2a638f5f17bcb388649fd339dd/commons-codec-1.22.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/commons-io/commons-io/2.20.0/36f3474daec2849c149e877614e7f979b2082cd2/commons-io-2.20.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-buffer/4.2.16.Final/5397ef65dcb60670e0e0dba4854522873af3070/netty-buffer-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-base/4.2.16.Final/1a01d45a9efc228c6d747525848b065e0656b5f/netty-codec-base-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-compression/4.2.16.Final/bdbbcfcdbe217b95c14a04df4fc5d31213d5c27c/netty-codec-compression-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-http/4.2.16.Final/b5e0715df90047ee5a0138c8f704f43c751009e4/netty-codec-http-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-common/4.2.16.Final/c2bc7fa5acfa2afc777e944d84f0aa65559cc81e/netty-common-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-handler/4.2.16.Final/cc82873ae4b6d14effe480740ad838de09add70d/netty-handler-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-resolver/4.2.16.Final/fcea6d64273b59ab9127b68c16ae98af34642139/netty-resolver-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-epoll/4.2.16.Final/cf90c7b892e284ba9f1545dce170168369b3b9d6/netty-transport-classes-epoll-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-kqueue/4.2.16.Final/fa2bcf8c71626510f6fae173f78182117b70f7a/netty-transport-classes-kqueue-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-epoll/4.2.16.Final/eed34f3b37b4c46a0cbb49456ccc4e3bd7195e4c/netty-transport-native-epoll-4.2.16.Final-linux-aarch_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-epoll/4.2.16.Final/439c24f5c27c220deb042b42e4048d606edeb78d/netty-transport-native-epoll-4.2.16.Final-linux-x86_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-unix-common/4.2.16.Final/3cf32390f1b80af890ac44aa0698c2ff58c2a4d7/netty-transport-native-unix-common-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport/4.2.16.Final/ae87a3bec51d503475a19fbd718bf777f2fc06c6/netty-transport-4.2.16.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/it.unimi.dsi/fastutil/8.5.18/a6cff377eecc19c2037bf31568a6d7106b50ba1f/fastutil-8.5.18.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna-platform/5.17.0/a4934c44d25a9d8c2ddf4203affd20330cb3426f/jna-platform-5.17.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.17.0/33d12735bef894440780fce64f9758d420c7bae2/jna-5.17.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.sf.jopt-simple/jopt-simple/5.0.4/4fdac2fbe92dfad86aa6e9301736f6b4342a3f5c/jopt-simple-5.0.4.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-compress/1.28.0/e482f2c7a88dac3c497e96aa420b6a769f59c8d7/commons-compress-1.28.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-lang3/3.20.0/65897b3e5731220962e659e001904af3c3cbeba9/commons-lang3-3.20.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-api/2.26.0/ad52af0ecf054a7e3f275a2e180ee06d9c490951/log4j-api-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-core/2.26.0/d267ca60b27ddb075e0b4e75e7875859717bf85f/log4j-core-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-slf4j2-impl/2.26.0/668c0f0e813d83f00a7182533aa658ec7e7a0a0d/log4j-slf4j2-impl-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.jcraft/jorbis/0.0.17/8872d22b293e8f5d7d56ff92be966e6dc28ebdc6/jorbis-0.0.17.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.joml/joml/1.10.9/438e036486bad66b189bff385dd07dea4f74a146/joml-1.10.9.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.jspecify/jspecify/1.0.0/7425a601c1c7ec76645a78d22b8c6a627edee507/jspecify-1.0.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-freetype/3.4.3/d2b12961d44f92860fb1ab501f9c69b7a2975236/lwjgl-freetype-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-freetype/3.4.3/38f27c9a0fbe000bfb38b295c32944d699e246e9/lwjgl-freetype-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-jemalloc/3.4.3/350f317eaf5295b1e53f6664ef5fdeeaaa7dcbf0/lwjgl-jemalloc-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-jemalloc/3.4.3/ca21b4b4c6d223907de645a18436ef6f677a5d4f/lwjgl-jemalloc-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-openal/3.4.3/32b52cda5af6937a4e4bd321bdb83082025cb332/lwjgl-openal-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-openal/3.4.3/7daa62f9f7b38b30e8a3d3bc7069e9b2e3cd52f0/lwjgl-openal-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-opengl/3.4.3/b81769ee48050f8c71e70839505f350bf9219d90/lwjgl-opengl-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-opengl/3.4.3/ec6fb42167943e94f7f0b14707c1737653c4044b/lwjgl-opengl-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-sdl/3.4.3/c02146735d6ff70d070c73532b435e5c893a346b/lwjgl-sdl-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-sdl/3.4.3/6ed1b80b7c211a491612c70e43f27ba1f42cccd0/lwjgl-sdl-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-shaderc/3.4.3/ba9fbc8fc4d50b3e4b436cc958ddb4abdb05867c/lwjgl-shaderc-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-shaderc/3.4.3/37faa5824f75901f4961e56805aedf68e13cf8b/lwjgl-shaderc-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-spvc/3.4.3/98e5b5ef5159100b26a169a9aed6c24e820e3eaa/lwjgl-spvc-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-spvc/3.4.3/709eb01deec4bdafb7634b125a63fd8de172fc50/lwjgl-spvc-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-stb/3.4.3/cdce54785bd3758e44a81f345d6260774d921c78/lwjgl-stb-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-stb/3.4.3/3878e44ce27c12791e570b5c8754ef3b68401dd3/lwjgl-stb-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vma/3.4.3/816a6ac87f1e447e5346ca0e7a1078353f51fbd6/lwjgl-vma-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vma/3.4.3/3a9a95d3e83f7fc49c6ed8d0e1c853b77662d90e/lwjgl-vma-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vulkan/3.4.3/ffdaf1898192059f059d66f9fa37e3debcac10e0/lwjgl-vulkan-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl/3.4.3/7ab5265a73d8a959ed62332d546536ae6be2f0d5/lwjgl-3.4.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl/3.4.3/2800e134537db1a175eba41c430b1018eddc48f0/lwjgl-3.4.3-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/2.0.17/d9e58ac9c7779ba3bf8142aff6c830617a7fe60f/slf4j-api-2.0.17.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.3/.gradle/loom-cache/minecraftMaven/net/minecraft/minecraft-clientOnly-6be6298dfc/26.3/minecraft-clientOnly-6be6298dfc-26.3.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.3/.gradle/loom-cache/minecraftMaven/net/minecraft/minecraft-common-6be6298dfc/26.3/minecraft-common-6be6298dfc-26.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-kqueue/4.2.16.Final/dd9d41b06355a6a1815d902ee087a693aab83755/netty-transport-native-kqueue-4.2.16.Final-osx-x86_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-kqueue/4.2.16.Final/ddb942cad6c0e978caa2215757512b36c5ffacec/netty-transport-native-kqueue-4.2.16.Final-osx-aarch_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-advancement-api-v1/1.0.0+38c7a2d55d/54c209419f01d579761838892772d4196436752b/fabric-advancement-api-v1-1.0.0+38c7a2d55d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-transfer-api-v1/8.0.25+fcdff87f5d/4680f760ffbd28c38f899488ded76fd7c26082c8/fabric-transfer-api-v1-8.0.25+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api-lookup-api-v1/2.0.24+3434d6d95d/29c412a6baf8e69bf71cab6b7a65b5096ff29a3/fabric-api-lookup-api-v1-2.0.24+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-block-api-v1/3.1.0+0ae6f9115d/78badf0c664259627830111f2ac0ad2f9f0ff2f7/fabric-block-api-v1-3.1.0+0ae6f9115d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-command-api-v2/3.1.2+fcdff87f5d/69de6c0f1f5926309dad2cd9569027a6d4d99493/fabric-command-api-v2-3.1.2+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-content-registries-v0/15.0.4+74ed1ea55d/c316198aeaa747228437e01f8c81efb134dca9f2/fabric-content-registries-v0-15.0.4+74ed1ea55d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-data-generation-api-v1/27.3.0+5be2453c5d/65dc79f8002df45acf305f333f97ee513469818c/fabric-data-generation-api-v1-27.3.0+5be2453c5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-convention-tags-v2/4.10.3+6b5b47fd5d/4e4591576deeb6317809bc11e50ecf32a0212c1f/fabric-convention-tags-v2-4.10.3+6b5b47fd5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-creative-tab-api-v1/5.0.21+fcdff87f5d/c0d1736c1f7b6166f1925eb0bd79f9c97cd1494/fabric-creative-tab-api-v1-5.0.21+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-data-attachment-api-v1/2.2.31+b9b88df45d/8fda0bdcee0503001139a672c5262b5f5c0a928d/fabric-data-attachment-api-v1-2.2.31+b9b88df45d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-debug-api-v1/1.0.4+3434d6d95d/e4812b5812a9d92b97604bdf2737780d3cc7612e/fabric-debug-api-v1-1.0.4+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-dimensions-v1/5.1.19+47f74c985d/2d10026da0876c1e887b512b26d2813a1646c132/fabric-dimensions-v1-5.1.19+47f74c985d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-entity-events-v1/6.0.4+3434d6d95d/731754a9bdfc6784a41d8fb17cd6c08f58fe31e0/fabric-entity-events-v1-6.0.4+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-events-interaction-v0/5.3.7+b9b88df45d/bb48236344859461366565b719766f60e12fbaa5/fabric-events-interaction-v0-5.3.7+b9b88df45d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-game-rule-api-v1/4.0.10+3434d6d95d/3f73b9e94995f6f8a0d38955b98b67ac8d6bb089/fabric-game-rule-api-v1-4.0.10+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-gametest-api-v1/4.0.33+3434d6d95d/5d86ccd1fded7b5fd0f6982e01a60305346528ae/fabric-gametest-api-v1-4.0.33+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-item-api-v1/14.7.0+cf6bc2db5d/9d9e319928f67f49029c86ae56d0414997a534ac/fabric-item-api-v1-14.7.0+cf6bc2db5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-recipe-api-v1/10.0.9+b9b88df45d/5d9592d00e5971ccfd77d3cc77b94268fd471ca9/fabric-recipe-api-v1-10.0.9+b9b88df45d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-model-loading-api-v1/8.0.35+fcdff87f5d/51079fee66e5b86d8092981bb1cd19d40a97491e/fabric-model-loading-api-v1-8.0.35+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-renderer-indigo/9.1.23+b9d63e335d/d3277e5c11edc7f939ac3ed7f189de56905561c7/fabric-renderer-indigo-9.1.23+b9d63e335d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-renderer-api-v1/17.0.15+79385d0b5d/48172c900e57dbf125490cd132e04fdfdecac7e8/fabric-renderer-api-v1-17.0.15+79385d0b5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-rendering-v1/27.0.14+901a437c5d/b7b356249f2c16fa58410e8c7694c75f0468a403/fabric-rendering-v1-27.0.14+901a437c5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-lifecycle-events-v1/4.1.9+ffef5f675d/4184b98a6c1dbfcf6c63dab29cf7f5812d9eaf73/fabric-lifecycle-events-v1-4.1.9+ffef5f675d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-loot-api-v3/4.0.8+4068fd645d/3f74e49f671c5ef812512b9ff6ca35a531f06cf7/fabric-loot-api-v3-4.0.8+4068fd645d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-menu-api-v1/2.0.28+ed66f0a35d/16aeebb1d0a85cc8a3bd059becbfb25219acef1c/fabric-menu-api-v1-2.0.28+ed66f0a35d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-message-api-v1/7.0.10+3434d6d95d/5b224f019d030f7bb70584866f4f6329fa9a21b3/fabric-message-api-v1-7.0.10+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-client-gametest-api-v1/6.0.8+4be74c3f5d/8e7f6093950eb25e02ec35be8de49778f8b209fa/fabric-client-gametest-api-v1-6.0.8+4be74c3f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-particles-v1/5.0.25+3434d6d95d/ad3a112c42ba7dd77f477c400ab959641ac7c91/fabric-particles-v1-5.0.25+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-object-builder-api-v1/24.1.10+3434d6d95d/de90a874171237d51cc72ca7e5476f38fab1930/fabric-object-builder-api-v1-24.1.10+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-registry-sync-v0/8.0.2+1ca9f6365d/9163aa6c5b0c7780f387be085dc7e64336a812d3/fabric-registry-sync-v0-8.0.2+1ca9f6365d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-networking-api-v1/6.3.9+b9b88df45d/7280f2da0e0bb097faf7c70538237f627d53b132/fabric-networking-api-v1-6.3.9+b9b88df45d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-permission-api-v1/1.0.8+fcdff87f5d/b5ffb6d1e882755032aa6b79265e32699be57c88/fabric-permission-api-v1-1.0.8+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-rendering-fluids-v1/6.0.6+3434d6d95d/f346710e5fb0751998cb84d4772b1b2827e1ad57/fabric-rendering-fluids-v1-6.0.6+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-screen-api-v1/5.2.4+48607d035d/43207d0cbe1a0098cc0281b62a9a246f05771f9d/fabric-screen-api-v1-5.2.4+48607d035d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-tag-api-v1/2.1.10+fcdff87f5d/6b70d67fcea94ef97a08cda0d7810fd89238a83/fabric-tag-api-v1-2.1.10+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-loader-v0/3.3.26+4fc5413f5d/2fd2238d86a13d9f43244d030ae0a33ee8e4d092/fabric-resource-loader-v0-3.3.26+4fc5413f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-loader-v1/3.0.4+fcdff87f5d/23991cd88d413af9c9bc9fdaa43e1a4f7156917a/fabric-resource-loader-v1-3.0.4+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api-base/2.0.6+fcdff87f5d/449053de5093613bbdf6d439bedd431a7ad77da2/fabric-api-base-2.0.6+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-biome-api-v1/20.1.0+c6aa69a85d/ecfb25242648597911c734d78b233ac0aafe68d4/fabric-biome-api-v1-20.1.0+c6aa69a85d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-block-getter-api-v2/2.0.9+3434d6d95d/56fd2980cfdb2e557bd51dfa743d92bb7befcdb6/fabric-block-getter-api-v2-2.0.9+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-crash-report-info-v1/1.0.7+fcdff87f5d/a5531952f47841e359bc2ca8cb807add8c76c5c5/fabric-crash-report-info-v1-1.0.7+fcdff87f5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-key-mapping-api-v1/2.0.8+3434d6d95d/89eb86ef13d05ebc9f725f0c55d9db69abc6fc06/fabric-key-mapping-api-v1-2.0.8+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-conditions-api-v1/6.2.0+0d124ae85d/bf3ef3a1aa93f1f80bdaee508fa03ec9461e9b1f/fabric-resource-conditions-api-v1-6.2.0+0d124ae85d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-serialization-api-v1/2.0.7+74ed1ea55d/6461e300b93b46986d74f092660dd9d39a1125c0/fabric-serialization-api-v1-2.0.7+74ed1ea55d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-sound-api-v1/2.0.7+3434d6d95d/59e460c1b9e943d662fd0827f0461ff60b7f23d1/fabric-sound-api-v1-2.0.7+3434d6d95d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-transitive-access-wideners-v1/8.1.16+52268a0e5d/8322e1bc6d3e3993dce826a41f4a199944269bcb/fabric-transitive-access-wideners-v1-8.1.16+52268a0e5d.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-metadata/3.12.0/6997264db25396a2c8fddf6520174c9a907e3403/imageio-metadata-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-core/3.12.0/4a57990b52fd36fe60c356a3e5fd57054a85a502/imageio-core-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-image/3.12.0/1ffc9fb885eea7f0bdab0f6e7f780d3e41b5ad01/common-image-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-io/3.12.0/1f739ad65a48fd2bc7b8c0a8bb54218c0e219c84/common-io-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-lang/3.12.0/170b88f23daa4d4d64189285ebebe4eb59d51c93/common-lang-3.12.0.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.3/build/classes/java/main:/home/runner/work/originclient/originclient/src/mods/versions/26.3/build/resources/main)
+		at knot//com.sun.jna.Native.extractFromResourcePath(Native.java:1141)
+		at knot//com.sun.jna.NativeLibrary.loadLibrary(NativeLibrary.java:297)
+		... 12 more
+[16:08:08] [Render thread/INFO] (Minecraft) Reloading ResourceManager: vanilla, vanilla, fabric-advancement-api-v1, fabric-api, fabric-api-base, fabric-api-lookup-api-v1, fabric-biome-api-v1, fabric-block-api-v1, fabric-block-getter-api-v2, fabric-client-gametest-api-v1, fabric-command-api-v2, fabric-content-registries-v0, fabric-convention-tags-v2, fabric-crash-report-info-v1, fabric-creative-tab-api-v1, fabric-data-attachment-api-v1, fabric-data-generation-api-v1, fabric-debug-api-v1, fabric-dimensions-v1, fabric-entity-events-v1, fabric-events-interaction-v0, fabric-game-rule-api-v1, fabric-gametest-api-v1, fabric-item-api-v1, fabric-key-mapping-api-v1, fabric-lifecycle-events-v1, fabric-loot-api-v3, fabric-menu-api-v1, fabric-message-api-v1, fabric-model-loading-api-v1, fabric-networking-api-v1, fabric-object-builder-api-v1, fabric-particles-v1, fabric-permission-api-v1, fabric-recipe-api-v1, fabric-registry-sync-v0, fabric-renderer-api-v1, fabric-renderer-indigo, fabric-rendering-fluids-v1, fabric-rendering-v1, fabric-resource-conditions-api-v1, fabric-resource-loader-v0, fabric-resource-loader-v1, fabric-screen-api-v1, fabric-serialization-api-v1, fabric-sound-api-v1, fabric-tag-api-v1, fabric-transfer-api-v1, fabric-transitive-access-wideners-v1, fabricloader, jei, mezz_config, originclient
+[14.333s][info][gc] GC(28) Pause Young (Normal) (G1 Evacuation Pause) 330M->169M(440M) 9.012ms
+[16:08:08] [Render thread/INFO] (Origin) origin-handoff 0123456789abcdef0123456789abcdef loading
+[16:08:08] [Worker-Main-2/INFO] (Minecraft) Found unifont_all_no_pua-17.0.01.hex, loading
+[16:08:08] [Worker-Main-1/INFO] (Minecraft) Found unifont_pua-17.0.01.hex, loading
+[16:08:09] [Worker-Main-2/INFO] (Minecraft) Found unifont_jp_patch-17.0.01.hex, loading
+[15.253s][info][gc] GC(29) Pause Young (Normal) (G1 Evacuation Pause) 337M->191M(440M) 13.698ms
+[15.526s][info][gc] GC(30) Pause Young (Normal) (G1 Evacuation Pause) 359M->196M(440M) 8.751ms
+[15.925s][info][gc] GC(31) Pause Young (Normal) (G1 Evacuation Pause) 364M->204M(440M) 7.082ms
+[16:08:10] [Render thread/INFO] (originclient) [OriginFrameLog] on: frames over 20.0 ms, reload steps over 16.0 ms, from 3000 ms before the reload finishes until the title's entrance ends (uptime 16.404 s)
+[16:08:10] [Render thread/INFO] (originclient) [OriginFrameLog] mark render-thread reload work begins (Shader Loader) t=? ms uptime 16.405 s
+[16:08:10] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas
+[16:08:10] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf_bold' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas_bold
+[17.024s][info][gc] GC(32) Pause Young (Normal) (G1 Evacuation Pause) 372M->237M(440M) 26.220ms
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+[16:08:12] [Render thread/ERROR] (Minecraft) Error starting SoundSystem. Turning off sounds & music
+
+java.lang.IllegalStateException: Failed to open OpenAL device
+	at knot//com.mojang.blaze3d.audio.Library.openDeviceOrFallback(Library.java:274)
+	at knot//com.mojang.blaze3d.audio.Library.init(Library.java:149)
+	at knot//net.minecraft.client.sounds.SoundEngine.loadLibrary(SoundEngine.java:121)
+	at knot//net.minecraft.client.sounds.SoundEngine.reload(SoundEngine.java:110)
+	at knot//net.minecraft.client.sounds.SoundManager.apply(SoundManager.java:122)
+	at knot//net.minecraft.client.sounds.SoundManager.apply(SoundManager.java:41)
+	at knot//net.minecraft.server.packs.resources.SimplePreparableReloadListener.lambda$reload$1(SimplePreparableReloadListener.java:15)
+	at java.base/java.util.concurrent.CompletableFuture$UniAccept.tryFire(CompletableFuture.java:739)
+	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:503)
+	at knot//net.minecraft.server.packs.resources.SimpleReloadInstance.mdcb69ad$originclient$lambda$originclient$watchApplySteps$1$1(SimpleReloadInstance.java:552)
+	at knot//net.minecraft.server.packs.resources.SimpleReloadInstance.lambda$prepareTasks$3(SimpleReloadInstance.java:59)
+	at knot//net.minecraft.util.thread.BlockableEventLoop.doRunTask(BlockableEventLoop.java:173)
+	at knot//net.minecraft.util.thread.ReentrantBlockableEventLoop.doRunTask(ReentrantBlockableEventLoop.java:23)
+	at knot//net.minecraft.util.thread.BlockableEventLoop.pollTask(BlockableEventLoop.java:147)
+	at knot//net.minecraft.util.thread.BlockableEventLoop.handler$zpj000$originclient$budgetReloadTasks(BlockableEventLoop.java:578)
+	at knot//net.minecraft.util.thread.BlockableEventLoop.runAllTasks(BlockableEventLoop.java)
+	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1240)
+	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:967)
+	at knot//net.minecraft.client.main.Main.main(Main.java:292)
+	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:517)
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
+	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
+[16:08:12] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/particles.png-atlas
+[16:08:12] [Render thread/INFO] (Minecraft) Created: 256x128x0 minecraft:textures/atlas/celestials.png-atlas
+[16:08:12] [Render thread/INFO] (Minecraft) Created: 128x128x0 minecraft:textures/atlas/decorated_pot.png-atlas
+[16:08:12] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
+[16:08:12] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/shield_patterns.png-atlas
+[16:08:12] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/banner_patterns.png-atlas
+[16:08:12] [Render thread/INFO] (Minecraft) Created: 2048x2048x4 minecraft:textures/atlas/blocks.png-atlas
+[16:08:13] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/items.png-atlas
+[16:08:13] [Render thread/INFO] (Minecraft) Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas
+[16:08:13] [Render thread/INFO] (Minecraft) Created: 128x64x0 minecraft:textures/atlas/map_decorations.png-atlas
+[16:08:13] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/chest.png-atlas
+[16:08:13] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/shulker_boxes.png-atlas
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] mark reload-done (bar full) uptime 19.375 s
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2967.6 ms frame=72.8 ms phase=LOAD tasks=4.9 render=12.0 swap=6.6 title=0.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2453.9 ms frame=117.1 ms phase=LOAD tasks=109.1 render=0.9 swap=4.7 title=0.0 gc=26.0 ms/1 reload=[Shader Loader:109.1] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2336.8 ms frame=63.9 ms phase=LOAD tasks=45.9 render=0.9 swap=5.1 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:45.9] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2272.8 ms frame=28.2 ms phase=LOAD tasks=16.3 render=1.4 swap=7.5 title=0.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2244.7 ms frame=24.4 ms phase=LOAD tasks=12.6 render=6.3 swap=3.9 title=0.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2201.0 ms frame=28.1 ms phase=LOAD tasks=15.8 render=5.5 swap=5.4 title=0.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2172.9 ms frame=50.9 ms phase=LOAD tasks=38.6 render=3.4 swap=5.3 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:38.5] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2104.7 ms frame=49.6 ms phase=LOAD tasks=38.0 render=4.3 swap=5.0 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:35.2] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2055.0 ms frame=26.9 ms phase=LOAD tasks=20.8 render=1.6 swap=2.1 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:16.6] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2028.1 ms frame=41.1 ms phase=LOAD tasks=24.7 render=1.0 swap=8.9 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:18.5] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1987.0 ms frame=36.1 ms phase=LOAD tasks=24.4 render=1.4 swap=4.5 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:21.7] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1950.9 ms frame=36.0 ms phase=LOAD tasks=21.6 render=3.5 swap=7.0 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:21.5] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1914.9 ms frame=22.2 ms phase=LOAD tasks=13.6 render=0.9 swap=3.9 title=0.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1892.8 ms frame=27.4 ms phase=LOAD tasks=18.8 render=2.4 swap=3.9 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:18.7] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1865.4 ms frame=21.5 ms phase=LOAD tasks=11.9 render=1.4 swap=5.7 title=0.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1843.9 ms frame=33.4 ms phase=LOAD tasks=18.7 render=0.9 swap=8.3 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:18.6] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1810.5 ms frame=29.9 ms phase=LOAD tasks=20.6 render=2.2 swap=0.1 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:20.5] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1761.7 ms frame=28.0 ms phase=LOAD tasks=19.0 render=1.4 swap=4.8 title=0.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1449.4 ms frame=20.6 ms phase=LOAD tasks=17.0 render=0.9 swap=1.8 title=0.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1071.2 ms frame=20.5 ms phase=LOAD tasks=17.8 render=0.9 swap=1.1 title=0.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-895.5 ms frame=35.9 ms phase=LOAD tasks=31.5 render=0.7 swap=2.1 title=0.0 gc=0.0 ms/0 reload=[minecraft:languages (LanguageManager):24.6] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-840.4 ms frame=21.6 ms phase=LOAD tasks=9.5 render=3.0 swap=7.0 title=0.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-818.8 ms frame=489.8 ms phase=LOAD tasks=466.3 render=21.2 swap=0.8 title=0.0 gc=0.0 ms/0 reload=[minecraft:atlas (AtlasManager):466.2] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-329.0 ms frame=143.7 ms phase=LOAD tasks=135.9 render=0.7 swap=1.4 title=0.0 gc=0.0 ms/0 reload=[minecraft:fonts (FontManager):135.8] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=-329.0 frame=143.7 scene+0.0 phase=LOAD
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=-185.2 frame=16.7 scene+0.0 phase=LOAD
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-168.5 ms frame=142.5 ms phase=LOAD tasks=138.1 render=0.8 swap=2.0 title=0.0 gc=0.0 ms/0 reload=[minecraft:entity_render_dispatcher (EntityRenderDispatcher):136.3] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=-168.5 frame=142.5 scene+0.0 phase=LOAD
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-26.0 ms frame=26.0 ms phase=LOAD tasks=17.4 render=0.6 swap=2.4 title=0.0 gc=0.0 ms/0 reload=[minecraft:block_entity_render_dispatcher (BlockEntityRenderDispatcher):17.3] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=-26.0 frame=26.0 scene+0.0 phase=LOAD
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=0.0 ms frame=23.4 ms phase=DONE tasks=2.9 render=17.0 swap=2.0 title=0.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=0.0 frame=23.4 scene+0.0 phase=DONE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=23.4 ms frame=31.5 ms phase=DISSOLVE tasks=0.0 render=1.9 swap=2.8 title=0.0 gc=0.0 ms/0 reload=[onFinish:19.0,screen.init:0.6] scene+0.0 ms
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=23.4 frame=31.5 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=54.9 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Download-2/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=71.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=88.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=105.0 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=121.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=138.3 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=154.9 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=171.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=188.3 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=205.0 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=221.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=238.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=255.0 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=271.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=288.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=305.0 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=321.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=338.3 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=354.9 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=371.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=388.3 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=404.9 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=421.7 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=438.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=455.0 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=471.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=488.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=504.9 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=521.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=538.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=554.9 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=571.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=588.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=604.9 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=621.6 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=638.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=655.0 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=671.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=688.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=705.0 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=721.6 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=738.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=754.9 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=771.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=788.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=805.0 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=821.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=838.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=854.9 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=871.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=888.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=904.9 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=921.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=938.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=954.9 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=971.6 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=988.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1005.0 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1021.6 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1038.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=1054.9 ms frame=134.8 ms phase=DISSOLVE tasks=0.0 render=129.2 swap=1.2 title=16.7 (title frame 1) gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1054.9 frame=134.8 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1189.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1206.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1223.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1239.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1256.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1273.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1289.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1306.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1323.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1339.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1356.4 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1373.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1389.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1406.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1423.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1439.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1456.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1473.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1489.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:14] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1506.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1523.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1539.7 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1556.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1573.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1589.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1606.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1623.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1639.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1656.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1673.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1689.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1706.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1723.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1739.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1756.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1773.1 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1789.7 frame=17.3 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1807.0 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1823.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1840.4 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1857.0 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1873.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1890.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1907.0 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1923.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1940.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1957.0 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1973.7 frame=16.6 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1990.3 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2007.0 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2023.7 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2040.4 frame=16.7 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=2057.0 ms frame=61.4 ms phase=DISSOLVE tasks=0.0 render=53.7 swap=1.1 title=0.7 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2057.0 frame=61.4 scene+0.0 phase=DISSOLVE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] mark overlay-gone t=2118.8 ms uptime 21.490 s
+[16:08:15] [Render thread/INFO] (Origin) origin-handoff 0123456789abcdef0123456789abcdef ready
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=2118.4 ms frame=272.0 ms phase=TITLE tasks=0.0 render=263.5 swap=1.1 title=260.0 gc=0.0 ms/0 reload=[] scene+0.0 ms
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2118.4 frame=272.0 scene+0.0 phase=TITLE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2390.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2407.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2423.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2440.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2457.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2473.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2490.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:15] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2507.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2523.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2540.4 frame=16.6 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2557.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2573.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2590.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2607.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2623.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2640.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2657.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2673.8 frame=16.6 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2690.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2707.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2723.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2740.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2757.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2773.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2790.5 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2807.2 frame=16.6 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2823.8 frame=16.6 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2840.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2857.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2873.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2890.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2907.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2923.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2940.5 frame=16.8 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2957.2 frame=16.6 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2973.8 frame=16.6 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=2990.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3007.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3023.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3040.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3057.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3073.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3090.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3107.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3123.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3140.4 frame=16.6 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3157.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3173.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3190.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3207.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3223.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3240.4 frame=16.6 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3257.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3273.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3290.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3307.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3323.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3340.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3357.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3373.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3390.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3407.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3423.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3440.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3457.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3473.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3490.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:16] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3507.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3523.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3540.4 frame=16.6 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3557.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3573.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3590.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3607.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3623.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3640.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3657.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3673.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3690.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3707.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3723.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3740.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3757.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3773.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3790.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3807.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3823.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3840.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3857.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3873.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3890.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3907.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3923.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3940.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3957.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3973.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=3990.5 frame=16.6 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4007.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4023.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4040.4 frame=16.6 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4057.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4073.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4090.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4107.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4123.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4140.5 frame=16.6 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4157.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4173.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4190.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4207.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4223.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4240.5 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4257.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4273.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4290.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4307.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4323.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4340.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4357.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4373.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4390.5 frame=16.6 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4407.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4423.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4440.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4457.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4473.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4490.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:17] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4507.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4523.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4540.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4557.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4573.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4590.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4607.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4623.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4640.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4657.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4673.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4690.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4707.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4723.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4740.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4757.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4773.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4790.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4807.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4823.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4840.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4857.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4873.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4890.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4907.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4923.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4940.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4957.1 frame=16.6 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4973.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=4990.4 frame=16.6 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5007.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5023.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5040.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5057.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5073.8 frame=16.8 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5090.5 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5107.2 frame=16.6 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5123.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5140.4 frame=16.6 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5157.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5173.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5190.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5207.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5223.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5240.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5257.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5273.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5290.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5307.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5323.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5340.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5357.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5373.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5390.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5407.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5423.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5440.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5457.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5473.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5490.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:18] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5507.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5523.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5540.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5557.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5573.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5590.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5607.1 frame=16.6 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5623.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5640.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5657.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5673.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5690.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5707.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5723.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5740.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5757.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5773.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5790.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5807.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5823.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5840.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5857.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5873.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5890.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5907.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5923.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5940.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5957.1 frame=16.6 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5973.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=5990.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6007.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6023.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6040.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6057.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6073.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6090.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6107.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6123.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6140.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6157.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6173.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6190.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6207.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6223.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6240.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6257.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6273.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6290.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6307.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6323.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6340.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6357.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6373.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6390.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6407.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6423.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6440.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6457.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6473.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6490.4 frame=16.6 scene+0.0 phase=TITLE
+[16:08:19] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6507.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6523.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6540.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6557.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6573.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6590.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6607.1 frame=16.6 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6623.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6640.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6657.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6673.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6690.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6707.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6723.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6740.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6757.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6773.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6790.5 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6807.2 frame=16.6 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6823.8 frame=16.6 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6840.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6857.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6873.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6890.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6907.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6923.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6940.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6957.1 frame=16.6 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6973.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=6990.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7007.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7023.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7040.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7057.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7073.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7090.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7107.1 frame=16.6 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7123.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7140.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7157.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7173.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7190.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7207.1 frame=16.8 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7223.9 frame=16.6 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7240.5 frame=16.6 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7257.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7273.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7290.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7307.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7323.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7340.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7357.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7373.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7390.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7407.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7423.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7440.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7457.1 frame=16.6 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7473.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7490.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:20] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7507.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7523.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7540.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7557.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7573.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7590.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7607.1 frame=16.6 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7623.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7640.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7657.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7673.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7690.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7707.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7723.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7740.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7757.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7773.7 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7790.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7807.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7823.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7840.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7857.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7873.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7890.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7907.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7923.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7940.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7957.1 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7973.8 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=7990.4 frame=16.7 scene+0.0 phase=TITLE
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] mark end (timeout: entrance end not seen) t=8007.3 ms uptime 27.379 s
+[16:08:21] [Render thread/INFO] (originclient) [OriginFrameLog] summary lead+handoff: frames=558 max=489.8 ms over33=16 over20=31 median=16.7 ms | from bar-full: frames=454 max=272.0 ms over33=3 over20=5 median=16.7 ms | visible (dissolve+entrance): frames=453 max=272.0 ms over33=3 over20=4 median=16.7 ms max/median=16.3 | worst=t=-818.8 LOAD [minecraft:atlas (AtlasManager):466.2] | gc in window=26.0 ms/1 | hold=- ms | bar-full->entrance-end=8007.1 ms
+[16:08:24] [Render thread/INFO] (originclient) [dev-shots] captured title_1920x1080_s0.png
+[16:08:24] [Render thread/INFO] (originclient) [dev-shots] done — 1 shots in /home/runner/work/_temp/shots
+[30.737s][info][gc] GC(33) Pause Young (Concurrent Start) (G1 Evacuation Pause) 389M->252M(528M) 14.930ms
+[30.737s][info][gc] GC(34) Concurrent Mark Cycle
+[16:08:25] [Render thread/INFO] (Minecraft) Stopping!
+[31.079s][info][gc] GC(34) Pause Remark 257M->257M(528M) 18.431ms
+[31.158s][info][gc] GC(34) Concurrent Mark Cycle 420.899ms
+
+[Incubating] Problems report is available at: file:///home/runner/work/originclient/originclient/src/mods/versions/26.3/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 1m 41s
+8 actionable tasks: 8 executed
