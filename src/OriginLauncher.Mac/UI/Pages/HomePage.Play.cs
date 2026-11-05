@@ -406,7 +406,13 @@ public sealed partial class HomePage
         if ((target?.Version ?? _selectedVersion) is not { } version) return;
         var accountName = account?.Gamertag ?? "Offline";
 
-        if (_tryWithoutAddedModsOnce.Remove(key) && route == LaunchRoute.Retry) externalMods = false;
+        // The line Home shows once that try is running (ModSuspects: which of the player's mods to check first).
+        string? withoutModsLine = null;
+        if (_tryWithoutAddedModsOnce.Remove(key, out var tryLine) && route == LaunchRoute.Retry)
+        {
+            externalMods = false;
+            withoutModsLine = tryLine;
+        }
 
         switch (AccountLaunchBook.ActionFor(_launches.PhaseOf(key)))
         {
@@ -554,6 +560,9 @@ public sealed partial class HomePage
             var runningMessage = target?.Server is { } joined
                 ? $"Playing on {SocialText.DisplayServer(joined)} - {version}"
                 : $"Running - {session.Username}";
+            // It started without the player's mods: say so, and which of them to check first (one of them caused the
+            // crash), instead of a plain "Running" that leaves the next Play to crash the same way.
+            if (withoutModsLine != null) runningMessage = withoutModsLine;
             runningMessage = LaunchedMods.WithNotices(runningMessage, LaunchedMods.NoticesFor(gameDir));
             _ = WatchBootAsync(game, runningMessage);
         }
@@ -756,7 +765,7 @@ public sealed partial class HomePage
     }
 
     private static readonly CrashRetryGuard CrashRetries = new();
-    private readonly HashSet<string> _tryWithoutAddedModsOnce = new();
+    private readonly Dictionary<string, string> _tryWithoutAddedModsOnce = new(StringComparer.Ordinal);
 
     // Post-mortem (Core/Launch/CrashEngine via CrashDiagnoser): a normal close opens nothing; a crash opens the
     // crash report window, whose fix relaunches exactly the game that stopped.
@@ -796,7 +805,10 @@ public sealed partial class HomePage
             var window = new Windows.CrashReportWindow(verdict, game.LogPath, $"{game.AccountName} - Minecraft {game.Version}", BuildReport);
             if (TopLevel.GetTopLevel(this) is Window owner) await window.ShowDialog(owner);
             else return;
-            await ApplyCrashChoiceAsync(game, window.ChosenFix, window.ChoseTryWithoutAddedMods);
+            var tryLine = window.ChoseTryWithoutAddedMods
+                ? await Task.Run(() => ModSuspects.LineFor(game.GameDir, verdict, findings.Evidence.Mods))
+                : null;
+            await ApplyCrashChoiceAsync(game, window.ChosenFix, tryLine);
         }
         catch (Exception ex)
         {
@@ -805,15 +817,16 @@ public sealed partial class HomePage
         }
     }
 
-    private async Task ApplyCrashChoiceAsync(RunningGame game, CrashFix? fix, bool tryWithoutAddedMods)
+    // tryWithoutAddedMods: non-null when the player chose "Try once without my mods"; it is the Home line for that try.
+    private async Task ApplyCrashChoiceAsync(RunningGame game, CrashFix? fix, string? tryWithoutAddedMods)
     {
-        if (fix == null && !tryWithoutAddedMods) return;
+        if (fix == null && tryWithoutAddedMods == null) return;
         if (_launches.PhaseOf(game.Key) is GamePhase.Starting or GamePhase.Running) return;
         if (!CrashRetries.TryBegin(game.Key, game.Version, fix?.Kind ?? CrashFixKind.None, DateTime.UtcNow)) return;
 
         if (fix == null)
         {
-            _tryWithoutAddedModsOnce.Add(game.Key);
+            _tryWithoutAddedModsOnce[game.Key] = tryWithoutAddedMods!;
         }
         else
         {

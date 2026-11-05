@@ -40,7 +40,7 @@ public sealed class LaunchController
     private readonly LaunchOverride _modOverride = new();
     private readonly Dictionary<string, string?> _profileByKey = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _noteVersion = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _tryWithoutAddedModsOnce = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _tryWithoutAddedModsOnce = new(StringComparer.Ordinal);
     private static readonly CrashRetryGuard CrashRetries = new();
 
     // The launch the cover is showing until its game process is up (then _sceneGame), and the cover itself.
@@ -187,7 +187,13 @@ public sealed class LaunchController
         var accountName = account?.Gamertag ?? "Offline";
 
         // The crash window's "Try once without my mods": this one relaunch leaves the player's own mods out.
-        if (_tryWithoutAddedModsOnce.Remove(key) && route == LaunchRoute.Retry) externalMods = false;
+        // The line Home shows once that try is running (ModSuspects: which of the player's mods to check first).
+        string? withoutModsLine = null;
+        if (_tryWithoutAddedModsOnce.Remove(key, out var tryLine) && route == LaunchRoute.Retry)
+        {
+            externalMods = false;
+            withoutModsLine = tryLine;
+        }
 
         // One game per account: an open game is explained instead of a second copy.
         switch (AccountLaunchBook.ActionFor(Book.PhaseOf(key)))
@@ -326,6 +332,9 @@ public sealed class LaunchController
             var runningMessage = target.Server is { } joined
                 ? $"Playing on {SocialText.DisplayServer(joined)} - {version}"
                 : $"Running - {session.Username}";
+            // It started without the player's mods: say so, and which of them to check first (one of them caused the
+            // crash), instead of a plain "Running" that leaves the next Play to crash the same way.
+            if (withoutModsLine != null) runningMessage = withoutModsLine;
             runningMessage = LaunchedMods.WithNotices(runningMessage, LaunchedMods.NoticesFor(gameDir));
             _ = WatchBootAsync(game, runningMessage);
         }
@@ -661,7 +670,10 @@ public sealed class LaunchController
 
             var window = new CrashReportWindow(verdict, game.LogPath, $"{game.AccountName} - Minecraft {game.Version}", BuildReport);
             await window.ShowDialog(_window);
-            await ApplyCrashChoiceAsync(game, window.ChosenFix, window.ChoseTryWithoutAddedMods);
+            var tryLine = window.ChoseTryWithoutAddedMods
+                ? await Task.Run(() => ModSuspects.LineFor(game.GameDir, verdict, findings.Evidence.Mods))
+                : null;
+            await ApplyCrashChoiceAsync(game, window.ChosenFix, tryLine);
         }
         catch (Exception ex)
         {
@@ -669,15 +681,16 @@ public sealed class LaunchController
         }
     }
 
-    private async Task ApplyCrashChoiceAsync(RunningGame game, CrashFix? fix, bool tryWithoutAddedMods)
+    // tryWithoutAddedMods: non-null when the player chose "Try once without my mods"; it is the Home line for that try.
+    private async Task ApplyCrashChoiceAsync(RunningGame game, CrashFix? fix, string? tryWithoutAddedMods)
     {
-        if (fix == null && !tryWithoutAddedMods) return;
+        if (fix == null && tryWithoutAddedMods == null) return;
         if (Book.PhaseOf(game.Key) is GamePhase.Starting or GamePhase.Running) return;
         if (!CrashRetries.TryBegin(game.Key, game.Version, fix?.Kind ?? CrashFixKind.None, DateTime.UtcNow)) return;
 
         if (fix == null)
         {
-            _tryWithoutAddedModsOnce.Add(game.Key);
+            _tryWithoutAddedModsOnce[game.Key] = tryWithoutAddedMods!;
         }
         else
         {

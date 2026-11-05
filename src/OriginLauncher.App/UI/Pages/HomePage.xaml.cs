@@ -855,7 +855,13 @@ public partial class HomePage : UserControl
 
         // The crash window's "Try once without my mods": THIS one relaunch leaves the player's own mods out. Nothing is
         // saved (the external-mods setting and the Mods tab stay as they were), and any other launch spends it unused.
-        if (_tryWithoutAddedModsOnce.Remove(key) && route == LaunchRoute.Retry) externalMods = false;
+        // The line Home shows once that try is running (ModSuspects: which of the player's mods to check first).
+        string? withoutModsLine = null;
+        if (_tryWithoutAddedModsOnce.Remove(key, out var tryLine) && route == LaunchRoute.Retry)
+        {
+            externalMods = false;
+            withoutModsLine = tryLine;
+        }
 
         // One game per account: an open game is brought forward instead of a
         // second copy (the same Microsoft session can't play twice anyway).
@@ -1085,6 +1091,9 @@ public partial class HomePage : UserControl
             var runningMessage = target?.Server is { } joined
                 ? $"Playing on {SocialText.DisplayServer(joined)} - {version}"
                 : $"Running - {session.Username}";
+            // It started without the player's mods: say so, and which of them to check first (one of them caused the
+            // crash), instead of a plain "Running" that leaves the next Play to crash the same way.
+            if (withoutModsLine != null) runningMessage = withoutModsLine;
             runningMessage = Core.GameFolders.LaunchedMods.WithNotices(runningMessage, Core.GameFolders.LaunchedMods.NoticesFor(gameDir));
             _ = WatchBootAsync(game, runningMessage);
         }
@@ -1370,7 +1379,7 @@ public partial class HomePage : UserControl
 
     // Accounts whose next Retry launch leaves the player's own mods out, once (the crash window's
     // "Try once without my mods"). In memory only: nothing about it is saved.
-    private readonly HashSet<string> _tryWithoutAddedModsOnce = new();
+    private readonly Dictionary<string, string> _tryWithoutAddedModsOnce = new(StringComparer.Ordinal);
 
     // Post-mortem for a game that stopped (Crash Report V3: Core/Launch/CrashEngine). Crash or normal close is
     // decided FIRST from the exit code and the evidence; a normal close opens nothing. A crash shows the window: what
@@ -1423,7 +1432,10 @@ public partial class HomePage : UserControl
                 Owner = Window.GetWindow(this)
             };
             window.ShowDialog();
-            await ApplyCrashChoiceAsync(game, window.ChosenFix, window.ChoseTryWithoutAddedMods);
+            var tryLine = window.ChoseTryWithoutAddedMods
+                ? await Task.Run(() => ModSuspects.LineFor(game.GameDir, verdict, findings.Evidence.Mods))
+                : null;
+            await ApplyCrashChoiceAsync(game, window.ChosenFix, tryLine);
         }
         catch (Exception ex)
         {
@@ -1437,15 +1449,16 @@ public partial class HomePage : UserControl
     // Newest launch action wins: if the player already started this account again, nothing is done.
     // Every fix is reversible, and none falls back to a broader change when it can't be done: a mod
     // that can't be turned off is reported on the status line, never "turn off all your mods".
-    private async Task ApplyCrashChoiceAsync(RunningGame game, CrashFix? fix, bool tryWithoutAddedMods)
+    // tryWithoutAddedMods: non-null when the player chose "Try once without my mods"; it is the Home line for that try.
+    private async Task ApplyCrashChoiceAsync(RunningGame game, CrashFix? fix, string? tryWithoutAddedMods)
     {
-        if (fix == null && !tryWithoutAddedMods) return;
+        if (fix == null && tryWithoutAddedMods == null) return;
         if (_launches.PhaseOf(game.Key) is GamePhase.Starting or GamePhase.Running) return;
         if (!CrashRetries.TryBegin(game.Key, game.Version, fix?.Kind ?? CrashFixKind.None, DateTime.UtcNow)) return;
 
         if (fix == null)
         {
-            _tryWithoutAddedModsOnce.Add(game.Key);
+            _tryWithoutAddedModsOnce[game.Key] = tryWithoutAddedMods!;
         }
         else
         {

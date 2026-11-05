@@ -41,11 +41,14 @@ public static class CrashAnalyzer
     /// has no added mods to leave out and a profile's own jars can be turned off. A game this launcher run didn't
     /// start (unknown folder) falls back to the version's shared folder plus this account's mods-profile copy.
     /// </summary>
-    public static List<CrashModEntry> ReadMods(string instanceDir) =>
+    public static List<CrashModEntry> ReadMods(string instanceDir) => ReadModsFrom(ModsFolders(instanceDir));
+
+    /// <summary>The folders <see cref="ReadMods"/> reads: the one this game's launch loaded, else the fallback pair.</summary>
+    public static string[] ModsFolders(string instanceDir) =>
         GameFolders.LaunchedMods.FolderFor(instanceDir) is { } loaded
-            ? ReadModsFrom(loaded)
-            : ReadModsFrom(GameFolders.InstanceLayout.ModsDirForGameDir(instanceDir),
-                Path.Combine(instanceDir, Profiles.LaunchModFolder.ProfileFolderName));
+            ? new[] { loaded }
+            : new[] { GameFolders.InstanceLayout.ModsDirForGameDir(instanceDir),
+                Path.Combine(instanceDir, Profiles.LaunchModFolder.ProfileFolderName) };
 
     // Nested jars (Fabric's jar-in-jar, META-INF/jars/*.jar) are read this many levels deep: Origin's jar -> the
     // mods it carries (1.21.1: Sodium, Iris, Mod Menu, JEI, Simple Voice Chat, ...) -> their own nested modules.
