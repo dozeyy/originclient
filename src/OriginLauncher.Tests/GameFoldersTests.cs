@@ -466,6 +466,36 @@ public class GameFoldersTests : IDisposable
     }
 
     [Fact]
+    public void ANewAccountFolderGetsCopiesOfTheResourceAndShaderPacks()
+    {
+        var root = OldLayout("1.21.1");
+        InstanceMigration.MigrateVersion(root, Steve);
+        var src = $"1.21.1/accounts/{Steve}";
+        Write($"{src}/resourcepacks/Faithful.zip", "faithful");
+        Write($"{src}/resourcepacks/My Pack/pack.mcmeta", "{}");
+        Write($"{src}/shaderpacks/Complementary.zip", "shader");
+        Write($"{src}/shaderpacks/Complementary.zip.txt", "SHADOW=true");
+        Write($"{src}/shaderpacks/half.zip.tmp", "half");
+        var target = Path.Combine(root, "accounts", Alex);
+
+        Assert.Equal(new[] { "resourcepacks/Faithful.zip", "resourcepacks/My Pack/pack.mcmeta",
+                "shaderpacks/Complementary.zip", "shaderpacks/Complementary.zip.txt" },
+            AccountSeed.PackFilesToSeed(Path.Combine(root, "accounts", Steve)));
+        Assert.True(AccountSeed.Seed(target, Path.Combine(root, "accounts", Steve)));
+
+        var game = $"1.21.1/accounts/{Alex}";
+        Assert.Equal("faithful", Read($"{game}/resourcepacks/Faithful.zip"));
+        Assert.Equal("{}", Read($"{game}/resourcepacks/My Pack/pack.mcmeta"));
+        Assert.Equal("shader", Read($"{game}/shaderpacks/Complementary.zip"));
+        Assert.Equal("SHADOW=true", Read($"{game}/shaderpacks/Complementary.zip.txt"));
+        Assert.False(Exists($"{game}/shaderpacks/half.zip.tmp"));
+
+        // Copies, not moves or links: removing the new account's pack leaves the source's.
+        File.Delete(Path.Combine(_root, game, "resourcepacks", "Faithful.zip"));
+        Assert.Equal("faithful", Read($"{src}/resourcepacks/Faithful.zip"));
+    }
+
+    [Fact]
     public void SeedingNeverTouchesAnExistingFolder()
     {
         var target = Path.Combine(_root, "1.21.1", "accounts", Alex);
