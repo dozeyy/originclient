@@ -32,8 +32,28 @@ public static class HomeImport
             .Select(s => s.Setup.BulkLabel())
             .ToList();
         var line = sourceName != null ? $"Your {sourceName} setup is in Origin." : "Your setups are in Origin.";
-        return new HomeImportOutcome(true, line, LeftOutLine(Shown(result.Skipped), failed));
+        var leftOut = LeftOutLine(Shown(result.Skipped), failed);
+        if (SettingsWaiting(result) is { } settings) leftOut = leftOut == null ? settings : $"{leftOut} {settings}";
+        return new HomeImportOutcome(true, line, leftOut);
     }
+
+    // A version whose settings file couldn't be made yet (its game was never installed, so its data version is unknown:
+    // 26.1.x before the first Play). The Import page's report says so; Home said nothing, and its offer never comes back
+    // after a success, so the player never learned their keybinds stayed behind (bug run 11 PROF-12).
+    private static string? SettingsWaiting(BulkImportResult result)
+    {
+        var versions = result.Versions
+            .Where(v => AllLines(v).Any(l => l.Section == SummarySection.NeedsAttention
+                && string.Equals(l.Reason, SettingsMigrator.OptionsNotYet(v.Version), StringComparison.Ordinal)))
+            .Select(v => v.Version).Distinct(StringComparer.Ordinal).ToList();
+        if (versions.Count == 0) return null;
+        var which = versions.Count == 1 ? $"Minecraft {versions[0]}" : $"Minecraft {string.Join(", ", versions.Take(versions.Count - 1))} and {versions[^1]}";
+        return $"Your settings for {which} come over once you've played it: press Play once, then import again from Profiles.";
+    }
+
+    private static IEnumerable<SummaryLine> AllLines(VersionOutcome version) =>
+        (version.Lines ?? Array.Empty<SummaryLine>())
+            .Concat(version.Setups.SelectMany(s => (s.Lines ?? Array.Empty<SummaryLine>()).Concat(s.LeftOut ?? Array.Empty<SummaryLine>())));
 
     /// <summary>
     /// Whether a plan may be copied from Home, or the outcome that stops it. A real blocker (no account, not enough disk

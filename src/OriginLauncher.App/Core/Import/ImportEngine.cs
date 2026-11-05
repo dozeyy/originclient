@@ -953,7 +953,7 @@ public sealed partial class ImportEngine
                     temp => SettingsMigrator.ApplyOptions(temp, op.Desired!, op.TargetVersion!, plan.TargetGameDir, op.Extra), op.TouchNow);
                 if (!wrote && !File.Exists(op.Dest))
                     extra.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Setting, "options.txt",
-                        $"Couldn't create the settings file for Minecraft {plan.TargetVersion} yet; start the game once and import again to carry your settings over."));
+                        SettingsMigrator.OptionsNotYet(plan.TargetVersion)));
                 break;
             case OpKind.MergeProperties:
                 tx.Rewrite(op.Dest, temp => SettingsMigrator.ApplyIris(temp, op.Desired!, op.TargetVersion!, plan.TargetGameDir), op.TouchNow);

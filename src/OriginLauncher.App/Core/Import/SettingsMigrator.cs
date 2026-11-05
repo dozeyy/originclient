@@ -80,6 +80,13 @@ public sealed class MigrationContext
 //    copy from another version on the first Play.
 public static class SettingsMigrator
 {
+    /// <summary>
+    /// The settings file couldn't be made yet: nothing knows this version's data version until its game is installed
+    /// (OptionsTxtFormat.DataVersionOf). One wording, so Home's one-click can recognise it and say it too.
+    /// </summary>
+    public static string OptionsNotYet(string version) =>
+        $"Couldn't create the settings file for Minecraft {version} yet; start the game once and import again to carry your settings over.";
+
     public static void Plan(MigrationContext ctx) => new Planner(ctx).Run();
 
     // Config files that are Origin's own, or the internal mixin switches of the mods Origin bundles:
@@ -182,8 +189,7 @@ public static class SettingsMigrator
             // the file can't be created. Say so now, so the preview never promises settings the import can't write.
             if (!exists && McVersion.AtLeast(_c.TargetVersion, "1.9") && OptionsTxtFormat.DataVersionOf(_c.TargetVersion, _dst) == null)
             {
-                Line(SummarySection.NeedsAttention, PlanItemKind.Setting, "options.txt",
-                    $"Couldn't create the settings file for Minecraft {_c.TargetVersion} yet; start the game once and import again to carry your settings over.");
+                Line(SummarySection.NeedsAttention, PlanItemKind.Setting, "options.txt", OptionsNotYet(_c.TargetVersion));
                 return;
             }
             var desired = _sourceOptions.Where(kv => kv.Key is not ("resourcePacks" or "incompatibleResourcePacks"))
