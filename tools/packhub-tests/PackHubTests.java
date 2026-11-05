@@ -344,6 +344,20 @@ public final class PackHubTests {
 		t += 5_000_000_000L; // alt-tab: a 5 s gap is not a frame
 		FrameStats.frame(t);
 		eq(200, FrameStats.count(), "pause gap ignored");
+		// JP-8: the 1% low covers the last 10 s, not the last N frames. 1100 smooth 10 ms frames
+		// (11 s) push the two hitches out of the window, though they are still in the buffer.
+		for (int i = 0; i < 1100; i++) {
+			t += 10_000_000L;
+			FrameStats.frame(t);
+		}
+		eq(1300, FrameStats.count(), "frames past 512 kept");
+		eq(100, FrameStats.onePercentLow(), "hitches older than 10 s leave the 1% low");
+		// a hitch inside the window: 2 x 50 ms + 990 x 10 ms = 10 s, 992 frames -> slowest 9 = 2x50 + 7x10 ms
+		for (int i = 0; i < 2; i++) {
+			t += 50_000_000L;
+			FrameStats.frame(t);
+		}
+		eq(53, FrameStats.onePercentLow(), "recent hitches count (9 slowest of 992: 170 ms -> 53 FPS)");
 		FrameStatsProbe.reset();
 		FrameStats.frame(1);
 		eq(0, FrameStats.onePercentLow(), "no data -> 0 (HUD shows --)");
