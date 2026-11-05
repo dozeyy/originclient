@@ -31,6 +31,8 @@ public sealed partial class MainWindow
     {
         var page = new ProfilesPage(Home.IsProfileInUse);
         page.ImportRequested += (_, _) => OpenImportPanel(); // MainWindow.Import.cs
+        // Home holds the version the Mods page shows: it follows a profile picked here now, not when Home is next shown.
+        page.SelectionChanged += (_, _) => Home.RefreshProfile();
         return page;
     }
 

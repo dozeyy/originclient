@@ -159,6 +159,8 @@ public partial class MainWindow : Window
         // Needs Home to say whether a game is using a profile (no deleting it then).
         var page = new ProfilesPage(_homePage.IsProfileInUse);
         page.ImportRequested += (_, _) => OpenImportPanel();
+        // Home holds the version the Mods page shows: it follows a profile picked here now, not when Home is next shown.
+        page.SelectionChanged += (_, _) => _homePage.RefreshProfile();
         return page;
     }
 

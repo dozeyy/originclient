@@ -575,6 +575,7 @@ public partial class ProfilesPage : UserControl
             return;
         }
         if (profile != null) _homeVersion = profile.Version;
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
         HideStatus();
         Rebuild();
     }
@@ -585,6 +586,13 @@ public partial class ProfilesPage : UserControl
 
     /// <summary>The header's Import button: MainWindow opens the import card (Core/Import, UI/Controls/ImportPanel).</summary>
     public event EventHandler? ImportRequested;
+
+    /// <summary>
+    /// A profile was picked or created, so the saved version (and profile) changed. MainWindow has Home re-read it at
+    /// once: the Mods page takes its version from Home, and Home otherwise only re-reads when it is shown again, so
+    /// mods added straight after would have gone to the old version's folder (bug run 11 PROF-2).
+    /// </summary>
+    public event EventHandler? SelectionChanged;
 
     private void ImportButton_Click(object sender, RoutedEventArgs e) => ImportRequested?.Invoke(this, EventArgs.Empty);
 
@@ -867,6 +875,7 @@ public partial class ProfilesPage : UserControl
             try { System.IO.Directory.CreateDirectory(OriginPaths.ProfileModsDir(created.Version, created.Id)); }
             catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { /* made on first use */ }
             _homeVersion = created.Version;
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
             ShowStatus($"Created \"{created.Name}\". Add its mods on the Mods page.", error: false);
         }
         else
