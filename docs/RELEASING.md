@@ -453,5 +453,5 @@ files touch. Issue forms (`.github/ISSUE_TEMPLATE/`) add `bug` /
 | `.github/workflows/launcher-release.yml` | every `launcher-v*` tag: the release (Run workflow = rehearsal) |
 | `.github/workflows/relabel-releases.yml` | manual: rewrite every release's notes |
 | `.github/workflows/labels.yml` + `tools/github/labels.py` | label definitions + PR auto-labels |
-| `.github/workflows/boot-smoke.yml` | manual: headless boot test per version |
+| `.github/workflows/boot-smoke.yml` | manual: headless boot test per version. Release pass: `modules=none covers=players` boots EVERY version the way players run it (built jar + every catalog mod); dev-shots `companions=true` adds the ImmediatelyFast + Mod Menu pins to the shots run |
 | `.github/workflows/deploy-website.yml` | `website/` → GitHub Pages on push to main |
