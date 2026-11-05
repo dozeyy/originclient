@@ -48,6 +48,7 @@ public final class LocrawTests {
 		eq(HypixelLocraw.tick(w2, true, t + 20_000), false, "no new ask");
 		eq(HypixelLocraw.onMessage(reply, t + 40_000), true, "late reply with no ask shows");
 
+
 		// JG-8: the same reply names the waypoint place; one ask per world serves Waypoints too
 		eq(HypixelLocraw.placeOf(reply), "bedwars/aquarium", "place: game + map");
 		eq(HypixelLocraw.placeIn(w2), "bedwars/aquarium", "place known in that world");
@@ -65,6 +66,18 @@ public final class LocrawTests {
 		eq(HypixelLocraw.tick(w4, false, t + 51_000), false, "Waypoints on: wait");
 		eq(HypixelLocraw.tick(w4, false, t + 53_000), true, "Waypoints on, Quickplay off: asks");
 		eq(HypixelLocraw.tick(w4, true, t + 54_000), false, "Quickplay on too: still one ask per world");
+		// Hypixel never answers Origin's ask: the player's own /locraw 3+ s later shows, and ends the ask
+		Object noAnswer = new Object();
+		HypixelLocraw.tick(noAnswer, true, t + 70_000);
+		eq(HypixelLocraw.tick(noAnswer, true, t + 72_000), true, "asks in another world");
+		eq(HypixelLocraw.onMessage(reply, t + 75_500), true, "typed /locraw after an unanswered ask shows");
+		eq(HypixelLocraw.onMessage(reply, t + 75_600), true, "and the ask is over: the next one shows too");
+		// a reply inside the window after the first one (another mod's, a typed one) shows
+		Object twoReplies = new Object();
+		HypixelLocraw.tick(twoReplies, true, t + 80_000);
+		eq(HypixelLocraw.tick(twoReplies, true, t + 82_000), true, "asks in one more world");
+		eq(HypixelLocraw.onMessage(reply, t + 82_400), false, "first reply in the window hidden");
+		eq(HypixelLocraw.onMessage(reply, t + 82_900), true, "a second reply in the window shows");
 		HypixelLocraw.reset();
 
 		System.out.println(failures == 0 ? "LocrawTests: OK" : "LocrawTests: " + failures + " failure(s)");
