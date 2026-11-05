@@ -19,6 +19,7 @@
 		"SpriteIconButtonAccessor",
 		"GameRendererMixin",
 		"GuiHudMixin",
+		"RealmsConnectMixin",
 		"GuiCrosshairMixin",
 		"GuiFoodMixin",
 		"MouseHandlerMixin",

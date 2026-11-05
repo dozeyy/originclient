@@ -19,6 +19,7 @@
 		"AbstractWidgetAccessor",
 		"GameRendererMixin",
 		"GuiHudMixin",
+		"RealmsConnectMixin",
 		"GuiCrosshairMixin",
 		"GuiFoodMixin",
 		"MouseHandlerMixin",

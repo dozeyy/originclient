@@ -60,6 +60,9 @@ public final class Waypoints {
 		public double distScale = 1.0;
 		// true = the automatic death marker; the next death replaces it
 		public boolean death = false;
+		// Saved format (WaypointScope.WAYPOINT_FORMAT, written on every save); 0 = saved before
+		// the field existed, which gets the one-time marker colour repair on load.
+		public int format = 0;
 	}
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -73,6 +76,8 @@ public final class Waypoints {
 	// The address key of the Realm the current key names (its list before Realms were keyed
 	// by name, MAP-7); null when not on a Realm. Set by currentKey, read by switchTo.
 	private static String realmAddressKey = null;
+	// The Realms server id of the last Realm joined (RealmsConnectMixin); 0 = none seen.
+	private static volatile long joinedRealmId = 0;
 	private static boolean initialized = false;
 	// Hot-path guard: the world is re-resolved only when the client level object changes
 	// (weak, so a left world can still be collected). A dimension change replaces the
@@ -128,9 +133,10 @@ public final class Waypoints {
 			ServerData sd = mc.getCurrentServer();
 			if (sd != null && sd.ip != null) {
 				String server = WaypointScope.server(sd.ip);
-				// A Realm by its name: its address is the host it runs on today and changes when
-				// Mojang moves it, which used to start an empty list (MAP-7).
-				String realm = sd.isRealm() ? WaypointScope.realm(sd.name) : null;
+				// A Realm by its Realms id (its name only if the join wasn't seen): its address is the
+				// host it runs on today and changes when Mojang moves it, which used to start an empty
+				// list (MAP-7).
+				String realm = sd.isRealm() ? WaypointScope.realm(joinedRealmId, sd.name) : null;
 				if (realm != null) {
 					realmAddressKey = server;
 					return realm;
@@ -146,6 +152,11 @@ public final class Waypoints {
 			// fall through to the shared bucket
 		}
 		return "other:unknown";
+	}
+
+	/** RealmsConnectMixin: a Realm is being joined. Its id keys its waypoint list (MAP-7). */
+	public static void joiningRealm(long realmsServerId) {
+		joinedRealmId = realmsServerId;
 	}
 
 	/** A world's key with its seed (MAP-2); the folder key if the seed can't be read. */
@@ -196,6 +207,7 @@ public final class Waypoints {
 					Waypoint[] arr = GSON.fromJson(new String(Files.readAllBytes(f), StandardCharsets.UTF_8), Waypoint[].class);
 					if (arr != null) {
 						next.addAll(Arrays.asList(arr));
+						markerColourFromBeam(next);
 					}
 				}
 			} catch (Exception e) {
@@ -211,6 +223,27 @@ public final class Waypoints {
 		ALL = next;
 	}
 
+	// ONE-TIME repair of waypoints saved before the marker took the beam's colour (MAP-4): their
+	// marker kept the white default while the map dot and compass tick (which now draw the marker
+	// colour) showed the beam's, so such a waypoint takes its beam's colour as its marker colour
+	// instead of turning white on the map; an old death marker's label turns red too, like a new
+	// one. Only waypoints of an older format (WaypointScope.needsMarkerRepair): every save writes
+	// the current format, so a white marker the player picks afterwards is never undone.
+	private static void markerColourFromBeam(List<Waypoint> list) {
+		for (Waypoint w : list) {
+			if (w == null) {
+				continue;
+			}
+			if (WaypointScope.needsMarkerRepair(w.format, w.iconColor, w.color, w.death)) {
+				w.iconColor = w.color;
+				if (w.death && w.textColor == 0xFFFFFFFF) {
+					w.textColor = w.color;
+				}
+			}
+			w.format = WaypointScope.WAYPOINT_FORMAT;
+		}
+	}
+
 	public static synchronized void save() {
 		ensureLoaded();
 		if (loadedKey == null) {
@@ -222,6 +255,11 @@ public final class Waypoints {
 
 	private static void write(String key, List<Waypoint> list) {
 		Path destination = fileFor(key);
+		for (Waypoint w : list) {
+			if (w != null) {
+				w.format = WaypointScope.WAYPOINT_FORMAT;   // repaired or new: never repaired again
+			}
+		}
 		Path temp = destination.resolveSibling(destination.getFileName() + ".tmp");
 		try {
 			Files.createDirectories(destination.getParent());

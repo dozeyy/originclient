@@ -10,6 +10,7 @@
 		"WidgetTooltipHolderMixin",
 		"GameRendererMixin",
 		"GuiHudMixin",
+		"RealmsConnectMixin",
 		"MouseHandlerMixin",
 		"ClientLevelTimeMixin",
 		"CameraMixin",

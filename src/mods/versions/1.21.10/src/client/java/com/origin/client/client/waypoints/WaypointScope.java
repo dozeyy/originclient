@@ -12,7 +12,7 @@ import java.util.Locale;
 // run it -- tools/waypoint-scope-check). Waypoints.java does the Minecraft-facing part.
 //
 // A "scope" is one world or one server. Singleplayer = version + world seed + save FOLDER
-// name (not the display name: that one is renamable and not unique); a Realm = its name;
+// name (not the display name: that one is renamable and not unique); a Realm = its Realms id;
 // online = the normalised address.
 // Each scope persists to its own file config/originclient-waypoints-<scope>.json, named
 // so the launcher's Settings Sync (originclient*.json) keeps picking them up.
@@ -83,13 +83,39 @@ public final class WaypointScope {
 	}
 
 	/**
-	 * Scope key of a Realm: "realm:<name>" (MAP-7). A Realm's join address is the host it
-	 * runs on right now and changes when Mojang moves it, which used to start an empty
-	 * list; its name stays. Null for a blank name (the caller keeps the address key).
+	 * The format every saved waypoint carries (its "format" field). 1 = its marker colour has
+	 * been repaired once (MAP-4); waypoints saved before have no field and read as 0.
 	 */
-	public static String realm(String name) {
+	public static final int WAYPOINT_FORMAT = 1;
+
+	private static final int WHITE = 0xFFFFFFFF;
+
+	/**
+	 * True when a loaded waypoint's marker colour needs the one-time repair (MAP-4): saved
+	 * before the marker took the beam's colour, so its marker kept the white default while
+	 * the map dot and compass tick (which now draw the marker colour) showed the beam's.
+	 * Only waypoints of an older format: once saved in this format, a white marker on a
+	 * coloured beam is the player's own choice and stays.
+	 */
+	public static boolean needsMarkerRepair(int format, int iconColor, int color, boolean death) {
+		return format < WAYPOINT_FORMAT && iconColor == WHITE && (color != WHITE || death);
+	}
+
+	/**
+	 * Scope key of a Realm (MAP-7): "realm:id:<Realms server id>". A Realm's join address is
+	 * the host it runs on right now and changes when Mojang moves it, which used to start an
+	 * empty list; its id never changes, survives a rename and is unique (two Realms can share
+	 * a name, and vanilla shows "???" for one it can't name). The id comes from the Realms
+	 * join itself (RealmsConnectMixin); only when that wasn't seen ({@code id <= 0}) is the
+	 * Realm keyed by its name, "realm:name:<name>". Null when neither is known (the caller
+	 * keeps the address key).
+	 */
+	public static String realm(long id, String name) {
+		if (id > 0) {
+			return "realm:id:" + id;
+		}
 		String n = name == null ? "" : name.trim();
-		return n.isEmpty() ? null : "realm:" + n;
+		return n.isEmpty() ? null : "realm:name:" + n;
 	}
 
 	/**
