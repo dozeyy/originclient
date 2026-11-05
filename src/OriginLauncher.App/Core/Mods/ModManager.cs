@@ -45,7 +45,7 @@ public readonly record struct ModActionResult(bool Ok, string? Error)
 /// legacy 3-char-extension quirk would ambiguously also match
 /// <c>*.jar.disabled</c> / <c>*.jarx</c>.
 /// </summary>
-public static class ModManager
+public static partial class ModManager
 {
     public const string DisabledSuffix = ".jar.disabled";
     public const string JarSuffix = ".jar";
@@ -225,11 +225,45 @@ public static class ModManager
     public static ImportContext ImportContextFor(string version, string? profileId, IReadOnlySet<string>? confirmedReplace = null)
     {
         var shared = ModsFolder(version);
+        var platform = LaunchPreflight.PlatformFor(version);
+        var willInstall = BuiltInsBeforeFirstPlay(platform, shared);
         return profileId == null
-            ? new ImportContext(shared, LaunchPreflight.PlatformFor(version), IsManaged, ConfirmedReplace: confirmedReplace)
-            : new ImportContext(ModsFolder(version, profileId), LaunchPreflight.PlatformFor(version), IsOriginProvisioned,
-                IsProfile: true, OriginFolder: shared, ConfirmedReplace: confirmedReplace);
+            ? new ImportContext(shared, platform, IsManaged, ConfirmedReplace: confirmedReplace, OriginWillInstall: willInstall)
+            : new ImportContext(ModsFolder(version, profileId), platform, IsOriginProvisioned,
+                IsProfile: true, OriginFolder: shared, ConfirmedReplace: confirmedReplace, OriginWillInstall: willInstall);
     }
+
+    // Before the first Play of a version its shared folder holds none of Origin's jars yet, so the check only saw the
+    // player's own and said "Needs fabric-api" / "Needs sodium" about mods Origin installs itself; players then added
+    // their own copy, which wins over Origin's (bug run 11 PROF-3). Until Origin's jars are there, what Origin will
+    // install for the version (the bundled jar and the perf catalog: the same BuiltInModSet the import uses) answers
+    // those "needs" notes (ImportContext.OriginWillInstall). Only the notes: what may be added stays the folder's call,
+    // so a player's own newer copy is judged exactly as after the first Play. Once Origin's jars are there they speak
+    // for themselves. Not 1.8.9 (Forge: no Fabric API or Sodium, and its jars' dependencies are advisory).
+    private static BuiltInModSet? BuiltInsBeforeFirstPlay(CompatPlatform platform, string shared)
+    {
+        if (platform.IsLegacyForge || HoldsOriginJar(shared)) return null;
+        BuiltInModSet? builtIns = null;
+        FindBuiltIns(platform.McVersion, ref builtIns);
+        return builtIns;
+    }
+
+    private static bool HoldsOriginJar(string folder)
+    {
+        try
+        {
+            return Directory.Exists(folder)
+                && Directory.EnumerateFiles(folder).Any(path => IsManaged(JarNameOf(path)));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return true; // unreadable: keep the check as it was (no built-ins added)
+        }
+    }
+
+    /// <summary>What Origin will install for <paramref name="version"/> (ModManager.BuiltIns.cs in the launchers; the unit
+    /// tests, which link this file without it, leave it null).</summary>
+    static partial void FindBuiltIns(string version, ref BuiltInModSet? builtIns);
 
     /// <summary>
     /// The player-override notices the next Play of this folder will act on ("Shaders are off for this profile:

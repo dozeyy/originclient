@@ -9,9 +9,11 @@ namespace OriginLauncher.App.Core.Compat;
 /// <param name="IsProfile">The folder is a profile's own: it holds only the player's mods, and Origin's jars are never taken into it.</param>
 /// <param name="OriginFolder">For a profile: the shared folder that holds Origin's jars, so the profile's mods are judged beside them. Null = none.</param>
 /// <param name="ConfirmedReplace">File names (of the incoming jars) the player has already said "replace" for.</param>
+/// <param name="OriginWillInstall">Before a version's first Play (none of Origin's jars in its folder yet): what Origin
+/// will install there. A "needs X" note that Origin's X answers is then not said. Null = the folder speaks for itself.</param>
 public sealed record ImportContext(
     string Folder, CompatPlatform Platform, Func<string, bool> IsOriginProvisioned, bool IsProfile = false,
-    string? OriginFolder = null, IReadOnlySet<string>? ConfirmedReplace = null);
+    string? OriginFolder = null, IReadOnlySet<string>? ConfirmedReplace = null, BuiltInModSet? OriginWillInstall = null);
 
 public enum ImportAction
 {
@@ -174,6 +176,19 @@ public static class ModImporter
         return items.Select(i => i!).ToList();
     }
 
+    // A "needs fabric-api" / "needs sodium" before the version's first Play, about a mod Origin installs itself there
+    // (in a version that fits the requirement; an unknown version fits any, as in the engine): not a problem, so not
+    // said. Players used to add their own copy because of it, which then won over Origin's (bug run 11 PROF-3).
+    private static bool OriginWillProvide(CompatFinding finding, ImportContext context)
+    {
+        if (finding.Kind != FindingKind.MissingDependency || finding.TargetId is not { } id) return false;
+        if (context.OriginWillInstall?.Find(id) is not { } mod) return false;
+        if (finding.Range == null || mod.Version == null) return true;
+        // The finding shows alternatives as "A or B" (VersionPredicate.Display).
+        try { return VersionPredicate.Parse(finding.Range.Split(" or ")).IsSatisfiedBy(mod.Version); }
+        catch (Exception ex) when (ex is FormatException or ArgumentException) { return false; } // can't tell: keep the note
+    }
+
     // Where the player's own copy of a mod Origin ships may be added (and then loads instead of Origin's).
     private static bool PlayerCopiesWin(ImportContext context) => context.IsProfile || !context.Platform.IsLegacyForge;
 
@@ -212,7 +227,8 @@ public static class ModImporter
             return new ImportItem(src, name, action, null, file.Info, twin);
         }
 
-        var notes = report.For(file).Where(f => NoteKinds.Contains(f.Kind)).Select(f => $"{file.DisplayName}: {f.Summary}").Distinct().ToList();
+        var notes = report.For(file).Where(f => NoteKinds.Contains(f.Kind) && !OriginWillProvide(f, context))
+            .Select(f => $"{file.DisplayName}: {f.Summary}").Distinct().ToList();
         return new ImportItem(src, name, ImportAction.Add, null, file.Info, null) { Notes = notes };
     }
 

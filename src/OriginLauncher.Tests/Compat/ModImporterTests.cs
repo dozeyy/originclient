@@ -289,6 +289,28 @@ public sealed class ModImporterTests : IDisposable
         Assert.Contains("somelib", report.Message);
     }
 
+    // Bug run 11 PROF-3: before a version's first Play its folder has none of Origin's jars, and adding mods said
+    // "Needs fabric-api" / "Needs sodium" about mods Origin installs itself. What Origin will install answers those
+    // notes; a requirement Origin's copy doesn't meet, or a library Origin doesn't ship, is still said.
+    [Fact]
+    public void BeforeTheFirstPlayOriginsOwnModsAnswerTheNeedsNotes()
+    {
+        var willInstall = BuiltInModSet.Build("1.21.1", null, new[] { new CatalogMod("sodium", "sodium-fabric-0.6.13+mc1.21.1.jar") });
+        var context = Context() with { OriginWillInstall = willInstall };
+        var src = WriteJar(_incoming, "extra-1.0.jar", "extra",
+            needs: new[] { ("fabric-api", "*"), ("sodium", ">=0.6"), ("fabric-resource-loader-v0", "*"), ("somelib", ">=1.0") });
+
+        var report = ModImporter.Import(new[] { src }, context);
+
+        Assert.Equal(1, report.Added);
+        Assert.DoesNotContain(report.Notes, n => n.Contains("fabric-api") || n.Contains("sodium") || n.Contains("fabric-resource-loader"));
+        Assert.Contains(report.Notes, n => n.Contains("somelib"));
+
+        var tooNew = WriteJar(_incoming, "picky-1.0.jar", "picky", needs: new[] { ("sodium", ">=0.9") });
+        var picky = ModImporter.Import(new[] { tooNew }, context);
+        Assert.Contains(picky.Notes, n => n.Contains("sodium"));
+    }
+
     [Fact]
     public void ADroppedBatchAddsTheGoodOnesAndSaysWhyNotTheOthers()
     {
