@@ -211,11 +211,19 @@ public final class ShaderDownloader {
 				return;
 			}
 			String url = file.get("url").getAsString();
+			// SEC-4: only Modrinth's own https hosts, and only bytes whose SHA-512 Modrinth's API
+			// published (the pack hub, 1.8.9's pinned packs and the launcher all check theirs).
+			String sha512 = sha512Of(file);
+			if (!trustedUrl(url) || sha512 == null) {
+				STATES.put(slug, new State(Status.ERROR, 0, "Download not verified"));
+				return;
+			}
 			// Treat API metadata as untrusted input. Only the final path component
 			// may be written beneath shaderpacks/.
-			String name = Path.of(file.get("filename").getAsString()).getFileName().toString();
-			if (name.isBlank()) {
-				throw new IllegalArgumentException("Shader response contained an empty filename");
+			String raw = file.get("filename").getAsString();
+			String name = java.nio.file.Paths.get(raw).getFileName().toString();
+			if (name.trim().isEmpty() || !name.equals(raw) || name.equals(".") || name.equals("..")) {
+				throw new IllegalArgumentException("Shader response contained an unsafe filename");
 			}
 
 			Path dir = IrisBridge.shaderpacksDir();
@@ -229,7 +237,13 @@ public final class ShaderDownloader {
 			}
 
 			HttpURLConnection conn = open(url);
+			int code = conn.getResponseCode();
+			if (code < 200 || code >= 300 || !trustedUrl(conn.getURL().toString())) {
+				conn.disconnect();
+				throw new IllegalStateException("Shader download refused: HTTP " + code + " from " + conn.getURL().getHost());
+			}
 			long total = conn.getContentLengthLong();
+			java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-512");
 			Path tmp = dir.resolve(name + ".part");
 			long read = 0;
 			try (InputStream in = conn.getInputStream(); OutputStream out = Files.newOutputStream(tmp)) {
@@ -237,6 +251,7 @@ public final class ShaderDownloader {
 				int n;
 				while ((n = in.read(buf)) > 0) {
 					out.write(buf, 0, n);
+					md.update(buf, 0, n);
 					read += n;
 					// Show progress even when the server sends no Content-Length: still
 					// flip the row to "Downloading…" (progress 0) so it never freezes on
@@ -257,6 +272,12 @@ public final class ShaderDownloader {
 			if (total > 0 && read != total) {
 				Files.deleteIfExists(tmp);
 				throw new IllegalStateException("Incomplete shader download: " + read + " of " + total + " bytes");
+			}
+			if (!hex(md.digest()).equalsIgnoreCase(sha512)) {
+				Files.deleteIfExists(tmp);   // never let bytes Modrinth didn't publish into shaderpacks/
+				com.origin.client.OriginClient.LOGGER.warn("Shader download for {} did not match Modrinth's SHA-512", slug);
+				STATES.put(slug, new State(Status.ERROR, 0, "Download damaged - try again"));
+				return;
 			}
 			try {
 				Files.move(tmp, dest, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
@@ -307,6 +328,36 @@ public final class ShaderDownloader {
 			}
 		}
 		return files.get(0).getAsJsonObject();
+	}
+
+	/** https on modrinth.com or one of its subdomains (cdn.modrinth.com serves every file). */
+	private static boolean trustedUrl(String url) {
+		try {
+			URI u = URI.create(url);
+			String host = u.getHost() == null ? "" : u.getHost().toLowerCase(java.util.Locale.ROOT);
+			return "https".equalsIgnoreCase(u.getScheme()) && (host.equals("modrinth.com") || host.endsWith(".modrinth.com"));
+		} catch (RuntimeException e) {
+			return false;
+		}
+	}
+
+	/** The file's SHA-512 from Modrinth's API (hex), or null when it published none: such a file is refused. */
+	private static String sha512Of(JsonObject file) {
+		try {
+			JsonObject h = file.getAsJsonObject("hashes");
+			String v = h == null || !h.has("sha512") || h.get("sha512").isJsonNull() ? null : h.get("sha512").getAsString();
+			return v != null && v.matches("[0-9a-fA-F]{128}") ? v : null;
+		} catch (RuntimeException e) {
+			return null;
+		}
+	}
+
+	private static String hex(byte[] b) {
+		StringBuilder sb = new StringBuilder(b.length * 2);
+		for (byte x : b) {
+			sb.append(Character.forDigit((x >> 4) & 0xF, 16)).append(Character.forDigit(x & 0xF, 16));
+		}
+		return sb.toString();
 	}
 
 	private static HttpURLConnection open(String url) throws Exception {
