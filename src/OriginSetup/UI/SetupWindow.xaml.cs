@@ -412,7 +412,7 @@ public partial class SetupWindow : Window
         try
         {
             var token = _cts.Token;
-            var notes = await Task.Run(() => Installer.Run(_self, options, release, p => _progress = p, token));
+            var outcome = await Task.Run(() => Installer.Run(_self, options, release, p => _progress = p, token));
 
             _progressTimer.Stop();
             RenderProgress();
@@ -422,7 +422,7 @@ public partial class SetupWindow : Window
                 : _existing.Version != null && installed != null && !IsOlder(_existing.Version, installed) ? "Origin is repaired"
                 : "Origin is up to date";
             DoneStatus.Text = installed != null ? $"Installed, version {installed}" : "Installed";
-            DoneLead.Text = DoneLeadText(notes);
+            DoneLead.Text = outcome.DoneLead;
             ShowPage(DonePage);
         }
         catch (Exception ex)
@@ -667,18 +667,13 @@ public partial class SetupWindow : Window
         RenderProgress();
     }
 
-    internal void TourDone(string title, string status, IReadOnlyList<string>? notes = null)
+    internal void TourDone(string title, string status, IReadOnlyList<string>? notes = null, bool onDesktop = true)
     {
         DoneTitle.Text = title;
         DoneStatus.Text = status;
-        DoneLead.Text = DoneLeadText(notes ?? Array.Empty<string>());
+        DoneLead.Text = new Installer.InstallOutcome(notes ?? Array.Empty<string>(), onDesktop).DoneLead;
         ShowPage(DonePage);
     }
-
-    // The line under the Done title: where Origin is, or what Windows refused (Installer.Finish). The install itself
-    // worked either way, so this stays the calm body line, not the Problem page.
-    private static string DoneLeadText(IReadOnlyList<string> notes) =>
-        notes.Count == 0 ? "Origin is on your desktop and in the Start menu." : string.Join(" ", notes);
 
     internal void TourProblem() =>
         ShowProblem("Couldn't download Origin", DownloadException.CantConnect, canRetry: true);
