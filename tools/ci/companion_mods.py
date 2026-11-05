@@ -12,7 +12,8 @@ companion, verify_loaded() = problems when Fabric's "Loading N mods:" list lacks
 (Without it, a module whose runClient has no -PextraMods hook downloaded the jars, loaded nothing and passed.)
 
 Usage: companion_mods.py <module-dir> [--out DIR]     (default DIR = <module>/run/extra-mods)
-Exit 0 = fetched, 1 = no companion in the catalog / bad hash / bad host, 2 = usage.
+       companion_mods.py <module-dir> --verify LOG    (dev-shots: FAIL unless LOG's mod list names them)
+Exit 0 = fetched / all loaded, 1 = no companion in the catalog / bad hash / bad host / not loaded, 2 = usage.
 """
 import argparse
 import hashlib
@@ -80,8 +81,24 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("module")
     ap.add_argument("--out", default="")
+    ap.add_argument("--verify", default="", help="a game log: check its mod list instead of fetching")
     a = ap.parse_args()
     name = os.path.basename(os.path.abspath(a.module))
+    if a.verify:
+        # dev-shots (JP-6): the same proof boot-smoke's --companions gives, so a module whose run task ignored
+        # -PextraMods can't pass with the jars downloaded and never loaded.
+        expected = expected_versions(open(CATALOG, encoding="utf-8").read(), name)
+        try:
+            log = open(a.verify, encoding="utf-8", errors="replace").read()
+        except OSError as e:
+            print(f"::error title=companion-mods {name}::can't read {a.verify}: {e}")
+            return 1
+        problems = verify_loaded(log, expected)
+        for p in problems:
+            print(f"::error title=companion-mods {name}::{p}")
+        if not problems:
+            print(f"companion-mods: {name}: loaded " + ", ".join(f"{k} {v}" for k, v in sorted(expected.items())))
+        return 1 if problems else 0
     out = a.out or os.path.join(a.module, "run", "extra-mods")
     found = companions(open(CATALOG, encoding="utf-8").read(), name)
     # Not every era has both (1.17.1 and 1.16.5 bundle no ImmediatelyFast): fetch what the catalog has.

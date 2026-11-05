@@ -764,6 +764,35 @@ class CompanionGate(unittest.TestCase):
         self.assertIn("--companions", wf)
         self.assertIn("-PextraMods=run/extra-mods", wf)
 
+    def test_dev_shots_can_load_and_must_prove_the_companions(self):
+        """JP-6: dev-shots companions=true fetches the same pins into the -PextraMods folder and gates on the mod list."""
+        wf = _read(os.path.join(ROOT, ".github", "workflows", "dev-shots.yml"))
+        self.assertIn("companions:", wf)
+        self.assertIn('tools/ci/companion_mods.py" . --out "$RUNNER_TEMP/extra-mods"', wf)
+        self.assertIn("--verify", wf)
+
+    def test_verify_cli_fails_on_a_log_without_the_companions(self):
+        import subprocess, sys
+        tool = os.path.join(HERE, "companion_mods.py")
+        module = os.path.join(ROOT, "src", "mods", "versions", "1.21.11")
+        with tempfile.TemporaryDirectory() as d:
+            log = os.path.join(d, "run.log")
+            with open(log, "w") as fh:
+                fh.write("\t- fabric-api 0.141.6+1.21.11\n")
+            bad = subprocess.run([sys.executable, tool, module, "--verify", log], capture_output=True, text=True)
+            self.assertEqual(bad.returncode, 1, bad.stdout)
+            with open(log, "w") as fh:
+                fh.write(self.LIST)
+            good = subprocess.run([sys.executable, tool, module, "--verify", log], capture_output=True, text=True)
+            self.assertEqual(good.returncode, 0, good.stdout)
+
+    def test_boot_smoke_release_pass_boots_every_version_as_players_run_it(self):
+        """JP-6: covers=players adds the primaries to the production-style rows (the built jar + every catalog mod)."""
+        wf = _read(os.path.join(ROOT, ".github", "workflows", "boot-smoke.yml"))
+        self.assertIn('elif craw == "players":', wf)
+        block = wf.split('elif craw == "players":', 1)[1].split("else:", 1)[0]
+        self.assertNotIn("primary(", block)
+
     def test_every_fabric_module_has_the_extramods_hook(self):
         """The hook companions=true depends on. 1.8.9 (Forge, no catalog companions) is the only exception."""
         import json
