@@ -59,6 +59,22 @@ public static class ModFolderScanner
     }
 
     /// <summary>
+    /// What one jar already said about itself in this launcher run (any earlier <see cref="ReadInfo"/>, nested or not),
+    /// while its size and time are unchanged; null when it was never read. One stat, no open: safe on the UI thread.
+    /// </summary>
+    public static ModInfo? CachedInfo(string path)
+    {
+        if (!Cache.TryGetValue(path, out var cached)) return null;
+        try
+        {
+            var file = new FileInfo(path);
+            return file.Exists && file.Length == cached.Stamp.Length && file.LastWriteTimeUtc.Ticks == cached.Stamp.WriteTicks
+                ? cached.Info : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    /// <summary>
     /// What one jar says about itself, or null when it can't be opened right now (in use, no access). A file that
     /// opens but isn't a readable jar returns an info with <see cref="ModInfo.ReadFailed"/>, as the reader does.
     /// </summary>

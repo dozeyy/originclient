@@ -267,6 +267,37 @@ public sealed class ModImporterTests : IDisposable
         Assert.Equal(new[] { "appleskin.jar" }, Directory.GetFiles(_mods).Select(Path.GetFileName).ToArray());
     }
 
+    // Bug run 11 PROF-5: the Mods page showed a jar's file name twice ("litematica-fabric-1.21.1-0.19.50" over the
+    // .jar). The mod's own name and version come from inside the jar, read off the UI thread (WarmNames); until then,
+    // and for a jar that says nothing, the file name stands in.
+    [Fact]
+    public void TheModsPageShowsTheModsOwnNameOnceItsJarIsRead()
+    {
+        WriteJar(_mods, "XaerosWorldMap_1.39.2_Fabric_1.21.jar", "xaeroworldmap", "1.39.2");
+        System.IO.File.WriteAllBytes(Path.Combine(_mods, "broken.jar.disabled"), new byte[] { 1, 2, 3 });
+
+        var before = OriginLauncher.App.Core.Mods.ModManager.EnumerateIn(_mods, isProfile: false);
+        var unread = before.Single(m => m.FileName == "XaerosWorldMap_1.39.2_Fabric_1.21.jar");
+        Assert.True(unread.NameUnread);
+        Assert.Equal("XaerosWorldMap 1.39.2 Fabric 1.21", unread.DisplayName);
+        Assert.Equal(unread.FileName, unread.FileLine);
+
+        // Other test classes clear the shared read cache in their constructors (they run in parallel): read again if so.
+        IReadOnlyList<OriginLauncher.App.Core.Mods.ModEntry> after = before;
+        for (var attempt = 0; attempt < 3 && after.Any(m => m.NameUnread); attempt++)
+        {
+            OriginLauncher.App.Core.Mods.ModManager.WarmNames(_mods);
+            after = OriginLauncher.App.Core.Mods.ModManager.EnumerateIn(_mods, isProfile: false);
+        }
+        var named = after.Single(m => m.FileName == "XaerosWorldMap_1.39.2_Fabric_1.21.jar");
+        Assert.Equal("xaeroworldmap", named.DisplayName); // WriteJar's name is its id
+        Assert.Equal("1.39.2", named.Version);
+        Assert.Equal("1.39.2 - XaerosWorldMap_1.39.2_Fabric_1.21.jar", named.FileLine);
+        var broken = after.Single(m => m.FileName == "broken.jar");
+        Assert.False(broken.NameUnread); // read once, said nothing: never read again
+        Assert.Equal("broken", broken.DisplayName);
+    }
+
     [Fact]
     public void ATurnedOffTwinIsStillTheSameMod()
     {
