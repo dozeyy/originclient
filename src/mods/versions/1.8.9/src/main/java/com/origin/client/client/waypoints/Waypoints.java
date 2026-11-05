@@ -48,6 +48,9 @@ public final class Waypoints {
 		public boolean showDistance = true;
 		// true = the automatic death marker; the next death replaces it
 		public boolean death = false;
+		// Saved format (WaypointScope.WAYPOINT_FORMAT, written on every save); 0 = saved before
+		// the field existed, which gets the one-time marker colour repair on load.
+		public int format = 0;
 		// Style — every visual part has its OWN colour and scale so each is
 		// independently tunable (icon vs beam vs text). Gson leaves these
 		// initializer defaults in place for waypoints saved before the fields
@@ -199,20 +202,24 @@ public final class Waypoints {
 		ALL = next;
 	}
 
-	// Waypoints made before the marker took the beam's colour (MAP-4) kept the white default
-	// marker colour while their map dot and compass tick showed the beam's; those now draw the
-	// marker colour, so a loaded waypoint with a white marker and a coloured beam (or a death
-	// marker) takes the beam's colour as its marker colour instead of turning white on the map.
-	// An old death marker's label turns red too, like a new one.
+	// ONE-TIME repair of waypoints saved before the marker took the beam's colour (MAP-4): their
+	// marker kept the white default while the map dot and compass tick (which now draw the marker
+	// colour) showed the beam's, so such a waypoint takes its beam's colour as its marker colour
+	// instead of turning white on the map; an old death marker's label turns red too, like a new
+	// one. Only waypoints of an older format (WaypointScope.needsMarkerRepair): every save writes
+	// the current format, so a white marker the player picks afterwards is never undone.
 	private static void markerColourFromBeam(List<Waypoint> list) {
 		for (Waypoint w : list) {
-			if (w == null || w.iconColor != 0xFFFFFFFF || (w.color == 0xFFFFFFFF && !w.death)) {
+			if (w == null) {
 				continue;
 			}
-			w.iconColor = w.color;
-			if (w.death && w.textColor == 0xFFFFFFFF) {
-				w.textColor = w.color;
+			if (WaypointScope.needsMarkerRepair(w.format, w.iconColor, w.color, w.death)) {
+				w.iconColor = w.color;
+				if (w.death && w.textColor == 0xFFFFFFFF) {
+					w.textColor = w.color;
+				}
 			}
+			w.format = WaypointScope.WAYPOINT_FORMAT;
 		}
 	}
 
@@ -227,6 +234,11 @@ public final class Waypoints {
 
 	private static void write(String key, List<Waypoint> list) {
 		Path destination = fileFor(key);
+		for (Waypoint w : list) {
+			if (w != null) {
+				w.format = WaypointScope.WAYPOINT_FORMAT;   // repaired or new: never repaired again
+			}
+		}
 		Path temp = destination.resolveSibling(destination.getFileName() + ".tmp");
 		try {
 			Files.createDirectories(destination.getParent());

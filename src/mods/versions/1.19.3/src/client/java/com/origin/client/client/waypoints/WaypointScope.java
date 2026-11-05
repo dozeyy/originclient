@@ -83,6 +83,25 @@ public final class WaypointScope {
 	}
 
 	/**
+	 * The format every saved waypoint carries (its "format" field). 1 = its marker colour has
+	 * been repaired once (MAP-4); waypoints saved before have no field and read as 0.
+	 */
+	public static final int WAYPOINT_FORMAT = 1;
+
+	private static final int WHITE = 0xFFFFFFFF;
+
+	/**
+	 * True when a loaded waypoint's marker colour needs the one-time repair (MAP-4): saved
+	 * before the marker took the beam's colour, so its marker kept the white default while
+	 * the map dot and compass tick (which now draw the marker colour) showed the beam's.
+	 * Only waypoints of an older format: once saved in this format, a white marker on a
+	 * coloured beam is the player's own choice and stays.
+	 */
+	public static boolean needsMarkerRepair(int format, int iconColor, int color, boolean death) {
+		return format < WAYPOINT_FORMAT && iconColor == WHITE && (color != WHITE || death);
+	}
+
+	/**
 	 * Scope key of a Realm (MAP-7): "realm:id:<Realms server id>". A Realm's join address is
 	 * the host it runs on right now and changes when Mojang moves it, which used to start an
 	 * empty list; its id never changes, survives a rename and is unique (two Realms can share

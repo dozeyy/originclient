@@ -156,6 +156,18 @@ public class WaypointScopeCheck {
 		WaypointScope.adoptEarlier(mig, "mp:mc.hypixel.net/skyblock/hub", "1.21.1", null);
 		eq("skyblock adopts", true, Files.exists(mig.resolve(WaypointScope.fileName("mp:mc.hypixel.net/skyblock/hub"))));
 
+		// MAP-4: a waypoint from before marker colours (no format field = 0) with a white marker
+		// takes its beam colour once; once saved in the current format, white is the player's choice
+		int white = 0xFFFFFFFF, red = 0xFFE05555;
+		eq("old coloured waypoint repaired", true, WaypointScope.needsMarkerRepair(0, white, red, false));
+		eq("old death marker repaired", true, WaypointScope.needsMarkerRepair(0, white, red, true));
+		eq("old white waypoint left", false, WaypointScope.needsMarkerRepair(0, white, white, false));
+		eq("old own marker colour left", false, WaypointScope.needsMarkerRepair(0, 0xFF00FF00, red, false));
+		eq("saved after the repair: deliberate white marker stays", false,
+				WaypointScope.needsMarkerRepair(WaypointScope.WAYPOINT_FORMAT, white, red, false));
+		eq("saved after the repair: death marker left", false,
+				WaypointScope.needsMarkerRepair(WaypointScope.WAYPOINT_FORMAT, white, red, true));
+
 		System.out.println(fails == 0 ? "ALL PASS" : fails + " FAILED");
 		System.exit(fails == 0 ? 0 : 1);
 	}
