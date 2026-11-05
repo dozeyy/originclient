@@ -17,6 +17,7 @@
 		"GameRendererMixin",
 		"PostChainPrevTargetMixin",
 		"GuiHudMixin",
+		"RealmsConnectMixin",
 		"GuiCrosshairMixin",
 		"GuiFoodMixin",
 		"MouseHandlerMixin",

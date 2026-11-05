@@ -191,6 +191,7 @@ public final class Waypoints {
 					Waypoint[] arr = GSON.fromJson(new String(Files.readAllBytes(f), StandardCharsets.UTF_8), Waypoint[].class);
 					if (arr != null) {
 						next.addAll(Arrays.asList(arr));
+						markerColourFromBeam(next);
 					}
 				}
 			} catch (Exception e) {
@@ -204,6 +205,23 @@ public final class Waypoints {
 			}
 		}
 		ALL = next;
+	}
+
+	// Waypoints made before the marker took the beam's colour (MAP-4) kept the white default
+	// marker colour while their map dot and compass tick showed the beam's; those now draw the
+	// marker colour, so a loaded waypoint with a white marker and a coloured beam (or a death
+	// marker) takes the beam's colour as its marker colour instead of turning white on the map.
+	// An old death marker's label turns red too, like a new one.
+	private static void markerColourFromBeam(List<Waypoint> list) {
+		for (Waypoint w : list) {
+			if (w == null || w.iconColor != 0xFFFFFFFF || (w.color == 0xFFFFFFFF && !w.death)) {
+				continue;
+			}
+			w.iconColor = w.color;
+			if (w.death && w.textColor == 0xFFFFFFFF) {
+				w.textColor = w.color;
+			}
+		}
 	}
 
 	public static synchronized void save() {

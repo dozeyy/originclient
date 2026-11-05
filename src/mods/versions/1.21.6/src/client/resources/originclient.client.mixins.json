@@ -13,6 +13,7 @@
 		"CosmeticsPauseMixin",
 		"GameRendererMixin",
 		"GuiHudMixin",
+		"RealmsConnectMixin",
 		"TabButtonMixin",
 		"PlayerTabOverlayAccessor",
 		"MultiPlayerGameModeMixin",

@@ -9,6 +9,7 @@
 		"WindowTitleMixin",
 		"GameRendererMixin",
 		"GuiHudMixin",
+		"RealmsConnectMixin",
 		"MouseHandlerMixin",
 		"InputConstantsMouseMixin",
 		"CameraMixin",

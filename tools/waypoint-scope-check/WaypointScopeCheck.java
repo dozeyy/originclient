@@ -136,16 +136,20 @@ public class WaypointScopeCheck {
 		eq("the claimant re-adopts", true, Files.exists(fileA));
 		eq("no claim tmp left", 0L, Files.list(mig).filter(p -> p.toString().endsWith(".tmp")).count());
 
-		// MAP-7: a Realm is keyed by name and starts from its address-keyed list once
-		eq("realm key", "realm:Our Realm", WaypointScope.realm("  Our Realm "));
-		eq("realm blank", null, WaypointScope.realm(" "));
+		// MAP-7: a Realm is keyed by its Realms id (name only as a fallback) and starts from its address-keyed list once
+		eq("realm key by id", "realm:id:4242", WaypointScope.realm(4242L, "Our Realm"));
+		eq("renamed realm keeps its key", WaypointScope.realm(4242L, "Our Realm"), WaypointScope.realm(4242L, "New Name"));
+		eq("same-named realms differ", false, WaypointScope.realm(1L, "???").equals(WaypointScope.realm(2L, "???")));
+		eq("realm name fallback", "realm:name:Our Realm", WaypointScope.realm(0L, "  Our Realm "));
+		eq("realm name fallback is not an id key", false, WaypointScope.realm(0L, "id:5").equals(WaypointScope.realm(5L, null)));
+		eq("realm blank", null, WaypointScope.realm(-1L, " "));
 		Path addr = mig.resolve(WaypointScope.fileName("mp:1.2.3.4:30000"));
-		Path realm = mig.resolve(WaypointScope.fileName("realm:Our Realm"));
+		Path realm = mig.resolve(WaypointScope.fileName("realm:id:4242"));
 		Files.write(addr, "[\"R\"]".getBytes(StandardCharsets.UTF_8));
-		WaypointScope.adoptEarlier(mig, "realm:Our Realm", "1.21.1", "mp:1.2.3.4:30000");
+		WaypointScope.adoptEarlier(mig, "realm:id:4242", "1.21.1", "mp:1.2.3.4:30000");
 		eq("realm adopts its address list", "[\"R\"]", new String(Files.readAllBytes(realm), StandardCharsets.UTF_8));
 		Files.write(realm, "[]".getBytes(StandardCharsets.UTF_8));
-		WaypointScope.adoptEarlier(mig, "realm:Our Realm", "1.21.1", "mp:5.6.7.8:30001");
+		WaypointScope.adoptEarlier(mig, "realm:id:4242", "1.21.1", "mp:5.6.7.8:30001");
 		eq("realm adopts only once", "[]", new String(Files.readAllBytes(realm), StandardCharsets.UTF_8));
 		// Hypixel SkyBlock still adopts the all-of-Hypixel list
 		Files.write(mig.resolve(WaypointScope.fileName("mp:mc.hypixel.net")), "[\"H\"]".getBytes(StandardCharsets.UTF_8));

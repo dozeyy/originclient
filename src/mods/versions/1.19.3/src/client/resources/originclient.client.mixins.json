@@ -25,6 +25,7 @@
 		"AbstractWidgetTooltipMixin",
 		"GameRendererMixin",
 		"GuiHudMixin",
+		"RealmsConnectMixin",
 		"MouseHandlerMixin",
 		"KeyClickMixin",
 		"ClientLevelTimeMixin",
