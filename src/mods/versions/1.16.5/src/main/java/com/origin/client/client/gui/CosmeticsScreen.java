@@ -340,7 +340,7 @@ public class CosmeticsScreen extends OriginWindow {
 				break;
 			case READY:
 				blocker = mine != null ? null
-					: !DEMO && CosmeticsService.mineFailed() ? "Couldn't load your cosmetics. Close and reopen this screen to try again."
+					: !DEMO && CosmeticsService.mineFailedRetrying() ? "Couldn't load your cosmetics. Trying again..."
 					: "Loading your cosmetics...";
 				break;
 			default:
