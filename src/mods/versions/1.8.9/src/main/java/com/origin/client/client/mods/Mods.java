@@ -1461,7 +1461,7 @@ public final class Mods {
 			}
 		}
 		ModOption o = opt(modId, key);
-		return o == null ? -1 : o.defKey;   // schema defaults are LWJGL2 already
+		return o == null ? -1 : KeyCodes.fromPlace(o.defKey);   // schema defaults are US-layout LWJGL2 codes: places
 	}
 
 	public static String mode(String modId, String key) {
@@ -1788,7 +1788,7 @@ public final class Mods {
 		java.util.Map<String, com.google.gson.JsonElement> m = ModsConfig.VALUES.get(id);
 		com.google.gson.JsonElement enabled = m == null ? null : m.get("enabled");
 		if (enabled != null && enabled.isJsonPrimitive() && enabled.getAsBoolean() && !m.containsKey(key)) {
-			m.put(key, new JsonPrimitive(KeyCodes.lwjglToGlfw(oldDefault)));
+			m.put(key, new JsonPrimitive(KeyCodes.placeToGlfw(oldDefault)));
 			return true;
 		}
 		return false;

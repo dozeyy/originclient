@@ -26,6 +26,18 @@ import org.lwjgl.input.Mouse;
  * Controls sync (OriginClientMod.syncedKeyDown / tickTabList) writes the mouse
  * bind back in the new form.
  * A code with no counterpart translates to -1 (unbound), never to a wrong key.
+ *
+ * Keyboard layouts (bug run 10, INPUT-1): a GLFW key code is a key's PLACE (GLFW_KEY_W is
+ * where W sits on a US keyboard, whatever is printed on it), but LWJGL 2 on Windows
+ * numbers a key by the CHARACTER the layout gives it (WindowsKeyboard.handleKey ->
+ * WindowsKeycodes.mapVirtualKeyToLWJGLCode(virtual key)). The tables below are the US
+ * layout, where both agree; letters, digits and punctuation then go through the player's
+ * layout (place -> virtual key -> LWJGL code), so an AZERTY player's Z key is GLFW_KEY_W
+ * in the file and Keyboard.KEY_Z here -- the same key 1.21.1 uses. The launcher's
+ * Settings Sync does the same for vanilla's keys (Core/Sync/LegacyKeyLayout.cs).
+ * The Mac's LWJGL 2 numbers keys by place already; Linux (X keysyms) keeps the US reading.
+ * Schema defaults (ModOption.defKey) are places too, like every other version's defaults:
+ * {@link #fromPlace} turns one into the code to watch.
  */
 public final class KeyCodes {
 	public static final int UNBOUND = -1;
@@ -34,6 +46,17 @@ public final class KeyCodes {
 
 	private static final int[] GLFW_TO_LWJGL = new int[349];
 	private static final int[] LWJGL_TO_GLFW = new int[256];
+
+	// Places (US-layout LWJGL codes) a layout can give another character: the number row with
+	// - and =, the letter rows with their punctuation, ` and backslash, and 0x56 (the ISO key left of Z).
+	private static final boolean[] LAYOUT_PLACE = new boolean[256];
+	// Windows virtual key -> LWJGL 2 code, for the virtual keys a layout can put on those
+	// places: LWJGL 2's own WindowsKeycodes table (anything else reads as KEY_NONE there too).
+	private static final int[] VK_TO_LWJGL = new int[256];
+	// This PC's layout: place -> LWJGL code and back, -1 = no counterpart; null = the US
+	// reading (not Windows, or the layout couldn't be read). Read once, on the game thread.
+	private static int[] placeToLive, liveToPlace;
+	private static boolean layoutRead;
 
 	static {
 		java.util.Arrays.fill(GLFW_TO_LWJGL, UNBOUND);
@@ -157,6 +180,33 @@ public final class KeyCodes {
 		map(346, Keyboard.KEY_RMENU);         // right alt
 		map(347, Keyboard.KEY_RMETA);
 		map(348, Keyboard.KEY_APPS);          // menu key
+
+		LAYOUT_PLACE[0x56] = true;
+		for (int[] range : new int[][] {{2, 13}, {16, 27}, {30, 41}, {43, 53}}) {
+			for (int code = range[0]; code <= range[1]; code++) {
+				LAYOUT_PLACE[code] = true;
+			}
+		}
+		java.util.Arrays.fill(VK_TO_LWJGL, UNBOUND);
+		String[] rows = {"1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"};
+		int[] firsts = {Keyboard.KEY_1, Keyboard.KEY_Q, Keyboard.KEY_A, Keyboard.KEY_Z};
+		for (int r = 0; r < rows.length; r++) {
+			for (int i = 0; i < rows[r].length(); i++) {
+				VK_TO_LWJGL[rows[r].charAt(i)] = firsts[r] + i;   // VK_0..9 / VK_A..Z are the characters
+			}
+		}
+		VK_TO_LWJGL[0xBA] = Keyboard.KEY_SEMICOLON;   // VK_OEM_1
+		VK_TO_LWJGL[0xBB] = Keyboard.KEY_EQUALS;      // VK_OEM_PLUS
+		VK_TO_LWJGL[0xBC] = Keyboard.KEY_COMMA;       // VK_OEM_COMMA
+		VK_TO_LWJGL[0xBD] = Keyboard.KEY_MINUS;       // VK_OEM_MINUS
+		VK_TO_LWJGL[0xBE] = Keyboard.KEY_PERIOD;      // VK_OEM_PERIOD
+		VK_TO_LWJGL[0xBF] = Keyboard.KEY_SLASH;       // VK_OEM_2
+		VK_TO_LWJGL[0xC0] = Keyboard.KEY_GRAVE;       // VK_OEM_3
+		VK_TO_LWJGL[0xDB] = Keyboard.KEY_LBRACKET;    // VK_OEM_4
+		VK_TO_LWJGL[0xDC] = Keyboard.KEY_BACKSLASH;   // VK_OEM_5
+		VK_TO_LWJGL[0xDD] = Keyboard.KEY_RBRACKET;    // VK_OEM_6
+		VK_TO_LWJGL[0xDE] = Keyboard.KEY_APOSTROPHE;  // VK_OEM_7
+		VK_TO_LWJGL[0xDF] = Keyboard.KEY_GRAVE;       // VK_OEM_8 (LWJGL 2 folds it into the same code)
 	}
 
 	private KeyCodes() {
@@ -167,7 +217,7 @@ public final class KeyCodes {
 		LWJGL_TO_GLFW[lwjgl] = glfw;
 	}
 
-	/** GLFW (file) code -> LWJGL2 (1.8.9) code; -1 when unbound or unmapped. */
+	/** GLFW (file) code -> LWJGL2 (1.8.9) code on this keyboard; -1 when unbound or unmapped. */
 	public static int glfwToLwjgl(int glfw) {
 		if (isMouse(glfw)) {
 			return glfw;                      // mouse: the same -100 + b on both sides
@@ -175,18 +225,91 @@ public final class KeyCodes {
 		if (glfw < 32) {
 			return UNBOUND;                   // no GLFW key is below 32 (old 0..7 mouse values included)
 		}
-		return glfw < GLFW_TO_LWJGL.length ? GLFW_TO_LWJGL[glfw] : UNBOUND;
+		return glfw < GLFW_TO_LWJGL.length ? fromPlace(GLFW_TO_LWJGL[glfw]) : UNBOUND;
 	}
 
-	/** LWJGL2 (1.8.9) code -> GLFW (file) code; -1 when unbound or unmapped. */
+	/** LWJGL2 (1.8.9) code on this keyboard -> GLFW (file) code; -1 when unbound or unmapped. */
 	public static int lwjglToGlfw(int lwjgl) {
 		if (isMouse(lwjgl)) {
 			return lwjgl;
 		}
-		if (lwjgl <= 0 || lwjgl >= LWJGL_TO_GLFW.length) {
-			return UNBOUND;
+		return placeToGlfw(toPlace(lwjgl));
+	}
+
+	/** A US-layout LWJGL2 code (a place, e.g. a schema default) -> GLFW code, no layout involved. */
+	public static int placeToGlfw(int place) {
+		if (isMouse(place)) {
+			return place;
 		}
-		return LWJGL_TO_GLFW[lwjgl];
+		return place <= 0 || place >= LWJGL_TO_GLFW.length ? UNBOUND : LWJGL_TO_GLFW[place];
+	}
+
+	/** A place (US-layout LWJGL2 code) -> the code LWJGL 2 reports for that key on this keyboard. */
+	public static int fromPlace(int place) {
+		if (place <= 0 || place >= 256 || !LAYOUT_PLACE[place] || !readLayout()) {
+			return place;
+		}
+		return placeToLive[place];
+	}
+
+	private static int toPlace(int live) {
+		if (live <= 0 || live >= 256 || !LAYOUT_PLACE[live] || !readLayout()) {
+			return live;
+		}
+		return liveToPlace[live];
+	}
+
+	/**
+	 * Reads this PC's layout once; false = use the US reading. Windows only, through LWJGL 2's
+	 * own MapVirtualKey (WindowsKeyboard, private native): it answers for the calling thread's
+	 * layout, the same one the game window's key events use. Until the game window exists the
+	 * native isn't usable, so it answers false then and tries again later.
+	 */
+	private static synchronized boolean readLayout() {
+		if (layoutRead) {
+			return placeToLive != null;
+		}
+		if (!System.getProperty("os.name", "").startsWith("Windows")) {
+			layoutRead = true;
+			return false;
+		}
+		try {
+			if (!org.lwjgl.opengl.Display.isCreated()) {
+				return false;
+			}
+			java.lang.reflect.Method map = Class.forName("org.lwjgl.opengl.WindowsKeyboard")
+					.getDeclaredMethod("MapVirtualKey", int.class, int.class);
+			map.setAccessible(true);
+			int[] toLive = new int[256];
+			int[] toPlace = new int[256];
+			int[] count = new int[256];
+			java.util.Arrays.fill(toLive, UNBOUND);
+			java.util.Arrays.fill(toPlace, UNBOUND);
+			for (int place = 0; place < 256; place++) {
+				if (LAYOUT_PLACE[place]) {
+					int vk = (Integer) map.invoke(null, place, 1);   // MAPVK_VSC_TO_VK
+					int live = vk > 0 && vk < 256 ? VK_TO_LWJGL[vk] : UNBOUND;
+					if (live > 0) {
+						toLive[place] = live;
+						count[live]++;
+					}
+				}
+			}
+			for (int place = 0; place < 256; place++) {
+				int live = toLive[place];
+				if (live > 0 && count[live] > 1) {
+					toLive[place] = UNBOUND;     // two keys give one code (UK ' and `): neither can be told apart
+				} else if (live > 0) {
+					toPlace[live] = place;
+				}
+			}
+			placeToLive = toLive;
+			liveToPlace = toPlace;
+		} catch (Throwable t) {
+			// LWJGL without that native: the US reading, as before
+		}
+		layoutRead = true;
+		return placeToLive != null;
 	}
 
 	/** A 1.8.9 mouse-button code (-100 .. -93)? */

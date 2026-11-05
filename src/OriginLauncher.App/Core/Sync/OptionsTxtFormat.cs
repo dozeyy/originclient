@@ -55,9 +55,16 @@ namespace OriginLauncher.App.Core.Sync;
 //  * keybinds: 1.8.9 stores LWJGL 2 key codes (`key_key.forward:17`, mouse
 //    buttons as -100 + button), 1.13+ GLFW names (`key.keyboard.w`). Compared
 //    as the GLFW name (LegacyKeyNames — the same table as vanilla 1.13's
-//    OptionsKeyLwjgl3Fix) and written as a code into 1.8.9. A key with no
-//    counterpart in the other era (a raw scancode, F20, an odd code) is never
-//    written there: that version keeps its own binding.
+//    OptionsKeyLwjgl3Fix) and written as a code into 1.8.9. GLFW names a key by
+//    its place, 1.8.9 on Windows/Linux by the character the layout gives it, so
+//    letters, digits and punctuation go through the player's layout
+//    (LegacyKeyLayout: AZERTY's Z key is 1.8.9's 44 and 1.21.1's key.keyboard.w).
+//    A key with no counterpart in the other era (a raw scancode, F20, an odd
+//    code, a character this layout has no key for) is never written there: that
+//    version keeps its own binding.
+//  * 26.3+ (SDL3) has no `scancode.N` keys (InputConstants.Type is only KEYBOARD
+//    and MOUSE), and an SDL scancode is another number anyway: a GLFW-era bind on
+//    a key GLFW can't name (Henkan, Kana, ...) is never written there.
 //  * lang: `en_US` up to 1.10, `en_us` from 1.11 (vanilla's
 //    OptionsLowerCaseLanguageFix). Compared lower-case, written xx_YY into 1.8.9.
 //  * no `version:` line: 1.8.9 predates data versions (1.9 introduced them), so
@@ -69,7 +76,13 @@ namespace OriginLauncher.App.Core.Sync;
 // servers.dat and Origin's originclient*.json are the same files on 1.8.9.
 public sealed class OptionsTxtFormat : ISyncFormat
 {
-    public static readonly OptionsTxtFormat Instance = new();
+    public static readonly OptionsTxtFormat Instance = new(null);
+
+    // null = this PC's layout (LegacyKeyLayout.ThisPc, read on first use); tests pass a fixed one.
+    private readonly LegacyKeyLayout? _layout;
+    private LegacyKeyLayout Layout => _layout ?? LegacyKeyLayout.ThisPc;
+
+    internal OptionsTxtFormat(LegacyKeyLayout? layout) => _layout = layout;
 
     private static readonly HashSet<string> ExcludedKeys = new(StringComparer.Ordinal)
     {
@@ -150,6 +163,7 @@ public sealed class OptionsTxtFormat : ISyncFormat
     private const string GlfwKeyNamesSince = "1.13";
     private const string LowerCaseLangSince = "1.11";
     private const string DataVersionsSince = "1.9";
+    private const string NoScancodeKeysSince = "26.3";
 
     // The options 1.8.9 (GameSettings) reads, besides its key_ / soundCategory_ / modelPart_ / stream* families.
     private static readonly HashSet<string> LegacyKeys = new(StringComparer.Ordinal)
@@ -194,9 +208,9 @@ public sealed class OptionsTxtFormat : ISyncFormat
         };
     }
 
-    // LWJGL 2 key code (1.8.9's options.txt) -> GLFW key name (1.13+), as in
-    // vanilla 1.13's OptionsKeyLwjgl3Fix. 0 is "unbound"; mouse button b is
-    // stored as -100 + b.
+    // LWJGL 2 key code ON A US LAYOUT (= the key's place) -> GLFW key name (1.13+),
+    // as in vanilla 1.13's OptionsKeyLwjgl3Fix. 0 is "unbound"; mouse button b is
+    // stored as -100 + b. What 1.8.9 really stores goes through Layout first.
     private static readonly Dictionary<int, string> LegacyKeyNames = BuildLegacyKeyNames();
     private static readonly Dictionary<string, int> LegacyKeyCodes =
         LegacyKeyNames.ToDictionary(kv => kv.Value, kv => kv.Key, StringComparer.Ordinal);
@@ -222,10 +236,12 @@ public sealed class OptionsTxtFormat : ISyncFormat
             [201] = "page.up", [203] = "left", [205] = "right", [207] = "end", [208] = "down",
             [209] = "page.down", [210] = "insert", [211] = "delete", [219] = "left.win",
             [220] = "right.win", [221] = "menu",
+            // The ISO key left of Z (GLFW_KEY_WORLD_2); vanilla's fix doesn't list it, the 1.8.9 mod's KeyCodes does.
+            [86] = "world.2",
         };
         for (var digit = 1; digit <= 9; digit++) names[1 + digit] = digit.ToString(CultureInfo.InvariantCulture);
         for (var f = 1; f <= 10; f++) names[58 + f] = "f" + f.ToString(CultureInfo.InvariantCulture);
-        // Letter rows, in LWJGL 2 (scancode) order.
+        // Letter rows, in LWJGL 2 (scancode) order: a US layout's codes, i.e. each key's PLACE (see LegacyKeyLayout).
         foreach (var (first, letters) in new[] { (16, "qwertyuiop"), (30, "asdfghjkl"), (44, "zxcvbnm") })
             for (var i = 0; i < letters.Length; i++) names[first + i] = letters[i].ToString();
 
@@ -326,7 +342,7 @@ public sealed class OptionsTxtFormat : ISyncFormat
     // ---- value rules ----
 
     // Values that can't break any era's loader (see the class comment).
-    private static bool IsSafeValue(string key, string raw)
+    private bool IsSafeValue(string key, string raw)
     {
         if (raw.IndexOfAny(new[] { '\r', '\n', '\0' }) >= 0) return false;
         // A 1.8.9 code counts in its GLFW form; one with no GLFW name is rejected.
@@ -340,7 +356,7 @@ public sealed class OptionsTxtFormat : ISyncFormat
     }
 
     // The era-neutral form two values are compared in.
-    private static string Canonical(string key, string raw)
+    private string Canonical(string key, string raw)
     {
         var value = raw.Trim();
         if (IsJsonString(value)) value = JsonSerializer.Deserialize<string>(value) ?? "";
@@ -355,9 +371,10 @@ public sealed class OptionsTxtFormat : ISyncFormat
         }
         else if (key.StartsWith("key_", StringComparison.Ordinal)
                  && int.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var code)
-                 && LegacyKeyNames.TryGetValue(code, out var glfwName))
+                 && Layout.ToPlace(code) is { } place
+                 && LegacyKeyNames.TryGetValue(place, out var glfwName))
         {
-            value = glfwName; // 1.8.9's LWJGL 2 code
+            value = glfwName; // 1.8.9's LWJGL 2 code, read through the player's layout
         }
         else if (key == "lang")
         {
@@ -368,14 +385,18 @@ public sealed class OptionsTxtFormat : ISyncFormat
 
     // The stored value in the form the TARGET version's loader reads, or null
     // when it must not be written there.
-    private static string? Encode(string key, string raw, string targetVersion)
+    private string? Encode(string key, string raw, string targetVersion)
     {
         if (key == "soundCategory_music" && !McVersion.AtLeast(targetVersion, GlfwKeyNamesSince)) return null; // StaysIn
         var canonical = Canonical(key, raw);
         var codecEra = McVersion.AtLeast(targetVersion, "1.19");
 
         if (key.StartsWith("key_", StringComparison.Ordinal) && !McVersion.AtLeast(targetVersion, GlfwKeyNamesSince))
-            return LegacyKeyCodes.TryGetValue(canonical, out var code) ? code.ToString(CultureInfo.InvariantCulture) : null;
+            return LegacyKeyCodes.TryGetValue(canonical, out var place) && Layout.ToLive(place) is { } code
+                ? code.ToString(CultureInfo.InvariantCulture) : null;
+        if (key.StartsWith("key_", StringComparison.Ordinal) && canonical.StartsWith("scancode.", StringComparison.Ordinal)
+            && McVersion.AtLeast(targetVersion, NoScancodeKeysSince))
+            return null; // 26.3 (SDL3) can't read it: that version keeps its own bind
         if (key == "lang" && !McVersion.AtLeast(targetVersion, LowerCaseLangSince))
             return LegacyLanguageCode(canonical);
 
