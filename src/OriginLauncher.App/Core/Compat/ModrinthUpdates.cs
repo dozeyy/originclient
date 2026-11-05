@@ -159,9 +159,7 @@ public static class ModrinthUpdates
             if (current == null) return null; // refused (5xx, 429, ...): no answer
             if (current.Count == 0) return none; // none of these jars is on Modrinth
             var known = hashes.Where(current.ContainsKey).ToList();
-            var latest = await PostAsync(http, "version_files/update",
-                new { hashes = known, algorithm = "sha512", loaders = new[] { "fabric" }, game_versions = new[] { mcVersion } }, ct)
-                .ConfigureAwait(false);
+            var latest = await PostAsync(http, "version_files/update", UpdateRequest(known, mcVersion), ct).ConfigureAwait(false);
             return latest == null ? null : Offers(sha512ByFile, current, latest, mcVersion);
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or IOException
@@ -170,6 +168,21 @@ public static class ModrinthUpdates
             return null; // offline, timed out, or an answer this can't read: no answer
         }
     }
+
+    /// <summary>
+    /// The "newest version of each" question. Modrinth answers with ONE version per hash, the newest of the types
+    /// asked for: without <c>version_types</c> a beta published after the last release hid that release, and the
+    /// release-only check in <see cref="Offers"/> could then only drop it (no Update although a newer release
+    /// existed; bug run 11 PROF-7). Offers keeps its own release check as a guard.
+    /// </summary>
+    internal static object UpdateRequest(IReadOnlyList<string> hashes, string mcVersion) => new
+    {
+        hashes,
+        algorithm = "sha512",
+        loaders = new[] { "fabric" },
+        game_versions = new[] { mcVersion },
+        version_types = new[] { "release" },
+    };
 
     private static async Task<Dictionary<string, Release>?> PostAsync(HttpClient http, string path, object body, CancellationToken ct)
     {

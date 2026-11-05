@@ -96,7 +96,7 @@ public sealed class ModrinthUpdatesTests : IDisposable
         Assert.Equal(2, bodies.Count);
         Assert.All(bodies, b => Assert.DoesNotContain("secret", b));
         Assert.Equal($"/v2/version_files {{\"hashes\":[\"{Have}\"],\"algorithm\":\"sha512\"}}", bodies[0]);
-        Assert.Equal($"/v2/version_files/update {{\"hashes\":[\"{Have}\"],\"algorithm\":\"sha512\",\"loaders\":[\"fabric\"],\"game_versions\":[\"1.21.1\"]}}", bodies[1]);
+        Assert.Equal($"/v2/version_files/update {{\"hashes\":[\"{Have}\"],\"algorithm\":\"sha512\",\"loaders\":[\"fabric\"],\"game_versions\":[\"1.21.1\"],\"version_types\":[\"release\"]}}", bodies[1]);
     }
 
     [Fact]
@@ -158,5 +158,21 @@ public sealed class ModrinthUpdatesTests : IDisposable
     private sealed class Stub(Func<HttpRequestMessage, Task<HttpResponseMessage>> answer) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => answer(request);
+    }
+
+    // Bug run 11 PROF-7: the update question asks for full releases only, so a beta newer than the last release no
+    // longer hides that release.
+    [Fact]
+    public void The_update_question_asks_for_releases_only()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(ModrinthUpdates.UpdateRequest(new[] { "abc" }, "1.21.1"));
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        Assert.Equal("release", root.GetProperty("version_types")[0].GetString());
+        Assert.Equal(1, root.GetProperty("version_types").GetArrayLength());
+        Assert.Equal("fabric", root.GetProperty("loaders")[0].GetString());
+        Assert.Equal("1.21.1", root.GetProperty("game_versions")[0].GetString());
+        Assert.Equal("abc", root.GetProperty("hashes")[0].GetString());
+        Assert.Equal("sha512", root.GetProperty("algorithm").GetString());
     }
 }
