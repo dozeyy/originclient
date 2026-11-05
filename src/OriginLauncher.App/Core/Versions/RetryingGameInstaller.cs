@@ -3,7 +3,7 @@ using System.Net.Http;
 using CmlLib.Core;
 using CmlLib.Core.Files;
 using CmlLib.Core.Installers;
-using OriginLauncher.App.Core.Launch;
+using OriginLauncher.App.Core.Net;
 
 namespace OriginLauncher.App.Core.Versions;
 
@@ -18,7 +18,7 @@ namespace OriginLauncher.App.Core.Versions;
 /// </summary>
 public sealed class RetryingGameInstaller : ParallelGameInstaller
 {
-    public const int Attempts = 3;
+    public const int Attempts = DownloadRetry.Attempts;
 
     private readonly Func<int, TimeSpan> _backoff;
 
@@ -27,7 +27,7 @@ public sealed class RetryingGameInstaller : ParallelGameInstaller
         : base(maxChecker, maxDownloader, boundedCapacity, http)
     {
         // 1 s, then 2 s: long enough for a blip to pass, short enough that the counter never looks stuck.
-        _backoff = backoff ?? (attempt => TimeSpan.FromSeconds(Math.Min(attempt, 2)));
+        _backoff = backoff ?? DownloadRetry.Backoff;
     }
 
     protected override async Task Download(GameFile file, IProgress<ByteProgress>? progress, CancellationToken ct)
@@ -61,20 +61,9 @@ public sealed class RetryingGameInstaller : ParallelGameInstaller
         }
     }
 
-    // Network trouble is worth another try; a full disk, a denied folder or a refused file (404, 403: the server's
-    // final answer) is not — it fails the same way again. 408 / 429 are the server asking to come back. 304 is a CDN
-    // glitch: nothing here sends a conditional request (no If-None-Match / If-Modified-Since), so "Not Modified" is an
-    // edge answering the wrong question, and a fresh request clears it (Mac CI 2026-11-02, osx-x64 1.21.1).
-    private static bool IsTransient(Exception e) => e switch
-    {
-        HttpRequestException { StatusCode: { } status } => (int)status >= 500 || (int)status is 408 or 429 or 304,
-        TimeoutException or HttpRequestException or TaskCanceledException => true,
-        UnauthorizedAccessException => false,
-        // A full disk fails the same way again on every OS (Win32 0x27/0x70, or ENOSPC/EDQUOT as a raw errno on Mac
-        // and Linux): PlayFailure owns that rule, so a full disk is never retried as "network trouble".
-        IOException io => !PlayFailure.IsDiskFull(io),
-        _ => false,
-    };
+    // One policy for every download (Core/Net/DownloadRetry): network trouble is retried, a full disk, a denied
+    // folder or a refused file (404, 403) is not.
+    private static bool IsTransient(Exception e) => DownloadRetry.IsTransient(e);
 
     private static string HostOf(string? url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : "an unknown host";

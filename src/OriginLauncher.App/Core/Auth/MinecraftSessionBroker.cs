@@ -25,10 +25,20 @@ public static class MinecraftSessionBroker
     /// Play: the account's cached session (after a quick check that Mojang
     /// still accepts it), else a fresh sign-in. Bumps "last used".
     /// Null = the stored Microsoft sign-in can't be read: re-add the account.
-    /// Throws MicrosoftAuthException (RateLimited = Microsoft said "slow down").
+    /// Throws MicrosoftAuthException (RateLimited = Microsoft said "slow down"; UnreachableStage = no internet and
+    /// nothing saved). Offline = Microsoft couldn't be reached, so this is the saved session: singleplayer only
+    /// (Home says <see cref="MinecraftSessions.OfflinePlayLine"/>).
     /// </summary>
-    public static async Task<MSession?> ForPlayAsync(string accountId, CancellationToken ct = default) =>
-        ToMSession(await Sessions.ForPlayAsync(accountId, ct).ConfigureAwait(false));
+    public static async Task<PlaySession?> ForPlayAsync(string accountId, CancellationToken ct = default) =>
+        await Sessions.ForPlayAsync(accountId, ct).ConfigureAwait(false) is { } session
+            ? new PlaySession(ToMSession(session)!, session.Offline)
+            : null;
+
+    /// <summary>What Play launches with. Offline = Microsoft couldn't be reached; the saved session plays singleplayer.</summary>
+    public sealed record PlaySession(MSession Session, bool Offline);
+
+    /// <summary>Home's line for a game started offline (all three launchers).</summary>
+    public const string OfflinePlayLine = MinecraftSessions.OfflinePlayLine;
 
     /// <summary>Friends: the cached session, else a sign-in. Doesn't touch "last used".</summary>
     public static async Task<MSession?> GetAsync(string accountId, CancellationToken ct = default) =>

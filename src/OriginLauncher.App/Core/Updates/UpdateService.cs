@@ -52,13 +52,17 @@ public static partial class UpdateService
     // (sha256sum format); see UpdateVerifier and FindRelease below.
     // A stalled connection (no bytes for this long) aborts the download so the player can retry.
     private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(60);
+    // One poll of the release feed (a small JSON answer) gives up after this.
+    private static readonly TimeSpan FeedTimeout = TimeSpan.FromSeconds(20);
 
     private static readonly Version DevVersion = new(1, 0, 0, 0);
     private static readonly HttpClient Http = CreateClient();
 
     private static HttpClient CreateClient()
     {
-        var http = new HttpClient();
+        // A host that never completes the handshake fails in 10 s (NET-3). No overall Timeout here: this client also
+        // downloads the update zip, which StallTimeout guards instead; the feed request has its own cap (FeedTimeout).
+        var http = new HttpClient(new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromSeconds(10) });
         // GitHub's API rejects requests without a User-Agent.
         http.DefaultRequestHeaders.UserAgent.ParseAdd("OriginLauncher/1.0 (+will@willhenry.me)");
         return http;
@@ -665,9 +669,12 @@ public static partial class UpdateService
         }
         using var request = new HttpRequestMessage(HttpMethod.Get, FeedUrl);
         if (ifNoneMatch != null) request.Headers.TryAddWithoutValidation("If-None-Match", ifNoneMatch);
-        using var response = await Http.SendAsync(request);
+        // Capped (NET-3): a feed that never answers fails this poll in FeedTimeout instead of HttpClient's 100 s, and
+        // CheckAsync fails open as for any other failed poll.
+        using var cap = new CancellationTokenSource(FeedTimeout);
+        using var response = await Http.SendAsync(request, cap.Token);
         var status = (int)response.StatusCode;
-        var text = status == 200 ? await response.Content.ReadAsStringAsync() : null;
+        var text = status == 200 ? await response.Content.ReadAsStringAsync(cap.Token) : null;
         lock (Feed)
         {
             var body = Feed.Answered(status, response.Headers.ETag?.ToString(), text, RetryAfterOf(response),

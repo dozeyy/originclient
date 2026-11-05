@@ -177,6 +177,88 @@ public class MinecraftSessionsTests
         Assert.NotEqual("saved", session!.AccessToken);
     }
 
+    // --- no internet (NET-1) --------------------------------------------------------
+
+    public static TheoryData<Exception> Unreachable() => new()
+    {
+        new HttpRequestException("No such host is known. (login.microsoftonline.com:443)", new System.Net.Sockets.SocketException(11001)),
+        new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout of 20 seconds elapsing.",
+            new TimeoutException()),
+        new MicrosoftAuthException("token_refresh_unavailable", "Microsoft's sign-in service isn't answering right now."),
+    };
+
+    [Theory]
+    [MemberData(nameof(Unreachable))]
+    public async Task Offline_Play_falls_back_to_the_saved_session_however_old(Exception offline)
+    {
+        // Signed in yesterday evening: 23 h later the token has under an hour left (or is past expiry), so Play
+        // tries to renew it, and there is no internet on the train.
+        _vault.Add(Steve, "rt-0", SessionFor(Steve, Start.AddMinutes(-30)));
+        _signIn.Fail = offline;
+
+        var session = await _sessions.ForPlayAsync(Steve);
+
+        Assert.NotNull(session);
+        Assert.True(session!.Offline);
+        Assert.Equal("Steve", session.Name);
+        Assert.Equal(Steve, session.Uuid);
+        Assert.Equal("saved", session.AccessToken);
+        Assert.Equal(1, _vault.UsedMarks);
+        // Nothing was rewritten: the saved sign-in is still there for the next Play with internet.
+        Assert.Equal("rt-0", _vault.Accounts[Steve].Refresh);
+        Assert.False(_vault.Accounts[Steve].Session!.Offline);
+    }
+
+    [Theory]
+    [MemberData(nameof(Unreachable))]
+    public async Task Offline_with_nothing_saved_is_one_plain_sentence(Exception offline)
+    {
+        _vault.Add(Steve, "rt-0");
+        _signIn.Fail = offline;
+
+        var error = await Assert.ThrowsAsync<MicrosoftAuthException>(() => _sessions.ForPlayAsync(Steve));
+
+        Assert.Equal(MicrosoftAuthException.UnreachableStage, error.Stage);
+        Assert.Equal(MicrosoftAuthException.UnreachableMessage, error.Message);
+        Assert.False(SignInAgain.Needed(error));
+    }
+
+    [Fact]
+    public async Task Microsofts_own_refusal_still_asks_to_sign_in_again()
+    {
+        _vault.Add(Steve, "rt-0", SessionFor(Steve, Start.AddMinutes(-30)));
+        _signIn.Fail = new MicrosoftAuthException(MicrosoftAuthException.TokenRefreshStage, SignInAgain.ExpiredLine);
+
+        var error = await Assert.ThrowsAsync<MicrosoftAuthException>(() => _sessions.ForPlayAsync(Steve));
+
+        Assert.True(SignInAgain.Needed(error));
+    }
+
+    [Fact]
+    public async Task A_429_is_not_offline()
+    {
+        _vault.Add(Steve, "rt-0", SessionFor(Steve, Start.AddMinutes(-30)));
+        _signIn.Fail = MicrosoftAuthException.Limited("minecraft_login", null);
+
+        var error = await Assert.ThrowsAsync<MicrosoftAuthException>(() => _sessions.ForPlayAsync(Steve));
+
+        Assert.True(error.RateLimited);
+    }
+
+    [Fact]
+    public async Task Online_again_signs_in_normally()
+    {
+        _vault.Add(Steve, "rt-0", SessionFor(Steve, Start.AddMinutes(-30)));
+        _signIn.Fail = new HttpRequestException("offline");
+        Assert.True((await _sessions.ForPlayAsync(Steve))!.Offline);
+
+        _signIn.Fail = null;
+        var session = await _sessions.ForPlayAsync(Steve);
+
+        Assert.False(session!.Offline);
+        Assert.NotEqual("saved", session.AccessToken);
+    }
+
     // --- 429 -------------------------------------------------------------------
 
     [Fact]
@@ -432,7 +514,7 @@ public class MinecraftSessionsTests
 
         public int Calls;
         public int Checks;
-        public MicrosoftAuthException? Fail;
+        public Exception? Fail;
         public TokenCheck CheckAnswer = TokenCheck.Valid;
         public TaskCompletionSource? Hold;
         public readonly TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);

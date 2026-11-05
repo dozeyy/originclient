@@ -267,6 +267,14 @@
          per-file retry, run against a real local socket server. -->
     <Compile Include="..\OriginLauncher.App\Core\Net\DownloadHttp.cs" LinkBase="Net" />
     <Compile Include="..\OriginLauncher.App\Core\Versions\RetryingGameInstaller.cs" LinkBase="Versions" />
+    <!-- The one download retry policy (Mojang files and Modrinth jars alike: NET-2). -->
+    <Compile Include="..\OriginLauncher.App\Core\Net\DownloadRetry.cs" LinkBase="Net" />
+    <!-- Run 8: memory sizes in one format (LOC-6), the Java path decision for a user folder Java can't read (LOC-2),
+         the failure line's capped update re-check (NET-3) and the Windows self-update script (SEC-1). All pure. -->
+    <Compile Include="..\OriginLauncher.App\Core\GbText.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\JavaPathEncoding.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Updates\LaunchFailureText.cs" LinkBase="Updates" />
+    <Compile Include="..\OriginLauncher.App\Core\Updates\WindowsApplyScript.cs" LinkBase="Updates" />
     <!-- The install stage line: megabytes while downloading, the file count while checking (JL-8). -->
     <Compile Include="..\OriginLauncher.App\Core\Versions\InstallProgressThrottle.cs" LinkBase="Versions" />
     <!-- The free-space check before a first download, and the drive + numbers in the disk-full line (JL-11). -->

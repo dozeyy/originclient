@@ -257,6 +257,8 @@ public sealed class LaunchController
         try
         {
             MSession session;
+            // Microsoft couldn't be reached: the saved session plays singleplayer, and Home says so (NET-1).
+            var playingOffline = false;
             if (account != null)
             {
                 Stage("Signing in");
@@ -267,7 +269,8 @@ public sealed class LaunchController
                     _ = AskToSignInAgainAsync(accountName);
                     return;
                 }
-                session = signedIn;
+                session = signedIn.Session;
+                playingOffline = signedIn.Offline;
             }
             else
             {
@@ -347,6 +350,7 @@ public sealed class LaunchController
                 : $"Running - {session.Username}";
             // It started without the player's mods: say so, and which of them to check first (one of them caused the
             // crash), instead of a plain "Running" that leaves the next Play to crash the same way.
+            if (playingOffline) runningMessage = MinecraftSessionBroker.OfflinePlayLine;
             if (withoutModsLine != null) runningMessage = withoutModsLine;
             if (seedNotice != null) runningMessage = $"{runningMessage}. {seedNotice}";
             runningMessage = LaunchedMods.WithNotices(runningMessage, LaunchedMods.NoticesFor(gameDir));
@@ -361,7 +365,7 @@ public sealed class LaunchController
             Note(key, MicrosoftAuthException.RateLimitedMessage, LaunchTone.Warning, version);
             WriteLaunchErrorLog(ex);
         }
-        catch (OfflineInstallException ex)
+        catch (Exception ex) when (ex is OfflineInstallException or OriginLauncher.App.Core.Loaders.RequiredModMissingException or JavaPathUnreadableException)
         {
             Note(key, ex.Message, LaunchTone.Warning, version);
             WriteLaunchErrorLog(ex);
@@ -382,14 +386,14 @@ public sealed class LaunchController
         {
             var needsSignIn = SignInAgain.Needed(ex);
             var upToDate = needsSignIn ? SignInAgain.ExpiredLine : ex.Message;
-            Note(key, await LaunchFailureTextAsync(upToDate), LaunchTone.Error, version);
+            Note(key, await LaunchFailureTextAsync(ex, upToDate), LaunchTone.Error, version);
             // Straight to the fix: the prompt's "Sign in again" opens the sign-in card (re-adding refreshes the account).
             if (needsSignIn) _ = AskToSignInAgainAsync(accountName);
             WriteLaunchErrorLog(ex);
         }
         catch (Exception ex)
         {
-            Note(key, await LaunchFailureTextAsync($"Launch failed: {DescribeError(ex)}"), LaunchTone.Error, version);
+            Note(key, await LaunchFailureTextAsync(ex, $"Launch failed: {DescribeError(ex)}"), LaunchTone.Error, version);
             WriteLaunchErrorLog(ex);
             if (provisioning) failure = PlayFailure.From(ex, version);
         }
@@ -774,13 +778,11 @@ public sealed class LaunchController
     }
 
     // A failure on an outdated launcher is very likely already fixed: say so instead of the raw error.
-    private static async Task<string> LaunchFailureTextAsync(string upToDateMessage)
-    {
-        try { await UpdateService.CheckAsync(); } catch (Exception) { /* offline: keep the plain message */ }
-        return UpdateService.UpdateRequired
-            ? "Launch failed - please update the launcher (click the update dot in the top-right). This is very likely already fixed in the newest version."
-            : upToDateMessage;
-    }
+    // The re-check is skipped for "no connection" and capped otherwise (Core/Updates/LaunchFailureText).
+    private static Task<string> LaunchFailureTextAsync(Exception ex, string upToDateMessage) =>
+        LaunchFailureText.ForAsync(ex, upToDateMessage,
+            "Launch failed - please update the launcher (click the update dot in the top-right). This is very likely already fixed in the newest version.",
+            UpdateService.CheckAsync, () => UpdateService.UpdateRequired);
 
     private static string DescribeError(Exception ex)
     {

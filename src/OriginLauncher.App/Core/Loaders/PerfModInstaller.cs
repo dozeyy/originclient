@@ -42,7 +42,9 @@ public static class PerfModInstaller
             progress?.Report($"Downloading {mod.FileName}...");
             try
             {
-                await DownloadAsync(http, mod, destPath, ct);
+                // The same tries as Mojang's game files (DownloadRetry): one stalled Sodium/Iris download on a shaky
+                // connection no longer fails the whole Play. A hash mismatch is not retried (InvalidDataException).
+                await DownloadRetry.RunAsync(() => DownloadAsync(http, mod, destPath, ct), ct);
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException
                                        || (ex is OperationCanceledException && !ct.IsCancellationRequested))

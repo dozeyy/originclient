@@ -93,9 +93,48 @@ public sealed class MinecraftSessions
             }
         }
 
-        session ??= await SignInAsync(accountId, ct).ConfigureAwait(false);
+        if (session == null)
+        {
+            try
+            {
+                session = await SignInAsync(accountId, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (IsUnreachable(ex, ct))
+            {
+                // No internet (or Microsoft down) and the saved session is too old to reuse: singleplayer doesn't need
+                // a fresh token, so play with the saved one, marked offline (servers refuse it themselves). Only an
+                // account with nothing saved can't start, and it gets a plain sentence, never raw network text.
+                session = Saved(accountId) is { } saved
+                    ? saved with { Offline = true }
+                    : throw new MicrosoftAuthException(MicrosoftAuthException.UnreachableStage,
+                        MicrosoftAuthException.UnreachableMessage, $"{ex.GetType().Name}: {ex.Message}");
+            }
+        }
         if (session != null) _vault.MarkUsed(session.Uuid);
         return session;
+    }
+
+    /// <summary>Play's line while it plays on a saved session because Microsoft couldn't be reached.</summary>
+    public const string OfflinePlayLine = "Playing offline: multiplayer needs a connection";
+
+    /// <summary>
+    /// The sign-in failed because Microsoft couldn't be reached, not because it refused: no connection, a timeout
+    /// (OfflineLaunch.IsNoConnection), or a 5xx ("_unavailable"). A refused refresh token (sign in again), a 429 (wait)
+    /// or a crossed account are real answers and keep their own handling.
+    /// </summary>
+    public static bool IsUnreachable(Exception ex, CancellationToken ct) =>
+        !ct.IsCancellationRequested
+        && (ex is MicrosoftAuthException { RateLimited: false } auth
+                ? auth.Stage.EndsWith("_unavailable", StringComparison.Ordinal)
+                : Versions.OfflineLaunch.IsNoConnection(ex, ct));
+
+    /// <summary>The account's saved session at any age (cached or in the vault), or null.</summary>
+    private MinecraftSession? Saved(string accountId)
+    {
+        MinecraftSession? session;
+        lock (_lock) _cache.TryGetValue(accountId, out session);
+        session ??= _vault.SavedSession(accountId);
+        return session != null && session.Uuid == accountId ? session : null;
     }
 
     /// <summary>

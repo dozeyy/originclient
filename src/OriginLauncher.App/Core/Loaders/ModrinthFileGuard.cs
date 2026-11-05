@@ -1,13 +1,14 @@
 using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
+using OriginLauncher.App.Core.Net;
 
 namespace OriginLauncher.App.Core.Loaders;
 
 // The integrity gate for a jar the launcher downloads from Modrinth's live API on its own (Fabric API),
 // as opposed to the hand-pinned catalog entries that carry their SHA-512 in PerformanceModCatalog.Data.cs.
 // Same policy as the self-update zip (Core/Updates/UpdateVerifier): a download is installed only when it
-// is the file Modrinth published, otherwise it is REFUSED, the partial file is deleted, and nothing is
+// is the file Modrinth published (a network failure gets DownloadRetry's tries first), otherwise it is REFUSED, the partial file is deleted, and nothing is
 // thrown (a launch is never blocked by a refused optional dependency; it just starts without it).
 //
 // Refused: a URL that is not https on cdn.modrinth.com, a filename that is not a plain "*.jar" (a path,
@@ -94,35 +95,23 @@ public static class ModrinthFileGuard
             return ModrinthDownloadResult.RefusedFilename;
 
         var tempPath = destPath + ".download";
+        string actual;
         try
         {
-            using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-
-            string actual;
-            await using (var source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
-            await using (var file = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16, useAsync: true))
+            // The same tries as Mojang's game files (DownloadRetry): a Wi-Fi blip or a stalled CDN edge gets a fresh
+            // connection instead of leaving the instance without the jar. Each try starts the temp file over.
+            actual = await DownloadRetry.RunAsync(async () =>
             {
-                using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA512);
-                var buffer = new byte[1 << 16];
-                int read;
-                while ((read = await source.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+                try
                 {
-                    await file.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
-                    hash.AppendData(buffer, 0, read);
+                    return await FetchAsync(http, url!, tempPath, ct).ConfigureAwait(false);
                 }
-                actual = Convert.ToHexString(hash.GetHashAndReset());
-            }
-
-            if (!string.Equals(actual, sha512, StringComparison.OrdinalIgnoreCase))
-            {
-                TryDelete(tempPath);
-                return ModrinthDownloadResult.HashMismatch;
-            }
-            // No overwrite: a jar already under this name is the player's (callers skip a present family) and stays.
-            File.Move(tempPath, destPath, overwrite: false);
-            Mods.OriginInstallRecord.Add(destPath, actual);
-            return ModrinthDownloadResult.Installed;
+                catch
+                {
+                    TryDelete(tempPath);
+                    throw;
+                }
+            }, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -131,10 +120,48 @@ public static class ModrinthFileGuard
         }
         catch (Exception)
         {
-            // HttpRequestException, IOException, UnauthorizedAccessException, an HttpClient timeout: leave the instance without it.
+            // HttpRequestException, IOException, an HttpClient timeout, after every try: leave the instance without it.
             TryDelete(tempPath);
             return ModrinthDownloadResult.Failed;
         }
+
+        if (!string.Equals(actual, sha512, StringComparison.OrdinalIgnoreCase))
+        {
+            TryDelete(tempPath);
+            return ModrinthDownloadResult.HashMismatch;
+        }
+        try
+        {
+            // No overwrite: a jar already under this name is the player's (callers skip a present family) and stays.
+            File.Move(tempPath, destPath, overwrite: false);
+            Mods.OriginInstallRecord.Add(destPath, actual);
+            return ModrinthDownloadResult.Installed;
+        }
+        catch (Exception)
+        {
+            // IOException (that name is taken), UnauthorizedAccessException: never retried, the same thing would happen.
+            TryDelete(tempPath);
+            return ModrinthDownloadResult.Failed;
+        }
+    }
+
+    /// <summary>One try: the body into <paramref name="tempPath"/>, hashed on the way. Returns the SHA-512 (upper-case hex).</summary>
+    private static async Task<string> FetchAsync(HttpClient http, string url, string tempPath, CancellationToken ct)
+    {
+        using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+
+        await using var source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        await using var file = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16, useAsync: true);
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA512);
+        var buffer = new byte[1 << 16];
+        int read;
+        while ((read = await source.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+        {
+            await file.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+            hash.AppendData(buffer, 0, read);
+        }
+        return Convert.ToHexString(hash.GetHashAndReset());
     }
 
     private static void TryDelete(string path)

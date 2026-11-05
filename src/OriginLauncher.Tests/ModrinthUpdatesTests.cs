@@ -92,7 +92,7 @@ public sealed class ModrinthUpdatesTests : IDisposable
         var offers = await ModrinthUpdates.FindAsync(http, "1.21.1",
             new Dictionary<string, string> { ["my-secret-name-1.0.jar"] = Have }, CancellationToken.None);
 
-        Assert.Equal("2.0", Assert.Single(offers).Value.NewVersion);
+        Assert.Equal("2.0", Assert.Single(offers!).Value.NewVersion);
         Assert.Equal(2, bodies.Count);
         Assert.All(bodies, b => Assert.DoesNotContain("secret", b));
         Assert.Equal($"/v2/version_files {{\"hashes\":[\"{Have}\"],\"algorithm\":\"sha512\"}}", bodies[0]);
@@ -100,10 +100,11 @@ public sealed class ModrinthUpdatesTests : IDisposable
     }
 
     [Fact]
-    public async Task Offline_means_no_offers()
+    public async Task Offline_means_no_answer_not_no_offers()
     {
+        // Null, not empty: "couldn't ask" must not hide the Update buttons already known (NET-5).
         var http = new HttpClient(new Stub(_ => throw new HttpRequestException("offline")));
-        Assert.Empty(await ModrinthUpdates.FindAsync(http, "1.21.1",
+        Assert.Null(await ModrinthUpdates.FindAsync(http, "1.21.1",
             new Dictionary<string, string> { ["a.jar"] = Have }, CancellationToken.None));
     }
 
