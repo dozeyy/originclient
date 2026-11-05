@@ -417,6 +417,19 @@ public final class CosmeticEffects {
 		return p.isWearing(EnumPlayerModelParts.CAPE);
 	}
 
+	/** Every client tick (WorldHooks): lets go of the world once the player has left it.
+	 *  render() only runs from RenderWorldLastEvent, which never fires without a world, so
+	 *  its own "no world" branch never ran: the left world (its chunks and entities) and
+	 *  every caped player in CapePhysics stayed in memory through the menus until the next
+	 *  world drew its first frame. */
+	public static void tick(Minecraft mc) {
+		if (mc.theWorld == null && lastWorld != null) {
+			lastWorld = null;
+			reset();
+			CapePhysics.clear();
+		}
+	}
+
 	private static void reset() {
 		EMITTERS.clear();
 		lastTime = Double.NaN;

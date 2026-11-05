@@ -796,6 +796,11 @@ public class OriginClientMod implements ClientModInitializer {
 		applyTimeChanger(client);
 		GeneralSettings.tick(client);
 		MotionBlur.tick(client);
+		try {
+			com.origin.client.client.cosmetics.CosmeticEffects.tick(client);
+		} catch (Throwable ignored) {
+			// fail soft: released on the next world instead
+		}
 		// Snaplook ticks before the no-player return so leaving a world mid-look
 		// still restores the saved camera view.
 		com.origin.client.client.mods.Snaplook.tick(client);

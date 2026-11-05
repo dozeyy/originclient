@@ -430,6 +430,11 @@ public final class WorldHooks {
 			// handshake retried next tick
 		}
 		try {
+			com.origin.client.client.cosmetics.CosmeticEffects.tick(mc);
+		} catch (Throwable ignored) {
+			// released on the next world instead
+		}
+		try {
 			if (mc.gameSettings != null) {
 				guardOptiFineZoom(mc);
 			}
