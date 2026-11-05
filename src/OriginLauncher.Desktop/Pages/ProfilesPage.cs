@@ -384,7 +384,10 @@ public sealed class ProfilesPage : Panel, IPage
         var title = Ui.Text("New profile", TypeScale.Title, FontWeight.Bold, Palette.TextDim);
         title.HorizontalAlignment = HorizontalAlignment.Center;
         var sub = Small("Its own mods, one version", Palette.TextMuted).Margin(0, Space.S1, 0, 0);
+        // At 150-200% scaling the card is narrower than the line: it wraps, centred, instead of ending in "..." (WP-12).
         sub.HorizontalAlignment = HorizontalAlignment.Center;
+        sub.TextWrapping = TextWrapping.Wrap;
+        sub.TextAlignment = TextAlignment.Center;
         var content = Ui.Column(0, plus, title, sub);
         content.HorizontalAlignment = HorizontalAlignment.Center;
         content.VerticalAlignment = VerticalAlignment.Center;

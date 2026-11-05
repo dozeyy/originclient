@@ -92,8 +92,12 @@ public sealed class HomePage : Panel, IPage
         };
         _versionCard.Click += (_, _) => { OpenPicker(); };
 
-        // The status line wraps to two rows at most (a refusal names up to three mods); the dot sits on the first row.
+        // The status line wraps (a refusal names up to three mods; the running line's notices end with what to do),
+        // up to StatusLineRule.MaxRows rows and then "...", with the whole text as a tooltip when it is long (the WPF
+        // and Mac twins, WP-2); the dot sits on the first row.
         _statusText.TextWrapping = TextWrapping.Wrap;
+        _statusText.MaxLines = OriginLauncher.App.Core.StatusLineRule.MaxRows;
+        _statusText.TextTrimming = TextTrimming.CharacterEllipsis;
         _statusText.MaxWidth = Sizes.StatusWidth;
         _statusText.LineHeight = Sizes.StatusLine;
         _statusDot.VerticalAlignment = VerticalAlignment.Top;
@@ -202,6 +206,17 @@ public sealed class HomePage : Panel, IPage
     public static string? SelectedKey() =>
         LauncherState.Account != null || LauncherState.Settings.OfflineTestMode ? LauncherState.AccountKey : null;
 
+    /// <summary>
+    /// Enter on Home (twin of the WPF and Mac TryLaunchFromKeyboard): the same gate as the Play button, and never while
+    /// the version picker or a launch cover is open. False when Enter did nothing.
+    /// </summary>
+    public bool TryLaunchFromKeyboard()
+    {
+        if (!_play.IsEnabled || _window.SheetOpen || _window.CoverOpen) return false;
+        _ = Launches.PlayFromKeyboardAsync(LauncherState.SelectedVersion);
+        return true;
+    }
+
     public void RefreshPlayState()
     {
         var key = SelectedKey();
@@ -247,6 +262,7 @@ public sealed class HomePage : Panel, IPage
     private void SetStatusLine(string text, Tone tone)
     {
         _statusText.Text = text;
+        ToolTip.SetTip(_statusText, OriginLauncher.App.Core.StatusLineRule.NeedsTooltip(text, tone == Tone.Danger) ? text : null);
         _statusDot.Fill = tone switch
         {
             Tone.Success => Palette.Accent,

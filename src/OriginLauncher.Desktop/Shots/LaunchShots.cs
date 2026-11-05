@@ -28,7 +28,7 @@ public static class LaunchShots
         // ---- Running and the launch cover ----
         yield return new Shot("07-play-running", w => w.Home.Launches.TourRunning("Steve"), Seed: () => Demo.SignIn());
         yield return new Shot("07b-play-running-notice",
-            w => w.Home.Launches.TourRunning("Steve", ["Shaders are off for this profile: Origin has not tested an Iris with your Sodium 0.6.9. Add a matching Iris to the profile to turn them back on."]), Seed: () => Demo.SignIn());
+            w => w.Home.Launches.TourRunning("Steve", ["Shaders are off for this profile: no tested Iris for your Sodium 0.6.9. Add a matching Iris to turn them back on."]), Seed: () => Demo.SignIn());
         yield return new Shot("08-launch-a-preparing", w => Cover(w, "1.21.1"), Seed: Signed("1.21.1"));
         yield return new Shot("08-launch-b-counted", w => Cover(w, "1.21.1").ReportStage("Downloading libraries (240/600)"), Seed: Signed("1.21.1"));
         yield return new Shot("08-launch-c-installing", w => Cover(w, "1.8.9").ReportStage("Installing"), Seed: Signed("1.8.9"));
