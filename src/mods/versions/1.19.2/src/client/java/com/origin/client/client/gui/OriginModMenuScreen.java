@@ -1591,7 +1591,7 @@ public class OriginModMenuScreen extends Screen {
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		swallowChar = false;
-		if (keyCode != GLFW.GLFW_KEY_RIGHT_SHIFT) {
+		if (!com.origin.client.client.OriginClientMod.isModMenuKey(keyCode)) {
 			rshiftTap = false;
 		}
 		if (OriginMultiSelect.isOpen()) {
@@ -1636,7 +1636,7 @@ public class OriginModMenuScreen extends Screen {
 			}
 			return true;
 		}
-		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(keyCode)) {
 			rshiftTap = !rshiftHeldAtOpen && !searchFocused && !((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty());
 			return true;
 		}
@@ -1661,8 +1661,7 @@ public class OriginModMenuScreen extends Screen {
 
 	private static boolean rshiftDownNow() {
 		try {
-			return com.mojang.blaze3d.platform.InputConstants.isKeyDown(
-					net.minecraft.client.Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_KEY_RIGHT_SHIFT);
+			return com.origin.client.client.OriginClientMod.modMenuKeyDown();
 		} catch (Throwable t) {
 			return false;
 		}
@@ -1670,10 +1669,10 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
-		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(keyCode)) {
 			rshiftHeldAtOpen = false;
 		}
-		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT && rshiftTap) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(keyCode) && rshiftTap) {
 			rshiftTap = false;
 			beginClose();
 			return true;

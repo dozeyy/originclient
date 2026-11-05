@@ -617,6 +617,11 @@ public final class HudElements {
 			int n = Math.max(1, items.size());
 			boolean vertical = Mods.mode("armorhud", "listMode").equals("Vertical");
 			boolean dur = !Mods.mode("armorhud", "durabilityPos").equals("Hidden");
+			// Vertical with the numbers Below: each row is the item plus its number (27 px, so a
+			// number never sits on the next piece) in a column as wide as a centred number
+			if (vertical && Mods.mode("armorhud", "durabilityPos").equals("Below")) {
+				return new int[]{24, n * 27};
+			}
 			return vertical ? new int[]{19 + (dur ? 34 : 0), n * 19} : new int[]{n * 19, 17 + (dur ? 10 : 0)};
 		}, HudElements::renderArmor);
 
@@ -645,7 +650,8 @@ public final class HudElements {
 		// ---- Sprint/Sneak state ----
 		add("sprintstate", "togglesprint", "Sprint state", HudPos.ofDefault("sprintstate"), mc -> text("Sprint (Toggled)"),
 				(g, mc, w, h) -> {
-					if (!Mods.bool("togglesprint", "hud")) {
+					// not while typing: the chat input bar covers this bottom-left line
+					if (!Mods.bool("togglesprint", "hud") || chatOpen(mc)) {
 						return;
 					}
 					com.origin.client.client.OriginFeatures f = OriginClientMod.FEATURES;
@@ -858,7 +864,8 @@ public final class HudElements {
 					continue;
 				}
 				boolean infinite = e.getIsPotionDurationMax();
-				if (infinite && excludePerm) {
+				// beacon buffs are ambient (refreshed while in range), never the max-duration flag
+				if (excludePerm && (infinite || e.getIsAmbient())) {
 					continue;
 				}
 				rows.add(new PotionRow(p, e.getDuration(), infinite, e.getAmplifier()));
@@ -942,15 +949,17 @@ public final class HudElements {
 			// background hugs however many pieces are actually worn, growing
 			// piece by piece — never the full-loadout gray slab
 			boolean dur = !durPos.equals("Hidden");
-			int wAct = vertical ? 19 + (dur ? 34 : 0) : items.size() * 19;   // = the measured box
-			int hAct = vertical ? items.size() * 19 : 17 + (dur ? 10 : 0);
+			int wAct = vertical ? (durPos.equals("Below") ? 24 : 19 + (dur ? 34 : 0)) : items.size() * 19;   // = the measured box
+			int hAct = vertical ? items.size() * (durPos.equals("Below") ? 27 : 19) : 17 + (dur ? 10 : 0);
 			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5, OriginColorPicker.liveColor("armorhud", "bgColor"), 0);
 		}
 
 		// Durability "Left" (vertical list): the numbers take the box's left 34 px and the
 		// items sit to their right, so nothing draws left of the element (it used to run
 		// off-screen at the default bottom-left spot).
-		int x = vertical && durPos.equals("Left") ? 34 : 0, y = 0;
+		// Durability "Below" (vertical list): items sit 4 px in, so a number centred under one
+		// (up to 4 digits / "100%") stays inside the 24 px column.
+		int x = vertical && durPos.equals("Left") ? 34 : vertical && durPos.equals("Below") ? 4 : 0, y = 0;
 		for (ItemStack stack : items) {
 			g.renderItem(stack, x, y);
 			if (Mods.bool("armorhud", "itemCount")) {
@@ -979,7 +988,7 @@ public final class HudElements {
 						armorLow ? OriginColorPicker.liveColor("armorhud", "damageColor") : textColor, shadow);
 			}
 			if (vertical) {
-				y += 19;
+				y += durPos.equals("Below") ? 27 : 19;
 			} else {
 				x += 19;
 			}

@@ -68,7 +68,7 @@ public class HudEditorScreen extends Screen {
 	// Right Shift closes the screen on the RELEASE of a fresh press (G189-10). The press that
 	// opened it is still held when the screen appears, and its OS key repeat used to land in
 	// keyPressed and close it at once; that hold is ignored until it ends.
-	private boolean rshiftHeldAtOpen = com.origin.client.client.OriginClientMod.isRawKeyDown(GLFW.GLFW_KEY_RIGHT_SHIFT);
+	private boolean rshiftHeldAtOpen = com.origin.client.client.OriginClientMod.modMenuKeyDown();
 	private boolean rshiftTap;
 
 	public HudEditorScreen(boolean quick, Screen returnTo) {
@@ -485,7 +485,7 @@ public class HudEditorScreen extends Screen {
 
 	@Override
 	public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
-		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(keyCode)) {
 			if (rshiftHeldAtOpen) {
 				rshiftHeldAtOpen = false;   // the hold that opened the screen ended
 			} else if (rshiftTap) {
@@ -499,7 +499,7 @@ public class HudEditorScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(keyCode)) {
 			rshiftTap = !rshiftHeldAtOpen;   // closes on release (keyReleased)
 			return true;
 		}

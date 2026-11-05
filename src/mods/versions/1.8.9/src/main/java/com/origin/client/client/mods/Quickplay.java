@@ -183,8 +183,8 @@ public final class Quickplay {
 			lastLabel = label(seen);
 		}
 		boolean active = Mods.on(ID) && mc.thePlayer != null && mc.currentScreen == null;
-		boolean open = active && KeyCodes.isDown(Mods.keyCode(ID, "key"));
-		boolean again = active && KeyCodes.isDown(Mods.keyCode(ID, "requeueKey"));
+		boolean open = active && com.origin.client.client.OriginClientMod.keyDownOrTapped(Mods.keyCode(ID, "key"));
+		boolean again = active && com.origin.client.client.OriginClientMod.keyDownOrTapped(Mods.keyCode(ID, "requeueKey"));
 		if (open && !openWasDown) {
 			mc.displayGuiScreen(new com.origin.client.client.gui.QuickplayScreen());
 		} else if (again && !againWasDown) {

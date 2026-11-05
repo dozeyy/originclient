@@ -1046,7 +1046,8 @@ public final class Mods {
 		add("fpscoach", "FPS Coach", "Finds the settings costing you FPS and tests each fix.", true,
 				ModOption.slider("targetFps", "Target FPS", 30, 240, 10, 60, "%.0f")
 						.tip("Tips show up after you stay below this for about 20 seconds."),
-				ModOption.keybind("key", "Open FPS Coach", GLFW.GLFW_KEY_K),
+				ModOption.keybind("key", "Open FPS Coach", -1)
+						.tip("No key by default: K is Iris's shader on/off key."),
 				ModOption.toggle("showToast", "Show Tips Pop-up", true)
 						.tip("A small pop-up when there are tips. Never during a fight or with a menu open."),
 				ModOption.slider("cooldown", "Pop-up Cooldown", 1, 60, 1, 10, "%.0f min").under("showToast")
@@ -1068,7 +1069,10 @@ public final class Mods {
 		o.add(ModOption.slider("scale", "Scale", 0.1, 2.0, 0.1, 1.0, "%.1fx").tip("Global size multiplier for every particle."));
 		o.add(ModOption.slider("multiplier", "Multiplier", 0.1, 2.0, 0.1, 1.0, "%.1fx"));
 		o.add(ModOption.header("Particle Types"));
-		for (String[] p : PARTICLE_TYPES) {
+		// the running game's own particles (ParticleFilter.vanillaTypes); PARTICLE_TYPES is only
+		// the fallback if the registry can't be read
+		String[][] types = ParticleFilter.vanillaTypes();
+		for (String[] p : types != null ? types : PARTICLE_TYPES) {
 			String id = p[0];
 			o.add(ModOption.toggle("p_" + id, p[1], true));
 			o.add(ModOption.toggle("p_" + id + "_players", "Show on Players", true).under("p_" + id));
@@ -1502,6 +1506,7 @@ public final class Mods {
 		menuBlurOptIn();
 		keepOldDefaultKeysOnce();
 		keystrokesBorderOnce();
+		fpsCoachOffIrisKeyOnce();
 		if (!ModsConfig.VALUES.isEmpty()) {
 			return; // already have real state
 		}
@@ -1571,6 +1576,31 @@ public final class Mods {
 		wrote |= keepOldDefaultKey("minimap", "openMapKey", GLFW.GLFW_KEY_M);
 		wrote |= keepOldDefaultKey("quickplay", "key", GLFW.GLFW_KEY_G);
 		return wrote;
+	}
+
+	// INPUT-2 (2026-11-05): FPS Coach's key was K, which Iris (bundled on every Fabric version) uses to
+	// switch shaders on and off: one press opened the coach AND flipped the shader pack (a reload, and it
+	// stayed flipped). FPS Coach now has no key by default: its pop-up says to open it from the Origin
+	// menu, and a key can be set on its page. A key saved as K is cleared ONCE (meta
+	// "optionVersion.fpscoach.key" = 1, util/OnceSteps); a key the player sets afterwards, K included,
+	// is theirs. 1.8.9 (OptiFine, no Iris) keeps K and never runs this.
+	private static void fpsCoachOffIrisKeyOnce() {
+		com.origin.client.client.util.OnceSteps.run("optionVersion.fpscoach.key", 1, Mods::metaText,
+				(k, v) -> ModsConfig.META.put(k, new JsonPrimitive(v)), () -> {
+					java.util.Map<String, com.google.gson.JsonElement> m = ModsConfig.VALUES.get("fpscoach");
+					com.google.gson.JsonElement key = m == null ? null : m.get("key");
+					boolean onK = false;
+					try {
+						onK = key != null && key.isJsonPrimitive() && key.getAsDouble() == 75;   // GLFW K, the file format
+					} catch (RuntimeException e) {
+						// not a number: not K, leave it
+					}
+					if (onK) {
+						m.remove("key");
+						ModsConfig.save();
+					}
+					// Nothing written: the marker reaches disk with the next save (every change saves).
+				});
 	}
 
 	// N94-2 (2026-11-05): Key Strokes' Border used to start ON at thickness 0 (shown on, nothing

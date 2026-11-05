@@ -51,8 +51,8 @@ public final class Stopwatch {
 			startWasDown = resetWasDown = false;
 			return;
 		}
-		boolean start = mc.currentScreen == null && KeyCodes.isDown(Mods.keyCode("stopwatch", "startKey"));
-		boolean reset = mc.currentScreen == null && KeyCodes.isDown(Mods.keyCode("stopwatch", "resetKey"));
+		boolean start = mc.currentScreen == null && com.origin.client.client.OriginClientMod.keyDownOrTapped(Mods.keyCode("stopwatch", "startKey"));
+		boolean reset = mc.currentScreen == null && com.origin.client.client.OriginClientMod.keyDownOrTapped(Mods.keyCode("stopwatch", "resetKey"));
 		boolean msg = Mods.bool("stopwatch", "displayToggleMessage") && mc.thePlayer != null && mc.ingameGUI != null;
 		if (start && !startWasDown) {
 			toggle();

@@ -244,7 +244,12 @@ public class OriginClientMod implements ClientModInitializer {
 		// Scoreboard hide toggle keybind (+ optional action-bar message)
 		boolean sbDown = client.screen == null && isRawKeyDown(Mods.keyCode("scoreboard", "toggleKey"));
 		if (sbDown && !scoreboardKeyWasDown) {
-			boolean hidden = !Mods.bool("scoreboard", "hideScoreboard");
+			// The hide is only honoured with the Scoreboard mod on: with it off the key used to say
+			// "Scoreboard hidden" and change nothing. Now it switches the mod on and hides (like Full Bright).
+			boolean hidden = !Mods.on("scoreboard") || !Mods.bool("scoreboard", "hideScoreboard");
+			if (hidden && !Mods.on("scoreboard")) {
+				Mods.setOn("scoreboard", true);
+			}
 			Mods.set("scoreboard", "hideScoreboard", hidden);
 			if (Mods.bool("scoreboard", "displayToggleMessage")) {
 				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
@@ -264,7 +269,11 @@ public class OriginClientMod implements ClientModInitializer {
 		// nametag; Toggle Players hides only other players'.
 		boolean naDown = client.screen == null && isRawKeyDown(Mods.keyCode("nametags", "toggleAll"));
 		if (naDown && !nametagAllKeyWasDown) {
-			nametagsHidden = !nametagsHidden;
+			// only honoured with the Nametags mod on: with it off, switch it on and hide (like Full Bright)
+			nametagsHidden = !Mods.on("nametags") || !nametagsHidden;
+			if (nametagsHidden && !Mods.on("nametags")) {
+				Mods.setOn("nametags", true);
+			}
 			if (Mods.bool("nametags", "displayToggleMessage")) {
 				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
 						nametagsHidden ? "Nametags hidden" : "Nametags shown"), true);
@@ -274,7 +283,10 @@ public class OriginClientMod implements ClientModInitializer {
 
 		boolean npDown = client.screen == null && isRawKeyDown(Mods.keyCode("nametags", "togglePlayers"));
 		if (npDown && !nametagPlayerKeyWasDown) {
-			playerNametagsHidden = !playerNametagsHidden;
+			playerNametagsHidden = !Mods.on("nametags") || !playerNametagsHidden;
+			if (playerNametagsHidden && !Mods.on("nametags")) {
+				Mods.setOn("nametags", true);
+			}
 			if (Mods.bool("nametags", "displayToggleMessage")) {
 				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
 						playerNametagsHidden ? "Player nametags hidden" : "Player nametags shown"), true);

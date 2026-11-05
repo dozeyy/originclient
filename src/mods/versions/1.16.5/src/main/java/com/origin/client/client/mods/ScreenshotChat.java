@@ -169,7 +169,7 @@ public final class ScreenshotChat {
 
 	/** "Copy Last Screenshot" key, edge-triggered with no screen open. */
 	public static void tick(Minecraft mc) {
-		boolean down = Mods.on(ID) && mc.screen == null && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "copyKey"));
+		boolean down = Mods.on(ID) && mc.screen == null && OriginClientMod.keyDownOrTapped(Mods.keyCode(ID, "copyKey"));
 		if (down && !copyKeyWasDown && last != null) {
 			copyImage(last);
 		}

@@ -31,7 +31,8 @@ public final class Snaplook {
 		boolean enabled = Mods.on(MOD);
 		boolean keyDown = enabled && client.screen == null && client.player != null
 				&& !OriginFreelookState.active
-				&& OriginClientMod.isRawKeyDown(Mods.keyCode(MOD, "key"));
+				&& (Mods.bool(MOD, "toggleMode") ? OriginClientMod.keyDownOrTapped(Mods.keyCode(MOD, "key"))
+						: OriginClientMod.isRawKeyDown(Mods.keyCode(MOD, "key")));
 		boolean want;
 		if (!enabled || client.player == null) {
 			want = false;   // turning the mod off (or leaving the world) always releases it

@@ -19,7 +19,8 @@ import java.util.Map;
  *   top right     Server IP in the corner, Potions under one toast's height, Item Counter left of them
  *   right middle  the Scoreboard sidebar (vanilla's spot); the Minimap shares it (singleplayer only,
  *                 sidebars are a server thing)
- *   bottom right  Ping, Reach, Combo, Memory; Cooldowns right of the hotbar; Bed Wars resources above
+ *   bottom right  Ping, Reach, Combo, Memory; Cooldowns right of the hotbar (dials added rightwards);
+ *                 Bed Wars resources above
  *   bottom left   Pack Display and the sprint state, under the chat
  *   left, under the corner stack: Party, then Portal Calculator / Bed Wars teammates. At the auto GUI
  *   scale these three reach into the chat area (there is no free space left there); from GUI 640x360 up
@@ -43,6 +44,10 @@ public final class HudLayout {
 	private static final Map<String, double[][]> PREVIOUS = new HashMap<String, double[][]>();
 	// An id this table doesn't know (a piece added without a spot) starts top-left instead of failing.
 	private static final double[] UNKNOWN = {0, 4, 4, 1.0};
+	// Pieces that grow to the RIGHT while in the centre column: there dx runs from the screen's centre to the
+	// box's LEFT edge (every other piece: centre to centre). Cooldowns sits right of the hotbar; centred, its
+	// row of dials grew back over the hotbar with each new cooldown.
+	private static final java.util.Set<String> GROWS_RIGHT = new java.util.HashSet<String>();
 
 	static {
 		// top left: one column down the edge, Armor beside Keystrokes
@@ -87,7 +92,11 @@ public final class HudLayout {
 
 		// bottom centre: the hotbar group
 		spot("locatorbar", 7, 0, -22, 1.0);
-		spot("cooldowns", 7, 119, -4, 1.0);   // 4 px right of the hotbar, where vanilla's attack indicator sits
+		// right of the hotbar, past the attack indicator (centre +97..+115) and a left-handed player's offhand
+		// slot (centre +91..+120); its dials are added rightwards from there. 2 px past the offhand slot and
+		// 3 px up from the bottom, so two dials still clear Reach / Combo / Memory at 1366x768.
+		spot("cooldowns", 7, 122, -3, 1.0);
+		GROWS_RIGHT.add("cooldowns");
 
 		// bottom right: a right-aligned column, the two lowest rows narrow enough to clear Cooldowns
 		spot("ping", 8, -4, -55, 1.0);
@@ -105,7 +114,7 @@ public final class HudLayout {
 		previous("potionhud", new double[]{2, -6, 160, 1.0}, new double[]{2, -6, 6, 1.0},
 				new double[]{2, -4, 160, 1.0}, new double[]{2, -4, 26.06647187728268, 1.0});
 		previous("sprintstate", new double[]{6, 6, -6, 1.0});
-		previous("cooldowns", new double[]{7, 0, -62, 1.0});
+		previous("cooldowns", new double[]{7, 0, -62, 1.0}, new double[]{7, 119, -4, 1.0});
 		previous("party", new double[]{3, 6, 56, 1.0});
 		previous("clock", new double[]{0, 6, 100, 1.0});
 		previous("stopwatch", new double[]{0, 6, 114, 1.0});
@@ -172,6 +181,23 @@ public final class HudLayout {
 		int col = anchor % 3;
 		double base = col == 0 ? 0 : col == 1 ? (screenW - w) / 2.0 : screenW - w;
 		return onScreen(base + dx, screenW - w);
+	}
+
+	/** left() for a known piece: a GROWS_RIGHT piece in the centre column keeps its left edge as it widens. */
+	public static double left(String id, int anchor, double dx, int screenW, double w) {
+		if (anchor % 3 == 1 && id != null && GROWS_RIGHT.contains(id)) {
+			return onScreen(screenW / 2.0 + dx, screenW - w);
+		}
+		return left(anchor, dx, screenW, w);
+	}
+
+	/** Where column col's offsets are measured from for this piece (left(id, ...) before its clamp): the
+	 *  editor turns a drop position back into dx with it, so a dropped piece stays where it was let go. */
+	public static double baseX(String id, int col, int screenW, double w) {
+		if (col == 1 && id != null && GROWS_RIGHT.contains(id)) {
+			return screenW / 2.0;
+		}
+		return col == 0 ? 0 : col == 1 ? (screenW - w) / 2.0 : screenW - w;
 	}
 
 	/** Top edge in GUI px of an h-tall piece at (anchor, dy) on a screenH-tall screen, kept fully on screen. */

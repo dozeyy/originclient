@@ -113,7 +113,7 @@ public class OriginModMenuScreen extends Screen {
 	private boolean rshiftTap = false;
 	// Right Shift already down when the menu opened (held to open it): its auto-repeat
 	// presses reach this screen, so that hold's release must not close the menu.
-	private boolean rshiftHeldAtOpen = com.origin.client.client.OriginClientMod.isRawKeyDown(GLFW.GLFW_KEY_RIGHT_SHIFT);
+	private boolean rshiftHeldAtOpen = com.origin.client.client.OriginClientMod.modMenuKeyDown();
 	private String optSearch = "";                    // mod page / settings tab filter
 	private double scroll, scrollTarget, pageScroll, pageScrollTarget;
 	private float maxScroll, maxPageScroll;
@@ -1611,7 +1611,7 @@ public class OriginModMenuScreen extends Screen {
 		int keyCode = event.key();
 		boolean ctrl = event.hasControlDown();
 		swallowChar = false;
-		if (keyCode != GLFW.GLFW_KEY_RIGHT_SHIFT) {
+		if (!com.origin.client.client.OriginClientMod.isModMenuKey(keyCode)) {
 			rshiftTap = false;
 		}
 		if (OriginMultiSelect.isOpen()) {
@@ -1656,7 +1656,7 @@ public class OriginModMenuScreen extends Screen {
 			}
 			return true;
 		}
-		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(keyCode)) {
 			rshiftTap = !rshiftHeldAtOpen && !searchFocused && !((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty());
 			return true;
 		}
@@ -1681,11 +1681,11 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public boolean keyReleased(KeyEvent event) {
-		if (event.key() == GLFW.GLFW_KEY_RIGHT_SHIFT && rshiftHeldAtOpen) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(event.key()) && rshiftHeldAtOpen) {
 			rshiftHeldAtOpen = false;   // the hold that opened the menu ended
 			return true;
 		}
-		if (event.key() == GLFW.GLFW_KEY_RIGHT_SHIFT && rshiftTap) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(event.key()) && rshiftTap) {
 			rshiftTap = false;
 			beginClose();
 			return true;

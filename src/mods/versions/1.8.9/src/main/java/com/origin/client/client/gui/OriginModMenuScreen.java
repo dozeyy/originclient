@@ -1642,7 +1642,7 @@ public class OriginModMenuScreen extends OriginScreen {
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		if (keyCode != Keyboard.KEY_RSHIFT) {
+		if (!com.origin.client.client.OriginClientMod.isModMenuKey(keyCode)) {
 			rshiftTap = false;
 		}
 		if (OriginMultiSelect.isOpen()) {
@@ -1693,7 +1693,7 @@ public class OriginModMenuScreen extends OriginScreen {
 			}
 			return true;
 		}
-		if (keyCode == Keyboard.KEY_RSHIFT) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(keyCode)) {
 			rshiftTap = !rshiftHeldAtOpen && !Keyboard.isRepeatEvent()
 					&& !searchFocused && !((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty());
 			return true;
@@ -1719,7 +1719,7 @@ public class OriginModMenuScreen extends OriginScreen {
 
 	private static boolean rshiftDownNow() {
 		try {
-			return Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+			return com.origin.client.client.OriginClientMod.modMenuKeyDown();
 		} catch (Throwable t) {
 			return false;
 		}
@@ -1728,10 +1728,10 @@ public class OriginModMenuScreen extends OriginScreen {
 	@Override
 	public void handleKeyboardInput() throws java.io.IOException {
 		super.handleKeyboardInput();
-		if (Keyboard.getEventKey() == Keyboard.KEY_RSHIFT && !Keyboard.getEventKeyState()) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(Keyboard.getEventKey()) && !Keyboard.getEventKeyState()) {
 			rshiftHeldAtOpen = false;
 		}
-		if (rshiftTap && Keyboard.getEventKey() == Keyboard.KEY_RSHIFT && !Keyboard.getEventKeyState()) {
+		if (rshiftTap && com.origin.client.client.OriginClientMod.isModMenuKey(Keyboard.getEventKey()) && !Keyboard.getEventKeyState()) {
 			rshiftTap = false;
 			beginClose();
 		}

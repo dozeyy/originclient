@@ -267,9 +267,23 @@ final class MinimapScreen extends GuiScreen {
 		super.handleMouseInput();
 		int wheel = Mouse.getEventDWheel();
 		if (wheel != 0) {
-			zoomBy(wheel > 0 ? 1 : -1);
+			// One zoom level per whole notch: a touchpad's many small wheel events add up first
+			// instead of each jumping a full level (OriginScreen.wheelNotches; a reversed swipe
+			// drops what was gathered the other way).
+			double notches = com.origin.client.client.gui.OriginScreen.wheelNotches(wheel);
+			if (Math.signum(notches) != Math.signum(wheelGathered)) {
+				wheelGathered = 0;
+			}
+			wheelGathered += notches;
+			while (Math.abs(wheelGathered) >= 1.0 - 1.0e-6) {
+				int dir = wheelGathered > 0 ? 1 : -1;
+				zoomBy(dir);
+				wheelGathered -= dir;
+			}
 		}
 	}
+
+	private double wheelGathered;
 
 	@Override
 	protected void mouseClicked(int mx, int my, int button) throws IOException {

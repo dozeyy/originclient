@@ -516,7 +516,7 @@ public class HudEditorScreen extends OriginScreen {
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		// LWJGL2 codes; anything unhandled falls to the bridge, which sends Esc to onClose()
-		if (keyCode == Keyboard.KEY_RSHIFT) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(keyCode)) {
 			if (!rshiftHeldAtOpen && !Keyboard.isRepeatEvent()) {
 				onClose();
 			}
@@ -531,7 +531,7 @@ public class HudEditorScreen extends OriginScreen {
 
 	private static boolean rshiftDownNow() {
 		try {
-			return Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+			return com.origin.client.client.OriginClientMod.modMenuKeyDown();
 		} catch (Throwable t) {
 			return false;
 		}
@@ -541,7 +541,7 @@ public class HudEditorScreen extends OriginScreen {
 	@Override
 	public void handleKeyboardInput() throws java.io.IOException {
 		super.handleKeyboardInput();
-		if (Keyboard.getEventKey() == Keyboard.KEY_RSHIFT && !Keyboard.getEventKeyState()) {
+		if (com.origin.client.client.OriginClientMod.isModMenuKey(Keyboard.getEventKey()) && !Keyboard.getEventKeyState()) {
 			rshiftHeldAtOpen = false;
 		}
 	}

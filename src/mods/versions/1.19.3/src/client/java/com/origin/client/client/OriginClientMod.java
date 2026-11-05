@@ -631,6 +631,40 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 	}
 
+	/** The Open Mod Menu key from Controls (Right Shift by default) as a keyboard key code, or 0 when it is
+	 *  unbound or a mouse button. The Origin menu and Edit HUD close on the same key that opens them: they
+	 *  used to close on Right Shift only, so a player who moved the menu to another key couldn't close it
+	 *  with that key, and Right Shift still closed it. */
+	public static int modMenuKey() {
+		try {
+			int code = bindCode(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(OriginKeyBindings.openModMenu));
+			return code > 0 ? code : 0;
+		} catch (Throwable t) {
+			return org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT;   // fail soft: the default key
+		}
+	}
+
+	/** True when keyCode (this version's key code, as the screen got it) is the Open Mod Menu key. */
+	public static boolean isModMenuKey(int keyCode) {
+		int k = modMenuKey();
+		return k > 0 && keyCode == k;
+	}
+
+	/** True while the Open Mod Menu key is held (keyboard only, see modMenuKey). */
+	public static boolean modMenuKeyDown() {
+		int k = modMenuKey();
+		return k > 0 && isRawKeyDown(k);
+	}
+
+	/** Down now, or pressed and already let go since the last read (util/KeyTaps: a tap shorter than a
+	 *  tick, keyboard or mouse). For Origin's edge-triggered keys ("down now, up last tick"), so a quick
+	 *  tap is never missed (INPUT-4). Spends the tap: one read per key per tick. Keys that act while
+	 *  held keep isRawKeyDown, where a tap must not count as a one-tick hold. */
+	public static boolean keyDownOrTapped(int code) {
+		boolean tap = com.origin.client.client.util.KeyTaps.consume(code);
+		return isRawKeyDown(code) || tap;
+	}
+
 	/** Raw GLFW key state for the mod-menu's rebindable keys. */
 	public static boolean isRawKeyDown(int glfwKey) {
 		if (com.origin.client.client.util.KeyCodes.isMouse(glfwKey)) {
@@ -841,7 +875,12 @@ public class OriginClientMod implements ClientModInitializer {
 		// Scoreboard hide toggle keybind (+ optional action-bar message)
 		boolean sbDown = client.screen == null && isRawKeyDown(Mods.keyCode("scoreboard", "toggleKey"));
 		if (tapped(client, Mods.keyCode("scoreboard", "toggleKey")) || (sbDown && !scoreboardKeyWasDown)) {
-			boolean hidden = !Mods.bool("scoreboard", "hideScoreboard");
+			// The hide is only honoured with the Scoreboard mod on: with it off the key used to say
+			// "Scoreboard hidden" and change nothing. Now it switches the mod on and hides (like Full Bright).
+			boolean hidden = !Mods.on("scoreboard") || !Mods.bool("scoreboard", "hideScoreboard");
+			if (hidden && !Mods.on("scoreboard")) {
+				Mods.setOn("scoreboard", true);
+			}
 			Mods.set("scoreboard", "hideScoreboard", hidden);
 			if (Mods.bool("scoreboard", "displayToggleMessage")) {
 				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
@@ -868,7 +907,11 @@ public class OriginClientMod implements ClientModInitializer {
 		// nametag; Toggle Players hides only other players'.
 		boolean naDown = client.screen == null && isRawKeyDown(Mods.keyCode("nametags", "toggleAll"));
 		if (tapped(client, Mods.keyCode("nametags", "toggleAll")) || (naDown && !nametagAllKeyWasDown)) {
-			nametagsHidden = !nametagsHidden;
+			// only honoured with the Nametags mod on: with it off, switch it on and hide (like Full Bright)
+			nametagsHidden = !Mods.on("nametags") || !nametagsHidden;
+			if (nametagsHidden && !Mods.on("nametags")) {
+				Mods.setOn("nametags", true);
+			}
 			if (Mods.bool("nametags", "displayToggleMessage")) {
 				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
 						nametagsHidden ? "Nametags hidden" : "Nametags shown"), true);
@@ -878,7 +921,10 @@ public class OriginClientMod implements ClientModInitializer {
 
 		boolean npDown = client.screen == null && isRawKeyDown(Mods.keyCode("nametags", "togglePlayers"));
 		if (tapped(client, Mods.keyCode("nametags", "togglePlayers")) || (npDown && !nametagPlayerKeyWasDown)) {
-			playerNametagsHidden = !playerNametagsHidden;
+			playerNametagsHidden = !Mods.on("nametags") || !playerNametagsHidden;
+			if (playerNametagsHidden && !Mods.on("nametags")) {
+				Mods.setOn("nametags", true);
+			}
 			if (Mods.bool("nametags", "displayToggleMessage")) {
 				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
 						playerNametagsHidden ? "Player nametags hidden" : "Player nametags shown"), true);
@@ -1077,7 +1123,9 @@ public class OriginClientMod implements ClientModInitializer {
 		boolean keyDown = Mods.on("freelook") && client.screen == null
 				&& syncedKeyDown(client, freelookLink, OriginKeyBindings.freelook, "freelook", "key");
 		boolean freelookDown = Mods.bool("freelook", "toggle")
-				? (keyDown && !freelookWasDown) != OriginFreelookState.active
+				// a tap shorter than a tick still toggles (INPUT-4)
+				? (((Mods.on("freelook") && tapped(client, Mods.keyCode("freelook", "key"))) || keyDown)
+						&& !freelookWasDown) != OriginFreelookState.active
 				: keyDown;
 		// Freelook switched off (or stepped aside for the player's own mod) mid-look: end
 		// it and put the camera back, as Snaplook does. A toggled-on look used to stay on.
@@ -1210,8 +1258,8 @@ public class OriginClientMod implements ClientModInitializer {
 			// noon IRL = noon in-game: 06:00 IRL maps to tick 0 (sunrise)
 			base = ((now.getHour() * 1000.0 + now.getMinute() * 1000.0 / 60.0) - 6000 + 24000) % 24000;
 		}
-		boolean inc = client.screen == null && isRawKeyDown(Mods.keyCode("timechanger", "increaseKey"));
-		boolean dec = client.screen == null && isRawKeyDown(Mods.keyCode("timechanger", "decreaseKey"));
+		boolean inc = client.screen == null && keyDownOrTapped(Mods.keyCode("timechanger", "increaseKey"));
+		boolean dec = client.screen == null && keyDownOrTapped(Mods.keyCode("timechanger", "decreaseKey"));
 		if (((inc && !timeIncWasDown) || (dec && !timeDecWasDown)) && Mods.bool("timechanger", "useRealTime")) {
 			// [ / ] with Use Real Time on: the real clock rewrote the time every tick, so the
 			// keys did nothing. Switch it off (saved) and step from the time shown right now.
