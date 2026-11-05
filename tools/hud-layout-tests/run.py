@@ -6,10 +6,10 @@
    and 1.8.9 are .no-shared-sync, so sync.py --check doesn't see theirs).
 2. Every live module takes its HUD defaults from the table: no literal `new HudPos(<numbers>)`
    outside HudPos/HudLayout, and the ids it passes to HudPos.ofDefault are collected for step 3.
-3. HudLayoutTests (pure Java, compiled with HudLayout alone): every collected id has a spot and a
+3. HudLayoutTests (pure Java, compiled with HudLayout and ToastBand): every collected id has a spot and a
    planned size; no two pieces overlap each other, the chat or the hotbar at 1366x768 / 1920x1080
    (auto GUI scale) and bigger GUI sizes; a player's own spot is kept and an untouched old default
-   moves to the new one.
+   moves to the new one; the Potion HUD steps below toasts (ToastBand, JG-9).
 CI: build-check.
 """
 import glob
@@ -56,7 +56,18 @@ def main():
     print(f"HudLayout copies + defaults: {len(live)} live modules, {len(ids)} piece ids")
 
     out = tempfile.mkdtemp(prefix="hudlayout-")
-    if subprocess.run(["javac", "-d", out, SHARED, os.path.join(HERE, "HudLayoutTests.java")]).returncode:
+    # ToastBand (the potions step below toasts): every live module but 1.8.9 carries the shared copy
+    band_rel = REL.replace("HudLayout.java", "ToastBand.java")
+    band = os.path.join(ROOT, "src/mods/shared/src/client/java", band_rel)
+    band_want = open(band, "rb").read()
+    for mod in live:
+        if mod == "1.8.9":
+            continue   # one achievement pop-up at a time: the slot HudLayout reserves is enough
+        copies = glob.glob(os.path.join(ROOT, "src/mods/versions", mod, "src/*/java", band_rel))
+        if len(copies) != 1 or open(copies[0], "rb").read() != band_want:
+            print(f"FAIL {mod}: hud/ToastBand.java missing or differs from shared")
+            bad += 1
+    if subprocess.run(["javac", "--release", "8", "-d", out, SHARED, band, os.path.join(HERE, "HudLayoutTests.java")]).returncode:
         sys.exit("compile failed")
     bad += subprocess.run(["java", "-cp", out, "HudLayoutTests"] + sorted(ids)).returncode
     sys.exit(1 if bad else 0)

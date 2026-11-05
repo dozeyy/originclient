@@ -1,4 +1,5 @@
 import com.origin.client.client.hud.HudLayout;
+import com.origin.client.client.hud.ToastBand;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -242,6 +243,51 @@ public final class HudLayoutTests {
 		}
 	}
 
+	// ---- ToastBand: the potions step below toasts (JG-9) -------------------------------------------------
+
+	static final class WithBits {
+		final java.util.BitSet occupiedSlots = new java.util.BitSet(5);   // 1.17+
+		final java.util.List<Object> visible = new ArrayList<Object>();
+	}
+
+	static final class WithArray {
+		static final Object[] UNUSED = new Object[3];
+		final Object[] visible = new Object[5];                            // 1.16.5
+	}
+
+	static final class Neither {
+		final java.util.List<Object> visible = new ArrayList<Object>();
+	}
+
+	static void num(String what, double want, double got) {
+		if (want != got) {
+			fail(what + ": want " + want + ", got " + got);
+		}
+	}
+
+	static void toastBand() {
+		Plan potions = PLAN.get("potionhud");
+		double[] r = rect(potions, 455, 256);   // the default spot at 1366x768
+		double x = r[0], y = r[1], w = r[2] - r[0];
+		num("no toasts: potions stay", y, ToastBand.below(x, y, w, 455, 0));
+		num("one toast (the slot HudLayout keeps free): potions stay", y, ToastBand.below(x, y, w, 455, 1));
+		num("two toasts: potions step below them", 2 * 32 + 4, ToastBand.below(x, y, w, 455, 2));
+		num("five toasts", 5 * 32 + 4, ToastBand.below(x, y, w, 455, 5));
+		num("a box left of the toast column stays", 30, ToastBand.below(4, 30, 60, 455, 3));
+		num("a box already below the toasts stays", 150, ToastBand.below(x, 150, w, 455, 3));
+
+		WithBits bits = new WithBits();
+		num("BitSet manager, nothing showing", 0, ToastBand.slots(bits));
+		bits.occupiedSlots.set(0);
+		bits.occupiedSlots.set(2);
+		num("BitSet manager: highest taken slot + 1", 3, ToastBand.slots(bits));
+		WithArray arr = new WithArray();
+		arr.visible[1] = "toast";
+		num("array manager: highest filled slot + 1", 2, ToastBand.slots(arr));
+		num("unknown manager reads 0", 0, ToastBand.slots(new Neither()));
+		num("no manager reads 0", 0, ToastBand.slots(null));
+	}
+
 	public static void main(String[] args) {
 		// every element id a live module registers has a spot and a planned size
 		for (String id : args) {
@@ -263,6 +309,7 @@ public final class HudLayoutTests {
 		layout(683, 384, false);   // 1366x768 at GUI 2
 		layout(960, 540, false);   // 1920x1080 at GUI 2
 		resolveCases();
+		toastBand();
 		System.out.println(failures == 0 ? "HudLayoutTests: OK (" + PLAN.size() + " pieces, 5 screen sizes)"
 				: "HudLayoutTests: " + failures + " failure(s)");
 		System.exit(failures == 0 ? 0 : 1);
