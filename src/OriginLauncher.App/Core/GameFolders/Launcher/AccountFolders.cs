@@ -106,7 +106,8 @@ public static class AccountFolders
     /// settings of the account that played it most recently. Never throws for
     /// a seeding problem (an unseeded folder still launches).
     /// </summary>
-    public static string PrepareGameDir(string version, string accountKey)
+    /// <param name="stage">The launch screen's line while packs copy (AccountSeed.CopyingPacksStage).</param>
+    public static string PrepareGameDir(string version, string accountKey, IProgress<string>? stage = null)
     {
         EnsureMigrated(accountKey);
         lock (Gate)
@@ -120,7 +121,8 @@ public static class AccountFolders
                 var root = OriginPaths.VersionRoot(version);
                 if (InstanceMigration.NeedsMigration(root)) candidates.Add(root);
                 var source = AccountSeed.PickSource(candidates);
-                AccountSeed.Seed(dir, source, Log);
+                AccountSeed.Seed(dir, source, Log, stage: stage is null ? null : new Action<string>(stage.Report),
+                    notice: text => SeedNotices[dir] = text);
                 Directory.CreateDirectory(dir);
             }
         }
@@ -132,6 +134,12 @@ public static class AccountFolders
         MergeSharedMods(version);
         return OriginPaths.GameDir(version, accountKey);
     }
+
+    // A first Play whose packs were left out (AccountSeed): the sentence Home adds to that launch's running line.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> SeedNotices = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The "packs weren't copied" sentence for this game folder's first Play, once; null otherwise.</summary>
+    public static string? TakeSeedNotice(string gameDir) => SeedNotices.TryRemove(gameDir, out var text) ? text : null;
 
     // ---- the shared mods folder (one per version, SharedMods) ------------------
 

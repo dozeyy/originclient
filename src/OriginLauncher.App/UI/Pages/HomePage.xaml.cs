@@ -977,7 +977,10 @@ public partial class HomePage : UserControl
             // old layout, or — its first time on this version — created with
             // the settings of the account that played it last (AccountFolders).
             // Resolved before the launch options: the heap plan looks at its packs.
-            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key), ticket.Token);
+            // A first Play on this account copies the player's packs: the launch screen says so while it runs.
+            var seedStage = new Progress<string>(Stage);
+            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key, seedStage), ticket.Token);
+            var seedNotice = AccountFolders.TakeSeedNotice(gameDir);
 
             // freshSettings, NOT the cached _settings: _settings is loaded once when
             // this page is constructed (launcher start) and is only good for initial
@@ -1094,6 +1097,7 @@ public partial class HomePage : UserControl
             // It started without the player's mods: say so, and which of them to check first (one of them caused the
             // crash), instead of a plain "Running" that leaves the next Play to crash the same way.
             if (withoutModsLine != null) runningMessage = withoutModsLine;
+            if (seedNotice != null) runningMessage = $"{runningMessage}. {seedNotice}";
             runningMessage = Core.GameFolders.LaunchedMods.WithNotices(runningMessage, Core.GameFolders.LaunchedMods.NoticesFor(gameDir));
             _ = WatchBootAsync(game, runningMessage);
         }

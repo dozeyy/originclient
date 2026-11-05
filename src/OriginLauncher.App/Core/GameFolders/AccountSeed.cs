@@ -32,6 +32,15 @@ public static class AccountSeed
 
     private const string SeedingPrefix = ".seeding-";
 
+    /// <summary>Packs bigger than this in total are not copied (minutes of copying on a first Play); the account starts without them.</summary>
+    public const long MaxPackBytes = 4L << 30;
+
+    /// <summary>Free space kept on the disk beyond the packs themselves; with less, the packs are not copied.</summary>
+    public const long FreeSpaceMargin = 500L << 20;
+
+    /// <summary>The launch screen's line while packs copy.</summary>
+    public const string CopyingPacksStage = "Copying your packs";
+
     /// <summary>True for a path (relative to a game folder, either slash) that is a setting to seed.</summary>
     public static bool IsSettingsFile(string relativePath)
     {
@@ -136,7 +145,13 @@ public static class AccountSeed
     /// source). Does nothing when the folder already exists. Returns true when
     /// it created the folder. Never throws.
     /// </summary>
-    public static bool Seed(string gameDir, string? sourceGameDir, Action<string>? log = null)
+    /// <param name="stage">Told <see cref="CopyingPacksStage"/> before packs copy (the launch screen's line).</param>
+    /// <param name="notice">Told one plain sentence when the packs were left out (too big, or not enough free space).</param>
+    /// <param name="maxPackBytes">Tests only: the size limit.</param>
+    /// <param name="freeBytes">Tests only: the free space on the disk holding a folder (null = unknown).</param>
+    public static bool Seed(string gameDir, string? sourceGameDir, Action<string>? log = null,
+        Action<string>? stage = null, Action<string>? notice = null,
+        long maxPackBytes = MaxPackBytes, Func<string, long?>? freeBytes = null)
     {
         log ??= _ => { };
         if (Directory.Exists(gameDir)) return false;
@@ -166,10 +181,32 @@ public static class AccountSeed
             // Packs are copied into the same temp folder, so the folder still appears in one step.
             // Runs on the launch worker (PrepareGameDir is called off the UI thread on every launcher).
             var packs = 0;
-            foreach (var relative in PackFilesToSeed(sourceGameDir))
+            var packFiles = PackFilesToSeed(sourceGameDir);
+            var packBytes = packFiles.Sum(relative => SizeOf(Path.Combine(sourceGameDir, relative)));
+            var free = (freeBytes ?? FreeBytes)(temp);
+            if (packFiles.Count == 0)
             {
-                if (CopyShared(Path.Combine(sourceGameDir, relative), Path.Combine(temp, relative)))
-                    packs++;
+                // nothing to copy
+            }
+            else if (packBytes > maxPackBytes)
+            {
+                // Minutes of copying on a first Play is worse than starting without them.
+                notice?.Invoke("Your resource and shader packs weren't copied to this account (more than 4 GB).");
+                log($"new game folder {key}: packs not copied ({packBytes / (1 << 20)} MB is over the limit)");
+            }
+            else if (free is long space && space < packBytes + FreeSpaceMargin)
+            {
+                notice?.Invoke("Your resource and shader packs weren't copied to this account (not enough free disk space).");
+                log($"new game folder {key}: packs not copied ({packBytes / (1 << 20)} MB, {space / (1 << 20)} MB free)");
+            }
+            else
+            {
+                stage?.Invoke(CopyingPacksStage);
+                foreach (var relative in packFiles)
+                {
+                    if (CopyShared(Path.Combine(sourceGameDir, relative), Path.Combine(temp, relative)))
+                        packs++;
+                }
             }
             Directory.Move(temp, gameDir);
             temp = null;
@@ -198,20 +235,53 @@ public static class AccountSeed
     }
 
     // Read with sharing so a game running on the source account (which may
-    // hold its options open) never blocks the copy.
+    // hold its options open) never blocks the copy. A copy that fails part way
+    // (disk full, the source vanished) is deleted: a cut-off pack that
+    // options.txt or iris.properties names is worse than no pack at all.
     private static bool CopyShared(string source, string destination)
     {
+        var created = false;
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            using var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write);
-            input.CopyTo(output);
+            using (var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            using (var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write))
+            {
+                created = true; // CreateNew: the file is ours, so it may be deleted on failure
+                input.CopyTo(output);
+            }
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            if (created)
+            {
+                try { File.Delete(destination); }
+                catch (Exception inner) when (inner is IOException or UnauthorizedAccessException) { /* in the temp copy: dropped with it on a crash */ }
+            }
             return false;
+        }
+    }
+
+    private static long SizeOf(string path)
+    {
+        try { return new FileInfo(path).Length; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
+    }
+
+    // Free space on the disk holding the folder; null when it can't be read (the copy then just tries).
+    // Windows wants the drive root; elsewhere .NET asks the file system of the given path itself (statvfs).
+    private static long? FreeBytes(string folder)
+    {
+        try
+        {
+            var full = Path.GetFullPath(folder);
+            var drive = new DriveInfo(OperatingSystem.IsWindows() ? Path.GetPathRoot(full)! : full);
+            return drive.AvailableFreeSpace;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
         }
     }
 

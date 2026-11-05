@@ -487,7 +487,10 @@ public sealed partial class HomePage
 
             ticket.Token.ThrowIfCancellationRequested();
 
-            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key), ticket.Token);
+            // A first Play on this account copies the player's packs: the launch screen says so while it runs.
+            var seedStage = new Progress<string>(Stage);
+            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key, seedStage), ticket.Token);
+            var seedNotice = AccountFolders.TakeSeedNotice(gameDir);
             var (heap, legacy) = await LaunchHeap.PlanAsync(freshSettings, version, gameDir, ticket.Token);
             if (heap.Warning != null) Stage(heap.Warning);
             var launchOption = LaunchProfileBuilder.Build(freshSettings, session, version, heap, legacy);
@@ -563,6 +566,7 @@ public sealed partial class HomePage
             // It started without the player's mods: say so, and which of them to check first (one of them caused the
             // crash), instead of a plain "Running" that leaves the next Play to crash the same way.
             if (withoutModsLine != null) runningMessage = withoutModsLine;
+            if (seedNotice != null) runningMessage = $"{runningMessage}. {seedNotice}";
             runningMessage = LaunchedMods.WithNotices(runningMessage, LaunchedMods.NoticesFor(gameDir));
             _ = WatchBootAsync(game, runningMessage);
         }
