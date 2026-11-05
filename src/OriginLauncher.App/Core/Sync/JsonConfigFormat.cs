@@ -52,12 +52,14 @@ public sealed class JsonConfigFormat : ISyncFormat
     private readonly bool _ownConfig;
     private readonly string[] _localKeys;
 
-    private JsonConfigFormat(bool ownConfig, bool allowsDeletions, string[]? localKeys = null, string? wholeReplaceMarker = null)
+    private JsonConfigFormat(bool ownConfig, bool allowsDeletions, string[]? localKeys = null, string? wholeReplaceMarker = null,
+        string? wholeEntrySubtree = null)
     {
         _ownConfig = ownConfig;
         AllowsDeletions = allowsDeletions;
         _localKeys = localKeys ?? Array.Empty<string>();
         WholeReplaceMarker = wholeReplaceMarker;
+        WholeEntrySubtree = wholeEntrySubtree;
     }
 
     /// <summary>
@@ -67,16 +69,20 @@ public sealed class JsonConfigFormat : ISyncFormat
     /// profile) and that should follow them too. <paramref name="localKeys"/>:
     /// JSON Pointer subtrees that describe this instance's own folder, never
     /// synced (see ISyncFormat.StaysIn). <paramref name="wholeReplaceMarker"/>:
-    /// see ISyncFormat.WholeReplaceMarker.
+    /// see ISyncFormat.WholeReplaceMarker. <paramref name="wholeEntrySubtree"/>:
+    /// see ISyncFormat.WholeEntrySubtree.
     /// </summary>
-    public static JsonConfigFormat OriginConfig(bool allowsDeletions, string[]? localKeys = null, string? wholeReplaceMarker = null) =>
-        new(ownConfig: true, allowsDeletions, localKeys, wholeReplaceMarker);
+    public static JsonConfigFormat OriginConfig(bool allowsDeletions, string[]? localKeys = null, string? wholeReplaceMarker = null,
+        string? wholeEntrySubtree = null) =>
+        new(ownConfig: true, allowsDeletions, localKeys, wholeReplaceMarker, wholeEntrySubtree);
 
     public static readonly JsonConfigFormat ThirdParty = new(ownConfig: false, allowsDeletions: false);
 
     public bool AllowsDeletions { get; }
 
     public string? WholeReplaceMarker { get; }
+
+    public string? WholeEntrySubtree { get; }
 
     public Dictionary<string, string>? Read(string path)
     {
@@ -121,7 +127,7 @@ public sealed class JsonConfigFormat : ISyncFormat
         {
             if (raw == null)
             {
-                changed |= _ownConfig && Remove(root, key);
+                changed |= _ownConfig && Remove(root, key, WholeEntrySubtree);
                 continue;
             }
             if (!TryParse(raw, out var value)) continue;
@@ -200,16 +206,40 @@ public sealed class JsonConfigFormat : ISyncFormat
 
     // ---- deletions (Origin configs only) ----
 
-    private static bool Remove(JsonNode? root, string key)
+    private static bool Remove(JsonNode? root, string key, string? wholeEntrySubtree)
     {
-        if (key.Length == 0 || root is not JsonObject parent) return false;
+        if (key.Length == 0 || root is not JsonObject rootObject) return false;
         var segments = Segments(key);
+        var parent = rootObject;
         for (var i = 0; i < segments.Count - 1; i++)
         {
             if (parent[segments[i]] is not JsonObject next) return false;
             parent = next;
         }
-        return parent.Remove(segments[^1]);
+        if (!parent.Remove(segments[^1])) return false;
+        PruneEmptiedEntry(rootObject, key, wholeEntrySubtree);
+        return true;
+    }
+
+    // A whole entry (a saved mod profile) whose last value was just deleted goes too: the mod
+    // lists every child of "/profiles", so an empty shell would still show in the dropdown.
+    // Only the entry itself is removed, and only when no value is left anywhere under it;
+    // empty objects inside a living entry stay as they are.
+    private static void PruneEmptiedEntry(JsonObject root, string key, string? wholeEntrySubtree)
+    {
+        if (wholeEntrySubtree == null || !key.StartsWith(wholeEntrySubtree + "/", StringComparison.Ordinal)) return;
+        var subtreeSegments = Segments(wholeEntrySubtree);
+        var segments = Segments(key);
+        if (segments.Count <= subtreeSegments.Count) return;
+        JsonObject container = root;
+        foreach (var segment in subtreeSegments)
+        {
+            if (container[segment] is not JsonObject next) return;
+            container = next;
+        }
+        var entryName = segments[subtreeSegments.Count];
+        if (container[entryName] is JsonObject entry && Flatten(entry).Count == 0)
+            container.Remove(entryName);
     }
 
     // ---- flattening ----

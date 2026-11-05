@@ -42,6 +42,15 @@ public interface ISyncFormat
     string? WholeReplaceMarker => null;
 
     /// <summary>
+    /// A subtree whose children are entries the player creates and deletes as a unit
+    /// (originclient-mods.json's "/profiles": one saved mod profile is ~165 keys). Keys that
+    /// vanish only from such entries are deletions even when they are many, and an entry
+    /// left with no values after a push is removed whole (an empty profile would still be
+    /// listed). null: the format has none.
+    /// </summary>
+    string? WholeEntrySubtree => null;
+
+    /// <summary>
     /// Writes the store's view into the target file. A null value in
     /// <paramref name="desired"/> is a deletion. Returns the file's resulting
     /// key map (the new baseline), or null when the file was skipped.

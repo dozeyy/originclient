@@ -121,7 +121,14 @@ public sealed class SettingsSyncEngine
                 // didn't have when we last wrote it — e.g. Iris filling in its
                 // own keys on first run): that is the version's default, so it
                 // only fills gaps and never beats a value the store has.
-                if (!seeding && !replacedWhole && (baseline == null || !baseline.ContainsKey(key))) continue;
+                // A stored DELETION is not a value, though: after a reset, Push removes the key and
+                // the baseline no longer has it, so the player setting it again later looks like a
+                // newly appearing key. Treated as a default, the deletion stayed and the next Push
+                // removed the re-set value again, every launch (SS-1). A file with a baseline that
+                // re-adds a deleted key is the player's newer choice; newer wins below. A file with
+                // no baseline (brand new, or recreated with defaults) still only fills gaps.
+                var gapOnly = baseline == null || (stored.Value != null && !baseline.ContainsKey(key));
+                if (!seeding && !replacedWhole && gapOnly) continue;
                 if (Trusted(stored.ChangedAt, now) >= changedAt) continue; // the store's change is newer
             }
             values[key] = new SyncValue(raw, changedAt);
@@ -138,7 +145,7 @@ public sealed class SettingsSyncEngine
     {
         var vanished = baseline.Keys.Where(k => !current.ContainsKey(k) && !file.Format.StaysIn(k, instance.Version)).ToList();
         if (vanished.Count == 0) return;
-        if (!replacedWhole && vanished.Count > Math.Max(MassDeletionFloor, baseline.Count * MassDeletionShare))
+        if (!replacedWhole && IsMassDrop(file.Format, baseline, current, vanished))
         {
             _log($"{instance.Version}: {vanished.Count} keys vanished from {file.Id} at once - treated as a reset, not deletions");
             return;
@@ -148,6 +155,24 @@ public sealed class SettingsSyncEngine
             if (values.TryGetValue(key, out var stored) && Trusted(stored.ChangedAt, now) >= changedAt) continue;
             values[key] = new SyncValue(null, changedAt);
         }
+    }
+
+    // A saved mod profile is a full snapshot (~165 keys), so deleting one of two dropped half
+    // the file and tripped the guard: the profile came back at the next launch (SS-2). Keys
+    // inside whole entries (ISyncFormat.WholeEntrySubtree) therefore don't count towards it;
+    // the guard judges the rest of the file on its own. A reset or failed load still loses
+    // the rest too (and an unreadable file forgets its baseline, so it never gets here).
+    private static bool IsMassDrop(ISyncFormat format, Dictionary<string, string> baseline,
+        Dictionary<string, string> current, List<string> vanished)
+    {
+        var subtree = format.WholeEntrySubtree;
+        if (subtree == null)
+            return vanished.Count > Math.Max(MassDeletionFloor, baseline.Count * MassDeletionShare);
+        var prefix = subtree + "/";
+        bool Outside(string key) => !key.StartsWith(prefix, StringComparison.Ordinal);
+        if (!current.Keys.Any(Outside)) return true; // nothing but entries left: not the player deleting one
+        var vanishedOutside = vanished.Count(Outside);
+        return vanishedOutside > Math.Max(MassDeletionFloor, baseline.Keys.Count(Outside) * MassDeletionShare);
     }
 
     // A failed load loses the marker with everything else, so only a marker that is present
