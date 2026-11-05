@@ -348,6 +348,30 @@ public sealed class LauncherGlueTests
         Assert.Equal("Didn't come over: Lunar: a, Lunar: b. Close Minecraft first: Origin's game for these versions is still running.", targets!.LeftOut);
     }
 
+    // Bug run 11 PROF-12: a 26.1.x setup brought over before that version was ever played keeps its keybinds and video
+    // settings behind (no data version yet). The Import page said so; Home's one-click now does too.
+    [Fact]
+    public void Home_says_when_settings_wait_for_the_first_play()
+    {
+        var setup = new DetectedInstance { Kind = SourceKind.Lunar, Name = "26.1", GameDir = "g", McVersion = "26.1" };
+        var waiting = new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Setting, "options.txt", SettingsMigrator.OptionsNotYet("26.1"));
+        var result = new BulkImportResult
+        {
+            RunId = "r", State = ImportState.Committed,
+            Versions = new[]
+            {
+                new VersionOutcome("26.1", new[] { new SetupOutcome(setup, SetupRole.Full, SetupResultKind.Imported, Lines: new[] { waiting }) }),
+                new VersionOutcome("1.21.1", Array.Empty<SetupOutcome>()),
+            },
+        };
+        var done = HomeImport.Outcome(result, "Lunar");
+        Assert.True(done.Succeeded);
+        Assert.Equal("Your settings for Minecraft 26.1 come over once you've played it: press Play once, then import again from Profiles.", done.LeftOut);
+
+        var clean = new BulkImportResult { RunId = "r", State = ImportState.Committed, Versions = new[] { new VersionOutcome("1.21.1", Array.Empty<SetupOutcome>()) } };
+        Assert.Null(HomeImport.Outcome(clean, "Lunar").LeftOut);
+    }
+
     [Fact]
     public void Real_blockers_still_stop_Home_and_the_disk_line_says_where_worlds_can_be_left_out()
     {
