@@ -276,4 +276,11 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The starter originclient-mods.json (1.21.1, the baseplate): Settings Sync tells a damaged config restarted
+         from it apart from the player deleting every profile (Core/Sync/SyncedFiles.ModsStarter). -->
+    <EmbeddedResource Include="..\mods\versions\1.21.1\src\client\resources\assets\originclient\default-mods-config.json"
+                      LogicalName="OriginLauncher.ModsStarter.json" Link="Sync\default-mods-config.json" />
+  </ItemGroup>
+
 </Project>

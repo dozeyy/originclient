@@ -70,6 +70,26 @@ public static class SyncedFiles
         ["originclient-mods.json"] = "/profiles",
     };
 
+    // The starter originclient-mods.json a damaged file restarts from (ModsConfig), so a restart can be told from the
+    // player deleting every profile (ISyncFormat.Starter, N94-1). The 1.21.1 module's copy (the baseplate), linked into
+    // the launcher as an embedded resource by every launcher csproj and the tests; other modules' starters differ in a
+    // few keys at most, which only makes those keys weaker evidence. Read once; null if the resource is missing.
+    internal const string ModsStarterResource = "OriginLauncher.ModsStarter.json";
+    private static readonly Lazy<IReadOnlyDictionary<string, string>?> ModsStarterValues = new(() =>
+    {
+        try
+        {
+            using var stream = typeof(SyncedFiles).Assembly.GetManifestResourceStream(ModsStarterResource);
+            if (stream == null) return null;
+            using var reader = new StreamReader(stream);
+            return JsonConfigFormat.FlattenText(reader.ReadToEnd());
+        }
+        catch (IOException) { return null; }
+    });
+
+    /// <summary>The flattened starter originclient-mods.json, or null when the launcher was built without it.</summary>
+    public static IReadOnlyDictionary<string, string>? ModsStarter => ModsStarterValues.Value;
+
     /// <summary>The fixed files plus every Origin config found in any instance or already in the store.</summary>
     public static IReadOnlyList<SyncedFile> All(IEnumerable<SyncInstance> instances, SyncStoreData store)
     {
@@ -102,7 +122,8 @@ public static class SyncedFiles
                 allowsDeletions: DeletionAwareOriginConfigs.Contains(name),
                 localKeys: LocalKeys.GetValueOrDefault(name),
                 wholeReplaceMarker: WholeReplaceMarkers.GetValueOrDefault(name),
-                wholeEntrySubtree: WholeEntrySubtrees.GetValueOrDefault(name))));
+                wholeEntrySubtree: WholeEntrySubtrees.GetValueOrDefault(name),
+                starter: name == "originclient-mods.json" ? ModsStarter : null)));
         }
         return files;
     }
