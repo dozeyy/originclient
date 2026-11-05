@@ -60,8 +60,16 @@ import java.util.WeakHashMap;
 public class MenuHooks {
 
 	// Actions of the buttons this area adds to vanilla screens (weak: a rebuilt
-	// screen's buttons are collected normally).
-	private static final Map<GuiButton, Runnable> ACTIONS = new WeakHashMap<>();
+	// screen's buttons are collected normally). An action gets the screen at click
+	// time and must never capture it: a WeakHashMap value that reaches its own key
+	// (action -> screen -> buttonList -> button) is never cleared, so every pause menu
+	// opened in a session used to stay in memory.
+	private static final Map<GuiButton, ScreenAction> ACTIONS = new WeakHashMap<>();
+
+	/** A click on an added button; `from` is the screen the button sits on. */
+	private interface ScreenAction {
+		void run(GuiScreen from);
+	}
 	/** Ids for added buttons: far from every vanilla / Forge / OptiFine id. */
 	private static final int COSMETICS_ID = 0x4F5243;
 	/** Id of the disconnect screen's Reconnect button. */
@@ -249,9 +257,9 @@ public class MenuHooks {
 			}
 			GuiButton reconnect = new GuiButton(RECONNECT_ID, x, y, bw, bh, "Reconnect");
 			buttons.add(reconnect);
-			ACTIONS.put(reconnect, new Runnable() {
+			ACTIONS.put(reconnect, new ScreenAction() {
 				@Override
-				public void run() {
+				public void run(GuiScreen from) {
 					com.origin.client.client.social.Social.join(server);
 				}
 			});
@@ -300,17 +308,17 @@ public class MenuHooks {
 			buttons.remove(forge);
 			buttons.add(mods);
 			buttons.add(origin);
-			ACTIONS.put(mods, new Runnable() {
+			ACTIONS.put(mods, new ScreenAction() {
 				@Override
-				public void run() {
-					Minecraft.getMinecraft().displayGuiScreen(new net.minecraftforge.fml.client.GuiModList(pause));
+				public void run(GuiScreen from) {
+					Minecraft.getMinecraft().displayGuiScreen(new net.minecraftforge.fml.client.GuiModList(from));
 				}
 			});
-			ACTIONS.put(origin, new Runnable() {
+			ACTIONS.put(origin, new ScreenAction() {
 				@Override
-				public void run() {
+				public void run(GuiScreen from) {
 					Minecraft.getMinecraft().displayGuiScreen(
-							new com.origin.client.client.gui.OriginModMenuScreen(pause, null));
+							new com.origin.client.client.gui.OriginModMenuScreen(from, null));
 				}
 			});
 		} catch (Throwable ignored) {
@@ -327,9 +335,9 @@ public class MenuHooks {
 		try {
 			GuiButton entry = new GuiButton(MODS_ID, 4, 4, 80, 20, "Origin");
 			buttons.add(entry);
-			ACTIONS.put(entry, new Runnable() {
+			ACTIONS.put(entry, new ScreenAction() {
 				@Override
-				public void run() {
+				public void run(GuiScreen from) {
 					Minecraft.getMinecraft().displayGuiScreen(new com.origin.client.client.gui.OriginModMenuScreen());
 				}
 			});
@@ -406,10 +414,10 @@ public class MenuHooks {
 			GuiButton cosmetics = new GuiButton(COSMETICS_ID, wide.xPosition, top - lift + h + gap,
 					wide.width, h, "Cosmetics");
 			buttons.add(cosmetics);
-			ACTIONS.put(cosmetics, new Runnable() {
+			ACTIONS.put(cosmetics, new ScreenAction() {
 				@Override
-				public void run() {
-					Minecraft.getMinecraft().displayGuiScreen(new CosmeticsScreen(screen));
+				public void run(GuiScreen from) {
+					Minecraft.getMinecraft().displayGuiScreen(new CosmeticsScreen(from));
 				}
 			});
 		} catch (Throwable ignored) {
@@ -457,11 +465,11 @@ public class MenuHooks {
 				((OriginShaderButton) button).onPress();
 				return;
 			}
-			Runnable action = ACTIONS.get(button);
+			ScreenAction action = ACTIONS.get(button);
 			if (action != null) {
 				button.playPressSound(mc.getSoundHandler());
 				event.setCanceled(true);
-				action.run();
+				action.run(event.gui);
 				return;
 			}
 			if (event.gui instanceof GuiIngameMenu && button.id == DISCONNECT_ID) {
