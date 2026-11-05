@@ -25,7 +25,10 @@ public class OriginClientMod implements ClientModInitializer {
 	 *  so keyHeldByToggle() can't answer for it and the toggle never feeds itself. */
 	private static boolean readingRealSneakKey = false;
 	private boolean chatApplied = false;
-	private double savedChatOpacity = 1.0, savedChatTextOpacity = 1.0, savedChatScale = 1.0;
+	private double savedChatOpacity = 1.0, savedChatScale = 1.0;
+	// What Origin last put into Minecraft's chat background opacity / scale (-1 = nothing yet):
+	// a vanilla value that differs was moved by the player in Chat Settings (MEDIA-2).
+	private double putChatOpacity = -1, putChatScale = -1;
 	private boolean hitboxesApplied = false;
 	private boolean chunkKeyWasDown = false;
 	private boolean sprintKeyWasDown = false, sneakKeyWasDown = false;
@@ -101,6 +104,7 @@ public class OriginClientMod implements ClientModInitializer {
 			public void playerValues(net.minecraft.client.Options options) {
 				cameraOptionsForSave(options, true);
 				if (chatApplied) {
+					adoptVanillaChat(options);   // a screen can save before the next tick
 					putPlayerChatValues(options);
 				}
 			}
@@ -1099,9 +1103,9 @@ public class OriginClientMod implements ClientModInitializer {
 	// Chat options ride the vanilla accessibility options. IMPORTANT mapping:
 	// "Background Opacity" drives textBackgroundOpacity — the grey box behind
 	// chat lines — NOT chatOpacity (which fades the TEXT itself; wiring the
-	// slider there made messages unreadable). Text stays fully visible at
-	// background 0: chatOpacity is pinned to 1.0 while the mod is on.
-	// These are Origin's values, never the player's: all three of the player's
+	// slider there made messages unreadable). chatOpacity (Chat Text Opacity) is
+	// the player's alone: the card has no control for it, so it is never touched.
+	// These are Origin's values, never the player's: both of the player's
 	// own values come back when the mod turns off, and every options.txt write
 	// swaps them in for the write (OptionsAutosave.Swap, registered in
 	// onInitializeClient), so the file never stores the Chat mod's values.
@@ -1110,14 +1114,36 @@ public class OriginClientMod implements ClientModInitializer {
 		if (on) {
 			if (!chatApplied) {
 				savedChatOpacity = client.options.textBackgroundOpacity().get();
-				savedChatTextOpacity = client.options.chatOpacity().get();
 				savedChatScale = client.options.chatScale().get();
 				chatApplied = true;
+			} else {
+				adoptVanillaChat(client.options);
 			}
 			putChatValues(client.options);
 		} else if (chatApplied) {
 			putPlayerChatValues(client.options);
 			chatApplied = false;
+			putChatOpacity = putChatScale = -1;
+		}
+	}
+
+	// One setting, two places (MEDIA-2): moving Minecraft's own Chat Settings slider for the
+	// background opacity or the chat scale while the Chat card is on sets the card's value
+	// (and the player's own, so options.txt and turning the card off keep it) instead of
+	// snapping back on the next tick. The card's Scale stops at 50%, so a smaller vanilla
+	// scale shows as 50% while the card is on and comes back when it is turned off.
+	private void adoptVanillaChat(net.minecraft.client.Options options) {
+		double bg = options.textBackgroundOpacity().get();
+		if (putChatOpacity >= 0 && Math.abs(bg - putChatOpacity) > 1e-6) {
+			Mods.set("chat", "opacity", bg);
+			savedChatOpacity = bg;
+			putChatOpacity = bg;
+		}
+		double scale = options.chatScale().get();
+		if (putChatScale >= 0 && Math.abs(scale - putChatScale) > 1e-6) {
+			Mods.set("chat", "scale", Math.max(0.5, Math.min(1.0, scale)));
+			savedChatScale = scale;
+			putChatScale = scale;
 		}
 	}
 
@@ -1136,13 +1162,13 @@ public class OriginClientMod implements ClientModInitializer {
 
 	private void putChatValues(net.minecraft.client.Options options) {
 		options.textBackgroundOpacity().set(Mods.num("chat", "opacity"));
-		options.chatOpacity().set(1.0);
 		options.chatScale().set(Mods.num("chat", "scale"));
+		putChatOpacity = options.textBackgroundOpacity().get();
+		putChatScale = options.chatScale().get();
 	}
 
 	private void putPlayerChatValues(net.minecraft.client.Options options) {
 		options.textBackgroundOpacity().set(savedChatOpacity);
-		options.chatOpacity().set(savedChatTextOpacity);
 		options.chatScale().set(savedChatScale);
 	}
 

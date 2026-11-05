@@ -28,6 +28,8 @@ public final class AutoTextHotkey {
 	// Servers kick for chat spam; one send per this many ms keeps a held or
 	// mashed hotkey well under any anti-spam limit.
 	private static final long MIN_GAP_MS = 1000;
+	// What C01PacketChatMessage sends of a line on 1.8.9 (it cuts the rest).
+	private static final int CHAT_MAX = 100;
 
 	private static final boolean[] WAS_DOWN = new boolean[SLOTS + 1];
 	private static final int[] SLOT_KEYS = new int[SLOTS + 1];
@@ -94,6 +96,14 @@ public final class AutoTextHotkey {
 		}
 		lastSentAt = now;
 		if (msg.startsWith("/") && msg.length() < 2) {
+			return;
+		}
+		// 1.8.9's chat packet keeps only the first 100 characters: a longer line (typed on a
+		// newer version and brought here by Settings Sync) would reach the server cut off, and
+		// a command cut mid-argument can do the wrong thing. Say so instead (MEDIA-7).
+		if (msg.length() > CHAT_MAX) {
+			mc.ingameGUI.setRecordPlaying("Auto Text: that message is over 1.8.9's " + CHAT_MAX
+					+ "-character chat limit. Shorten it in the Mod Menu.", false);
 			return;
 		}
 		mc.thePlayer.sendChatMessage(msg);

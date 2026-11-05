@@ -26,7 +26,10 @@ public class OriginClientMod implements ClientModInitializer {
 	private net.minecraft.client.CameraType savedPerspective = null;
 	// static: OptionsSaveMixin reads them around every options.txt write (chatOptionsForSave)
 	private static boolean chatApplied = false;
-	private static double savedChatOpacity = 1.0, savedChatScale = 1.0, savedChatTextOpacity = 1.0;
+	private static double savedChatOpacity = 1.0, savedChatScale = 1.0;
+	// What Origin last put into Minecraft's chat background opacity / scale (-1 = nothing yet):
+	// a vanilla value that differs was moved by the player in Chat Settings (MEDIA-2).
+	private static double putChatOpacity = -1, putChatScale = -1;
 	private boolean hitboxesApplied = false;
 	private boolean chunkKeyWasDown = false;
 	private boolean sprintKeyWasDown = false, sneakKeyWasDown = false;
@@ -1265,11 +1268,11 @@ public class OriginClientMod implements ClientModInitializer {
 	// Chat options ride the vanilla accessibility options. IMPORTANT mapping:
 	// "Background Opacity" drives textBackgroundOpacity — the grey box behind
 	// chat lines — NOT chatOpacity (which fades the TEXT itself; wiring the
-	// slider there made messages unreadable). Text stays fully visible at
-	// background 0. chatOpacity is pinned to 1.0 while the mod is on.
+	// slider there made messages unreadable). chatOpacity (Chat Text Opacity) is
+	// the player's alone: the card has no control for it, so it is never touched.
 	//
 	// These are the PLAYER's Minecraft chat settings, borrowed while the mod is
-	// on: all three are put back when it turns off, and options.txt never sees
+	// on: both are put back when it turns off, and options.txt never sees
 	// Origin's values (chatOptionsForSave, called around every Options.save()).
 	private void applyChat(Minecraft client) {
 		boolean on = Mods.on("chat");
@@ -1277,17 +1280,43 @@ public class OriginClientMod implements ClientModInitializer {
 			if (!chatApplied) {
 				savedChatOpacity = client.options.textBackgroundOpacity;
 				savedChatScale = client.options.chatScale;
-				savedChatTextOpacity = client.options.chatOpacity;
 				chatApplied = true;
+			} else {
+				adoptVanillaChat(client.options);
 			}
-			client.options.textBackgroundOpacity = Mods.num("chat", "opacity");
-			client.options.chatOpacity = 1.0;
-			client.options.chatScale = Mods.num("chat", "scale");
+			putChatValues(client.options);
 		} else if (chatApplied) {
 			client.options.textBackgroundOpacity = savedChatOpacity;
 			client.options.chatScale = savedChatScale;
-			client.options.chatOpacity = savedChatTextOpacity;
 			chatApplied = false;
+			putChatOpacity = putChatScale = -1;
+		}
+	}
+
+	private static void putChatValues(net.minecraft.client.Options options) {
+		options.textBackgroundOpacity = Mods.num("chat", "opacity");
+		options.chatScale = Mods.num("chat", "scale");
+		putChatOpacity = options.textBackgroundOpacity;
+		putChatScale = options.chatScale;
+	}
+
+	// One setting, two places (MEDIA-2): moving Minecraft's own Chat Settings slider for the
+	// background opacity or the chat scale while the Chat card is on sets the card's value
+	// (and the player's own, so options.txt and turning the card off keep it) instead of
+	// snapping back on the next tick. The card's Scale stops at 50%, so a smaller vanilla
+	// scale shows as 50% while the card is on and comes back when it is turned off.
+	private static void adoptVanillaChat(net.minecraft.client.Options options) {
+		double bg = options.textBackgroundOpacity;
+		if (putChatOpacity >= 0 && Math.abs(bg - putChatOpacity) > 1e-6) {
+			Mods.set("chat", "opacity", bg);
+			savedChatOpacity = bg;
+			putChatOpacity = bg;
+		}
+		double scale = options.chatScale;
+		if (putChatScale >= 0 && Math.abs(scale - putChatScale) > 1e-6) {
+			Mods.set("chat", "scale", Math.max(0.5, Math.min(1.0, scale)));
+			savedChatScale = scale;
+			putChatScale = scale;
 		}
 	}
 
@@ -1317,13 +1346,11 @@ public class OriginClientMod implements ClientModInitializer {
 			return;
 		}
 		if (playerValues) {
+			adoptVanillaChat(options);   // a screen can save before the next tick
 			options.textBackgroundOpacity = savedChatOpacity;
 			options.chatScale = savedChatScale;
-			options.chatOpacity = savedChatTextOpacity;
 		} else {
-			options.textBackgroundOpacity = Mods.num("chat", "opacity");
-			options.chatOpacity = 1.0;
-			options.chatScale = Mods.num("chat", "scale");
+			putChatValues(options);
 		}
 	}
 

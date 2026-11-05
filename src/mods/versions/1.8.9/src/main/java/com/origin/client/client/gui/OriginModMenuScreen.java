@@ -128,7 +128,10 @@ public class OriginModMenuScreen extends OriginScreen {
 	private String capRefusal;
 	private long capRefusalAt;
 	private String textMod, textKey, textBuf = "";
-	private static final int TEXT_MAX = 128;
+	// 1.8.9's chat packet (C01PacketChatMessage) keeps only the first 100 characters, and
+	// these boxes hold lines that go to chat (Auto Text, Auto GG): capped at what arrives
+	// whole instead of the newer versions' 128 (MEDIA-7).
+	private static final int TEXT_MAX = 100;
 
 	// profiles: the dropdown, its name field, the delete confirmation, the toast
 	private boolean profOpen = false;

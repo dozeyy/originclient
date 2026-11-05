@@ -175,15 +175,19 @@ public final class WaypointHud {
 	// The XP bar is exactly 182×5 and sits at (sw-182)/2, sh-29.
 	private static final int BAR_W = 182, BAR_H = 5, BAR_Y_FROM_BOTTOM = 29;
 
-	// Non-separate placement: the XP bar's exact HUD slot. In Survival the real XP
-	// bar draws it (we only overlay icons); in Creative (no XP bar) we blit a copy
-	// of the empty XP-bar sprite in the same spot to host the icons — it shows no XP.
+	// Non-separate placement: the XP bar's exact HUD slot. Vanilla fills that slot with the
+	// XP bar (Survival), the jump meter while riding a horse or camel;
+	// Origin's gems go on top of whatever is there. Only a really empty slot (Creative on
+	// foot) gets a copy of the empty XP-bar sprite to host them: blitting that copy over the
+	// jump meter hid it (MAP-3). Spectator has no bar at all.
 	private static void renderXpHostedBar(GuiGraphics g, Minecraft mc, int sw, int sh) {
+		if (mc.gameMode == null || mc.player.isSpectator()) {
+			return;
+		}
 		int bx = (sw - BAR_W) / 2;
 		int by = sh - BAR_Y_FROM_BOTTOM;
-		boolean realXpBar = mc.gameMode != null && mc.gameMode.hasExperience();
-		// Survival: real bar present → overlay only. Creative: copy the XP sprite.
-		drawBar(g, mc, bx, by, BAR_W, !realXpBar);
+		boolean slotTaken = mc.gameMode.hasExperience() || mc.player.jumpableVehicle() != null;
+		drawBar(g, mc, bx, by, BAR_W, !slotTaken);
 	}
 
 	// Draws the locator icons across an XP-bar-sized strip (182×5). When copyXpBar is

@@ -42,7 +42,9 @@ public class OriginClientMod {
 	// static: GameSettingsZoomMixin reads them around every options.txt write (chatOptionsForSave)
 	private static boolean chatApplied = false;
 	private static float savedChatScale = 1.0f;
-	private float appliedChatScale = -1f;
+	// What Origin last put into vanilla's chatScale (-1 = nothing): a vanilla value that
+	// differs was moved by the player in Chat Settings (MEDIA-2).
+	private static float appliedChatScale = -1f;
 	private boolean hitboxesApplied = false;
 	private boolean chunkKeyWasDown = false;
 	private boolean sprintKeyWasDown = false, sneakKeyWasDown = false;
@@ -1025,6 +1027,8 @@ public class OriginClientMod {
 			if (!chatApplied) {
 				savedChatScale = client.gameSettings.chatScale;
 				chatApplied = true;
+			} else {
+				adoptVanillaChat(client.gameSettings);
 			}
 			float scale = (float) Mods.num("chat", "scale");
 			if (scale != appliedChatScale) {
@@ -1067,7 +1071,23 @@ public class OriginClientMod {
 		if (!chatApplied || options == null) {
 			return;
 		}
+		if (playerValues) {
+			adoptVanillaChat(options);   // a screen can save before the next tick
+		}
 		options.chatScale = playerValues ? savedChatScale : (float) Mods.num("chat", "scale");
+	}
+
+	// One setting, two places (MEDIA-2): moving Minecraft's own Chat Settings scale slider
+	// while the Chat card is on sets the card's Scale (and the player's own, so options.txt
+	// and turning the card off keep it). The card's Scale stops at 50%, so a smaller vanilla
+	// scale shows as 50% while the card is on and comes back when it is turned off.
+	private static void adoptVanillaChat(net.minecraft.client.settings.GameSettings options) {
+		float scale = options.chatScale;
+		if (appliedChatScale >= 0 && Math.abs(scale - appliedChatScale) > 1e-6f) {
+			Mods.set("chat", "scale", Math.max(0.5, Math.min(1.0, (double) scale)));
+			savedChatScale = scale;
+			appliedChatScale = scale;
+		}
 	}
 
 	private static void refreshChat(Minecraft client) {

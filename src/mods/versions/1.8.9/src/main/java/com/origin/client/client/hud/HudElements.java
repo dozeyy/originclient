@@ -1213,16 +1213,17 @@ public final class HudElements {
 	 *  scaled position. Skipped entirely while the HUD editor is open (the
 	 *  editor draws its own draggable versions), with the HUD hidden (F1), and while
 	 *  the F3 screen is open: its text fills both top corners where the default
-	 *  readouts sit, so the whole Origin HUD steps aside, as on 1.21.1 and every
-	 *  other version (B189PRE-3). */
+	 *  readouts sit, so the anchored Origin HUD steps aside, as on 1.21.1 and every
+	 *  other version (B189PRE-3); waypoint labels and party pings stay (MAP-1). */
 	public static void renderAll(Gfx g) {
 		Minecraft mc = Minecraft.getMinecraft();
 		if (mc.thePlayer == null || mc.gameSettings.hideGUI || mc.currentScreen instanceof HudEditorScreen) {
 			return;
 		}
-		if (mc.gameSettings.showDebugInfo) {
-			return;   // F3 is open: its text sits where the HUD's default spots are
-		}
+		// F3 is open: its text sits where the HUD's default spots are, so the anchored
+		// elements step aside. The world-projected overlays after the loop (waypoint labels,
+		// party pings) still draw: walking to a waypoint with F3 open is when you want both (MAP-1).
+		boolean debugOpen = mc.gameSettings.showDebugInfo;
 		// Minimised: nobody can see it. Merely unfocused (Discord or OBS on the other monitor)
 		// keeps the HUD drawn, as 1.21.1's players expect: the unfocused FPS cap already saves
 		// the GPU, and a HUD that vanished on every click away read as a bug.
@@ -1233,7 +1234,7 @@ public final class HudElements {
 		int sw = g.guiWidth(), sh = g.guiHeight();
 		for (int ei = 0; ei < ALL.size(); ei++) {
 			Element e = ALL.get(ei);
-			if (!Mods.on(e.modId())) {
+			if (debugOpen || !Mods.on(e.modId())) {
 				continue;
 			}
 			int prof = -1;

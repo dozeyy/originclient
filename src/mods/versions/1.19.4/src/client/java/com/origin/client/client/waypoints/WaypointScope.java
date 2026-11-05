@@ -1,6 +1,7 @@
 package com.origin.client.client.waypoints;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -10,8 +11,9 @@ import java.util.Locale;
 // so the one file is byte-identical in every module and a standalone `javac` check can
 // run it -- tools/waypoint-scope-check). Waypoints.java does the Minecraft-facing part.
 //
-// A "scope" is one world or one server. Singleplayer = the save FOLDER name (not the
-// display name: that one is renamable and not unique); online = the normalised address.
+// A "scope" is one world or one server. Singleplayer = version + world seed + save FOLDER
+// name (not the display name: that one is renamable and not unique); a Realm = its name;
+// online = the normalised address.
 // Each scope persists to its own file config/originclient-waypoints-<scope>.json, named
 // so the launcher's Settings Sync (originclient*.json) keeps picking them up.
 public final class WaypointScope {
@@ -40,6 +42,116 @@ public final class WaypointScope {
 		String v = mcVersion == null ? "" : mcVersion.trim();
 		String plain = singleplayer(saveFolder);
 		return v.isEmpty() ? plain : "sp:" + v + ":" + plain.substring(3);
+	}
+
+	/**
+	 * Scope key of one singleplayer WORLD: "sp:<version>#<seed tag>:<folder>" (MAP-2).
+	 * Deleting "New World" and creating another frees and reuses the same folder name, so a
+	 * key from version + folder alone gave the new world the deleted one's beams and death
+	 * marker; the seed tells the two apart. The tag sits between version and folder because
+	 * a folder name may hold ':' or '#' and a version never does. Only 8 hex digits of a
+	 * mixed hash leave the game (file names travel with Settings Sync), never the seed.
+	 * A blank version keeps the old unversioned key.
+	 */
+	public static String singleplayer(String saveFolder, String mcVersion, long seed) {
+		String v = mcVersion == null ? "" : mcVersion.trim();
+		String versioned = singleplayer(saveFolder, mcVersion);
+		return v.isEmpty() ? versioned : "sp:" + v + "#" + seedTag(seed) + versioned.substring(3 + v.length());
+	}
+
+	/** 8 hex digits of a SplitMix64-mixed seed: tells worlds apart without revealing the seed. */
+	static String seedTag(long seed) {
+		long z = seed + 0x9E3779B97F4A7C15L;
+		z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+		z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+		z ^= z >>> 31;
+		return String.format("%08x", (int) z);
+	}
+
+	/**
+	 * The folder key ("sp:<version>:<folder>") a seeded key of {@code mcVersion} used before
+	 * the seed was added, or null when {@code key} isn't one.
+	 */
+	public static String unseeded(String key, String mcVersion) {
+		String v = mcVersion == null ? "" : mcVersion.trim();
+		String head = "sp:" + v + "#";
+		if (key == null || v.isEmpty() || !key.startsWith(head)) {
+			return null;
+		}
+		int colon = key.indexOf(':', head.length());
+		return colon < 0 ? null : "sp:" + v + key.substring(colon);
+	}
+
+	/**
+	 * Scope key of a Realm: "realm:<name>" (MAP-7). A Realm's join address is the host it
+	 * runs on right now and changes when Mojang moves it, which used to start an empty
+	 * list; its name stays. Null for a blank name (the caller keeps the address key).
+	 */
+	public static String realm(String name) {
+		String n = name == null ? "" : name.trim();
+		return n.isEmpty() ? null : "realm:" + n;
+	}
+
+	/**
+	 * Copies the list a key's world/server had under an older key scheme, once, before the
+	 * key's own file is first read. Nothing is ever deleted: the old files stay as backups.
+	 * <ul>
+	 * <li>seeded singleplayer key: the world's folder-key list (itself first filled from the
+	 * pre-version key), but only for the FIRST world seen in that folder -- see
+	 * {@link #adoptFolderList};</li>
+	 * <li>Realm key: the list under the Realm's current address ({@code realmAddressKey});</li>
+	 * <li>Hypixel SkyBlock place: the old all-of-Hypixel list ({@link #hypixelPrevious});</li>
+	 * <li>versioned (unseeded) singleplayer key: the pre-version key (seed unknown).</li>
+	 * </ul>
+	 */
+	public static void adoptEarlier(Path configDir, String key, String mcVersion, String realmAddressKey) throws IOException {
+		Path own = configDir.resolve(fileName(key));
+		String folderKey = unseeded(key, mcVersion);
+		if (folderKey != null) {
+			String preVersion = unversioned(folderKey, mcVersion);
+			Path folderFile = configDir.resolve(fileName(folderKey));
+			if (preVersion != null) {
+				adoptPrevious(configDir.resolve(fileName(preVersion)), folderFile);
+			}
+			adoptFolderList(folderFile, own, key);
+			return;
+		}
+		String previous = key.startsWith("realm:") ? realmAddressKey : unversioned(key, mcVersion);
+		if (previous == null) {
+			previous = hypixelPrevious(key);
+		}
+		if (previous != null) {
+			adoptPrevious(configDir.resolve(fileName(previous)), own);
+		}
+	}
+
+	/**
+	 * A world copies its folder's pre-seed list only if it is the first world seen in that
+	 * folder since the update: the "<folder file>.claimed" note beside the folder file names
+	 * that world. A later world in the same reused folder (the old one deleted, the new one
+	 * left at the default name) starts empty instead of inheriting the old beams (MAP-2).
+	 * The note is written before the copy, so a crash between the two only retries the
+	 * same world's copy. It never matches Settings Sync's originclient*.json pattern: it is
+	 * about this game folder's own saves.
+	 *
+	 * @return true if {@code folderFile} was copied into {@code scopeFile}
+	 */
+	public static boolean adoptFolderList(Path folderFile, Path scopeFile, String scopeKey) throws IOException {
+		if (!Files.isRegularFile(folderFile)) {
+			return false;
+		}
+		Path claim = folderFile.resolveSibling(folderFile.getFileName() + ".claimed");
+		if (Files.isRegularFile(claim)) {
+			String owner = new String(Files.readAllBytes(claim), StandardCharsets.UTF_8).trim();
+			if (!owner.equals(scopeKey)) {
+				return false;
+			}
+		} else {
+			Path tmp = claim.resolveSibling(claim.getFileName() + ".tmp");
+			Files.write(tmp, scopeKey.getBytes(StandardCharsets.UTF_8));
+			Files.move(tmp, claim, StandardCopyOption.REPLACE_EXISTING);
+		}
+		return adoptPrevious(folderFile, scopeFile);
 	}
 
 	/**

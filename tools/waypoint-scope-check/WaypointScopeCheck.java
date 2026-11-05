@@ -102,6 +102,56 @@ public class WaypointScopeCheck {
 		eq("emptied list stays empty", "[]", new String(Files.readAllBytes(newSp), StandardCharsets.UTF_8));
 		eq("no tmp left", false, Files.exists(newSp.resolveSibling(newSp.getFileName() + ".tmp")));
 
+		// MAP-2: a singleplayer key carries the world seed, so a new world that reuses a
+		// deleted world's folder name ("New World") is a different scope
+		String seeded = WaypointScope.singleplayer("New World", "1.21.1", 12345L);
+		eq("seeded key shape", true, seeded.matches("sp:1\\.21\\.1#[0-9a-f]{8}:New World"));
+		eq("seeds differ", false, seeded.equals(WaypointScope.singleplayer("New World", "1.21.1", 54321L)));
+		eq("seed is stable", seeded, WaypointScope.singleplayer("New World", "1.21.1", 12345L));
+		eq("seed not in key", false, seeded.contains("12345"));
+		eq("seeded blank version = old key", "sp:New World", WaypointScope.singleplayer("New World", "", 7L));
+		eq("unseeded", "sp:1.21.1:New World", WaypointScope.unseeded(seeded, "1.21.1"));
+		eq("unseeded: folder with # and :", "sp:26.3:a#b:c",
+				WaypointScope.unseeded(WaypointScope.singleplayer("a#b:c", "26.3", 1L), "26.3"));
+		eq("unseeded: versioned key", null, WaypointScope.unseeded("sp:1.21.1:New World", "1.21.1"));
+		eq("unseeded: other version", null, WaypointScope.unseeded(seeded, "1.20.1"));
+		eq("unseeded: server key", null, WaypointScope.unseeded("mp:example.com", "1.21.1"));
+		eq("unversioned: seeded key", null, WaypointScope.unversioned(seeded, "1.21.1"));
+
+		Path mig = Files.createDirectories(dir.resolve("seed"));
+		String worldA = WaypointScope.singleplayer("New World", "1.21.1", 1L);
+		String worldB = WaypointScope.singleplayer("New World", "1.21.1", 2L);
+		Path pre = mig.resolve(WaypointScope.fileName("sp:New World"));
+		Path folder = mig.resolve(WaypointScope.fileName("sp:1.21.1:New World"));
+		Path fileA = mig.resolve(WaypointScope.fileName(worldA));
+		Path fileB = mig.resolve(WaypointScope.fileName(worldB));
+		Files.write(pre, "[\"A\"]".getBytes(StandardCharsets.UTF_8));
+		WaypointScope.adoptEarlier(mig, worldA, "1.21.1", null);
+		eq("world A keeps its pre-version list", "[\"A\"]", new String(Files.readAllBytes(fileA), StandardCharsets.UTF_8));
+		eq("folder list kept as backup", true, Files.exists(folder) && Files.exists(pre));
+		WaypointScope.adoptEarlier(mig, worldB, "1.21.1", null);
+		eq("new world in the reused folder starts empty", false, Files.exists(fileB));
+		Files.delete(fileA);   // e.g. a corrupt file parked: the claimant may copy again
+		WaypointScope.adoptEarlier(mig, worldA, "1.21.1", null);
+		eq("the claimant re-adopts", true, Files.exists(fileA));
+		eq("no claim tmp left", 0L, Files.list(mig).filter(p -> p.toString().endsWith(".tmp")).count());
+
+		// MAP-7: a Realm is keyed by name and starts from its address-keyed list once
+		eq("realm key", "realm:Our Realm", WaypointScope.realm("  Our Realm "));
+		eq("realm blank", null, WaypointScope.realm(" "));
+		Path addr = mig.resolve(WaypointScope.fileName("mp:1.2.3.4:30000"));
+		Path realm = mig.resolve(WaypointScope.fileName("realm:Our Realm"));
+		Files.write(addr, "[\"R\"]".getBytes(StandardCharsets.UTF_8));
+		WaypointScope.adoptEarlier(mig, "realm:Our Realm", "1.21.1", "mp:1.2.3.4:30000");
+		eq("realm adopts its address list", "[\"R\"]", new String(Files.readAllBytes(realm), StandardCharsets.UTF_8));
+		Files.write(realm, "[]".getBytes(StandardCharsets.UTF_8));
+		WaypointScope.adoptEarlier(mig, "realm:Our Realm", "1.21.1", "mp:5.6.7.8:30001");
+		eq("realm adopts only once", "[]", new String(Files.readAllBytes(realm), StandardCharsets.UTF_8));
+		// Hypixel SkyBlock still adopts the all-of-Hypixel list
+		Files.write(mig.resolve(WaypointScope.fileName("mp:mc.hypixel.net")), "[\"H\"]".getBytes(StandardCharsets.UTF_8));
+		WaypointScope.adoptEarlier(mig, "mp:mc.hypixel.net/skyblock/hub", "1.21.1", null);
+		eq("skyblock adopts", true, Files.exists(mig.resolve(WaypointScope.fileName("mp:mc.hypixel.net/skyblock/hub"))));
+
 		System.out.println(fails == 0 ? "ALL PASS" : fails + " FAILED");
 		System.exit(fails == 0 ? 0 : 1);
 	}
