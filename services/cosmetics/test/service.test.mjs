@@ -212,6 +212,24 @@ test('refunds and chargebacks take that payment\'s items back and off; partial r
   assert.deepEqual(await ownedNow(), []);
 });
 
+test('a refund or chargeback for an item that has left the catalog still takes it back (SEC-5)', async () => {
+  await paid(['cape-orbit', 'cape-void'], 'pi_gone');
+  await paid(['halo-gold'], 'pi_gone2');
+  const orbit = CATALOG['cape-orbit'], halo = CATALOG['halo-gold'];
+  delete CATALOG['cape-orbit'];            // its folder was removed from cosmetics/items
+  delete CATALOG['halo-gold'];
+  try {
+    const refund = await stripeEvent('charge.refunded', { id: 'ch_g', payment_intent: 'pi_gone', refunded: true });
+    assert.equal(refund.status, 200);
+    const dispute = await stripeEvent('charge.dispute.created', { id: 'dp_g', payment_intent: 'pi_gone2' });
+    assert.equal(dispute.status, 200);
+  } finally {
+    CATALOG['cape-orbit'] = orbit;
+    CATALOG['halo-gold'] = halo;
+  }
+  assert.deepEqual(await ownedNow(), []);
+});
+
 test('a "paid" event Stripe retries after the refund gives nothing back; paying twice for one item is flagged', async () => {
   await stripeEvent('charge.refunded', { id: 'ch_c', payment_intent: 'pi_c', refunded: true });   // refund seen first
   await paid(['cape-orbit'], 'pi_c');
