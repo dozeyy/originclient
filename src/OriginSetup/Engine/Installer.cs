@@ -86,8 +86,9 @@ public static class Installer
 
     /// <param name="release">The release the Welcome page showed; null = look it up now.</param>
     /// <param name="http">Tests pass a client with a fake handler.</param>
-    /// <returns>Notes for the Done page: the finishing touches Windows refused (empty when everything worked).</returns>
-    public static IReadOnlyList<string> Run(string setupExePath, InstallOptions options, LauncherRelease? release,
+    /// <returns>The Done page's notes (the finishing touches Windows refused; empty when everything worked) and
+    /// whether Origin is on the desktop.</returns>
+    public static InstallOutcome Run(string setupExePath, InstallOptions options, LauncherRelease? release,
                            Action<InstallProgress> report, CancellationToken ct, HttpClient? http = null)
     {
         var dir = options.Directory;
@@ -126,8 +127,15 @@ public static class Installer
             new FinishStep("Start menu shortcut", () => Shortcuts.Create(Shortcuts.StartMenuPath, exe, description),
                 "Couldn't add Origin to the Start menu."),
         };
+        // The Done page says where Origin is, so it must know whether the desktop got its shortcut (N92-5: it said
+        // "on your desktop" after an update that rightly left a deleted icon off).
+        var onDesktop = false;
         if (Shortcuts.WantsDesktop(updating, File.Exists(Shortcuts.DesktopPath)))
-            steps.Add(new FinishStep("desktop shortcut", () => Shortcuts.Create(Shortcuts.DesktopPath, exe, description),
+            steps.Add(new FinishStep("desktop shortcut", () =>
+                {
+                    Shortcuts.Create(Shortcuts.DesktopPath, exe, description);
+                    onDesktop = true;
+                },
                 "Couldn't add a desktop shortcut: Windows protects your desktop from new files."));
         else
             SetupLog.Write("desktop shortcut: left off (the player removed it before this update)");
@@ -139,7 +147,31 @@ public static class Installer
 
         SetupLog.Write($"install complete ({version}){(notes.Count > 0 ? $", {notes.Count} finishing step(s) refused" : "")}");
         report(new InstallProgress(InstallStage.Done, 1, version: version));
-        return notes;
+        return new InstallOutcome(notes, onDesktop);
+    }
+
+    /// <summary>What an install ended with, for the Done page.</summary>
+    public sealed class InstallOutcome
+    {
+        public InstallOutcome(IReadOnlyList<string> notes, bool onDesktop)
+        {
+            Notes = notes;
+            OnDesktop = onDesktop;
+        }
+
+        /// <summary>The finishing touches Windows refused (empty when everything worked).</summary>
+        public IReadOnlyList<string> Notes { get; }
+
+        /// <summary>A desktop shortcut was made (false when the update left a removed one off, or Windows refused it).</summary>
+        public bool OnDesktop { get; }
+
+        /// <summary>
+        /// The line under the Done title: what Windows refused, or else where Origin is. The install itself worked
+        /// either way, so this stays the calm body line, not the Problem page.
+        /// </summary>
+        public string DoneLead => Notes.Count > 0 ? string.Join(" ", Notes)
+            : OnDesktop ? "Origin is on your desktop and in the Start menu."
+            : "Origin is in the Start menu.";
     }
 
     /// <summary>One finishing touch after the launcher is in place, and the player's note if Windows refuses it.</summary>
