@@ -137,6 +137,7 @@ public class OriginModMenuScreen extends OriginScreen {
 	private String confirmDelete = null;
 	private long toastAt = -1;
 	private String toastText = "";
+	private boolean toastRefused;   // a "can't do that" toast: no check mark, shown a little longer
 
 	// tooltip for this frame + the card-hover delay
 	private String tip;
@@ -355,7 +356,7 @@ public class OriginModMenuScreen extends OriginScreen {
 			case KEYBIND:
 				// 1.8.9: both sides LWJGL2 (Mods.keyCode translates the file's GLFW
 				// code; this module's schema declares its defaults in LWJGL2)
-				return Mods.keyCode(id, o.key) != o.defKey;
+				return Mods.keyCode(id, o.key) != KeyCodes.fromPlace(o.defKey);
 			case DROPDOWN:
 				return o.modes != null && o.modes.length > 0 && !Mods.mode(id, o.key).equals(o.modes[0]);
 			case TEXT:
@@ -450,6 +451,12 @@ public class OriginModMenuScreen extends OriginScreen {
 	private void toast(String text) {
 		toastText = text;
 		toastAt = System.currentTimeMillis();
+		toastRefused = false;
+	}
+
+	private void refusedToast(String text) {
+		toast(text);
+		toastRefused = true;
 	}
 
 	// ---- render ----
@@ -1494,7 +1501,7 @@ public class OriginModMenuScreen extends OriginScreen {
 		if (toastAt < 0) {
 			return;
 		}
-		long dt = now - toastAt, life = 1400;
+		long dt = now - toastAt, life = toastRefused ? 2600 : 1400;
 		if (dt >= life) {
 			toastAt = -1;
 			return;
@@ -1502,11 +1509,14 @@ public class OriginModMenuScreen extends OriginScreen {
 		float a = dt < 120 ? dt / 120f : dt > life - 300 ? (life - dt) / 300f : 1f;
 		float base = d.alpha;
 		d.alpha = base * a;
-		float w = 14 + 14 + 8 + d.textW(toastText, 13, false, 0) + 16;
+		float pad = toastRefused ? 16 : 14 + 14 + 8;   // a refusal has no check mark
+		float w = pad + d.textW(toastText, 13, false, 0) + 16;
 		float x = (W - w) / 2, y = H - 24 - 36;
 		d.rect(x, y, w, 36, 8, 0xFA181D1A, LINE2);
-		d.icon("@check", x + 14, y + 11, 14, ACC);
-		d.textMid(toastText, x + 36, y + 18, 13, false, 0, TEXT);
+		if (!toastRefused) {
+			d.icon("@check", x + 14, y + 11, 14, ACC);
+		}
+		d.textMid(toastText, x + pad, y + 18, 13, false, 0, TEXT);
 		d.alpha = base;
 	}
 
@@ -1658,6 +1668,12 @@ public class OriginModMenuScreen extends OriginScreen {
 		if (capMod != null) {
 			// LWJGL2 code in, GLFW stored (Mods.set translates); Esc clears the bind.
 			// Returning true also keeps the bound key's character out of the search.
+			if (keyCode != Keyboard.KEY_ESCAPE && KeyCodes.lwjglToGlfw(keyCode) == KeyCodes.UNBOUND) {
+				// A key the file can't hold (Kana, Henkan, Yen, ...): storing it would save "None".
+				// Say so and keep listening for another key (bug run 10, INPUT-14).
+				refusedToast("That key can't be shared between versions");
+				return true;
+			}
 			Mods.set(capMod, capKey, keyCode == Keyboard.KEY_ESCAPE ? KeyCodes.UNBOUND : keyCode);
 			capMod = null;
 			capKey = null;

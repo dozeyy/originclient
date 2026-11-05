@@ -174,6 +174,7 @@ public class SettingsSyncTests
     [Fact]
     public void KeybindsAndLanguageCrossThe189Cliff()
     {
+        using var layout = LegacyKeyLayout.Pin(TestKeyboards.Us); // 1.8.9's letter codes are a US keyboard's here
         var legacy = Instance("1.8.9");
         var modern = Instance("1.21.1");
         // 1.8.9 stores LWJGL 2 key codes (and has no version line).
@@ -208,6 +209,56 @@ public class SettingsSyncTests
         Assert.Equal("key.keyboard.left.shift", modernAfter["key_key.sprint"]);
         Assert.Equal("key.mouse.middle", modernAfter["key_key.jump"]);
         Assert.Equal("de_de", modernAfter["lang"]);
+    }
+
+    [Fact]
+    public void AzertyMovementKeysStayPutBetween189And1211()
+    {
+        // Bug run 10, INPUT-1: on AZERTY, 1.21.1's forward (key.keyboard.w, the Z key) is 1.8.9's KEY_Z (44).
+        using var layout = LegacyKeyLayout.Pin(TestKeyboards.Azerty);
+        var legacy = Instance("1.8.9");
+        var modern = Instance("1.21.1");
+        Write(modern, "options.txt", Options("version:3955", "key_key.forward:key.keyboard.w", "key_key.left:key.keyboard.a"), 1);
+        Write(legacy, "options.txt", Options("key_key.forward:44", "key_key.left:16"), 1);
+        var engine = Engine();
+        engine.Seed(new[] { legacy, modern });
+
+        // The player fixes forward in 1.8.9 again (touching the file): 1.21.1 keeps the same key.
+        Write(legacy, "options.txt", Options("key_key.forward:44", "key_key.left:16", "fov:0.5"), 30);
+        engine.Harvest(legacy);
+        engine.Harvest(modern);
+        engine.Push(modern);
+        var modernAfter = OptionsOf(modern);
+        Assert.Equal("key.keyboard.w", modernAfter["key_key.forward"]);
+        Assert.Equal("key.keyboard.a", modernAfter["key_key.left"]);
+
+        // A rebind in 1.21.1 to the M key (key.keyboard.semicolon on AZERTY) reaches 1.8.9 as KEY_M (50).
+        Write(modern, "options.txt", Options("version:3955", "key_key.forward:key.keyboard.w", "key_key.left:key.keyboard.semicolon"), 60);
+        engine.Harvest(modern);
+        engine.Harvest(legacy);
+        engine.Push(legacy);
+        var legacyAfter = OptionsOf(legacy);
+        Assert.Equal("44", legacyAfter["key_key.forward"]);
+        Assert.Equal("50", legacyAfter["key_key.left"]);
+    }
+
+    [Fact]
+    public void QwertzYAndZStayPutBetween189And1211()
+    {
+        using var layout = LegacyKeyLayout.Pin(TestKeyboards.Qwertz);
+        var legacy = Instance("1.8.9");
+        var modern = Instance("1.21.1");
+        Write(modern, "options.txt", Options("version:3955", "key_key.chat:key.keyboard.t"), 1);
+        Write(legacy, "options.txt", Options("key_key.chat:20"), 1);
+        var engine = Engine();
+        engine.Seed(new[] { legacy, modern });
+
+        // Chat on the key labelled Z in 1.8.9 (KEY_Z, 44): that's the US-Y place, key.keyboard.y in 1.21.1.
+        Write(legacy, "options.txt", Options("key_key.chat:44"), 30);
+        engine.Harvest(legacy);
+        engine.Harvest(modern);
+        engine.Push(modern);
+        Assert.Equal("key.keyboard.y", OptionsOf(modern)["key_key.chat"]);
     }
 
     [Fact]
