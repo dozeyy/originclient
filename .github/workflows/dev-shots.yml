@@ -73,6 +73,10 @@ on:
         description: "Stress the in-world step: enter the world, shoot, Save and Quit this many times in one run (ORIGIN_INWORLD_LOOPS; empty = once). For intermittent quit/load wedges"
         type: string
         default: ""
+      lang:
+        description: "Minecraft's language for the run, e.g. ru_ru or de_de (written as lang: into options.txt; 1.8.9 gets ru_RU). Empty = English. For translated-text checks (LOC-1/LOC-4); not with video"
+        type: string
+        default: ""
 
 # Read-only by default: the shots job runs the repo's Gradle build. Only the
 # publish job (which runs no repo code) gets a write token.
@@ -223,6 +227,7 @@ jobs:
           EXTRA_MODS: ${{ github.event.inputs.extra_mods || 'false' }}
           COMPANIONS: ${{ github.event.inputs.companions || 'false' }}
           SHADOW_DISTANCE: ${{ github.event.inputs.shadow_distance || '' }}
+          SHOTS_LANG: ${{ github.event.inputs.lang || '' }}
         run: |
           chmod +x gradlew
           mkdir -p "$ORIGIN_SHOTS/screenshots"
@@ -310,6 +315,16 @@ jobs:
           # gradle + java tree runs in its own process group so a hang is killed
           # outright after 15 minutes (a plain `timeout` only reached xvfb-run and
           # left the game holding the log pipe open).
+          if [ -n "$SHOTS_LANG" ]; then
+            # Minecraft in another language: translated labels, key names and the copyright show whether
+            # Origin's own text draws every letter (LOC-1) and Mod Menu's translated button stays hidden (LOC-4).
+            # The harness presses buttons by their translated labels (I18n), so the flow is unchanged.
+            l="$SHOTS_LANG"
+            if [ "${{ matrix.module }}" = "1.8.9" ]; then l="${l%%_*}_$(echo "${l#*_}" | tr 'a-z' 'A-Z')"; fi
+            mkdir -p "$rundir"
+            [ -f "$rundir/options.txt" ] || printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > "$rundir/options.txt"
+            echo "lang:$l" >> "$rundir/options.txt"
+          fi
           rec=""
           if [ "$VIDEO" = "true" ]; then
             # Filmed run: a fixed display ffmpeg can grab, and a first boot that
