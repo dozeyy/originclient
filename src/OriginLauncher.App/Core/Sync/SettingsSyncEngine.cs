@@ -159,15 +159,15 @@ public sealed class SettingsSyncEngine
 
     // A saved mod profile is a full snapshot (~165 keys), so deleting one of two dropped half
     // the file and tripped the guard: the profile came back at the next launch (SS-2). Keys
-    // inside whole entries (ISyncFormat.WholeEntrySubtree) therefore don't count towards it;
-    // the guard judges the rest of the file on its own. A reset or failed load still loses
+    // inside whole entries (ISyncFormat.WholeEntrySubtree) are forgiven: a drop the guard would
+    // stop is judged again on the rest of the file alone. A reset or failed load still loses
     // the rest too (and an unreadable file forgets its baseline, so it never gets here).
     private static bool IsMassDrop(ISyncFormat format, Dictionary<string, string> baseline,
         Dictionary<string, string> current, List<string> vanished)
     {
+        var mass = vanished.Count > Math.Max(MassDeletionFloor, baseline.Count * MassDeletionShare);
         var subtree = format.WholeEntrySubtree;
-        if (subtree == null)
-            return vanished.Count > Math.Max(MassDeletionFloor, baseline.Count * MassDeletionShare);
+        if (!mass || subtree == null) return mass;
         var prefix = subtree + "/";
         bool Outside(string key) => !key.StartsWith(prefix, StringComparison.Ordinal);
         if (!current.Keys.Any(Outside)) return true; // nothing but entries left: not the player deleting one

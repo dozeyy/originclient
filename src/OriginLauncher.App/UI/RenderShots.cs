@@ -1350,7 +1350,9 @@ public static class RenderShots
         var width = tb.ActualWidth - tb.Padding.Left - tb.Padding.Right;
         if (width <= 0) return null;
         var text = ShapeText(tb);
-        text.MaxTextWidth = width;
+        // +1 px: a text sized to its own content is laid out at a rounded width, which re-measured here could
+        // break a line the screen shows whole (the 200% "New profile" card).
+        text.MaxTextWidth = width + 1;
         if (!double.IsNaN(tb.LineHeight)) text.LineHeight = tb.LineHeight;
         var height = tb.ActualHeight - tb.Padding.Top - tb.Padding.Bottom;
         return text.Height > height + 1 ? text.Height : null; // 1 px: layout rounding, not a lost row
