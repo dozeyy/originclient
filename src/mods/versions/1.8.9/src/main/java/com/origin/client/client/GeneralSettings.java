@@ -17,6 +17,7 @@ import org.lwjgl.opengl.DisplayMode;
 // the decorations and the saved windowed size back the same way.
 // Raw Mouse Input has no LWJGL 2 switch (its Windows mouse already reads
 // DirectInput deltas), so that row is not offered on 1.8.9 (see Mods).
+// It also remembers the window's size between launches (WindowMemory; size only on LWJGL 2).
 public final class GeneralSettings {
 	private static final String UNDECORATED = "org.lwjgl.opengl.Window.undecorated";
 
@@ -30,8 +31,53 @@ public final class GeneralSettings {
 	}
 
 	static void tick(Minecraft mc) {
+		rememberWindow(mc);   // first: it reads the launch size before Borderless resizes the window
 		applyBorderless(mc);
 		applyTransparentMenus();
+	}
+
+	// ---- Window memory (JG-10): the window's size, per account (WindowMemory) ----
+	// LWJGL 2 has no maximise call and no maximised flag, so 1.8.9 remembers the size only: a
+	// maximised window comes back as a normal window of the same size.
+	private static boolean windowStarted;
+	private static long windowCheckAt;
+
+	// First tick: restore the remembered size (not under Borderless or F11, which own the window).
+	// After that, once a second: a plain window's size is remembered.
+	private static void rememberWindow(Minecraft mc) {
+		try {
+			if (!windowStarted) {
+				windowStarted = true;
+				if (mc.isFullScreen()) {
+					return;   // F11 at launch: the size now is the screen's, not the launch size
+				}
+				int[] restore = WindowMemory.start(com.origin.client.OriginClient.configDir().toFile(),
+						mc.displayWidth, mc.displayHeight);
+				if (restore != null && !Mods.bool(Mods.GENERAL_ID, "borderlessFullscreen")) {
+					DisplayMode desktop = Display.getDesktopDisplayMode();
+					if (desktop != null && (restore[0] != mc.displayWidth || restore[1] != mc.displayHeight)) {
+						int[] at = WindowMemory.placeOn(new int[] {0, 0, desktop.getWidth(), desktop.getHeight()},
+								restore[0], restore[1]);
+						Display.setDisplayMode(new DisplayMode(at[2], at[3]));
+						Display.setLocation(at[0], at[1]);
+						Display.setResizable(true);
+						mc.resize(at[2], at[3]);
+					}
+				}
+				return;
+			}
+			long now = System.currentTimeMillis();
+			if (now < windowCheckAt) {
+				return;
+			}
+			windowCheckAt = now + 1000;
+			if (borderlessApplied || mc.isFullScreen() || !Display.isVisible()) {
+				return;
+			}
+			WindowMemory.seen(mc.displayWidth, mc.displayHeight, false);
+		} catch (Throwable t) {
+			// fail-soft: the window just isn't remembered
+		}
 	}
 
 	// Transparent Menus (Settings > General). The vanilla backdrops are cleared by MenuBlur

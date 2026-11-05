@@ -13,7 +13,8 @@ import java.nio.IntBuffer;
 // window every tick: Borderless Fullscreen (window mode). Acts on a toggle change,
 // then keeps an applied borderless window covering its display. Fully fail-soft:
 // any window-system hiccup is swallowed so a bad window state can never crash the
-// game.
+// game. Also remembers the window's size and maximised state between launches
+// (WindowMemory).
 //
 // PER-VERSION DELTA (26.3): Minecraft moved from GLFW to SDL3, so Window.handle()
 // is an SDL_Window* and the window calls are SDLVideo's. Raw mouse input is left
@@ -36,8 +37,63 @@ public final class GeneralSettings {
 	}
 
 	static void tick(Minecraft mc) {
+		rememberWindow(mc);   // first: it reads the launch size before Borderless resizes the window
 		applyBorderless(mc);
 		applyTransparentMenus();
+	}
+
+	// ---- Window memory (JG-10): size + maximised, per version and account (WindowMemory) ----
+	private static boolean windowStarted;
+	private static long windowCheckAt;
+
+	// First tick: restore the remembered window (not under Borderless or F11, which own the window).
+	// After that, once a second: a plain window's size and maximised state are remembered.
+	private static void rememberWindow(Minecraft mc) {
+		try (MemoryStack stack = MemoryStack.stackPush()) {
+			long win = mc.getWindow().handle();
+			long flags = SDLVideo.SDL_GetWindowFlags(win);
+			IntBuffer w = stack.mallocInt(1), h = stack.mallocInt(1);
+			if (!windowStarted) {
+				windowStarted = true;
+				if (mc.options.fullscreen().get() || (flags & SDLVideo.SDL_WINDOW_FULLSCREEN) != 0L) {
+					return;   // F11 at launch: the size now is the display's, not the launch size
+				}
+				SDLVideo.SDL_GetWindowSize(win, w, h);
+				int[] restore = WindowMemory.start(net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().toFile(), w.get(0), h.get(0));
+				if (restore != null && !Mods.bool(Mods.GENERAL_ID, "borderlessFullscreen")) {
+					restoreWindow(win, restore);
+				}
+				return;
+			}
+			long now = System.currentTimeMillis();
+			if (now < windowCheckAt) {
+				return;
+			}
+			windowCheckAt = now + 1000;
+			if (borderlessApplied || mc.options.fullscreen().get()
+					|| (flags & (SDLVideo.SDL_WINDOW_FULLSCREEN | SDLVideo.SDL_WINDOW_MINIMIZED)) != 0L) {
+				return;
+			}
+			SDLVideo.SDL_GetWindowSize(win, w, h);
+			WindowMemory.seen(w.get(0), h.get(0), (flags & SDLVideo.SDL_WINDOW_MAXIMIZED) != 0L);
+		} catch (Throwable t) {
+			// fail-soft: the window just isn't remembered
+		}
+	}
+
+	private static void restoreWindow(long win, int[] remembered) {
+		int[] bounds = displayBounds(win);
+		if (bounds == null) {
+			return;
+		}
+		int[] at = WindowMemory.placeOn(bounds, remembered[0], remembered[1]);
+		SDLVideo.SDL_SetWindowSize(win, at[2], at[3]);
+		SDLVideo.SDL_SetWindowPosition(win, at[0], at[1]);
+		if (remembered[2] == 1) {
+			SDLVideo.SDL_SyncWindow(win);      // the size must land first: it is what un-maximising returns to
+			SDLVideo.SDL_MaximizeWindow(win);
+		}
+		OriginClient.LOGGER.info("Origin: window restored to {}x{}{}", at[2], at[3], remembered[2] == 1 ? ", maximised" : "");
 	}
 
 	// Transparent Menus (Settings > General). The vanilla backdrops are cleared by MenuBlur
