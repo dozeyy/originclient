@@ -73,6 +73,7 @@
 		"GameRendererFrameMixin",
 		"GameRendererPostShadersMixin",
 		"MenuBlurMixin",
+		"IrisBlurOptionMixin",
 		"SelectionListTransparentMixin",
 		"MenuBlurRadiusMixin",
 		"GlintColorizerMixin",

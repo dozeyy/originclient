@@ -118,4 +118,20 @@ public final class MenuBlur {
 			tint(g, screen);
 		}
 	}
+
+	/** Menu Background Blurriness as Iris's Shader Packs screen should see it. Iris overrides
+	 *  Screen's blur method there (renderBlurredBackground; 26.x extractBlurredBackground), so
+	 *  MenuBlurMixin never runs on it; its own blur radius is min(this option, its fade-in),
+	 *  so the option is what IrisBlurOptionMixin hands it while that screen is open: 0 in a
+	 *  world (no blur, DECISIONS 2026-11-04; that covers Iris's Hide GUI view too), Origin's
+	 *  strength while Menu Blur draws the screen, the player's option everywhere else. */
+	public static int irisOptionRadius(Screen screen, int vanilla) {
+		if (screen == null || !screen.getClass().getName().endsWith(".ShaderPackScreen")) {
+			return vanilla;
+		}
+		if (handles(screen)) {
+			return Math.max(0, (int) Math.round(strength()));
+		}
+		return darkenOnly(screen) ? 0 : vanilla;
+	}
 }
