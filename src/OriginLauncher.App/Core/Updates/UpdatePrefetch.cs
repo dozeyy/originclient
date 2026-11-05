@@ -123,6 +123,16 @@ public sealed class UpdatePrefetch
     }
 
     /// <summary>
+    /// The small update (delta) of <paramref name="version"/> showed up after that version was first offered: the release
+    /// workflow uploads the deltas a few minutes after the release itself, so a launcher that polled in between was
+    /// offered the full zip only, and kept downloading 250 MB for that whole session (UPG-3). The offer may take the delta
+    /// unless the click already owns the install or the stage is already done; a full download still running is stopped
+    /// by the caller and restarts from the delta on a later poll (a cancel never backs off).
+    /// </summary>
+    public bool MayTakeLateDelta(Version version) =>
+        Installing == null && !(Same(Version, version) && (Current == Phase.Staged || Joined));
+
+    /// <summary>
     /// The click (or the restart prompt) takes <paramref name="version"/>. From now on no background download starts
     /// and no cleanup touches it. <paramref name="dropped"/> is another version's download/stage the caller cancels.
     /// </summary>

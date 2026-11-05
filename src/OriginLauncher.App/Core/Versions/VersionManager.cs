@@ -384,7 +384,9 @@ public sealed class VersionManager
             // crashed boot: the next launch verifies in full instead of trusting them.
             // (A mod-compatibility stop is the player's mod set, not a suspect install.)
             // (Nor is a user folder Java can't read: the files are fine, the path is the problem.)
-            if (e is not (IncompatibleModsException or ConfigurationInUseException or JavaPathUnreadableException))
+            // (Nor is Fabric API that couldn't be fetched from Modrinth: only Modrinth was unreachable, N94-4.)
+            if (e is not (IncompatibleModsException or ConfigurationInUseException or JavaPathUnreadableException
+                          or Loaders.RequiredModMissingException))
                 InstallVerification.Invalidate(OriginPaths.VersionRoot(version));
             if (e is not OfflineInstallException && OfflineLaunch.IsNoConnection(e, ct))
                 throw new OfflineInstallException(version, e);
