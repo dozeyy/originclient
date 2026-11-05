@@ -310,13 +310,26 @@ public final class Social {
 
 	// ---- E: joining a friend / the party leader ----
 
+	/**
+	 * Does the friend's `version` keep this game off `server`? Hypixel takes every version
+	 * from 1.8 up (it translates between them), so a friend there can be joined from any
+	 * Origin version: the commonest mix is a 1.8.9 friend and a 1.21 player (JG-3). Any
+	 * other server may run one version only, and a refused connect would drop you out of
+	 * your own game for nothing, so there the versions must match.
+	 */
+	public static boolean versionBlocks(String server, String version) {
+		return version != null && !version.equals(version())
+				&& !com.origin.client.client.mods.HypixelDetect.isHypixelHost(server);
+	}
+
 	/** Can this game connect to `server` (a friend on `version`)? Null = yes, else why not. */
 	public static String whyCantJoin(String server, String version) {
 		if (server == null || server.isBlank()) {
 			return "They're not on a server you can join.";
 		}
-		if (version != null && !version.equals(version())) {
-			return "They're on " + version + ". Join from the Origin launcher.";
+		if (versionBlocks(server, version)) {
+			return "They're playing " + version + ", and that server may not let " + version()
+					+ " in. Pick " + version + " in the Origin launcher to join them.";
 		}
 		if (!ServerAddress.isValidAddress(server)) {
 			return "Couldn't read that server address.";

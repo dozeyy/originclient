@@ -1107,10 +1107,12 @@ public class FriendsScreen extends OriginWindow {
 
 		float x = RX;
 		if (isJoinable(f)) {
-			boolean sameVersion = f.version() == null || f.version().equals(Social.version());
-			String lab = sameVersion ? "Join" : "Join (" + f.version() + ")";
+			// Another version is fine where the server takes every version (Social.versionBlocks);
+			// elsewhere the button names the version you'd need and a click says why.
+			boolean blocked = Social.versionBlocks(f.server(), f.version());
+			String lab = blocked ? "Needs " + f.version() : "Join";
 			float w = buttonW(d, lab, null);
-			button(d, lab, null, x, HEAD_ROW, w, 32, Style.PRIMARY, true, () -> joinFriend(f));
+			button(d, lab, null, x, HEAD_ROW, w, 32, blocked ? Style.SECONDARY : Style.PRIMARY, true, () -> joinFriend(f));
 			x += w + 8;
 		}
 		boolean inParty = s.party() != null && s.party().member(f.uuid()) != null;
