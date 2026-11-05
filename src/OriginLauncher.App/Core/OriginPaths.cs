@@ -129,6 +129,9 @@ public static partial class OriginPaths
     // is checked, then swapped into the mods folder by the page's Replace, and the folder is deleted.
     public static string ModUpdateDownloads => Path.Combine(Root, "cache", "mod-updates");
 
+    /// <summary>Java's temp folder (TMP/TEMP) when the user folder's name is one Java can't read (Launch/JavaPathEncoding).</summary>
+    public static string JavaTemp => Path.Combine(Root, "cache", "java-tmp");
+
     // Player heads (Core/Skins/PlayerHeads.cs): each player's raw skin PNG from
     // Mojang, named <uuid without dashes>.png (an empty file = no custom skin).
     public static string SkinCache => Path.Combine(Root, "cache", "skins");

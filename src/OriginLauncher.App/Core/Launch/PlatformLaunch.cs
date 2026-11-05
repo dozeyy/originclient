@@ -19,4 +19,13 @@ public static partial class PlatformLaunch
 
     /// <summary>Just before the process is built: OS-specific JVM arguments.</summary>
     public static partial void AdjustOption(string version, MLaunchOption option);
+
+    /// <summary>
+    /// After the process is built, before it starts: Windows hands Java the data folder's short name when Java can't
+    /// read its real one (JavaPathEncoding). Throws <see cref="JavaPathUnreadableException"/> when it can't be helped.
+    /// Mac and Linux pass UTF-8 and do nothing.
+    /// </summary>
+    public static void AfterBuild(System.Diagnostics.Process built) => AfterBuildCore(built);
+
+    static partial void AfterBuildCore(System.Diagnostics.Process built);
 }
