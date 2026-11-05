@@ -800,6 +800,7 @@ public sealed class ModsPage : Panel, IPage
     internal void TourShowUpdate(string fileName, string newVersion)
     {
         if (!OriginPaths.IsScratchRoot) return;
+        _pendingRemove = null; // the shot before it left a Remove confirm open
         _demoUpdates = new Dictionary<string, ModUpdateOffer>(StringComparer.OrdinalIgnoreCase)
         {
             [fileName] = new(fileName, newVersion, fileName, "https://cdn.modrinth.com/demo.jar", new string('0', 128)),
