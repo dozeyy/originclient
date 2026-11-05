@@ -372,6 +372,18 @@ public final class SocialClient {
 	private static final Set<String> seenInvites = new HashSet<>();
 	private static long seenWarpAt = -1;
 	private static final Map<String, Long> pingUntil = new HashMap<>();
+
+	// ---- read markers, chat history and the store reserve (docs/SOCIAL.md) ----
+	/** Per friend uuid, the newest chat id read there, in this game or the launcher (the service shares them). */
+	private static final Map<String, Long> READ_MARKS = new ConcurrentHashMap<>();
+	/** Sent as readsSince: the markers changed after this are wanted (0 = all of them). Worker only. */
+	private static long readsAt = 0;
+	/** The service keeps read markers and history (it answered readsSince); an older one gets neither call. */
+	private static volatile boolean markersKept = false;
+	/** The service's store reserve: poll this many times slower (1 = normal, at most 8). */
+	private static volatile int slow = 1;
+	/** Chats whose history was already asked for this session. Worker only. */
+	private static final Set<String> historyAsked = new HashSet<>();
 	/** Party lines this game already printed in chat (sent with /pc), so the echo isn't printed twice. */
 	private static final List<String> ECHOED = new CopyOnWriteArrayList<>();
 
@@ -469,10 +481,19 @@ public final class SocialClient {
 		if (open && !windowOpen) {
 			wake = true;
 		}
+		String was = windowOpen ? openChat : null;
 		windowOpen = open;
 		openChat = open ? chatWith : null;
 		if (chatWith != null && open) {
 			UNREAD.remove(chatWith);
+			// A chat that just came into view is read (the launcher hears it through the
+			// service), and one that came with no lines at all fetches its history.
+			if (!chatWith.equals(was) && !DEMO) {
+				WORKER.execute(() -> {
+					pushRead();
+					fetchHistoryIfEmpty(chatWith);
+				});
+			}
 		}
 	}
 
@@ -714,7 +735,7 @@ public final class SocialClient {
 			// again straight away (at most one round per HOLD_REARM_MS, so a busy
 			// chat can't turn into a request storm). An early answer that brought
 			// nothing new keeps the ordinary cadence, whatever the service did.
-			nextSyncAt = Math.max(started + HOLD_REARM_MS, t);
+			nextSyncAt = Math.max(started + HOLD_REARM_MS * slow, t);
 		} else {
 			// A quiet hold counts from when it started: in a party that is "now".
 			nextSyncAt = (h >= 0 ? started : t) + interval(t);
@@ -751,7 +772,8 @@ public final class SocialClient {
 		if (away > 0 && now - away > AWAY_AFTER_MS) {
 			base = AWAY_MS;
 		}
-		return base;
+		// The service's store reserve stretches every cadence (docs/SOCIAL.md).
+		return base * slow;
 	}
 
 	/**
@@ -903,6 +925,8 @@ public final class SocialClient {
 		lastNews = arr(o, "messages").size() > 0 || arr(o, "partyMessages").size() > 0
 				|| !java.util.Objects.equals(before == null ? null : before.id(), pO == null ? null : str(pO, "id"));
 		apply(o);
+		// A line that just arrived in the chat being shown is read (after this round).
+		WORKER.execute(SocialClient::pushRead);
 	}
 
 	private static JsonObject syncBody(long wait, Presence p) {
@@ -911,6 +935,7 @@ public final class SocialClient {
 		if (friendsEtag != null) {
 			body.add("friendsEtag", friendsEtag);
 		}
+		body.addProperty("readsSince", readsAt);
 		if (wait > 0) {
 			body.addProperty("wait", wait);
 		}
@@ -960,6 +985,19 @@ public final class SocialClient {
 			appearOfflinePending = null;
 		}
 		String self = me != null ? me.uuid() : "";
+
+		// Read markers that changed (read or answered in the launcher) come first.
+		boolean kept = o.has("readsAt") && !o.get("readsAt").isJsonNull();
+		Set<String> remarked = new HashSet<>();
+		JsonObject reads = obj(o, "reads");
+		if (reads != null) {
+			// entrySet, not keySet: the Gson in 1.8.9 / 1.16.5 predates JsonObject.keySet().
+			for (Map.Entry<String, JsonElement> en : reads.entrySet()) {
+				if (mark(uid(en.getKey()), lng(reads, en.getKey()))) {
+					remarked.add(uid(en.getKey()));
+				}
+			}
+		}
 
 		// Lists the service left out (unchanged since friendsEtag) keep their last value.
 		SocialState prev = state;
@@ -1061,13 +1099,41 @@ public final class SocialClient {
 			while (list.size() > CHAT_KEEP) {
 				list.remove(0);
 			}
-			if (!mine && !firstSync) {
+			// Answering a chat (here or in the launcher) means it was read.
+			if (mine && mark(other, idOf(msg.id()))) {
+				remarked.add(other);
+			}
+			if (!mine && !firstSync && idOf(msg.id()) > READ_MARKS.getOrDefault(other, 0L)) {
 				if (!(windowOpen && other.equals(openChat))) {
 					UNREAD.merge(other, 1, Integer::sum);
 				}
 				hotUntil = now + HOT_MS;
 				EVENTS.add(new Event(EventKind.MESSAGE, other, nameIn(next, other, str(m, "name")), msg.text(), null, null));
 			}
+		}
+
+		// Chats whose marker moved (or every chat, on a first sync with markers): unread = the
+		// friend's lines past the marker, none while that chat is showing. What arrived while
+		// the game was closed gets one summary toast.
+		boolean countHistory = firstSync && kept;
+		for (String k : countHistory ? new ArrayList<String>(CHATS.keySet()) : remarked) {
+			long upTo = READ_MARKS.getOrDefault(k, 0L);
+			int n = 0;
+			if (!(windowOpen && k.equals(openChat))) {
+				for (Message m : chat(k)) {
+					if (!m.from().equals(self) && idOf(m.id()) > upTo) {
+						n++;
+					}
+				}
+			}
+			if (n > 0) {
+				UNREAD.put(k, n);
+			} else {
+				UNREAD.remove(k);
+			}
+		}
+		if (countHistory) {
+			offlineSummary(next);
 		}
 
 		// party chat
@@ -1134,8 +1200,132 @@ public final class SocialClient {
 		if (o.has("friendsEtag") && !o.get("friendsEtag").isJsonNull()) {
 			friendsEtag = o.get("friendsEtag");
 		}
+		if (kept) {
+			readsAt = lng(o, "readsAt");
+		}
+		markersKept = kept;
+		slow = (int) Math.max(1, Math.min(8, lng(o, "slow")));
 		state = next;
 		firstSync = false;
+	}
+
+	// ------------------------------------------------------- read markers, history
+
+	/** Moves a chat's read marker forward (never back); true when it moved. */
+	private static boolean mark(String uuid, long upTo) {
+		if (uuid == null || uuid.isEmpty() || upTo <= READ_MARKS.getOrDefault(uuid, 0L)) {
+			return false;
+		}
+		READ_MARKS.put(uuid, upTo);
+		return true;
+	}
+
+	/** The service's chat ids are integers; a pending copy ("local-...") counts as 0. */
+	private static long idOf(String id) {
+		try {
+			return id == null ? 0 : Long.parseLong(id);
+		} catch (NumberFormatException e) {
+			return 0;
+		}
+	}
+
+	/** One toast for every DM that arrived while the game was closed; it opens the newest sender's chat. */
+	private static void offlineSummary(SocialState s) {
+		String newest = null, second = null;
+		long newestId = -1;
+		int total = 0, senders = 0;
+		for (Map.Entry<String, Integer> en : UNREAD.entrySet()) {
+			if (en.getValue() == null || en.getValue() <= 0) {
+				continue;
+			}
+			total += en.getValue();
+			senders++;
+			long id = 0;
+			for (Message m : chat(en.getKey())) {
+				id = Math.max(id, idOf(m.id()));
+			}
+			if (id > newestId) {
+				second = newest;
+				newest = en.getKey();
+				newestId = id;
+			} else if (second == null) {
+				second = en.getKey();
+			}
+		}
+		if (newest == null) {
+			return;
+		}
+		hotUntil = System.currentTimeMillis() + HOT_MS;
+		String name, text;
+		if (senders == 1) {
+			List<Message> lines = chat(newest);
+			name = nameIn(s, newest, null);
+			text = total == 1 && !lines.isEmpty() ? lines.get(lines.size() - 1).text() : total + " new messages";
+		} else {
+			name = "New messages";
+			text = total + " new messages from " + nameIn(s, newest, null)
+					+ (senders == 2 ? " and " + nameIn(s, second, null) : " and " + (senders - 1) + " others");
+		}
+		EVENTS.add(new Event(EventKind.MESSAGE, newest, name, text, null, null));
+	}
+
+	/**
+	 * Worker only: while the Friends window shows a chat, tells the service it was read
+	 * up to its newest line, so the launcher stops counting it as unread. Best effort: a
+	 * refused call puts the marker back so the next new line tries again.
+	 */
+	private static void pushRead() {
+		String with = openChat;
+		if (DEMO || !markersKept || !windowOpen || with == null) {
+			return;
+		}
+		long newest = 0;
+		for (Message m : chat(with)) {
+			newest = Math.max(newest, idOf(m.id()));
+		}
+		long was = READ_MARKS.getOrDefault(with, 0L);
+		String api = CosmeticsService.api();
+		if (newest <= was || api == null) {
+			return;
+		}
+		READ_MARKS.put(with, newest);
+		try {
+			JsonObject b = new JsonObject();
+			b.addProperty("with", with);
+			b.addProperty("upTo", newest);
+			if (authed(api, "/v1/messages/read", b).status() == 200) {
+				return;
+			}
+		} catch (Exception ignored) {
+			// put back below
+		}
+		READ_MARKS.replace(with, newest, was);
+	}
+
+	/** Worker only: a chat opened with no lines at all asks once for its newest history. */
+	private static void fetchHistoryIfEmpty(String uuid) {
+		String api = CosmeticsService.api();
+		if (DEMO || !markersKept || uuid == null || api == null || !chat(uuid).isEmpty() || !historyAsked.add(uuid)) {
+			return;
+		}
+		try {
+			JsonObject b = new JsonObject();
+			b.addProperty("with", uuid);
+			Reply r = authed(api, "/v1/messages/history", b);
+			if (r.status() != 200) {
+				return;
+			}
+			List<Message> list = chatList(uuid);
+			for (JsonElement e : arr(r.body(), "messages")) {
+				JsonObject m = e.getAsJsonObject();
+				Message msg = new Message(str(m, "id"), uid(str(m, "from")), uid(str(m, "to")), nz(str(m, "text")), ServerClock.toLocal(lng(m, "at")), false);
+				if (msg.id() != null && list.stream().noneMatch(x -> msg.id().equals(x.id()))) {
+					insertSorted(list, msg);
+				}
+			}
+		} catch (Exception ignored) {
+			// history is a nicety: the chat stays as it is
+		}
 	}
 
 	private static List<Request> requests(JsonObject req, String key) {
