@@ -1162,7 +1162,7 @@ public class OriginModMenuScreen extends Screen {
 			}
 			case KEYBIND -> {
 				boolean capturing = id.equals(capMod) && o.key.equals(capKey);
-				String name = capturing ? "Press a key" : keyName(Mods.keyCode(id, o.key));
+				String name = capturing ? "Press a key or button" : keyName(Mods.keyCode(id, o.key));
 				float bw = Math.max(56, d.textW(name, 13, false, 0) + 20);
 				d.rect(right - bw, cy - 13, bw, 26, 6, 0x0DFFFFFF, capturing ? ACC : LINE2);
 				d.textCenter(name, right - bw / 2, cy, 13, false, 0, capturing ? ACC : TEXT);
@@ -1494,7 +1494,17 @@ public class OriginModMenuScreen extends Screen {
 			return OriginColorPicker.mouseClicked(mx, my, button);
 		}
 		commitText();     // any click ends typing (clicking the field re-opens it)
-		capMod = null;    // and any click abandons a half-done key capture
+		if (capMod != null && button != 0) {
+			// A key box waiting for a key takes a mouse button too: right, middle, Mouse 4/5 (JG-4).
+			// Left click still cancels (it is how the box was clicked), so no Origin key lands on Attack.
+			// Through the button's options.txt name, so the stored code is the one format
+			// (util/KeyCodes) whatever this version numbers its buttons.
+			Mods.set(capMod, capKey, com.origin.client.client.util.KeyCodes.mouseFromName(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(button).getName()));
+			capMod = null;
+			capKey = null;
+			return true;
+		}
+		capMod = null;    // and any other click abandons a half-done key capture
 		capKey = null;
 		if (button != 0) {
 			return super.mouseClicked(mx, my, button);

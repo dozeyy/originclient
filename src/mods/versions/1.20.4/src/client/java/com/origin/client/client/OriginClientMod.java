@@ -522,8 +522,21 @@ public class OriginClientMod implements ClientModInitializer {
 		return com.origin.client.client.util.KeyTaps.consume(glfwKey) && client.screen == null;
 	}
 
+	/** Mouse button b (0 = left, 3 = Mouse 4) held right now, read raw like the keys
+	 *  (GLFW numbers mouse buttons the same way as util/KeyCodes). */
+	private static boolean isMouseButtonDown(int button) {
+		try {
+			return org.lwjgl.glfw.GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().getWindow(), button) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	/** Raw GLFW key state for the mod-menu's rebindable keys. */
 	public static boolean isRawKeyDown(int glfwKey) {
+		if (com.origin.client.client.util.KeyCodes.isMouse(glfwKey)) {
+			return isMouseButtonDown(com.origin.client.client.util.KeyCodes.mouseButton(glfwKey));   // an Origin key on a mouse button (JG-4)
+		}
 		if (glfwKey <= 0) {
 			return false;
 		}
