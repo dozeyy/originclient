@@ -138,7 +138,7 @@ public static class CrashRules
             "Java reported that Minecraft used all the memory it was given.",
             $"Minecraft needed more than the {Gb(f.RamMb)} it was given.",
             next is int up
-                ? $"Raise Memory to {Gb(up)}. Origin can do it for you; you can change it back in Settings."
+                ? $"Raise this version's memory to {Gb(up)}. Origin can do it for you; other versions keep theirs, and Memory in Settings sets every version again."
                 : "That is already the most this PC can safely spare. Closing other programs, or removing some mods, will help.",
             next is int ram ? new CrashFix(CrashFixKind.RaiseMemory, $"Raise memory to {Gb(ram)} and relaunch", [], ram) : null,
             Lines(f.HeapOomLine));

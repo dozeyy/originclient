@@ -101,7 +101,7 @@ public partial class HomePage : UserControl
         // game was starting were not the ones Java refused.
         public Core.Models.VersionJvmOptions? LaunchedJvmArgs { get; init; }
         // What the crash check judges for this launch (CrashMemory.ForLaunch): the heap it really gave Java, never
-        // the stored RamMb (on Auto only the slider's suggestion), and the least a "Raise memory" fix may offer.
+        // the stored RamMb (on Auto only the slider's suggestion; a version's own crash raise included).
         public CrashMemory.Facts Memory { get; init; }
     }
 
@@ -1069,7 +1069,7 @@ public partial class HomePage : UserControl
                 LaunchedJvmArgs = freshSettings.JvmArgsFor(version) is { } jvm
                     ? new Core.Models.VersionJvmOptions { Arguments = jvm.Arguments, ReplacePresets = jvm.ReplacePresets }
                     : null,
-                Memory = CrashMemory.ForLaunch(heap, SystemInfo.GetTotalPhysicalMemoryMb()),
+                Memory = CrashMemory.ForLaunch(heap),
             };
             StartWithLifecycleCapture(game);
             handoff.ProcessStarted(DateTime.UtcNow);
@@ -1393,8 +1393,7 @@ public partial class HomePage : UserControl
             var key = game.Key;
             var fixTried = CrashRetries.AnyTried(key, game.Version, DateTime.UtcNow);
             var findings = await Task.Run(() => CrashDiagnoser.Run(game.GameDir, game.LogPath, exitCode,
-                game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc, customJvm,
-                game.Memory.RaiseFloorMb));
+                game.StoppedByPlayer, crashedWhileStarting, ramMb, totalMb, fixTried, game.StartedUtc, customJvm));
             var verdict = findings.Verdict;
             System.Diagnostics.Debug.WriteLine(
                 $"[HomePage] Game {game.Version} exit {exitCode}: crash={verdict.IsCrash} ({verdict.CloseReason}), {verdict.Finding.Rule} {verdict.Finding.Confidence.Word()}");
@@ -1451,15 +1450,15 @@ public partial class HomePage : UserControl
             switch (fix.Kind)
             {
                 case CrashFixKind.RaiseMemory when fix.NewRamMb is int ram:
-                    // Exactly the amount the window named, as Manual (CrashMemory.ApplyRaise): Auto launches ignore
-                    // RamMb, so writing only the number left the relaunch on the same heap that just ran out.
-                    if (!SettingsStore.TryUpdate(s => CrashMemory.ApplyRaise(s, ram), quiet: true))
+                    // Exactly the amount the window named, for this version only (CrashMemory.ApplyRaise, KC-10): Auto
+                    // stays Auto and every other version keeps its own heap.
+                    if (!SettingsStore.TryUpdate(s => CrashMemory.ApplyRaise(s, game.Version, ram), quiet: true))
                     {
                         // A busy settings.json: relaunching on the same heap would only run out again.
                         Note(game.Key, SettingsStore.BusyLine, LaunchTone.Error);
                         return;
                     }
-                    CrashMemory.ApplyRaise(_settings, ram);
+                    CrashMemory.ApplyRaise(_settings, game.Version, ram);
                     break;
                 case CrashFixKind.DisableMods:
                     // The shared repair path (Core/Compat/CrashRepair -> RepairExecutor): each jar is turned off
