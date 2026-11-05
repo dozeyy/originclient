@@ -52,6 +52,19 @@ public sealed class GameRunningProbeTests
         Assert.False(GameRunningProbe.IsJava("/bin/bash")); // a terminal open in ~/.minecraft is not a game
     }
 
+    // Bug run 11 PROF-10: on the Mac a Prism/MultiMC game (folder passed over stdin, not as --gameDir) is found by its
+    // working folder, read from lsof's field output.
+    [Fact]
+    public void The_mac_working_folder_list_reads_lsof_field_output()
+    {
+        var output = "p812\nfcwd\nn/Users/p/Library/Application Support/PrismLauncher/instances/Survival/.minecraft\np913\nfcwd\nn/Users/p\r\n";
+        Assert.Equal(
+            new[] { "/Users/p/Library/Application Support/PrismLauncher/instances/Survival/.minecraft", "/Users/p" },
+            GameRunningProbe.LsofCwds(output));
+        Assert.Empty(GameRunningProbe.LsofCwds(""));
+        Assert.Empty(GameRunningProbe.LsofCwds("p1\nfcwd\nn\n"));
+    }
+
     [Fact]
     public void A_folder_that_does_not_exist_is_never_running()
     {
