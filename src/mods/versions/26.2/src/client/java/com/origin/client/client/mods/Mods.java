@@ -1009,7 +1009,7 @@ public final class Mods {
 		add("quickplay", "Quickplay", "Jump into any Hypixel game from one menu.", false,
 				ModOption.keybind("key", "Open Quickplay", GLFW.GLFW_KEY_Y),
 				ModOption.keybind("requeueKey", "Play Again", -1)
-						.tip("Re-joins the last game you picked in Quickplay."),
+						.tip("Re-joins the last Hypixel game you played."),
 				ModOption.toggle("displayMessage", "Display Queue Message", true)
 						.tip("Show which game you're joining above the hotbar."));
 

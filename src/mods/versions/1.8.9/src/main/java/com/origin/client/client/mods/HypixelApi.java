@@ -234,6 +234,14 @@ public final class HypixelApi {
 		}
 	}
 
+	/** A lookup that failed (rate limit, server error, timeout): ask again in RETRY_MS, keeping any
+	 *  stats already known, so a 10-minute refresh that hits a blip never blanks a level that was
+	 *  showing (HYPIXEL-5). Only the very first lookup of a player can leave nothing to show. */
+	private static void failed(UUID id, long now) {
+		Entry old = CACHE.get(id);
+		CACHE.put(id, new Entry(old != null ? old.stats() : null, now + RETRY_MS));
+	}
+
 	/** One lookup; returns how long to pause before the next (rate limiting). */
 	private static long fetch(UUID id, String k) {
 		long now = System.currentTimeMillis();
@@ -260,11 +268,11 @@ public final class HypixelApi {
 				return 0;
 			}
 			if (code == 429) {
-				CACHE.put(id, new Entry(null, now + RETRY_MS));
+				failed(id, now);
 				return Math.max(5_000L, resetMs);
 			}
 			if (code != 200) {
-				CACHE.put(id, new Entry(null, now + RETRY_MS));
+				failed(id, now);
 				return 1_000L;
 			}
 			CACHE.put(id, new Entry(parse(body(res)), now + FRESH_MS));
@@ -272,7 +280,7 @@ public final class HypixelApi {
 			long remaining = header(res, "RateLimit-Remaining", 10);
 			return remaining <= 2 ? resetMs + 500L : 250L;
 		} catch (Throwable t) {
-			CACHE.put(id, new Entry(null, now + RETRY_MS));
+			failed(id, now);
 			return 2_000L;
 		}
 	}

@@ -23,7 +23,43 @@ public final class LocrawTests {
 		eq(HypixelLocraw.playId("{\"server\":\"lobby3\",\"gametype\":\"MAIN\",\"mode\":\"LOBBY\"}"), null, "mode LOBBY");
 		eq(HypixelLocraw.playId("{\"server\":\"mini1\",\"gametype\":\"SKYBLOCK\",\"mode\":\"hub\"}"), null, "SkyBlock island is no /play id");
 		eq(HypixelLocraw.playId("{\"server\":\"limbo\"}"), null, "limbo");
-		eq(HypixelLocraw.playId("{\"server\":\"m\",\"gametype\":\"X\",\"mode\":\"a b; /x\"}"), null, "odd mode never becomes a command");
+		eq(HypixelLocraw.playId("{\"server\":\"m\",\"gametype\":\"X\",\"mode\":\"a b; /x\"}"), HypixelLocraw.UNKNOWN, "odd mode never becomes a command");
+		eq(HypixelLocraw.playId("{\"server\":\"m\",\"gametype\":\"SKYWARS\",\"mode\":\"a b; /x\"}"), HypixelLocraw.UNKNOWN, "odd SkyWars mode never becomes a command");
+
+		// HYPIXEL-1: games whose API mode key is not their /play id go to Quickplay's own ids
+		String[][] mapped = {
+				{"SURVIVAL_GAMES", "solo_normal", "blitz_solo_normal"},     // not SkyWars Solo Normal
+				{"SURVIVAL_GAMES", "teams_normal", "blitz_teams_normal"},
+				{"SUPER_SMASH", "solo_normal", "super_smash_solo_normal"},  // not SkyWars Solo Normal
+				{"SUPER_SMASH", "2v2_normal", "super_smash_2v2_normal"},
+				{"SUPER_SMASH", "teams_normal", "super_smash_teams_normal"},
+				{"TNTGAMES", "TNTRUN", "tnt_tntrun"}, {"TNTGAMES", "PVPRUN", "tnt_pvprun"},
+				{"TNTGAMES", "BOWSPLEEF", "tnt_bowspleef"}, {"TNTGAMES", "TNTTAG", "tnt_tntag"},
+				{"TNTGAMES", "CAPTURE", "tnt_capture"},
+				{"WALLS3", "standard", "mw_standard"}, {"WALLS3", "face_off", "mw_face_off"},
+				{"UHC", "SOLO", "uhc_solo"}, {"UHC", "TEAMS", "uhc_teams"},
+				{"MCGO", "normal", "mcgo_normal"}, {"MCGO", "deathmatch", "mcgo_deathmatch"},
+				{"WOOL_GAMES", "wool_wars_two_four", "wool_wool_wars_two_four"},
+				{"ARCADE", "PARTY", "arcade_party_games_1"}, {"ARCADE", "HOLE_IN_THE_WALL", "arcade_hole_in_the_wall"},
+				{"ARCADE", "DRAGONWARS2", "arcade_dragon_wars"}, {"ARCADE", "ONEINTHEQUIVER", "arcade_bounty_hunters"},
+				{"ARCADE", "ZOMBIES_DEAD_END", "arcade_zombies_dead_end"},
+				{"QUAKECRAFT", "solo", "quake_solo"}, {"PAINTBALL", "normal", "paintball"},
+				{"VAMPIREZ", "normal", "vampirez"}, {"GINGERBREAD", "normal", "tkr"}, {"WALLS", "normal", "walls"},
+				{"MURDER_MYSTERY", "MURDER_CLASSIC", "murder_classic"},
+				{"BUILD_BATTLE", "BUILD_BATTLE_SOLO_PRO", "build_battle_solo_pro"},
+				{"PIT", "PIT", "pit"},
+		};
+		for (String[] r : mapped) {
+			eq(HypixelLocraw.playId("{\"server\":\"mini1\",\"gametype\":\"" + r[0] + "\",\"mode\":\"" + r[1] + "\"}"),
+					r[2], r[0] + " " + r[1]);
+		}
+		// a game Origin has no id for: UNKNOWN (a short message), never a guess at another game's id
+		eq(HypixelLocraw.playId("{\"server\":\"mini1\",\"gametype\":\"BATTLEGROUND\",\"mode\":\"ctf_mini\"}"),
+				HypixelLocraw.UNKNOWN, "Warlords: unknown");
+		eq(HypixelLocraw.playId("{\"server\":\"mini1\",\"gametype\":\"ARCADE\",\"mode\":\"DEFENDER\"}"),
+				HypixelLocraw.UNKNOWN, "unlisted Arcade mode: unknown");
+		eq(HypixelLocraw.playId("{\"server\":\"mini1\",\"gametype\":\"SURVIVAL_GAMES\",\"mode\":\"solo_nokits\"}"),
+				HypixelLocraw.UNKNOWN, "unlisted Blitz mode: unknown, not SkyWars");
 
 		// asking: once per world, after the delay, only when wanted
 		HypixelLocraw.reset();
