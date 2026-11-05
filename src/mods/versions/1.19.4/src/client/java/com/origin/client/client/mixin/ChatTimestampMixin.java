@@ -129,7 +129,11 @@ public abstract class ChatTimestampMixin {
 				if (!dropped) {
 					refreshTrimmedMessage();
 				}
-				result = Component.literal(base + " ")
+				// Keep the line's own styles (colour, hover, click link): the original
+				// message sits under an unstyled root, so it is not rebuilt from plain text
+				// and the grey counter does not inherit its style. ChatCopy strips this
+				// exact shape (last sibling = grey "(xN)").
+				result = Component.empty().append(message).append(Component.literal(" "))
 						.append(Component.literal("(x" + originclient$lastCount + ")").withStyle(ChatFormatting.GRAY));
 			} else {
 				originclient$lastBase = base;

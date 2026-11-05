@@ -36,7 +36,7 @@ public final class ChatCopy {
 
 	// Origin's own additions to a chat line (ChatTimestampMixin in every module):
 	//   Timestamps  -> Component.empty().append("[HH:mm] " DARK_GRAY).append(message)
-	//   Stack Spam  -> Component.literal(base + " ").append("(xN)" GRAY)
+	//   Stack Spam  -> Component.empty().append(message).append(" ").append("(xN)" GRAY)
 	private static final Pattern STAMP = Pattern.compile("\\[\\d{2}:\\d{2}\\] ");
 	private static final Pattern COUNTER = Pattern.compile("\\(x\\d+\\)");
 

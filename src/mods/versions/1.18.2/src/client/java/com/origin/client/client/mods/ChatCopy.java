@@ -71,10 +71,11 @@ public final class ChatCopy {
 			body = sib.get(1);
 		}
 		String text = body.getString();
-		// Stack Spam: "message " with one grey "(xN)" sibling.
+		// Stack Spam: an empty root holding [the message, " ", grey "(xN)"]; older lines
+		// may still be "message " with that one counter sibling. Both end in the counter.
 		sib = body.getSiblings();
-		if (sib.size() == 1 && isOriginPart(sib.get(0), COUNTER, ChatFormatting.GRAY)) {
-			String counter = " " + sib.get(0).getString();
+		if (!sib.isEmpty() && isOriginPart(sib.get(sib.size() - 1), COUNTER, ChatFormatting.GRAY)) {
+			String counter = " " + sib.get(sib.size() - 1).getString();
 			if (text.endsWith(counter)) {
 				text = text.substring(0, text.length() - counter.length());
 			}
