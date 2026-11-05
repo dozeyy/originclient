@@ -30,6 +30,13 @@ public sealed partial class MainWindow : Window
         // built (before this subscription) is shown here once.
         Stage.Show(Home.CurrentVersion ?? VersionCatalog.DefaultVersion);
         Home.VersionShown += v => { if (v != null) Stage.Show(v); };
+        // The backdrop drift holds while the window is in the background or minimised (WPF MainWindow's LU-14 twin).
+        Activated += (_, _) => Stage.SetWindowAway(WindowState == WindowState.Minimized);
+        Deactivated += (_, _) => Stage.SetWindowAway(true);
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == WindowStateProperty) Stage.SetWindowAway(WindowState == WindowState.Minimized || !IsActive);
+        };
         // The launch screen covers the whole window, the bar included (the WPF MainWindow hosts it above TopBar).
         Root.Children.Add(Home.LoadingOverlay);
         // Toasts above everything, bottom-centre; the launcher's own confirm dialog above them (both WPF MainWindow twins).
