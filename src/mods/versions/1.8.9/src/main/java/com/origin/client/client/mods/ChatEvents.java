@@ -39,6 +39,12 @@ public final class ChatEvents {
 			// keep it
 		}
 		try {
+			// JG-11: the answer to Origin's own /locraw is read for Quickplay and kept out of chat
+			ok &= overlay || com.origin.client.client.util.HypixelLocraw.onMessage(message.getUnformattedText(), System.currentTimeMillis());
+		} catch (Throwable t) {
+			// keep it
+		}
+		try {
 			ok &= Hypixel.allowMessage(message, overlay);
 		} catch (Throwable t) {
 			// keep it

@@ -91,6 +91,17 @@ public final class Quickplay {
 	private static boolean openWasDown = false, againWasDown = false;
 
 	public static void tick(Minecraft mc) {
+		// JG-11: the game the player is in, from Hypixel's own /locraw (asked once per world), so
+		// Play Again works however they joined it: an NPC, a typed /play, a party warp, a relaunch.
+		if (com.origin.client.client.util.HypixelLocraw.tick(mc.level,
+				Mods.on(ID) && mc.player != null && onHypixel(mc), System.currentTimeMillis())) {
+			run(mc, "locraw", null);
+		}
+		String seen = com.origin.client.client.util.HypixelLocraw.takeSeen();
+		if (seen != null) {
+			lastId = seen;
+			lastLabel = label(seen);
+		}
 		boolean active = Mods.on(ID) && mc.player != null && mc.screen == null;
 		boolean open = active && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "key"));
 		boolean again = active && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "requeueKey"));
@@ -103,19 +114,31 @@ public final class Quickplay {
 			} else if (lastId != null) {
 				run(mc, "play " + lastId, lastLabel);
 			} else if (mc.player != null) {
-				mc.player.displayClientMessage(Component.literal("Pick a game in Quickplay first"), true);
+				mc.player.displayClientMessage(Component.literal("Join a Hypixel game first"), true);
 			}
 		}
 		openWasDown = open;
 		againWasDown = again;
 	}
 
-	/** Joins a mode (remembered for Play Again). */
+	/** Joins a mode (remembered for Play Again; /locraw confirms it once the game loads). */
 	public static void play(Minecraft mc, Game game, Mode mode) {
 		String label = mode.name().equals("Play") ? game.name() : game.name() + " · " + mode.name();
 		lastId = mode.playId();
 		lastLabel = label;
 		run(mc, "play " + mode.playId(), label);
+	}
+
+	/** Quickplay's name for a /play id ("Bed Wars · Doubles"), or the id itself for a mode it doesn't list. */
+	private static String label(String playId) {
+		for (Game game : GAMES) {
+			for (Mode mode : game.modes()) {
+				if (mode.playId().equals(playId)) {
+					return mode.name().equals("Play") ? game.name() : game.name() + " · " + mode.name();
+				}
+			}
+		}
+		return playId;
 	}
 
 	/** Goes to the game's lobby. */
@@ -133,7 +156,7 @@ public final class Quickplay {
 			return;
 		}
 		conn.sendCommand(command);
-		if (mc.player != null && Mods.bool(ID, "displayMessage")) {
+		if (mc.player != null && label != null && Mods.bool(ID, "displayMessage")) {
 			mc.player.displayClientMessage(Component.literal("Joining " + label + "..."), true);
 		}
 	}
