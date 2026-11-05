@@ -603,15 +603,16 @@ async function friendRemove(env, me, body) {
 }
 
 // Blocking also ends the friendship, requests and party invites between you,
-// and splits a party you share (KS-8): the blocked player is taken out of it,
-// or, when they lead it, you leave it (a block never hands you their party).
+// and splits a party you share (KS-8): if you lead it, the blocked player is
+// taken out; otherwise YOU leave it. Only a leader can remove anyone, so
+// block-then-unblock can't be used to kick members from someone else's party.
 async function friendBlock(env, me, body, now) {
   const them = normUuid(body.uuid);
   if (!them || them === me.uuid) return fail(400, 'Pick a player to block.');
   const shared = await env.DB.prepare(`SELECT a.party_id, p.leader FROM party_members a
       JOIN party_members b ON b.party_id = a.party_id AND b.uuid = ?2
       JOIN parties p ON p.id = a.party_id WHERE a.uuid = ?1`).bind(me.uuid, them).first();
-  const leaver = shared ? (shared.leader === them ? me.uuid : them) : null;
+  const leaver = shared ? (shared.leader === me.uuid ? them : me.uuid) : null;
   await env.DB.batch([
     ...(leaver ? leaveStatements(env, shared.party_id, leaver) : []),
     env.DB.prepare('INSERT OR IGNORE INTO blocks (blocker, blocked, at) VALUES (?, ?, ?)').bind(me.uuid, them, now),

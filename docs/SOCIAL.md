@@ -190,7 +190,7 @@ worst 17.8-19.9 s). Polling faster costs requests the free plan doesn't have, so
     /v1/friends/respond       { uuid, accept }
     /v1/friends/remove        { uuid }
     /v1/friends/block         { uuid }        // also removes friendship/requests/party invites, and splits a shared
-                                              // party: they leave it, or you do when they lead it; /v1/friends/unblock { uuid }
+                                              // party: they're removed if you lead it, else you leave; /v1/friends/unblock { uuid }
     /v1/messages/send         { to, text }    // friends only, 1..256 chars, max 1 per second per sender; marks the chat read
     /v1/messages/read         { with, upTo }  // with = friend uuid | "party": read up to chat id upTo ("Read markers")
     /v1/messages/history      { with, before? }  → { messages, more }: up to 50 DMs of that chat older than `before`

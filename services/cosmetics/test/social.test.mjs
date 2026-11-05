@@ -1274,7 +1274,7 @@ test('read markers: the migration counts every DM received before it as read, on
 });
 
 // --------------------------------------------------------- blocking (KS-8)
-test('blocks: blocking a party member splits the party; blocking its leader makes you leave it', async () => {
+test('blocks: a leader blocking a member removes them; anyone else blocking leaves the party themselves', async () => {
   const [will, alex, sam] = [await signIn('Will'), await signIn('Alex'), await signIn('Sam')];
   await befriend(will, alex); await befriend(will, sam); await befriend(alex, sam);
   const members = async who => (await sync(who)).party?.members.map(m => m.name) ?? null;
@@ -1302,21 +1302,22 @@ test('blocks: blocking a party member splits the party; blocking its leader make
   assert.deepEqual(await members(alex), ['Alex', 'Sam']);
   assert.equal((await sync(alex)).party.leader, alex.uuid);
 
-  // Sam leads, Alex blocks Will: the blocked one (Will) goes, nobody else moves.
+  // Sam leads, Alex (not the leader) blocks Will: Alex leaves; block-then-unblock can't kick Will.
   await call(alex.token, '/v1/party/promote', { uuid: sam.uuid });
   await call(will.token, '/v1/friends/unblock', { uuid: alex.uuid });
   await call(sam.token, '/v1/party/invite', { uuid: will.uuid });
   await call(will.token, '/v1/party/accept', { partyId: pid });
   assert.deepEqual(await members(sam), ['Sam', 'Alex', 'Will']);
   await call(alex.token, '/v1/friends/block', { uuid: will.uuid });
-  assert.deepEqual(await members(sam), ['Sam', 'Alex']);
-  assert.equal(await members(will), null);
+  assert.deepEqual(await members(sam), ['Sam', 'Will']);
+  assert.equal(await members(alex), null);
 
   // Not in the same party: blocking touches no party.
+  await call(sam.token, '/v1/party/kick', { uuid: will.uuid });
   const own = (await call(will.token, '/v1/party/create', {})).body.party.id;
   await call(sam.token, '/v1/friends/block', { uuid: will.uuid });
   assert.equal((await sync(will)).party.id, own);
-  assert.deepEqual(await members(sam), ['Sam', 'Alex']);
+  assert.deepEqual(await members(sam), ['Sam']);
 });
 
 // ------------------------------------------------------ store reserve (KS-6)
