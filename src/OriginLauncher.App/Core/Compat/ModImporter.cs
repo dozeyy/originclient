@@ -47,6 +47,10 @@ public sealed record ImportItem(
 public sealed record ReplaceOffer(
     string SourcePath, string FileName, string ModName, string? NewVersion, string ExistingFileName, string? ExistingVersion)
 {
+    /// <summary>The Mods page's Update button made this (a checked Modrinth download in a private folder, not a jar the
+    /// player dropped): the page says "Updated" when it lands and deletes the download folder afterwards.</summary>
+    public bool IsUpdate { get; init; }
+
     /// <summary>"Sodium 0.5.0 is already installed (sodium-0.5.0.jar). Replace it with 0.6.13?"</summary>
     public string Question =>
         $"{ModName}{(ExistingVersion == null ? "" : " " + ExistingVersion)} is already installed. "

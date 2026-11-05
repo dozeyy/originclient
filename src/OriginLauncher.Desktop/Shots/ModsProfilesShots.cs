@@ -76,6 +76,7 @@ public static class ModsProfilesShots
         yield return ModsDemo($"{prefix}c-mods-status-error", DemoMods, 0, w, h,
             m => m.TourShowStatus("Couldn't remove it. Close Minecraft first, then try again.", true));
         yield return ModsDemo($"{prefix}d-mods-remove-confirm", DemoMods, 0, w, h, m => m.TourConfirmRemove("litematica-fabric-1.21.1-0.19.50.jar"));
+        yield return ModsDemo($"{prefix}d2-mods-update", DemoMods, 0, w, h, m => m.TourShowUpdate("litematica-fabric-1.21.1-0.19.50.jar", "0.21.0"));
         yield return ModsDemo($"{prefix}e-mods-no-version", DemoMods, 0, w, h, m => m.TourNoVersion());
 
         yield return new Shot($"{prefix}f-profiles-empty", win => ProfilesPage(win).TourDemo(Demo.PlayerName, DemoCount), w, h);
