@@ -13,7 +13,7 @@ public static class SetupChoices
     public const string FileName = "setup-choices.json";
 
     public static void ApplyIfPresent() =>
-        SetupChoicesFile.Consume(Path.Combine(OriginPaths.Root, FileName), choices =>
+        SetupChoicesFile.Consume(Path.Combine(OriginPaths.Root, FileName), SettingsStore.FilePath, choices =>
         {
             var total = SystemInfo.GetTotalPhysicalMemoryMb();
             var maxRam = RamAdvice.MaximumMb(total);

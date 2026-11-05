@@ -999,6 +999,11 @@ public partial class HomePage : UserControl
             // A first Play on this account copies the player's packs: the launch screen says so while it runs.
             var seedStage = new Progress<string>(Stage);
             var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key, seedStage, ticket.Token), ticket.Token);
+            // An older configuration's Sodium/Iris files left behind by a game that ended with no launcher listening go back
+            // to the shipped set's before anything reads or edits them (MULTI-3): provisioning seeds iris.properties and
+            // repairs NUL configs next, and those edits belong to the shipped set, not to the old configuration's saved
+            // copy. This launch's own configuration goes in later (ActiveConfiguration.Begin).
+            await Task.Run(() => ConfigOverlay.RestoreLeftover(gameDir, OriginPaths.ConfigOverlays(version, key)));
             var seedNotice = AccountFolders.TakeSeedNotice(gameDir);
 
             // freshSettings, NOT the cached _settings: _settings is loaded once when
@@ -1058,9 +1063,6 @@ public partial class HomePage : UserControl
             // other versions, then write it into this one. After provisioning
             // (which seeds/sanitizes config files) and before the game reads
             // them. Never throws — a sync problem just means an unsynced launch.
-            // An older configuration's Sodium/Iris files left behind by a game that ended with no launcher listening go back
-            // to the shipped set's before anything reads them (MULTI-3); this launch's own configuration goes in later.
-            await Task.Run(() => ConfigOverlay.RestoreLeftover(gameDir, OriginPaths.ConfigOverlays(version, key)));
             if (freshSettings.SyncSettingsAcrossVersions)
             {
                 Stage("Syncing settings");
