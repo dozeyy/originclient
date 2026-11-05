@@ -364,7 +364,15 @@ public sealed class VersionManager
                 InstalledVersions.Shared, InstallJournal.Shared, version, progress,
                 () => InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct, overrideSetKey,
                     componentPins, configurationPicked),
-                v => InstallVerification.Invalidate(OriginPaths.VersionRoot(v)));
+                v => InstallVerification.Invalidate(OriginPaths.VersionRoot(v)),
+                // A first (or unfinished) install needs room: refused up front with the drive and the numbers (JL-11).
+                () => DiskSpace.EnsureRoomForInstall(OriginPaths.Root));
+        }
+        catch (Exception e) when (!ct.IsCancellationRequested && FullDisk(e) is { } full)
+        {
+            // A full disk mid-download: the same drive and numbers as the up-front check (files kept, journal open).
+            InstallVerification.Invalidate(OriginPaths.VersionRoot(version));
+            throw DiskSpace.DiskFull(OriginPaths.Root, full);
         }
         catch (Exception e) when (!ct.IsCancellationRequested)
         {
@@ -385,6 +393,21 @@ public sealed class VersionManager
             // try/catch: even a failing static initializer must never replace the launch result.
             try { _ = InstalledVersions.Shared.RefreshAsync(version); } catch { /* the badge stays as it was */ }
         }
+    }
+
+    // The disk-full IOException anywhere in a provisioning failure (CmlLib wraps file errors, Dataflow aggregates them).
+    private static IOException? FullDisk(Exception e)
+    {
+        var stack = new Stack<Exception>();
+        stack.Push(e);
+        while (stack.Count > 0)
+        {
+            var x = stack.Pop();
+            if (x is IOException io && PlayFailure.IsDiskFull(io)) return io;
+            if (x is AggregateException agg) foreach (var inner in agg.InnerExceptions) stack.Push(inner);
+            else if (x.InnerException is { } inner) stack.Push(inner);
+        }
+        return null;
     }
 
     // Off the UI thread: the first check of a big mod set opens every jar once (later launches hit the verdict cache).

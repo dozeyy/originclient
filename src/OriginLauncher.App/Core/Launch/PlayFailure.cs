@@ -64,6 +64,9 @@ public sealed record PlayFailure(string Title, string Message)
         {
             switch (e)
             {
+                // Before or during the download: which drive, how much is needed and how much is free (JL-11).
+                case NotEnoughDiskSpaceException space:
+                    return $"Your disk is full: {space.Shortage.Sentence} Free up some space.";
                 case IOException io when IsDiskFull(io):
                     return "Your disk is full. Free up some space.";
                 case UnauthorizedAccessException:
