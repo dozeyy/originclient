@@ -63,6 +63,13 @@ public static class SyncedFiles
         ["originclient-mods.json"] = "/meta/profileApplied",
     };
 
+    // Origin configs with a subtree of entries the player creates and deletes whole
+    // (see ISyncFormat.WholeEntrySubtree): each saved mod profile is a full snapshot.
+    private static readonly Dictionary<string, string> WholeEntrySubtrees = new(StringComparer.Ordinal)
+    {
+        ["originclient-mods.json"] = "/profiles",
+    };
+
     /// <summary>The fixed files plus every Origin config found in any instance or already in the store.</summary>
     public static IReadOnlyList<SyncedFile> All(IEnumerable<SyncInstance> instances, SyncStoreData store)
     {
@@ -94,7 +101,8 @@ public static class SyncedFiles
             files.Add(new SyncedFile("config/" + name, JsonConfigFormat.OriginConfig(
                 allowsDeletions: DeletionAwareOriginConfigs.Contains(name),
                 localKeys: LocalKeys.GetValueOrDefault(name),
-                wholeReplaceMarker: WholeReplaceMarkers.GetValueOrDefault(name))));
+                wholeReplaceMarker: WholeReplaceMarkers.GetValueOrDefault(name),
+                wholeEntrySubtree: WholeEntrySubtrees.GetValueOrDefault(name))));
         }
         return files;
     }
