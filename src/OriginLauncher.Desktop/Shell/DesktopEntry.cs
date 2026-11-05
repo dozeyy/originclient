@@ -54,6 +54,11 @@ public static class DesktopEntry
             return 0;
         }
 
+        // "Open Origin when you log in" follows the launcher when the .AppImage is moved or renamed: the autostart entry
+        // is re-pointed at what runs now (UPG-5). A dev build never touches the player's real autostart entry.
+        if (!App.Core.Updates.UpdateService.IsDevBuild && Environment.ProcessPath is { } exe)
+            App.Core.Install.InstallRegistry.RefreshStartAtLogin(exe);
+
         if (DeveloperAccess.NeedsReset(App.Core.Updates.UpdateService.IsDevBuild, SettingsStore.Load()))
         {
             // settings.json busy right now (antivirus, a sync tool): SettingsStore refuses instead of guessing. Never

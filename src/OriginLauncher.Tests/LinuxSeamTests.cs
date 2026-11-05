@@ -156,6 +156,29 @@ public sealed class LinuxSeamTests : IDisposable
         }
     }
 
+    // UPG-5: the autostart entry follows the launcher when it is moved or renamed; off stays off.
+    [Fact]
+    public void Start_at_login_follows_the_launcher_when_it_moves()
+    {
+        var real = InstallRegistry.AutostartDir;
+        InstallRegistry.AutostartDir = Path.Combine(_dir, "autostart-move");
+        try
+        {
+            InstallRegistry.RefreshStartAtLogin("/home/p/Apps/OriginLauncher");
+            Assert.False(InstallRegistry.IsStartWithWindows());
+
+            InstallRegistry.SetStartWithWindows(true, "/home/p/Downloads/OriginLauncher");
+            InstallRegistry.RefreshStartAtLogin("/home/p/Apps/OriginLauncher");
+            var entry = File.ReadAllText(InstallRegistry.DesktopFilePath);
+            Assert.Contains("\nExec=\"/home/p/Apps/OriginLauncher\"\n", entry, StringComparison.Ordinal);
+            Assert.DoesNotContain("Downloads", entry, StringComparison.Ordinal);
+        }
+        finally
+        {
+            InstallRegistry.AutostartDir = real;
+        }
+    }
+
     [Fact]
     public void An_appimage_counts_only_when_this_process_runs_from_its_own_mount()
     {

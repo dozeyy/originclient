@@ -222,6 +222,9 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
                                 <TextBlock Text="Open Origin when you log in" Theme="{StaticResource SettingTitle}"/>
+                                <!-- Shown only while Origin runs from a translocated copy (InstallRegistry.IsTranslocated). -->
+                                <TextBlock x:Name="StartAtLoginWhy" Text="Move Origin to Applications first."
+                                           Theme="{StaticResource SettingWhy}" Margin="0,6,0,0" IsVisible="False"/>
                             </StackPanel>
                             <ToggleButton Grid.Column="1" x:Name="StartAtLoginToggle" Theme="{StaticResource Toggle.Slider}"
                                           AutomationProperties.Name="Open Origin when you log in" VerticalAlignment="Center"/>

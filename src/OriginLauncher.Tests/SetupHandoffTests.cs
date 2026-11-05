@@ -131,7 +131,7 @@ public class SetupHandoffTests
         Assert.True(Handoff.IsSettingsSyncOn(Path.Combine(Path.GetTempPath(), "origin-no-such-" + Guid.NewGuid().ToString("N"), "settings.json")));
     }
 
-    // ---- SetupChoicesFile: the launcher's file shell (read, apply, always delete) ----
+    // ---- SetupChoicesFile: the launcher's file shell (read, apply, delete once used up) ----
 
     private static string TempFile(string? content)
     {
@@ -178,11 +178,20 @@ public class SetupHandoffTests
         Assert.False(File.Exists(path));
     }
 
+    // UPG-6: settings.json busy at that moment (antivirus scanning fresh files) must not lose the Setup choices: the
+    // file stays and the next start applies it.
     [Fact]
-    public void AFileWhoseApplyFailsWithAnIoErrorIsToleratedAndStillDeleted()
+    public void AFileWhoseApplyFailsWithAnIoErrorIsKeptForTheNextStart()
     {
         var path = TempFile(Handoff.Compose(4096, null, null));
         SetupChoicesFile.Consume(path, _ => throw new IOException("settings.json is locked"));
+        Assert.True(File.Exists(path));
+        SetupChoicesFile.Consume(path, _ => throw new UnauthorizedAccessException("busy"));
+        Assert.True(File.Exists(path));
+
+        SetupChoicesData? seen = null;
+        SetupChoicesFile.Consume(path, c => seen = c);
+        Assert.Equal(4096, seen!.RamMb);
         Assert.False(File.Exists(path));
     }
 

@@ -32,13 +32,44 @@ public static class InstallRegistry
             if (File.Exists(AgentPlistPath)) File.Delete(AgentPlistPath);
             return;
         }
-        Directory.CreateDirectory(LaunchAgentsDir);
+        // A translocated copy (an app opened straight from Downloads or a disk image) runs from a random read-only
+        // path that is gone by the next login: an entry pointing there would never open anything (UPG-5).
+        if (IsTranslocated(exePath)) throw new IOException("Move Origin to Applications first.");
+        Write(Plist(exePath));
+    }
+
+    /// <summary>
+    /// True when this copy runs from macOS's App Translocation (a random read-only folder it uses for an app opened
+    /// straight from Downloads or a disk image). Settings greys the switch then: "Move Origin to Applications first".
+    /// </summary>
+    public static bool IsTranslocated(string exePath) => exePath.Contains("/AppTranslocation/", StringComparison.Ordinal);
+
+    /// <summary>
+    /// At every start: if "open when you log in" is on but its entry points somewhere else (Origin was moved out of
+    /// Downloads into Applications, or renamed), point it at this copy, so the switch that shows ON really opens Origin at
+    /// the next login (UPG-5). Nothing happens when it is off, when it already matches, or from a translocated copy
+    /// (that path is temporary). Never throws.
+    /// </summary>
+    public static void RefreshStartAtLogin(string exePath)
+    {
+        try
+        {
+            if (!File.Exists(AgentPlistPath) || IsTranslocated(exePath)) return;
+            var want = Plist(exePath);
+            if (File.ReadAllText(AgentPlistPath) != want) Write(want);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
+    }
+
+    // The LaunchAgent's whole text for exePath (compared byte-for-byte by RefreshStartAtLogin).
+    internal static string Plist(string exePath)
+    {
         // Inside an app bundle, `open -a` starts it the way Finder does (one instance, Dock icon);
         // a bare executable (a dev publish folder) is started directly.
         var bundle = BundleOf(exePath);
         var args = bundle != null ? new[] { "/usr/bin/open", "-a", bundle } : new[] { exePath };
         var argXml = string.Concat(args.Select(a => $"\n        <string>{SecurityElement.Escape(a)}</string>"));
-        var plist = $"""
+        return $"""
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -54,7 +85,12 @@ public static class InstallRegistry
 </plist>
 
 """;
-        // Written beside and renamed in, so launchd never reads half a file.
+    }
+
+    // Written beside and renamed in, so launchd never reads half a file.
+    private static void Write(string plist)
+    {
+        Directory.CreateDirectory(LaunchAgentsDir);
         var temp = AgentPlistPath + ".tmp";
         File.WriteAllText(temp, plist);
         File.Move(temp, AgentPlistPath, overwrite: true);

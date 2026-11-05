@@ -140,6 +140,38 @@ public sealed class MacSeamTests : IDisposable
         }
     }
 
+    // UPG-5: the login item follows the app when it is moved out of Downloads; a translocated copy never writes one.
+    [Fact]
+    public void Start_at_login_follows_the_app_when_it_moves()
+    {
+        var realDir = InstallRegistry.LaunchAgentsDir;
+        InstallRegistry.LaunchAgentsDir = Path.Combine(_dir, "LaunchAgents-move");
+        try
+        {
+            const string moved = "/Applications/Origin Launcher.app/Contents/MacOS/OriginLauncher";
+            InstallRegistry.RefreshStartAtLogin(moved); // off: nothing is created
+            Assert.False(InstallRegistry.IsStartWithWindows());
+
+            InstallRegistry.SetStartWithWindows(true, "/Users/p/Downloads/Origin Launcher.app/Contents/MacOS/OriginLauncher");
+            InstallRegistry.RefreshStartAtLogin(moved);
+            var plist = File.ReadAllText(InstallRegistry.AgentPlistPath);
+            Assert.Contains("<string>/Applications/Origin Launcher.app</string>", plist);
+            Assert.DoesNotContain("Downloads", plist);
+            Assert.Equal(0, Run("/usr/bin/plutil", "-lint", InstallRegistry.AgentPlistPath));
+
+            const string translocated = "/private/var/folders/x/AppTranslocation/ABC/d/Origin Launcher.app/Contents/MacOS/OriginLauncher";
+            Assert.True(InstallRegistry.IsTranslocated(translocated));
+            InstallRegistry.RefreshStartAtLogin(translocated);
+            Assert.Equal(plist, File.ReadAllText(InstallRegistry.AgentPlistPath));
+            Assert.Throws<IOException>(() => InstallRegistry.SetStartWithWindows(true, translocated));
+            Assert.Equal(plist, File.ReadAllText(InstallRegistry.AgentPlistPath));
+        }
+        finally
+        {
+            InstallRegistry.LaunchAgentsDir = realDir;
+        }
+    }
+
     [Fact]
     public void Java8_unpacks_from_a_tar_gz_and_stays_executable()
     {
