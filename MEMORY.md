@@ -394,3 +394,9 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Proof on b43b7361: build-check, Mac, Linux, launcher-shots, boot-smoke 20/20 in-world, dev-shots design rel092b + world rel092bw, 0 mixin failures; service 91/91. Two code reviews (all findings fixed).
 - Run 7 notes: Settings Sync key deleted-then-set-again removed; nametags under Iris unchecked on 1.21.6/1.21.8; Home running-line notice cut off with an ellipsis; diag branches claude/run5-diag-* to delete.
 
+## 2026-11-05 - v1.0.93: bug run 7 (new v1.0.92 code, less-played versions, Settings Sync + screens, website + launcher pages) (cloud session)
+- Launcher/service/site: Settings Sync gap-fill no longer treats stored deletions as values (reset-then-set sticks), profile deletes exempt from the mass-drop guard only while /meta survives (a game-reset config can't wipe profiles), Mac/Linux parity (Install folder card gone, FlushEdits, Cmd/Ctrl+1-4, Enter plays), Home running line wraps 3 rows, pack copy outside AccountFolders.Gate + cancellable (SeedNotices), Mods Update keeps warnings + refuses updates needing newer Fabric API/Loader, read markers burst 5, installer Done text, privacy page read markers.
+- In game: nametags single box + white on 1.16.5-1.19.4 (box pass drawn like vanilla sneak tag, no shadow) and 1.21.6-1.21.8; hitbox width matches 1.21.1 on 1.21.11/26.x; Key Strokes default border off/thickness 1; HypixelLocraw per-world asked flag; feature shots on 1.19.4/1.21.4/1.21.6/1.21.8; tools/ci/check_mixin_targets.py really checks 26.x against the jar.
+- Website (already live on main): island always moves even with OS reduced motion (DECISIONS), smoke test updated.
+- Proof: build-check, Mac, Linux, launcher-shots, website-check, cosmetics-service on d4f3724f; boot-smoke 20/20 in-world + dev-shots design rel093 / world rel093w (7 modules, nametags white on 1.21.8 + 1.19.4) on 82715b94 (same mod code), 0 mixin failures.
+
