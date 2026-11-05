@@ -117,11 +117,37 @@ public static class ModrinthUpdates
         }
     }
 
+    /// <summary>A real answer is trusted this long; a failed check is asked again after <see cref="FailedRetry"/>.</summary>
+    public static readonly TimeSpan FreshAnswer = TimeSpan.FromHours(6);
+    public static readonly TimeSpan FailedRetry = TimeSpan.FromMinutes(2);
+
     /// <summary>
-    /// Asks Modrinth (two POSTs, hashes only) which jars have a newer release. Offline, a refused or an odd answer: no
-    /// offers. Never throws except for the caller's cancel.
+    /// True when a folder's answer from <paramref name="checkedUtc"/> must be asked again. A failed check (offline,
+    /// Modrinth down) is not an answer: it is retried soon instead of hiding the Update buttons for 6 hours (NET-5).
     /// </summary>
-    public static async Task<Dictionary<string, ModUpdateOffer>> FindAsync(HttpClient http, string mcVersion,
+    public static bool Stale(DateTime checkedUtc, bool failed, DateTime nowUtc) =>
+        nowUtc - checkedUtc >= (failed ? FailedRetry : FreshAnswer);
+
+    /// <summary>
+    /// What a folder shows after a check that failed: the last real offers, for the jars that are still there (a
+    /// failed re-check never makes known Update buttons disappear).
+    /// </summary>
+    public static Dictionary<string, ModUpdateOffer> KeptAfterFailure(
+        IReadOnlyDictionary<string, ModUpdateOffer>? previous, IEnumerable<string> jars)
+    {
+        var kept = new Dictionary<string, ModUpdateOffer>(StringComparer.OrdinalIgnoreCase);
+        if (previous == null) return kept;
+        foreach (var jar in jars)
+            if (previous.TryGetValue(jar, out var offer)) kept[jar] = offer;
+        return kept;
+    }
+
+    /// <summary>
+    /// Asks Modrinth (two POSTs, hashes only) which jars have a newer release. Null when there is no answer (offline,
+    /// timed out, a refused or unreadable reply): the caller keeps what it knew and asks again soon, because "couldn't
+    /// ask" is not "nothing newer". Never throws except for the caller's cancel.
+    /// </summary>
+    public static async Task<Dictionary<string, ModUpdateOffer>?> FindAsync(HttpClient http, string mcVersion,
         IReadOnlyDictionary<string, string> sha512ByFile, CancellationToken ct)
     {
         var none = new Dictionary<string, ModUpdateOffer>(StringComparer.OrdinalIgnoreCase);
@@ -130,17 +156,18 @@ public static class ModrinthUpdates
         try
         {
             var current = await PostAsync(http, "version_files", new { hashes, algorithm = "sha512" }, ct).ConfigureAwait(false);
-            if (current == null || current.Count == 0) return none;
+            if (current == null) return null; // refused (5xx, 429, ...): no answer
+            if (current.Count == 0) return none; // none of these jars is on Modrinth
             var known = hashes.Where(current.ContainsKey).ToList();
             var latest = await PostAsync(http, "version_files/update",
                 new { hashes = known, algorithm = "sha512", loaders = new[] { "fabric" }, game_versions = new[] { mcVersion } }, ct)
                 .ConfigureAwait(false);
-            return latest == null ? none : Offers(sha512ByFile, current, latest, mcVersion);
+            return latest == null ? null : Offers(sha512ByFile, current, latest, mcVersion);
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or IOException
                                        || (ex is OperationCanceledException && !ct.IsCancellationRequested))
         {
-            return none; // offline, timed out, or an answer this can't read: no Update buttons
+            return null; // offline, timed out, or an answer this can't read: no answer
         }
     }
 

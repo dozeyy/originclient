@@ -9,17 +9,18 @@ namespace OriginLauncher.App.Core.Mods;
 /// The Mods page's update check, shared by the Windows, Mac and Linux pages: which of the player's own enabled jars in
 /// a mods folder (the version's shared one, or a profile's) Modrinth has a newer release of (Core/Compat/
 /// ModrinthUpdates). Runs in the background after the page shows, never before it (opening a screen stays instant),
-/// and at most once per folder per 6 hours unless the jars change; the answer is remembered per folder for the
+/// and at most once per folder per 6 hours unless the jars change (a check that got no answer is asked again after 2 minutes); the answer is remembered per folder for the
 /// launcher run. 1.8.9 (Forge) is not asked about. UI-thread callers only await; the hashing and the network run on
 /// the pool.
 /// </summary>
 public static class ModUpdateCheck
 {
-    private static readonly TimeSpan Fresh = TimeSpan.FromHours(6);
     private static readonly HttpClient Http = DownloadHttp.Create("OriginLauncher/1.0 (+will@willhenry.me)");
     private static readonly object Gate = new();
 
-    private sealed record Entry(string Signature, DateTime CheckedUtc, IReadOnlyDictionary<string, ModUpdateOffer> Offers);
+    // Failed = the check got no answer (offline, Modrinth down): Offers are the last real ones, asked again soon.
+    private sealed record Entry(string Signature, DateTime CheckedUtc, IReadOnlyDictionary<string, ModUpdateOffer> Offers,
+        bool Failed = false);
 
     private static readonly Dictionary<string, Entry> ByFolder = new(StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> Running = new(StringComparer.OrdinalIgnoreCase);
@@ -113,16 +114,19 @@ public static class ModUpdateCheck
                 var signature = Signature(folder, jars);
                 Entry? before;
                 lock (Gate) ByFolder.TryGetValue(folder, out before);
-                if (before != null && before.Signature == signature && DateTime.UtcNow - before.CheckedUtc < Fresh) return false;
+                if (before != null && before.Signature == signature
+                    && !ModrinthUpdates.Stale(before.CheckedUtc, before.Failed, DateTime.UtcNow)) return false;
 
                 var byFile = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var jar in jars)
                     if (HashOf(Path.Combine(folder, jar)) is { } hash) byFile[jar] = hash;
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-                var offers = byFile.Count == 0
+                var found = byFile.Count == 0
                     ? new Dictionary<string, ModUpdateOffer>(StringComparer.OrdinalIgnoreCase)
                     : await ModrinthUpdates.FindAsync(Http, version, byFile, cts.Token).ConfigureAwait(false);
-                lock (Gate) ByFolder[folder] = new Entry(signature, DateTime.UtcNow, offers);
+                // No answer: keep the Update buttons already known and ask again in a couple of minutes (NET-5).
+                var offers = found ?? ModrinthUpdates.KeptAfterFailure(before?.Offers, jars);
+                lock (Gate) ByFolder[folder] = new Entry(signature, DateTime.UtcNow, offers, Failed: found == null);
                 return !SameOffers(before?.Offers, offers);
             }).ConfigureAwait(true);
         }
