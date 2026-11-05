@@ -48,6 +48,13 @@ public static class BulkRules
 
     public const string NothingPickedReason = "Nothing was picked to come over from this setup.";
 
+    /// <summary>The Import page's blocker when every picked setup was skipped: its skipped list has the reasons. Home has
+    /// no such list, so Home's one-click recognises this line and shows the skipped reasons instead (HomeImport.BeforeCopy).</summary>
+    public const string NoneCanComeOver = "None of the setups you picked can come over. The list below says why.";
+
+    /// <summary>The disk-space blocker's tail when worlds would be copied (the Import page has the switch to leave them out).</summary>
+    public const string LeaveWorldsOutHint = "Leaving worlds out would make it much smaller.";
+
     /// <summary>The line a setup gets in a version it lends its settings to (it is from another version).</summary>
     public static string OtherVersionNote(string from, string to) =>
         $"Settings from its Minecraft {from}, set up for Minecraft {to}";

@@ -43,8 +43,7 @@ public static class HomeImportRunner
         {
             return HomeImport.Refused(ImportErrors.Plain(ex));
         }
-        if (plan.Blocked.Count > 0) return HomeImport.Refused(plan.Blocked[0]);
-        if (plan.Groups.Count == 0) return HomeImport.NothingToCopy(plan.Skipped);
+        if (HomeImport.BeforeCopy(plan) is { } refused) return refused;
 
         // Relayed straight through (a Progress<T> made on the pool would post each report on its own, out of order);
         // the caller's own Progress<T> brings them to its UI thread.

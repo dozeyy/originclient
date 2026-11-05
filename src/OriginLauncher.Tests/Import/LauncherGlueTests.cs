@@ -308,9 +308,59 @@ public sealed class LauncherGlueTests
         var many = new BulkImportResult
         {
             RunId = "r", State = ImportState.Committed,
-            Skipped = new[] { Skip("A", "x"), Skip("B", "x"), Skip("C", "x"), Skip("D", "x") },
+            Skipped = new[] { Skip("A", "x"), Skip("B", "y"), Skip("C", "x"), Skip("D", "x") },
         };
         Assert.Equal("Didn't come over: Lunar: A, Lunar: B and 2 more.", HomeImport.Outcome(many, "Lunar").LeftOut);
+    }
+
+    // Bug run 11 PROF-1: with Lunar still open every setup is skipped, and Home used to say "The list below says why"
+    // with no list on Home. It now names what stayed behind and the one thing that fixes it.
+    private static VersionGroup Group()
+    {
+        var setup = new DetectedInstance { Kind = SourceKind.Lunar, Name = "1.21.1", GameDir = "g", McVersion = "1.21.1" };
+        return new VersionGroup { Version = "1.21.1", TargetGameDir = "t", Winner = setup, Pick = new PickResult(PickMode.None, Array.Empty<DetectedInstance>(), null) };
+    }
+
+    private static BulkImportPlan PlanWith(params SkippedSetup[] skipped)
+    {
+        var plan = new BulkImportPlan { RunId = "r" };
+        plan.Skipped.AddRange(skipped);
+        plan.Blocked.Add(BulkRules.NoneCanComeOver);
+        return plan;
+    }
+
+    [Fact]
+    public void Nothing_to_copy_on_Home_says_why_instead_of_pointing_at_a_list_Home_lacks()
+    {
+        const string running = "Minecraft is running from this setup. Close it, then plan the import again to bring it over.";
+        var one = HomeImport.BeforeCopy(PlanWith(Skip("1.21.1", running, SkipKind.SourceRunning)));
+        Assert.NotNull(one);
+        Assert.False(one!.Succeeded);
+        Assert.DoesNotContain("list below", one.Line + one.LeftOut);
+        Assert.Equal("Didn't come over: Lunar: 1.21.1. " + running, one.LeftOut);
+
+        var two = HomeImport.BeforeCopy(PlanWith(Skip("1.21.1", running, SkipKind.SourceRunning), Skip("1.20.1", running, SkipKind.SourceRunning)));
+        Assert.Equal("Didn't come over: Lunar: 1.21.1, Lunar: 1.20.1. " + running, two!.LeftOut);
+
+        var targets = HomeImport.BeforeCopy(PlanWith(
+            Skip("a", "Close Minecraft first: Origin's Minecraft 1.21.1 is still running.", SkipKind.TargetRunning),
+            Skip("b", "Close Minecraft first: Origin's Minecraft 1.20.1 is still running.", SkipKind.TargetRunning)));
+        Assert.Equal("Didn't come over: Lunar: a, Lunar: b. Close Minecraft first: Origin's game for these versions is still running.", targets!.LeftOut);
+    }
+
+    [Fact]
+    public void Real_blockers_still_stop_Home_and_the_disk_line_says_where_worlds_can_be_left_out()
+    {
+        var disk = new BulkImportPlan { RunId = "r" };
+        disk.Groups.Add(Group());
+        disk.Blocked.Add("Not enough free disk space: importing everything needs about 900 MB and 10 MB is free. " + BulkRules.LeaveWorldsOutHint);
+        var refused = HomeImport.BeforeCopy(disk);
+        Assert.EndsWith(BulkRules.LeaveWorldsOutHint + " Choose what comes over lets you leave worlds out.", refused!.Line);
+        Assert.StartsWith("Nothing changed. Not enough free disk space", refused.Line);
+
+        var ready = new BulkImportPlan { RunId = "r" };
+        ready.Groups.Add(Group());
+        Assert.Null(HomeImport.BeforeCopy(ready));
     }
 
     [Fact]

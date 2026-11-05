@@ -174,14 +174,14 @@ public sealed partial class ImportEngine
         if (!request.PlayWithExternalMods && plan.AllSetups.Any(s => s.Plan.Ops.Any(o => o.Item == PlanItemKind.Mod)))
             plan.Notes.Add(ModsOffNote);
         if (selected.Count > 0 && plan.Groups.Count == 0)
-            plan.Blocked.Add("None of the setups you picked can come over. The list below says why.");
+            plan.Blocked.Add(BulkRules.NoneCanComeOver);
 
         // B15: ONE space check for the whole run (each version's game files counted once), plus 10%.
         var needed = (long)(plan.BytesToCopy * 1.1);
         var free = _env.FreeSpace(_env.InstancesRoot);
         if (plan.Groups.Count > 0 && needed > free)
             plan.Blocked.Add($"Not enough free disk space: importing everything needs about {ImportSummary.Megabytes(needed)} and {ImportSummary.Megabytes(free)} is free."
-                + (request.Options.CopyWorlds ? " Leaving worlds out would make it much smaller." : ""));
+                + (request.Options.CopyWorlds ? " " + BulkRules.LeaveWorldsOutHint : ""));
 
         watch.Stop();
         _env.Log?.Invoke($"import bulk plan: {plan.AllSetups.Count()} setups in {plan.Groups.Count} versions, {plan.Skipped.Count} skipped, "
