@@ -56,8 +56,9 @@ public static class SocialJson
     /// The launcher's /v1/sync body: presence "launcher" / "menu" with the
     /// selected version, never a partyState (that is the game's). The cursor is
     /// echoed back exactly as the service sent it (number or string).
+    /// readsSince: ask for the read markers changed since then (0 = all of them).
     /// </summary>
-    public static string SyncBody(string? cursorJson, string? version, string? friendsEtag = null)
+    public static string SyncBody(string? cursorJson, string? version, string? friendsEtag = null, long? readsSince = null)
     {
         using var buffer = new MemoryStream();
         using (var w = new Utf8JsonWriter(buffer))
@@ -75,6 +76,7 @@ public static class SocialJson
             w.WriteEndObject();
             w.WriteNull("partyState");
             if (!string.IsNullOrEmpty(friendsEtag)) w.WriteString("friendsEtag", friendsEtag);
+            if (readsSince is { } reads) w.WriteNumber("readsSince", Math.Max(0, reads));
             w.WriteEndObject();
         }
         return Encoding.UTF8.GetString(buffer.ToArray());
@@ -194,8 +196,35 @@ public static class SocialJson
             ? c.GetRawText()
             : null;
 
+        // Read markers: { "<friend uuid>" | "party": <chat id> }; uuids normalised like every other.
+        Dictionary<string, long>? reads = null;
+        if (Obj(r, "reads") is { } rd)
+        {
+            reads = new Dictionary<string, long>();
+            foreach (var p2 in rd.EnumerateObject())
+            {
+                var key = p2.Name == SocialSnapshot.PartyKey ? p2.Name : Ids.Norm(p2.Name);
+                var upTo = Long(rd, p2.Name);
+                if (key.Length > 0 && upTo > 0) reads[key] = upTo;
+            }
+        }
+        long? readsAt = Has(r, "readsAt") ? Long(r, "readsAt") : null;
+        var slow = (int)Math.Clamp(Long(r, "slow"), 1, 8);
+
         return new SyncResult(cursor, me, friends, Requests(requests, "incoming"), Requests(requests, "outgoing"),
-            messages, party, partyMessages, invites, warp, blocked, Str(r, "friendsEtag"));
+            messages, party, partyMessages, invites, warp, blocked, Str(r, "friendsEtag"), reads, readsAt, slow);
+    }
+
+    /// <summary>/v1/messages/history → one conversation's older lines (oldest first); null when unreadable.</summary>
+    public static IReadOnlyList<ChatMessage>? ParseHistory(string? body, Func<long, long>? toLocal = null)
+    {
+        if (Parse(body) is not { } r || !Has(r, "messages")) return null;
+        toLocal ??= static ms => ms;
+        return Arr(r, "messages")
+            .Select(x => new ChatMessage(Str(x, "id") ?? "", Ids.Norm(Str(x, "from")), Ids.Norm(Str(x, "to")),
+                Str(x, "text") ?? "", toLocal(Long(x, "at"))))
+            .Where(x => x.Id.Length > 0)
+            .ToList();
     }
 
     // ---- tolerant readers ------------------------------------------------------

@@ -34,6 +34,10 @@ public sealed record BlockedPlayer(string Uuid, string Name);
 /// One /v1/sync answer. Friends, requests and blocked are null when the
 /// service OMITTED them because our friendsEtag still matched — keep the last
 /// lists then. Everything else is always present (empty when missing).
+/// Reads = read markers that changed since `readsSince` (conversation key → newest
+/// chat id read, in the launcher or the game; null from a service without them),
+/// ReadsAt = the next `readsSince`, Slow = how many times slower to poll (the
+/// service's store reserve, docs/SOCIAL.md; 1 = normal).
 /// </summary>
 public sealed record SyncResult(
     string? CursorJson,
@@ -47,7 +51,17 @@ public sealed record SyncResult(
     IReadOnlyList<PartyInvite> PartyInvites,
     WarpRequest? Warp,
     IReadOnlyList<BlockedPlayer>? Blocked = null,
-    string? FriendsEtag = null);
+    string? FriendsEtag = null,
+    IReadOnlyDictionary<string, long>? Reads = null,
+    long? ReadsAt = null,
+    int Slow = 1)
+{
+    /// <summary>
+    /// The service keeps read markers (it answered `readsSince` with `readsAt`): history
+    /// newer than a conversation's marker is unread, even on the first sync after start.
+    /// </summary>
+    public bool KeepsReadMarkers => ReadsAt != null;
+}
 
 public static class Ids
 {

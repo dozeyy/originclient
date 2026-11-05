@@ -647,7 +647,7 @@ public sealed class FriendsDrawer : Panel
                 "You'll stop seeing each other online. You can add them again later.", "Remove",
                 () => Service.RemoveFriendAsync(uuid), $"{name} was removed from your friends."), Danger: true));
             drop.Add(new Entry("Block", Icons.Block, () => _ = ConfirmThenAsync($"Block {name}?",
-                "They'll be removed from your friends and can't message you or send you requests. You can unblock them from the bottom of your friends list.",
+                SocialText.BlockExplained,
                 "Block", () => Service.BlockAsync(uuid), $"{name} is blocked."), Danger: true));
         }
         SocialKit.ShowMenu(target, [talk, lead, drop]);

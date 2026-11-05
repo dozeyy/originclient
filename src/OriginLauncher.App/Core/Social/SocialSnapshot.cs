@@ -46,6 +46,12 @@ public sealed record SocialSnapshot
     public IReadOnlyDictionary<string, int> Unread { get; init; } = new Dictionary<string, int>();
     public int UnreadParty { get; init; }
 
+    /// <summary>
+    /// Read markers: per conversation (a friend's uuid or <see cref="PartyKey"/>), the newest
+    /// chat id read there, here or in the game (the service shares them, docs/SOCIAL.md).
+    /// </summary>
+    public IReadOnlyDictionary<string, long> ReadMarks { get; init; } = new Dictionary<string, long>();
+
     public bool IsPartyLeader => Party != null && Me != null && Party.Leader == Me.Uuid;
 
     /// <summary>What lights the dot on the Friends button.</summary>
@@ -73,10 +79,15 @@ public sealed record SocialMergeOutcome(SocialSnapshot Snapshot, IReadOnlyList<S
 /// "newer than the cursor", so they're appended (deduplicated by id, oldest
 /// first, last 200 per conversation kept); everything else is replaced.
 ///
-/// The first sync after sign-in brings up to 30 days of history: none of it
-/// is toasted or counted unread (the service has no read markers), only
-/// what arrives after it. A party warp is the exception — it's only ever two
-/// minutes old, so it is shown even on the first sync.
+/// The first sync after sign-in brings each conversation's newest 50 DMs and
+/// the party's newest 50 lines (the service keeps 30 days; older lines come
+/// from /v1/messages/history). Unread = lines from others newer than that
+/// conversation's read marker, which the service keeps per account, so messages
+/// that arrived while the launcher was closed are unread (one summary toast),
+/// and reading or answering a chat in the game clears it here too. A service
+/// without markers (no `readsAt`) gets the old rule: first-sync history is never
+/// unread. A party warp is only ever two minutes old, so it is shown even on
+/// the first sync.
 /// </summary>
 public static class SocialMerge
 {
@@ -88,6 +99,19 @@ public static class SocialMerge
         var me = sync.Me?.Uuid ?? before.Me?.Uuid ?? "";
         var toasts = new List<SocialToast>();
         var live = false;
+
+        // Read markers that changed (here, in the game, or by answering) are applied first.
+        var marks = new Dictionary<string, long>(before.ReadMarks);
+        var remarked = new HashSet<string>();
+        void Mark(string key, long upTo)
+        {
+            if (upTo <= marks.GetValueOrDefault(key)) return;
+            marks[key] = upTo;
+            remarked.Add(key);
+        }
+        foreach (var (key, upTo) in sync.Reads ?? new Dictionary<string, long>()) Mark(key, upTo);
+        // First sync against a service with markers: history past a marker is unread.
+        var countHistory = firstSync && sync.KeepsReadMarkers;
 
         // Direct messages.
         var conversations = before.Conversations.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
@@ -101,12 +125,27 @@ public static class SocialMerge
             if (!conversations.TryGetValue(key, out var lines)) conversations[key] = lines = new List<ChatMessage>();
             lines.Add(message);
 
-            if (firstSync || message.From == me) continue;
+            // Answering a chat (here or in the game) means it was read.
+            if (message.From == me) { Mark(key, NumericId(message.Id)); continue; }
+            if (firstSync || NumericId(message.Id) <= marks.GetValueOrDefault(key)) continue;
             live = true;
             var reading = drawerOpen && openConversation == key;
             if (reading) continue;
             unread[key] = unread.GetValueOrDefault(key) + 1;
             toasts.Add(new SocialToast(SocialToastKind.Message, NameIn(sync, before, key), message.Text, Uuid: key));
+        }
+        // Conversations whose marker moved (or all of them, on a first sync with markers):
+        // unread = lines from the other player past the marker, none while that chat is open.
+        foreach (var key in countHistory ? conversations.Keys.ToList() : remarked.Where(conversations.ContainsKey).ToList())
+        {
+            var n = drawerOpen && openConversation == key ? 0 : Unseen(conversations[key], me, marks.GetValueOrDefault(key));
+            if (n > 0) unread[key] = n;
+            else unread.Remove(key);
+        }
+        if (countHistory && unread.Count > 0 && OfflineSummary(sync, before, conversations, unread) is { } summary)
+        {
+            live = true;
+            toasts.Add(summary);
         }
 
         // Party chat: reset when the party changes or ends.
@@ -120,9 +159,15 @@ public static class SocialMerge
             {
                 if (!knownParty.Add(message.Id)) continue;
                 partyChat.Add(message);
-                if (firstSync || message.From == me) continue;
+                if (message.From == me) { Mark(SocialSnapshot.PartyKey, NumericId(message.Id)); continue; }
+                if (firstSync || NumericId(message.Id) <= marks.GetValueOrDefault(SocialSnapshot.PartyKey)) continue;
                 live = true;
                 if (!(drawerOpen && openConversation == SocialSnapshot.PartyKey)) unreadParty++;
+            }
+            if (countHistory || remarked.Contains(SocialSnapshot.PartyKey))
+            {
+                unreadParty = drawerOpen && openConversation == SocialSnapshot.PartyKey ? 0
+                    : partyChat.Count(m => m.From != me && NumericId(m.Id) > marks.GetValueOrDefault(SocialSnapshot.PartyKey));
             }
         }
 
@@ -170,8 +215,66 @@ public static class SocialMerge
             PartyChat = partyChat.OrderBy(m => m.At).TakeLast(MaxLinesPerConversation).ToList(),
             Unread = unread,
             UnreadParty = unreadParty,
+            ReadMarks = marks,
         };
         return new SocialMergeOutcome(snapshot, toasts, live);
+    }
+
+    /// <summary>Chat ids are the service's integers (as text here); anything else counts as 0.</summary>
+    public static long NumericId(string id) =>
+        long.TryParse(id, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : 0;
+
+    /// <summary>The newest chat id in a conversation (a friend's uuid or the party), 0 when empty.</summary>
+    public static long NewestId(SocialSnapshot snapshot, string key) =>
+        key == SocialSnapshot.PartyKey
+            ? snapshot.PartyChat.Select(m => NumericId(m.Id)).DefaultIfEmpty(0).Max()
+            : snapshot.ConversationWith(key).Select(m => NumericId(m.Id)).DefaultIfEmpty(0).Max();
+
+    /// <summary>Records that this conversation was read up to <paramref name="upTo"/> (only ever forward).</summary>
+    public static SocialSnapshot WithReadMark(SocialSnapshot snapshot, string key, long upTo)
+    {
+        if (upTo <= snapshot.ReadMarks.GetValueOrDefault(key)) return snapshot;
+        var marks = new Dictionary<string, long>(snapshot.ReadMarks) { [key] = upTo };
+        return snapshot with { ReadMarks = marks };
+    }
+
+    /// <summary>Older lines of one conversation (/v1/messages/history) join it; they are never unread.</summary>
+    public static SocialSnapshot AddHistory(SocialSnapshot snapshot, string key, IReadOnlyList<ChatMessage> older)
+    {
+        if (older.Count == 0) return snapshot;
+        var lines = snapshot.ConversationWith(key).ToList();
+        var known = new HashSet<string>(lines.Select(m => m.Id));
+        lines.AddRange(older.Where(m => known.Add(m.Id)));
+        var conversations = snapshot.Conversations.ToDictionary(kv => kv.Key, kv => kv.Value);
+        conversations[key] = lines.OrderBy(m => m.At).ThenBy(m => NumericId(m.Id)).TakeLast(MaxLinesPerConversation).ToList();
+        return snapshot with { Conversations = conversations };
+    }
+
+    private static int Unseen(IEnumerable<ChatMessage> lines, string me, long mark) =>
+        lines.Count(m => m.From != me && NumericId(m.Id) > mark);
+
+    /// <summary>
+    /// One toast for everything that arrived while the launcher was closed: "Alex · 3 new
+    /// messages", or "4 new messages from Alex and Sam". Reply opens the newest sender's chat.
+    /// </summary>
+    private static SocialToast? OfflineSummary(SyncResult sync, SocialSnapshot before,
+        Dictionary<string, List<ChatMessage>> conversations, Dictionary<string, int> unread)
+    {
+        var senders = unread.Where(kv => kv.Value > 0 && conversations.ContainsKey(kv.Key))
+            .OrderByDescending(kv => conversations[kv.Key].Max(m => NumericId(m.Id)))
+            .Select(kv => kv.Key).ToList();
+        if (senders.Count == 0) return null;
+        var total = senders.Sum(k => unread[k]);
+        var newest = senders[0];
+        if (senders.Count == 1)
+        {
+            var body = total == 1 ? conversations[newest].Last().Text : $"{total} new messages";
+            return new SocialToast(SocialToastKind.Message, NameIn(sync, before, newest), body, Uuid: newest);
+        }
+        var names = senders.Take(2).Select(k => NameIn(sync, before, k)).ToList();
+        var others = senders.Count - names.Count;
+        var who = others == 0 ? $"{names[0]} and {names[1]}" : $"{names[0]}, {names[1]} and {others} more";
+        return new SocialToast(SocialToastKind.Message, "New messages", $"{total} new messages from {who}", Uuid: newest);
     }
 
     /// <summary>Opening a conversation (or the party chat) reads it.</summary>
