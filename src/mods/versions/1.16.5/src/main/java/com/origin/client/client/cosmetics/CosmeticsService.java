@@ -534,6 +534,11 @@ public final class CosmeticsService {
 	private static volatile long mineWatchedAt = 0;
 	private static final long MINE_WATCH_MS = 3_000, MINE_RETRY_FIRST_MS = 5_000, MINE_RETRY_MAX_MS = 60_000;
 	private static long mineRetryAt = 0, mineRetryWait = MINE_RETRY_FIRST_MS;   // worker thread only
+	// COSM-2: your own look failed to load and the Cosmetics screen is closed: keep trying on a
+	// slower backoff of its own (15 s doubling to 10 min). Without it one failed request at boot
+	// meant no cape, hat or wings on yourself (and no Origin+ menu theme) all session.
+	private static final long MINE_BG_FIRST_MS = 15_000, MINE_BG_MAX_MS = 10 * 60_000;
+	private static long mineBgAt = 0, mineBgWait = MINE_BG_FIRST_MS;   // worker thread only
 	/** What you just picked, shown straight away while the save is in flight. */
 	private static volatile Look picked = null;
 
@@ -594,13 +599,13 @@ public final class CosmeticsService {
 	/** What a player is wearing, for rendering. Render thread; never blocks. */
 	public static Look lookOf(UUID uuid) {
 		Look dev = devLook;
-		if (dev != null && uuid != null && uuid.equals(selfId())) {
+		if (dev != null && uuid != null && isSelf(uuid)) {
 			return dev;
 		}
 		if (uuid == null || status != Status.READY) {
 			return Look.NONE;
 		}
-		if (uuid.equals(selfId())) {
+		if (isSelf(uuid)) {
 			Look p = picked;
 			if (p != null) {
 				return p;
@@ -641,7 +646,7 @@ public final class CosmeticsService {
 		if (uuid == null || status != Status.READY) {
 			return false;
 		}
-		if (uuid.equals(selfId())) {
+		if (isSelf(uuid)) {
 			Mine m = mine;
 			return m != null && m.plus();
 		}
@@ -662,7 +667,7 @@ public final class CosmeticsService {
 		if (uuid == null) {
 			return false;
 		}
-		if (uuid.equals(selfId())) {
+		if (isSelf(uuid)) {
 			return true;   // you are using Origin right now, service or not
 		}
 		if (status != Status.READY) {
@@ -762,6 +767,19 @@ public final class CosmeticsService {
 		return selfUuid;
 	}
 
+	/**
+	 * Is this player you? Your account id, or your own player in the world: on an offline-mode
+	 * (cracked) server that player carries the server's offline UUID, not your account's, and
+	 * would otherwise show none of your own cosmetics (COSM-7). Render thread; never blocks.
+	 */
+	private static boolean isSelf(UUID uuid) {
+		if (uuid.equals(selfId())) {
+			return true;
+		}
+		net.minecraft.world.entity.Entity p = Minecraft.getInstance().player;
+		return p != null && uuid.equals(p.getUUID());
+	}
+
 	private static void tick() {
 		try {
 			// Not found yet, or running on the fallback address: look at the pointer again on the
@@ -788,6 +806,16 @@ public final class CosmeticsService {
 				refreshMineNow();
 				mineRetryWait = Math.min(MINE_RETRY_MAX_MS, mineRetryWait * 2);
 				mineRetryAt = clock + mineRetryWait;
+			}
+			if (mine != null || status != Status.READY || clock - mineWatchedAt <= MINE_WATCH_MS) {
+				mineBgAt = 0;   // loaded, not reachable yet (rediscovery above retries it), or the screen is retrying
+				mineBgWait = MINE_BG_FIRST_MS;
+			} else if (mineBgAt == 0) {
+				mineBgAt = clock + mineBgWait;
+			} else if (clock >= mineBgAt) {
+				refreshMineNow();
+				mineBgWait = Math.min(MINE_BG_MAX_MS, mineBgWait * 2);
+				mineBgAt = clock + mineBgWait;
 			}
 			if (status == Status.READY && !WANTED.isEmpty()) {
 				lookupBatch();
