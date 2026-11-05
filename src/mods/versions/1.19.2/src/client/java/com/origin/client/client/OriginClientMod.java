@@ -357,6 +357,12 @@ public class OriginClientMod implements ClientModInitializer {
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: friends failed to start", t);
 		}
+		// Reconnect on the disconnect screen (kick / lost connection): same server, one click.
+		try {
+			com.origin.client.client.gui.ReconnectButton.register();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: Reconnect button failed to start", t);
+		}
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {
 			try {

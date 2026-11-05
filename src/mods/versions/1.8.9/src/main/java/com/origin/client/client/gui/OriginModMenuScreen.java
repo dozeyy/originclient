@@ -1548,10 +1548,10 @@ public class OriginModMenuScreen extends OriginScreen {
 			return OriginColorPicker.mouseClicked(mx, my, button);
 		}
 		commitText();     // any click ends typing (clicking the field re-opens it)
-		if (capMod != null && button != 0) {
+		if (capMod != null && button != 0 && button < 8) {
 			// A key box waiting for a key takes a mouse button too: right, middle, Mouse 4/5 (JG-4).
 			// Left click still cancels (it is how the box was clicked), so no Origin key lands on Attack.
-			Mods.set(capMod, capKey, com.origin.client.client.util.KeyCodes.mouse(button));
+			Mods.set(capMod, capKey, com.origin.client.client.util.KeyCodes.MOUSE_OFFSET + button);
 			capMod = null;
 			capKey = null;
 			return true;

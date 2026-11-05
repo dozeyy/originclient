@@ -181,6 +181,12 @@ public class OriginClientMod implements ClientModInitializer {
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: friends failed to start", t);
 		}
+		// Reconnect on the disconnect screen (kick / lost connection): same server, one click.
+		try {
+			com.origin.client.client.gui.ReconnectButton.register();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: Reconnect button failed to start", t);
+		}
 		// Single authoritative autosave when the player leaves the game (quit to
 		// desktop / window close). Mod + HUD settings already save eagerly on
 		// every change; this flushes all three stores once on exit so nothing is
