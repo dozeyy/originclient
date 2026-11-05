@@ -69,13 +69,68 @@ public static class Handoff
         }
     }
 
+    /// <summary>
+    /// The memory and version the existing install uses, so an update opens Customize on the player's own setting
+    /// instead of this PC's recommendation and "Newest" (bug run 6, KD-8: it read as if their setting was lost).
+    /// ManualRamMb is set only when the launcher is on Manual memory (Auto has no number of its own: the slider then
+    /// shows the recommendation as before). Read-only and never throws: anything odd means "nothing known".
+    /// </summary>
+    public static ExistingChoices ReadChoices(string settingsPath)
+    {
+        try
+        {
+            if (!File.Exists(settingsPath)) return new ExistingChoices(null, null);
+            using var stream = File.OpenRead(settingsPath);
+            var read = new DataContractJsonSerializer(typeof(SettingsProbe)).ReadObject(stream) as SettingsProbe;
+            // Typed as object: only a real JSON true / number / string counts, never "true" or "8192".
+            int? ram = read?.RamManual is true ? WholeMb(read.RamMb) : null;
+            var version = read?.SelectedVersion as string;
+            return new ExistingChoices(ram, string.IsNullOrWhiteSpace(version) ? null : version);
+        }
+        catch (Exception)
+        {
+            return new ExistingChoices(null, null);
+        }
+    }
+
+    // A JSON number as DataContractJsonSerializer hands it to an object member (the smallest fitting type).
+    private static int? WholeMb(object? value)
+    {
+        double mb = value switch
+        {
+            int i => i,
+            long l => l,
+            decimal d => (double)d,
+            double x => x,
+            _ => -1,
+        };
+        return mb > 0 && mb <= int.MaxValue ? (int)mb : null;
+    }
+
     [DataContract]
     private sealed class SettingsProbe
     {
         [DataMember(Name = "SyncSettingsAcrossVersions")] public object? SyncSettingsAcrossVersions { get; set; }
+        [DataMember(Name = "RamMb")] public object? RamMb { get; set; }
+        [DataMember(Name = "RamManual")] public object? RamManual { get; set; }
+        [DataMember(Name = "SelectedVersion")] public object? SelectedVersion { get; set; }
     }
 
     public static string SettingsPath => Path.Combine(DataRoot, "settings.json");
 
     private static string Escape(string s) => s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+}
+
+/// <summary>What the existing install has set (Handoff.ReadChoices). Null = nothing of the player's own.</summary>
+public sealed class ExistingChoices
+{
+    public ExistingChoices(int? manualRamMb, string? selectedVersion)
+    {
+        ManualRamMb = manualRamMb;
+        SelectedVersion = selectedVersion;
+    }
+
+    /// <summary>The launcher's Manual memory; null on Auto (or when unknown).</summary>
+    public int? ManualRamMb { get; }
+    public string? SelectedVersion { get; }
 }

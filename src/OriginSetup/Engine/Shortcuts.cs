@@ -20,6 +20,13 @@ public static class Shortcuts
     public static string LegacyStartMenuGroup =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Origin Launcher");
 
+    /// <summary>
+    /// Whether Setup puts the desktop shortcut down: always on a fresh install, and on an update or repair only when
+    /// the player still has it (refreshed in place). A player who deleted the icon used to get it back on every Setup
+    /// run (bug run 6, KD-8); their removal is the choice Setup remembers.
+    /// </summary>
+    public static bool WantsDesktop(bool updating, bool desktopShortcutExists) => !updating || desktopShortcutExists;
+
     public static void Create(string shortcutPath, string targetExe, string description, string arguments = "")
     {
         Directory.CreateDirectory(Path.GetDirectoryName(shortcutPath)!);
