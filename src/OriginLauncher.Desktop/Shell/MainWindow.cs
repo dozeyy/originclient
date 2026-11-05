@@ -131,6 +131,9 @@ public sealed class MainWindow : Window
             };
             UpdatePrompt.StartChecks(this);
             FriendsDrawer.StartSocial(this);
+            // "Update and play" (JL-5): the Play the required update refused starts now, with no second click.
+            if (OriginLauncher.App.Core.Updates.UpdateService.TakePlayAfterUpdate() is { } play)
+                _ = Home.Launches.ResumeAfterUpdateAsync(play);
         };
         LauncherState.SettingsChanged += () => { if (Page == PageKey.Home) Art.Show(LauncherState.SelectedVersion); };
         SizeChanged += (_, _) => Bar.Fit(Bounds.Width);

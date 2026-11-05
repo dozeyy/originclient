@@ -331,9 +331,11 @@ public static partial class UpdateService
     /// <paramref name="stopWaiting"/> is the player's Cancel while the swap waits for Minecraft to close
     /// (UpdateStage.WaitingForGame): it throws OperationCanceledException, which is NOT a failure (the gate counts
     /// nothing) and keeps the verified stage, so the next Update click only re-checks it and swaps.
+    /// <paramref name="playAfter"/> is the Play a required update refused ("Update and play"): noted right before the
+    /// quit, and the next start launches it (PlayAfterUpdate; TakePlayAfterUpdate). Null for the top-bar chip.
     /// </summary>
     public static async Task DownloadAndRestartAsync(IProgress<UpdateProgress>? progress = null,
-        CancellationToken stopWaiting = default)
+        CancellationToken stopWaiting = default, PlayAfterUpdate? playAfter = null)
     {
         if (!Enabled) throw new InvalidOperationException("Updates are off in a screenshot run.");
         var update = Available ?? throw new InvalidOperationException("No update is available.");
@@ -344,7 +346,7 @@ public static partial class UpdateService
         var restarting = false;
         try
         {
-            await DownloadStageAndRestartAsync(update, progress, () => restarting = true, stopWaiting);
+            await DownloadStageAndRestartAsync(update, progress, () => restarting = true, stopWaiting, playAfter);
         }
         catch (OperationCanceledException) when (stopWaiting.IsCancellationRequested)
         {
@@ -378,7 +380,7 @@ public static partial class UpdateService
     }
 
     private static async Task DownloadStageAndRestartAsync(AvailableUpdate update, IProgress<UpdateProgress>? progress, Action markRestarting,
-        CancellationToken stopWaiting)
+        CancellationToken stopWaiting, PlayAfterUpdate? playAfter)
     {
         var updatesRoot = OriginPaths.Updates;
         Directory.CreateDirectory(updatesRoot);
@@ -434,6 +436,14 @@ public static partial class UpdateService
         // (SwapAttempt) and opens Play instead of gating it on the same update again.
         var marker = OriginPaths.UpdateSwapMarker;
         SwapAttempt.Record(marker, update.Version);
+        // "Update and play": the next start continues the refused Play. Best effort: a note that can't be written only
+        // costs the player one more click on Play.
+        var playMarker = OriginPaths.PlayAfterUpdateMarker;
+        if (playAfter != null)
+        {
+            try { PlayAfterUpdateMarker.Record(playMarker, playAfter, update.Version, DateTime.UtcNow); }
+            catch (Exception ex) { Log($"update {update.Version}: couldn't note the Play to continue ({ex.Message})"); }
+        }
         // The OS file writes and starts the swap script, which waits for this process to exit.
         try
         {
@@ -442,12 +452,22 @@ public static partial class UpdateService
         catch
         {
             SwapAttempt.Clear(marker); // no swap was started: this is an ordinary failure of this run
+            PlayAfterUpdateMarker.Clear(playMarker);
             throw;
         }
         progress?.Report(new UpdateProgress(UpdateStage.Restarting, 0, null));
         markRestarting();
         ShutdownApp();
     }
+
+    /// <summary>
+    /// On start: the Play that "Update and play" left for this launcher, or null (none, stale, or the swap failed).
+    /// Removes the note either way. Never in a screenshot or proof run (Enabled), which must not start a game.
+    /// </summary>
+    public static PlayAfterUpdate? TakePlayAfterUpdate() =>
+        Enabled && !OriginPaths.IsScratchRoot
+            ? PlayAfterUpdateMarker.Take(OriginPaths.PlayAfterUpdateMarker, CurrentVersion, DateTime.UtcNow)
+            : null;
 
     // One stage folder per version (UpdateVerifier.DeleteStaleStages knows this shape).
     private static string StageDirFor(Version version) => Path.Combine(OriginPaths.Updates, version.ToString());

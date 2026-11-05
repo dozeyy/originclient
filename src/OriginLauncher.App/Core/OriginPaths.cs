@@ -109,6 +109,9 @@ public static partial class OriginPaths
     // failed after the quit can never gate Play again and again.
     public static string UpdateSwapMarker => Path.Combine(Updates, "swap-attempted.txt");
 
+    // "Update and play": the Play a required update refused, continued by the next start (Core/Updates/PlayAfterUpdate).
+    public static string PlayAfterUpdateMarker => Path.Combine(Updates, "play-after-update.json");
+
     // Java runtimes Origin provisions itself (Core/Runtime): one folder per pinned
     // build, e.g. runtimes/temurin-8u504-b01/bin/javaw.exe. Per-user, no admin.
     public static string Runtimes => Path.Combine(Root, "runtimes");

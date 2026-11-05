@@ -70,7 +70,7 @@ public sealed class LauncherParityTests
     public void Every_launcher_offers_the_update_when_Play_is_refused_for_one()
     {
         // JL-4: Windows' Update required prompt (v1.0.85) on Mac and Linux too, with the same words.
-        Assert.Contains("UpdateRequiredRefused?.Invoke()", Read("OriginLauncher.Mac", "UI", "Pages", "HomePage.Play.cs"));
+        Assert.Contains("UpdateRequiredRefused?.Invoke(new PlayAfterUpdate(", Read("OriginLauncher.Mac", "UI", "Pages", "HomePage.Play.cs"));
         Assert.Contains("Home.UpdateRequiredRefused +=", Read("OriginLauncher.Mac", "MainWindow.Update.cs"));
         Assert.Contains("UpdatePrompt.AskAsync(", Read("OriginLauncher.Desktop", "Shell", "LaunchController.cs"));
         foreach (var file in new[]
@@ -80,6 +80,27 @@ public sealed class LauncherParityTests
                      Read("OriginLauncher.Desktop", "Shell", "LaunchController.cs"),
                  })
             Assert.Contains("UpdateRequiredWords.Status", file);
+    }
+
+    [Fact]
+    public void Every_launcher_continues_play_after_the_update_opens_sign_in_when_signed_out_and_keeps_known_crashes_fast()
+    {
+        // JL-5 "Update and play", JL-7 signed-out Play, JL-13 the verify stamp after a known crash: all three launchers.
+        foreach (var (home, window) in new[]
+                 {
+                     (Read("OriginLauncher.App", "UI", "Pages", "HomePage.xaml.cs"), Read("OriginLauncher.App", "MainWindow.xaml.cs")),
+                     (Read("OriginLauncher.Mac", "UI", "Pages", "HomePage.Play.cs"), Read("OriginLauncher.Mac", "MainWindow.Update.cs")),
+                     (Read("OriginLauncher.Desktop", "Shell", "LaunchController.cs"), Read("OriginLauncher.Desktop", "Shell", "MainWindow.cs")),
+                 })
+        {
+            Assert.Contains("new PlayAfterUpdate(key, version", home);
+            Assert.Contains("ResumeAfterUpdateAsync(PlayAfterUpdate play)", home);
+            Assert.Contains("UpdateService.TakePlayAfterUpdate()", window);
+            Assert.Contains("AccountLaunchBook.SignedOutPlayOpensSignIn(", home);
+            Assert.Contains("crashedWhileStarting && verdict.InstallFilesSuspect", home);
+            Assert.Contains("CrashMemory.ApplyRaise(s, game.Version, ram)", home);
+            Assert.Contains("CrashMemory.ForLaunch(heap)", home);
+        }
     }
 
     [Fact]
