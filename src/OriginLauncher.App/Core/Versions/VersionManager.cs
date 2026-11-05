@@ -365,7 +365,7 @@ public sealed class VersionManager
                 () => InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct, overrideSetKey,
                     componentPins, configurationPicked),
                 v => InstallVerification.Invalidate(OriginPaths.VersionRoot(v)),
-                // A first (or unfinished) install needs room: refused up front with the drive and the numbers (JL-11).
+                // A first install needs room: refused up front with the drive and the numbers (JL-11).
                 () => DiskSpace.EnsureRoomForInstall(OriginPaths.Root));
         }
         catch (Exception e) when (!ct.IsCancellationRequested && FullDisk(e) is { } full)

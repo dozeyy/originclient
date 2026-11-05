@@ -15,6 +15,8 @@ public sealed class InstallOptions
     /// </summary>
     public bool? StartWithWindows { get; set; }
     public int? RamMb { get; set; }
+    /// <summary>Reset on Customize over a Manual install: the launcher goes back to Auto memory (wins over RamMb).</summary>
+    public bool RamAuto { get; set; }
     public string? DefaultVersion { get; set; }
     /// <summary>Settings Sync turned on/off on the Customize page; null = the player left it as it was.</summary>
     public bool? SettingsSync { get; set; }
@@ -131,7 +133,7 @@ public static class Installer
             SetupLog.Write("desktop shortcut: left off (the player removed it before this update)");
         steps.Add(new FinishStep("Start with Windows", () => InstallRegistry.SetStartWithWindows(options.StartWithWindows ?? StartsWithWindowsNow(), exe),
             "Couldn't change Start with Windows. You can set it in Origin's Settings."));
-        steps.Add(new FinishStep("Customize choices", () => Handoff.Write(options.RamMb, options.DefaultVersion, options.SettingsSync),
+        steps.Add(new FinishStep("Customize choices", () => Handoff.Write(options.RamMb, options.DefaultVersion, options.SettingsSync, options.RamAuto),
             "Your Customize choices weren't saved. You can set them in Origin's Settings."));
         var notes = Finish(steps);
 

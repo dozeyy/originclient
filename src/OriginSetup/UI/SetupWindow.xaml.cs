@@ -48,6 +48,9 @@ public partial class SetupWindow : Window
     private readonly int _initialRamMb;        // the existing install's Manual memory, else the recommendation
     private readonly int _initialVersionIndex; // the existing install's version, else "Newest"
     private bool _ramChanged;
+    private bool _existingManual;  // the existing install's memory is Manual (Reset then means "back to Auto")
+    private bool _ramBackToAuto;   // Reset pressed over that Manual install, and the slider not moved since
+    private bool _resettingRam;
     private bool _syncInitial; // Settings Sync as the existing install has it (on for a fresh PC, like the launcher's default)
     private bool _customizeOpen;
     private bool _loading = true;
@@ -93,7 +96,8 @@ public partial class SetupWindow : Window
         RamSlider.Value = _initialRamMb;
         RamValue.Text = FormatRam(_initialRamMb);
         RamHint.Text = $"Recommended for your PC: {FormatRam(_recommendedRamMb)} of {Math.Round(totalMb / 1024d):0} GB";
-        RamResetButton.IsEnabled = _initialRamMb != _recommendedRamMb;
+        _existingManual = existingChoices.ManualRamMb != null;
+        RamResetButton.IsEnabled = _existingManual || _initialRamMb != _recommendedRamMb;
         VersionCombo.Items.Add(new ComboBoxItem { Content = "Newest (recommended)", Tag = null });
         foreach (var v in VersionChoices.Embedded())
             VersionCombo.Items.Add(new ComboBoxItem { Content = "Minecraft " + v, Tag = v });
@@ -184,11 +188,13 @@ public partial class SetupWindow : Window
         {
             Directory = dir!,
             StartWithWindows = StartupCheck.IsChecked == true,
-            RamMb = _ramChanged ? (int)RamSlider.Value : (int?)null,
-            // Only a change: an update that leaves the player's own version selected hands nothing over.
-            DefaultVersion = VersionCombo.SelectedIndex != _initialVersionIndex
-                ? (VersionCombo.SelectedItem as ComboBoxItem)?.Tag as string
-                : null,
+            RamMb = _ramChanged && !_ramBackToAuto ? (int)RamSlider.Value : (int?)null,
+            RamAuto = _ramBackToAuto,
+            // Only a change: an update that leaves the player's own version selected hands nothing over, and
+            // "Newest" picked over it is sent as the newest version by name (Handoff.VersionToSend).
+            DefaultVersion = Handoff.VersionToSend(VersionCombo.SelectedIndex != _initialVersionIndex,
+                (VersionCombo.SelectedItem as ComboBoxItem)?.Tag as string,
+                VersionCombo.Items.Count > 1 ? (VersionCombo.Items[1] as ComboBoxItem)?.Tag as string : null),
             // Only a change is handed over, so updating over an install that already has sync on (or off)
             // never flips it by accident.
             SettingsSync = (SyncCheck.IsChecked == true) != _syncInitial ? SyncCheck.IsChecked == true : (bool?)null,
@@ -234,10 +240,20 @@ public partial class SetupWindow : Window
         RamValue.Text = FormatRam((int)e.NewValue);
         if (_loading) return;
         _ramChanged = (int)e.NewValue != _initialRamMb;
-        RamResetButton.IsEnabled = (int)e.NewValue != _recommendedRamMb;
+        if (!_resettingRam) _ramBackToAuto = false; // moved by hand after Reset: that number is the choice
+        RamResetButton.IsEnabled = (int)e.NewValue != _recommendedRamMb || (_existingManual && !_ramBackToAuto);
     }
 
-    private void RamResetButton_Click(object sender, RoutedEventArgs e) => RamSlider.Value = _recommendedRamMb;
+    // Reset = the recommendation. Over a Manual install it also means Auto again (KD-8 review): sending the
+    // recommended number would have kept the launcher on Manual at that amount.
+    private void RamResetButton_Click(object sender, RoutedEventArgs e)
+    {
+        _resettingRam = true;
+        try { RamSlider.Value = _recommendedRamMb; }
+        finally { _resettingRam = false; }
+        _ramBackToAuto = _existingManual;
+        RamResetButton.IsEnabled = false;
+    }
 
     private static string FormatRam(int mb) => $"{mb / 1024d:0.##} GB";
 

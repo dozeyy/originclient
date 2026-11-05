@@ -21,7 +21,7 @@ public sealed class NotEnoughDiskSpaceException(DiskShortage shortage, Exception
 /// <summary>
 /// The free-space check in front of a version's first download (bug run 5, JL-11). A first Play used to download for
 /// minutes and fail half way with "Your disk is full. Free up some space." without saying how much or where; now a
-/// version that is not installed yet (or half installed) is refused up front when its drive has less than
+/// version that is not installed yet is refused up front when its drive has less than
 /// <see cref="FirstInstallBytes"/> free, and a full disk mid-download names the same drive and numbers.
 /// Never blocks Play on a measuring problem: an unreadable drive counts as having room.
 /// </summary>

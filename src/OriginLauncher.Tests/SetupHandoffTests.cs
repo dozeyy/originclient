@@ -23,6 +23,22 @@ public class SetupHandoffTests
         return settings;
     }
 
+    // KD-8 review: Reset on Customize over a Manual install puts the launcher back on Auto memory, never Manual at
+    // the recommended number; RamAuto wins over any RamMb.
+    [Fact]
+    public void ResetOverAManualInstallGoesBackToAuto()
+    {
+        var json = Handoff.Compose(6144, null, null, ramAuto: true);
+        Assert.Equal("{ \"RamAuto\": true }", json);
+        var settings = new LauncherSettings { RamMb = 8192, RamManual = true };
+        settings.RamRaiseByVersion["1.21.1"] = 10240;
+        SetupChoicesData.Parse(json!)!.ApplyTo(settings, MaxRam, AnyVersion, totalPhysicalMb: 16384);
+        Assert.False(settings.RamManual);
+        Assert.Equal(OriginLauncher.App.Core.RamAdvice.RecommendedMb(16384), settings.RamMb);
+        Assert.Empty(settings.RamRaiseByVersion);
+        Assert.Null(SetupChoicesData.Parse("{ \"RamMb\": 6144 }")!.RamAuto); // older installers: unchanged
+    }
+
     [Fact]
     public void SettingsSyncOnRoundTrips()
     {

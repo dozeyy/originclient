@@ -57,6 +57,17 @@ public class HandoffTests
         }
     }
 
+    // KD-8 review: "Newest" picked over the player's own version must reach the launcher as a real version.
+    [Fact]
+    public void OnlyAChangedVersionIsSent_AndNewestIsSentByName()
+    {
+        Assert.Null(Handoff.VersionToSend(changed: false, "1.20.1", "26.3"));
+        Assert.Equal("1.20.1", Handoff.VersionToSend(changed: true, "1.20.1", "26.3"));
+        Assert.Equal("26.3", Handoff.VersionToSend(changed: true, null, "26.3"));
+        Assert.Equal("{ \"RamAuto\": true }", Handoff.Compose(4096, null, null, ramAuto: true));
+        Assert.Equal("{ \"RamMb\": 4096 }", Handoff.Compose(4096, null, null));
+    }
+
     // KD-8: a player who removed the desktop icon doesn't get it back from an update or a repair.
     [Theory]
     [InlineData(false, false, true)]  // fresh install: the icon goes down

@@ -15,8 +15,9 @@ public static class SetupChoices
     public static void ApplyIfPresent() =>
         SetupChoicesFile.Consume(Path.Combine(OriginPaths.Root, FileName), choices =>
         {
-            var maxRam = RamAdvice.MaximumMb(SystemInfo.GetTotalPhysicalMemoryMb());
-            SettingsStore.Update(s => choices.ApplyTo(s, maxRam, Versions.VersionCatalog.IsSupported));
+            var total = SystemInfo.GetTotalPhysicalMemoryMb();
+            var maxRam = RamAdvice.MaximumMb(total);
+            SettingsStore.Update(s => choices.ApplyTo(s, maxRam, Versions.VersionCatalog.IsSupported, total));
             // Same as turning the switch on in Settings: build the sync
             // store from every instance. Off the startup path, and
             // SettingsSync.Seed logs and swallows its own errors, so this
