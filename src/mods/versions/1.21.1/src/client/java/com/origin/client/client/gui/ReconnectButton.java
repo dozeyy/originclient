@@ -19,8 +19,8 @@ import java.util.List;
  * last button, in the dark vanilla button look every vanilla screen gets.
  *
  * Which server: the address being joined or played, noted every tick while a connect
- * screen is up or a world is loaded (Minecraft.getCurrentServer; a new connect forgets
- * the old one first, so a connect that fails at once never offers the previous server).
+ * screen is up or a world is loaded (Minecraft.getCurrentServer), and when a connect starts
+ * (noteConnect: since 1.20.2 getCurrentServer stays null until login).
  * Singleplayer has none, so its disconnect screen gets no button; Realms use their own
  * screen and are left alone. The reconnect itself is Social.join, the same per-version
  * connect the Friends window's Join uses. Fail-soft: any surprise leaves the screen
@@ -36,9 +36,7 @@ public final class ReconnectButton {
 		ClientTickEvents.END_CLIENT_TICK.register(ReconnectButton::tick);
 		ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
 			try {
-				if (screen instanceof ConnectScreen) {
-					lastServer = null;   // a new connect: noted by the next tick
-				} else if (screen instanceof DisconnectedScreen) {
+				if (screen instanceof DisconnectedScreen) {
 					add(client, screen);
 				}
 			} catch (Throwable t) {
@@ -50,6 +48,13 @@ public final class ReconnectButton {
 	/** Dev shots only (OriginDevShots DISCONNECTED): a server to offer, as if one had been joined. */
 	public static void devRemember(String server) {
 		lastServer = server;
+	}
+
+	/** A connect starts (ConnectScreenMixin, ConnectScreen.startConnecting HEAD): since 1.20.2
+	 *  getCurrentServer() is the connection's own and stays null until login, so a connect
+	 *  that fails (server offline, kicked while logging in) would have no address. */
+	public static void noteConnect(String server) {
+		lastServer = server == null || server.trim().isEmpty() ? null : server.trim();
 	}
 
 	private static void tick(Minecraft mc) {
@@ -73,16 +78,14 @@ public final class ReconnectButton {
 			return;
 		}
 		List<AbstractWidget> buttons = Screens.getButtons(screen);
-		// Fabric fires AFTER_INIT again on a resize, and the 1.20.2+ disconnect screen only
-		// re-lays its widgets out then (they are not cleared): never add a second one.
-		for (AbstractWidget b : buttons) {
-			if ("Reconnect".equals(b.getMessage().getString())) {
-				return;
-			}
-		}
+		// Fabric fires AFTER_INIT again on a resize, and the 1.20.2+ disconnect screen only re-lays
+		// its own widgets out then (they are not cleared): ours is moved, never added twice.
+		AbstractWidget mine = null;
 		AbstractWidget last = null;
 		for (AbstractWidget b : buttons) {
-			if (last == null || b.getY() > last.getY()) {
+			if ("Reconnect".equals(b.getMessage().getString())) {
+				mine = b;
+			} else if (last == null || b.getY() > last.getY()) {
 				last = b;
 			}
 		}
@@ -92,6 +95,11 @@ public final class ReconnectButton {
 		int y = last != null ? last.getY() + bh + 4 : screen.height / 2 + 30;
 		if (y + bh > screen.height - 4 && last != null) {
 			y = last.getY() - bh - 4;   // no room under it (a tiny window): above it
+		}
+		if (mine != null) {
+			mine.setX(x);
+			mine.setY(y);
+			return;
 		}
 		buttons.add(net.minecraft.client.gui.components.Button.builder(net.minecraft.network.chat.Component.literal("Reconnect"),
 				b -> com.origin.client.client.social.Social.join(server)).bounds(x, y, bw, bh).build());

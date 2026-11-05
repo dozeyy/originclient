@@ -46,6 +46,23 @@ public abstract class ConnectScreenMixin extends Screen {
 		super(title);   // never runs: mixin constructors are discarded
 	}
 
+	// Reconnect (gui/ReconnectButton) needs the address of a connect that fails before login:
+	// since 1.20.2 Minecraft.getCurrentServer() stays null until then. require = 0: if this
+	// era's startConnecting differs, only that note is lost (Reconnect then shows after
+	// joins that got in).
+	@Inject(method = "startConnecting", at = @At("HEAD"), require = 0)
+	private static void originclient$noteReconnect(net.minecraft.client.gui.screens.Screen parent,
+			net.minecraft.client.Minecraft minecraft, net.minecraft.client.multiplayer.resolver.ServerAddress address,
+			net.minecraft.client.multiplayer.ServerData data, boolean quickPlay,
+			net.minecraft.client.multiplayer.TransferState transfer,
+			CallbackInfo ci) {
+		try {
+			com.origin.client.client.gui.ReconnectButton.noteConnect(data != null ? data.ip : null);
+		} catch (Throwable ignored) {
+			// Reconnect is optional
+		}
+	}
+
 	@Inject(method = "init()V", at = @At("TAIL"))
 	private void originclient$seatCancel(CallbackInfo ci) {
 		try {

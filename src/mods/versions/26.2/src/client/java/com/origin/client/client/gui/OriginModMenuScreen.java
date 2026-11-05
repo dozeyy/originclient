@@ -125,6 +125,9 @@ public class OriginModMenuScreen extends Screen {
 	private float dragX0, dragX1;
 	private boolean sliderUnsaved = false;
 	private String capMod, capKey;
+	// Why the waiting key box refused a mouse button (shown for a few seconds); null = none.
+	private String capRefusal;
+	private long capRefusalAt;
 	private String textMod, textKey, textBuf = "";
 	private static final int TEXT_MAX = 128;
 
@@ -1186,13 +1189,14 @@ public class OriginModMenuScreen extends Screen {
 			}
 			case KEYBIND -> {
 				boolean capturing = id.equals(capMod) && o.key.equals(capKey);
-				String name = capturing ? "Press a key or button" : keyName(Mods.keyCode(id, o.key));
+				String name = capturing ? capPrompt() : keyName(Mods.keyCode(id, o.key));
 				float bw = Math.max(56, d.textW(name, 13, false, 0) + 20);
 				d.rect(right - bw, cy - 13, bw, 26, 6, 0x0DFFFFFF, capturing ? ACC : LINE2);
 				d.textCenter(name, right - bw / 2, cy, 13, false, 0, capturing ? ACC : TEXT);
 				d.hit(right - bw, cy - 13, bw, 26, () -> {
 					capMod = id;
 					capKey = o.key;
+					capRefusal = null;
 				});
 				return right - bw;
 			}
@@ -1525,7 +1529,17 @@ public class OriginModMenuScreen extends Screen {
 			// Left click still cancels (it is how the box was clicked), so no Origin key lands on Attack.
 			// Through the button's options.txt name, so the stored code is the one format
 			// (util/KeyCodes) whatever this version numbers its buttons.
-			Mods.set(capMod, capKey, com.origin.client.client.util.KeyCodes.mouseFromName(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(button).getName()));
+			int mouseKey = com.origin.client.client.util.KeyCodes.mouseFromName(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(button).getName());
+			String owner = vanillaMouseAction(mouseKey);
+			if (owner != null) {
+				// Controls gives a mouse button to one action only, and the Zoom / Freelook keys are
+				// copied into Controls: right click as Zoom would stop Use (no placing, no eating).
+				// The box says why and keeps waiting; Mouse 4/5 and other free buttons are taken.
+				capRefusal = "That button is " + owner;
+				capRefusalAt = System.currentTimeMillis();
+				return true;
+			}
+			Mods.set(capMod, capKey, mouseKey);
 			capMod = null;
 			capKey = null;
 			return true;
@@ -1783,6 +1797,31 @@ public class OriginModMenuScreen extends Screen {
 		if (!v.equals(Mods.text(mod, key))) {
 			Mods.set(mod, key, v);
 		}
+	}
+
+	/** The capturing key box's text: the prompt, or for a few seconds why a mouse button was refused. */
+	private String capPrompt() {
+		return capRefusal != null && System.currentTimeMillis() - capRefusalAt < 3000 ? capRefusal : "Press a key or button";
+	}
+
+	/** The vanilla action whose Controls bind is this mouse key (util/KeyCodes format): Attack,
+	 *  Use Item or Pick Block, or null. Origin's keys never take those buttons from it. */
+	private static String vanillaMouseAction(int code) {
+		try {
+			net.minecraft.client.Options o = net.minecraft.client.Minecraft.getInstance().options;
+			if (code == com.origin.client.client.util.KeyCodes.mouseFromName(o.keyAttack.saveString())) {
+				return "Attack";
+			}
+			if (code == com.origin.client.client.util.KeyCodes.mouseFromName(o.keyUse.saveString())) {
+				return "Use Item";
+			}
+			if (code == com.origin.client.client.util.KeyCodes.mouseFromName(o.keyPickItem.saveString())) {
+				return "Pick Block";
+			}
+		} catch (Throwable t) {
+			// can't tell: allow it
+		}
+		return null;
 	}
 
 	private static String keyName(int code) {

@@ -42,6 +42,23 @@ public abstract class ConnectScreenMixin {
 	@Shadow
 	private long lastNarration;
 
+	// Reconnect (gui/ReconnectButton) needs the address of a connect that fails before login:
+	// since 1.20.2 Minecraft.getCurrentServer() stays null until then. require = 0: if this
+	// era's startConnecting differs, only that note is lost (Reconnect then shows after
+	// joins that got in).
+	@Inject(method = "startConnecting", at = @At("HEAD"), require = 0)
+	private static void originclient$noteReconnect(net.minecraft.client.gui.screens.Screen parent,
+			net.minecraft.client.Minecraft minecraft, net.minecraft.client.multiplayer.resolver.ServerAddress address,
+			net.minecraft.client.multiplayer.ServerData data, boolean quickPlay,
+			net.minecraft.client.multiplayer.TransferState transfer,
+			CallbackInfo ci) {
+		try {
+			com.origin.client.client.gui.ReconnectButton.noteConnect(data != null ? data.ip : null);
+		} catch (Throwable ignored) {
+			// Reconnect is optional
+		}
+	}
+
 	// Target: ConnectScreen.init()V, TAIL, after vanilla adds the Cancel button (it runs
 	// again on every resize, re-seating the rebuilt button). If it stops applying, Cancel
 	// stays at vanilla's spot and may overlap the picture at small GUI scales.
