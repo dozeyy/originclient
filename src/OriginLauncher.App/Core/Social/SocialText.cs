@@ -5,6 +5,15 @@ namespace OriginLauncher.App.Core.Social;
 /// <summary>Every player-facing social sentence that depends on data.</summary>
 public static class SocialText
 {
+    /// <summary>
+    /// The Block confirmation (every launcher's Friends panel). Blocking also splits a
+    /// party you share: the service takes them out, or you leave when they lead it.
+    /// </summary>
+    public const string BlockExplained =
+        "They'll be removed from your friends and can't message you or send you requests. "
+        + "If you're in a party together, they're taken out of it (or you leave, if they lead it). "
+        + "You can unblock them from the bottom of your friends list.";
+
     /// <summary>"1,284 playing Origin" — thousands separators, the same on every PC.</summary>
     public static string PlayersOnline(int count) =>
         $"{Math.Max(0, count).ToString("N0", CultureInfo.InvariantCulture)} playing Origin";

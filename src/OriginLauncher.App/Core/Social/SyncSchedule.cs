@@ -6,7 +6,8 @@ public readonly record struct SyncInputs(
     bool DrawerOpen,
     bool InParty,
     DateTimeOffset? LastLiveEvent,
-    DateTimeOffset? InactiveSince);
+    DateTimeOffset? InactiveSince,
+    int Slow = 1);
 
 /// <summary>
 /// The request budget from docs/SOCIAL.md, as one pure function. Cloudflare's
@@ -19,6 +20,9 @@ public readonly record struct SyncInputs(
 ///   30 s — otherwise;
 ///   60 s — the launcher window has been in the background for over 5 minutes
 ///          (wins over everything above: the game syncs for itself).
+/// Each is multiplied by the service's `slow` (1-8): on a day when Friends traffic
+/// would eat into the store's share of the free plan's requests, the service asks
+/// every client to poll that many times slower (docs/SOCIAL.md "Store reserve").
 /// Failures back off 5 s, 10 s, 20 s ... up to 5 minutes; a failed sign-in
 /// backs off from 1 minute up to 30 (Microsoft / Mojang must not be hammered).
 /// </summary>
@@ -39,7 +43,9 @@ public static class SyncSchedule
     private static readonly TimeSpan AuthBackoffStart = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan AuthBackoffMax = TimeSpan.FromMinutes(30);
 
-    public static TimeSpan NextDelay(SyncInputs i)
+    public static TimeSpan NextDelay(SyncInputs i) => Base(i) * Math.Clamp(i.Slow, 1, 8);
+
+    private static TimeSpan Base(SyncInputs i)
     {
         if (i.InactiveSince is { } since && i.Now - since > InactiveAfter)
             return Background;

@@ -968,7 +968,7 @@ public partial class FriendsPanel : UserControl
     {
         if (_snapshot.Friend(uuid) is not { } friend) return;
         if (!await Confirm.ShowAsync($"Block {friend.Name}?",
-                "They'll be removed from your friends and can't message you or send you requests. You can unblock them from the bottom of your friends list.",
+                SocialText.BlockExplained,
                 "Block", "Cancel", destructive: true))
             return;
         if (await RunAsync(null, () => Service.BlockAsync(uuid)))
