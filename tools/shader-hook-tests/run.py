@@ -59,6 +59,13 @@ def check_sources():
         dl = read(module_file(mod, "shaders/ShaderDownloader.java"))
         if "IrisBridge.refreshIrisScreen()" not in dl:
             bad.append(f"{mod}: a finished download doesn't rebuild Iris's open screen")
+    # In-world menus never blur (DECISIONS 2026-11-04): Iris's screen overrides Screen's blur,
+    # so modules with vanilla's menu blur (1.20.5+) zero Iris's radius through the option.
+    for mod in fabric:
+        mixins = glob.glob(os.path.join(ROOT, "src/mods/versions", mod, "src/*/resources/originclient.client.mixins.json"))
+        if "BlurredBackground" in read(module_file(mod, "mixin/MenuBlurMixin.java")):
+            if '"IrisBlurOptionMixin"' not in read(mixins[0]) or not module_file(mod, "mixin/IrisBlurOptionMixin.java"):
+                bad.append(f"{mod}: Iris's Shader Packs screen can still blur the world (IrisBlurOptionMixin)")
     for mod in live:
         dl = read(module_file(mod, "shaders/ShaderDownloader.java"))
         remove = dl[dl.find("public static void remove("):]

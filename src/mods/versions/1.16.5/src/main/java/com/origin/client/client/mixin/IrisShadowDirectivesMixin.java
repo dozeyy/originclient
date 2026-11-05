@@ -32,7 +32,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 //
 // Behavior: when SETTINGS > Performance > Shader Performance Mode is on, the
 // pack's shadow distance is always served at half; toggling triggers an Iris
-// reload (OriginModMenuScreen) so cached-at-creation and per-frame readers
+// reload (IrisBridge.watchShaderPerformanceMode) so cached-at-creation and per-frame readers
 // never disagree mid-run. remap = false + require = 0 so this no-ops cleanly if
 // Iris is absent or renames its internals.
 @Pseudo

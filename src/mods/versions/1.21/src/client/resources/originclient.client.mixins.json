@@ -74,6 +74,7 @@
 		"TitlesMixin",
 		"GameRendererBlurAccessor",
 		"MenuBlurMixin",
+		"IrisBlurOptionMixin",
 		"GameRendererPostShadersMixin",
 		"SelectionListTransparentMixin",
 		"ShinyPotsMixin",

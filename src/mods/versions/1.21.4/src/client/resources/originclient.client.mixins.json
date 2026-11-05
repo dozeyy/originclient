@@ -76,6 +76,7 @@
 		"TitlesMixin",
 		"MenuBlurRadiusMixin",
 		"MenuBlurMixin",
+		"IrisBlurOptionMixin",
 		"SelectionListTransparentMixin",
 		"ShinyPotsMixin",
 		"TntCountdownMixin",
