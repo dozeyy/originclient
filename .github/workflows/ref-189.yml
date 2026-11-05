@@ -24,6 +24,10 @@ concurrency:
   group: ref-189-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege (SEC-2): these jobs run Gradle, its plugins and downloaded mods; the token only reads.
+permissions:
+  contents: read
+
 jobs:
   plan:
     runs-on: ubuntu-latest

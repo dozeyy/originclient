@@ -25,6 +25,10 @@ concurrency:
   group: crash-plant-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege (SEC-2): these jobs run Gradle, its plugins and downloaded mods; the token only reads.
+permissions:
+  contents: read
+
 jobs:
   plant:
     name: Plant defects in 1.21.1

@@ -376,6 +376,35 @@ class DevShotsWorkflow(unittest.TestCase):
 PUBLISH_SH = os.path.join(HERE, "publish_shots.sh")
 
 
+class WorkflowTokens(unittest.TestCase):
+    """SEC-2: a job that builds or runs third-party code (NuGet targets, Gradle plugins, downloaded mods) holds a
+    read-only token, and launcher-shots keeps no token in .git/config while it builds and runs the launcher."""
+
+    WF = os.path.join(ROOT, ".github", "workflows")
+
+    def _top(self, name):
+        yml = _read(os.path.join(self.WF, name))
+        top = re.search(r"^permissions:\n((?:  .*\n)+)", yml, re.M)
+        self.assertIsNotNone(top, name + " has no workflow-level permissions block")
+        return yml, top.group(1)
+
+    def test_build_workflows_read_only(self):
+        for name in ("boot-smoke.yml", "crash-plant.yml", "ref-189.yml", "version-scout.yml", "launcher-shots.yml"):
+            yml, top = self._top(name)
+            self.assertIn("contents: read", top, name)
+            self.assertNotIn("write", top, name)
+
+    def test_launcher_shots_only_publish_writes(self):
+        yml, _ = self._top("launcher-shots.yml")
+        jobs = re.split(r"^  (?=[\w-]+:\n)", yml.split("\njobs:\n", 1)[1], flags=re.M)
+        writers = [j.split(":", 1)[0] for j in jobs if re.search(r"^\s+contents:\s*write", j, re.M)]
+        self.assertEqual(writers, ["publish"])
+        shots_job = next(j for j in jobs if j.startswith("shots:"))
+        self.assertRegex(shots_job, r"actions/checkout@v\d+\n\s+with:\n\s+persist-credentials: false")
+
+
+
+
 def _have(cmd):
     import shutil
     return shutil.which(cmd) is not None

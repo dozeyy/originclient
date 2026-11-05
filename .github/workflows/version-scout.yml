@@ -22,6 +22,10 @@ on:
         description: "Mod classes to javap -s -p -c (space-separated <modrinth version id>:<Class>,<Class>; for compat-gate sig lines)"
         default: ""
 
+# Least privilege (SEC-2): these jobs run Gradle, its plugins and downloaded mods; the token only reads.
+permissions:
+  contents: read
+
 jobs:
   scout:
     runs-on: ubuntu-latest

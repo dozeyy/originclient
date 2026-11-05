@@ -96,6 +96,10 @@ concurrency:
   group: boot-smoke-${{ github.ref }}-${{ github.event.inputs.modules }}-${{ github.event.inputs.covers }}-${{ github.event.inputs.pairs }}-${{ github.event.inputs.players }}
   cancel-in-progress: true
 
+# Least privilege (SEC-2): these jobs run Gradle, its plugins and downloaded mods; the token only reads.
+permissions:
+  contents: read
+
 jobs:
   plan:
     runs-on: ubuntu-latest
