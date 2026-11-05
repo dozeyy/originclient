@@ -1430,7 +1430,7 @@ public partial class HomePage : UserControl
                 $"[HomePage] Game {game.Version} exit {exitCode}: crash={verdict.IsCrash} ({verdict.CloseReason}), {verdict.Finding.Rule} {verdict.Finding.Confidence.Word()}");
             var idle = _launches.PhaseOf(key) is not (GamePhase.Starting or GamePhase.Running);
             if (idle && GameExitStatus.AfterVerdict(verdict.IsCrash, crashedWhileStarting) is { } after)
-                Note(key, after.Text, after.Tone);
+                Note(key, after.Text, after.Tone, game.Version);
             if (!verdict.IsCrash) return;
 
             // A boot crash is the one case where a bad file on disk is a live suspect, so drop the "already verified"

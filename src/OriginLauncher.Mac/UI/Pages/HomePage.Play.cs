@@ -814,7 +814,7 @@ public sealed partial class HomePage
             var idle = _launches.PhaseOf(key) is not (GamePhase.Starting or GamePhase.Running);
             // Not a crash: back to "Ready"; a crash in game: "Minecraft crashed" (GameExitStatus, all three launchers).
             if (idle && GameExitStatus.AfterVerdict(verdict.IsCrash, crashedWhileStarting) is { } after)
-                Note(key, after.Text, after.Tone);
+                Note(key, after.Text, after.Tone, game.Version);
             if (!verdict.IsCrash) return;
             // The line stays plain words (the crash window has the exit code and the log); a boot crash re-checks
             // the install next time only when a bad file could be the cause (CrashVerdict.InstallFilesSuspect).
