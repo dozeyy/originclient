@@ -66,8 +66,12 @@ public class HitboxMixin {
 		if ((baseCol >>> 24) == 0) {
 			baseCol |= 0xFF000000;
 		}
-		// Real stroke width -- the slider maps straight to gizmo stroke pixels.
-		float width = (float) Math.max(1, Math.round(Mods.num("hitboxes", "lineWidth")));
+		// Gizmo stroke width is in screen pixels, so the slider is scaled to 1.21.1's look (LV-3): there
+		// Line Width 1 is vanilla's line, max(2.5, window width / 1920 * 2.5) px (the same width vanilla's
+		// block outline gets here), and each step up thickens it about as much again. A raw "1" was a
+		// 1 px hairline, a third of 1.21.1's.
+		float width = (float) Math.max(1, Math.round(Mods.num("hitboxes", "lineWidth")))
+				* Math.max(2.5f, mc.getWindow().getWidth() / 1920f * 2.5f);
 		String pattern = Mods.mode("hitboxes", "linePattern");
 		boolean showDamaged = Mods.bool("hitboxes", "showDamaged");
 		boolean showHittable = Mods.bool("hitboxes", "showHittable");
