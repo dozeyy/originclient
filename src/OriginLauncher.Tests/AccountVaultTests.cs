@@ -47,6 +47,23 @@ public sealed class AccountVaultTests : IDisposable
     };
 
     [Fact]
+    public void An_offline_play_flag_never_reaches_accounts_json()
+    {
+        // NET-1: Play marks the saved session Offline when Microsoft can't be reached; that flag is for that one Play.
+        var offline = new MinecraftSession("Alex", "853c80ef3c3749fdaa49938b674adae6", "token", "xuid",
+            DateTimeOffset.UtcNow.AddHours(-2)) { Offline = true };
+
+        var stored = AccountStore.ProtectSession(offline);
+        var json = Encoding.UTF8.GetString(Convert.FromBase64String(stored)); // DPAPI is a pass-through here
+
+        Assert.DoesNotContain("Offline", json, StringComparison.OrdinalIgnoreCase);
+        var back = AccountStore.TryUnprotectSession(stored);
+        Assert.NotNull(back);
+        Assert.False(back!.Offline);
+        Assert.Equal("token", back.AccessToken);
+    }
+
+    [Fact]
     public void Unlink_clears_the_sign_in_and_the_session_so_nothing_can_sign_in_again()
     {
         AccountStore.Save([Row(Alex, "rt-0")]);
