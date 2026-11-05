@@ -220,8 +220,9 @@ public static class ModImporter
         if (twin != null)
         {
             // The identical file: nothing to copy. Turned off, dropping it again means "add it back" (bug run 11 PROF-9: it
-            // used to ask "Replace?" and then keep an identical second copy under an odd -replaced- name).
-            if (SameFile(src, twin))
+            // used to ask "Replace?" and then keep an identical second copy under an odd -replaced- name). Turning on goes
+            // by bytes alone, so a browser's "sodium-0.6.13 (1).jar" copy of the switched-off jar turns that jar on too.
+            if (twin.Enabled ? SameFile(src, twin) : SameFile(src, twin, anyName: true))
                 return new ImportItem(src, name, twin.Enabled ? ImportAction.AlreadyThere : ImportAction.TurnOn, null, file.Info, twin);
             var action = context.ConfirmedReplace?.Contains(name) == true ? ImportAction.Replace : ImportAction.AskReplace;
             return new ImportItem(src, name, action, null, file.Info, twin);
@@ -294,7 +295,8 @@ public static class ModImporter
                 case ImportAction.AlreadyThere: already++; break;
                 case ImportAction.TurnOn:
                     // A rename (X.jar.disabled -> X.jar), the same as the page's switch, never a rewrite of the jar.
-                    var turned = Mods.ModManager.SetEnabledIn(context.Folder, item.FileName, enabled: true);
+                    // The twin's own name: the dropped copy may be named differently ("sodium-0.6.13 (1).jar").
+                    var turned = Mods.ModManager.SetEnabledIn(context.Folder, JarName(item.Existing!.FileName), enabled: true);
                     if (!turned.Ok) refused.Add(turned.Error ?? "Couldn't turn that mod back on - " + CloseGameHint);
                     else turnedOn.Add(item.Info?.Name ?? item.Info?.Id ?? item.FileName);
                     break;
@@ -389,12 +391,13 @@ public static class ModImporter
     private static string JarName(string fileName) =>
         fileName.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase) ? fileName[..^".disabled".Length] : fileName;
 
-    // Same name and byte for byte the same: dropping a jar that is already there changes nothing.
-    private static bool SameFile(string source, ModFile existing)
+    // Same name and byte for byte the same: dropping a jar that is already there changes nothing. With anyName, the
+    // bytes alone decide (turning a switched-off twin back on).
+    private static bool SameFile(string source, ModFile existing, bool anyName = false)
     {
         try
         {
-            if (!string.Equals(Path.GetFileName(source), JarName(existing.FileName), StringComparison.OrdinalIgnoreCase)) return false;
+            if (!anyName && !string.Equals(Path.GetFileName(source), JarName(existing.FileName), StringComparison.OrdinalIgnoreCase)) return false;
             var a = new FileInfo(source);
             var b = new FileInfo(existing.Path);
             if (!b.Exists || a.Length != b.Length) return false;

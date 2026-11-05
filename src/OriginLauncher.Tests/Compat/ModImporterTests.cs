@@ -298,6 +298,25 @@ public sealed class ModImporterTests : IDisposable
         Assert.Equal("broken", broken.DisplayName);
     }
 
+    // Review of v1.0.97: the identical bytes under another name ("sodium-0.6.13 (1).jar") must turn the switched-off
+    // jar on by ITS name, never look for a "sodium-0.6.13 (1).jar.disabled" that isn't there.
+    [Fact]
+    public void TheIdenticalJarUnderAnotherNameTurnsTheSwitchedOffOneBackOn()
+    {
+        var off = WriteJar(_mods, "coolmod-0.6.13.jar", "coolmod", "0.6.13");
+        var src = Path.Combine(_incoming, "coolmod-0.6.13 (1).jar");
+        System.IO.File.Copy(off, src);
+        System.IO.File.Move(off, off + ".disabled");
+
+        var report = ModImporter.Import(new[] { src }, Context());
+
+        Assert.True(report.Ok, report.Error);
+        Assert.Empty(report.Refused);
+        Assert.Empty(report.NeedsReplace);
+        Assert.Equal(new[] { "coolmod" }, report.TurnedOn);
+        Assert.Equal(new[] { "coolmod-0.6.13.jar" }, Directory.GetFiles(_mods).Select(Path.GetFileName).ToArray());
+    }
+
     [Fact]
     public void ATurnedOffTwinIsStillTheSameMod()
     {
