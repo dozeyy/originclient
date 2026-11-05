@@ -374,7 +374,8 @@ So the free plan carries a few dozen all-day players (more who play a few hours)
   Party HUD element (name, health, distance, direction arrow), D: party members on the minimap and locator bar,
   F: a "Ping party" key (unbound by default, set in Controls) that pings the looked-at block for the party
   (marker for 60 s), E: leader's "Warp party here" button; members get a toast
-  with Join (connects if same Minecraft version, else "Join from the launcher").
+  with Join (connects if same Minecraft version, or on Hypixel from any version since Hypixel takes 1.8+;
+  otherwise it says to pick that version in the launcher). The Friends window's Join reads "Needs <version>" then.
 - Fair-play guard (Will, 2026-10-12: "ban them overall on all multiplayer as a good baseline"): everything
   that reveals where a party member is or how they're doing — B markers/tinted nametags, C's health/distance/
   direction, D minimap/locator dots, F pings — works ONLY in a world hosted by a party member's own game
