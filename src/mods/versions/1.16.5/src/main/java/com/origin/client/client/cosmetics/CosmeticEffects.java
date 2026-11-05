@@ -420,6 +420,18 @@ public final class CosmeticEffects {
 		return p.isModelPartShown(PlayerModelPart.CAPE) && !elytra;
 	}
 
+	/** Every client tick (OriginClientMod): lets go of the world once the player has left it.
+	 *  render() only runs while a world draws, so the left world (its chunks and entities)
+	 *  and every caped player in CapePhysics used to stay in memory through the menus until
+	 *  the next world drew its first frame. */
+	public static void tick(Minecraft mc) {
+		if (mc.level == null && lastLevel != null) {
+			lastLevel = null;
+			reset();
+			CapePhysics.clear();
+		}
+	}
+
 	private static void reset() {
 		EMITTERS.clear();
 		lastTime = Double.NaN;
