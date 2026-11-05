@@ -23,6 +23,11 @@ public static partial class UpdateService
                       ?? Path.Combine(appDir, "OriginLauncher.App.exe");
         var pid = Environment.ProcessId;
 
+        // Setup's uninstall record learns this release's files, so uninstalling from a folder the player picked also
+        // removes what self-updates added (Core/Install/SetupInstallRecord). Best effort, before the swap starts.
+        if (!Install.SetupInstallRecord.AddRelease(appDir, stageDir))
+            Log("update: Setup's install record not extended (none here, or Setup owns the folder)");
+
         // Paths travel in the script's environment, never in its text (WindowsApplyScript): a non-English letter or a
         // "%" in the user folder no longer breaks the swap.
         Process.Start(WindowsApplyScript.Prepare(updatesRoot, pid, stageDir, appDir, exePath));

@@ -88,6 +88,16 @@ def check_handoff() -> list[str]:
     b = re.search(pattern, (LAUNCHER / "Core/Install/SetupChoices.cs").read_text(encoding="utf-8"))
     if not a or not b or a.group(1) != b.group(1):
         return [f"hand-off file name: installer {a and a.group(1)!r} vs launcher {b and b.group(1)!r}"]
+    # Setup's install record, which a Windows self-update extends with the release's files (UPG-7).
+    a = re.search(pattern, (SETUP / "Engine/InstallManifest.cs").read_text(encoding="utf-8"))
+    b = re.search(pattern, (LAUNCHER / "Core/Install/SetupInstallRecord.cs").read_text(encoding="utf-8"))
+    if not a or not b or a.group(1) != b.group(1):
+        return [f"install record name: installer {a and a.group(1)!r} vs launcher {b and b.group(1)!r}"]
+    # The self-update swap's lock file: the launcher's script holds it, Setup waits on it (UPG-1).
+    a = re.search(r'SwapLockFileName\s*=\s*"([^"]+)"', (SETUP / "Engine/LauncherProcess.cs").read_text(encoding="utf-8"))
+    b = re.search(r'LockFileName\s*=\s*"([^"]+)"', (LAUNCHER / "Core/Updates/WindowsApplyScript.cs").read_text(encoding="utf-8"))
+    if not a or not b or a.group(1) != b.group(1):
+        return [f"update swap lock name: installer {a and a.group(1)!r} vs launcher {b and b.group(1)!r}"]
     return []
 
 

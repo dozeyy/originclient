@@ -99,6 +99,15 @@ public partial class App : Application
             return;
         }
 
+        // A self-update is copying into the install folder right now (Core/Updates/WindowsApplyScript): this start is
+        // the old exe (a double-click on "Restarting"). Running would lock files the copy must replace and delete the
+        // stage it reads from, so bow out; the script opens the new launcher itself when the copy is done.
+        if (Core.Updates.WindowsApplyScript.IsSwapRunning(OriginPaths.Updates))
+        {
+            Shutdown();
+            return;
+        }
+
         StartWithImport = Array.IndexOf(e.Args, "--import") >= 0;
 
 		var mutexName = @"Local\OriginLauncher.SingleInstance";

@@ -24,22 +24,77 @@ public static class WindowsApplyScript
     public const string AppVariable = "ORIGIN_UPDATE_APP";
     public const string ExeVariable = "ORIGIN_UPDATE_EXE";
 
+    /// <summary>
+    /// The script holds this file (in its own folder, the updates folder) open for writing from the moment it starts
+    /// until the copy is over. A launcher start (App.OnStartup) or Setup that finds it held knows a swap is copying
+    /// into the install folder: the launcher bows out (the script opens the new one when it's done), Setup waits.
+    /// Without it, a double-click on "Restarting" started the OLD exe, locked its files, and that start's stale-download
+    /// cleanup deleted the stage the copy was still reading from (UPG-1): a half-old, half-new install.
+    /// </summary>
+    public const string LockFileName = "apply-update.lock";
+
     // robocopy instead of xcopy: copies new + changed files including ones that appeared in this release, and its
     // success exit codes (0-7) don't abort the script. ping, not timeout: timeout refuses to run without an
-    // interactive console. The paths are only used outside the if block, so a ")" in one can't end the block.
-    // DisableDelayedExpansion: a registry default of DelayedExpansion=1 would strip a "!" from a user folder name.
+    // interactive console. No if-blocks: a path is only ever expanded on a line of its own, so a ")" in one can't end
+    // a block. DisableDelayedExpansion: a registry default of DelayedExpansion=1 would strip a "!" from a user folder.
+    //
+    // Every wait is bounded (UPG-1): robocopy's own defaults are a million retries 30 s apart in a hidden window, so
+    // one busy file (antivirus scanning it, a second launcher) meant Origin never came back.
+    //  - the old launcher gets ~60 s to quit; if it is still there, nothing is copied over it (it would only half work);
+    //  - /R:5 /W:1 retries a busy file for a few seconds, then robocopy moves on and reports failure (exit 8+);
+    //  - a failed pass gets one more whole pass after a short pause, which fills in whatever an antivirus scan held;
+    //  - the new (or, if nothing could be copied, the old) launcher is always started at the end. A copy that still
+    //    failed is caught by the next start (SwapAttempt: Play opens, the update retries quietly and swaps again).
+    // The lock (9> on the call) is released before "start", so the launcher it opens doesn't see a swap running.
     public const string Text =
         "@echo off\r\n" +
         "setlocal DisableDelayedExpansion\r\n" +
+        "call :swap 9>\"" + LockFileName + "\"\r\n" +
+        "start \"\" \"%" + ExeVariable + "%\"\r\n" +
+        "endlocal\r\n" +
+        "exit /b 0\r\n" +
+        ":swap\r\n" +
+        "set /a waited=0\r\n" +
         ":wait\r\n" +
         "tasklist /FI \"PID eq %" + PidVariable + "%\" 2>nul | find \"%" + PidVariable + "%\" >nul\r\n" +
-        "if not errorlevel 1 (\r\n" +
-        "  ping -n 2 127.0.0.1 >nul\r\n" +
-        "  goto wait\r\n" +
-        ")\r\n" +
-        "robocopy \"%" + StageVariable + "%\" \"%" + AppVariable + "%\" /E /IS /IT >nul\r\n" +
-        "start \"\" \"%" + ExeVariable + "%\"\r\n" +
-        "endlocal\r\n";
+        "if errorlevel 1 goto copy\r\n" +
+        "set /a waited+=1\r\n" +
+        "if %waited% geq " + QuitWaitSeconds + " exit /b 1\r\n" +
+        "ping -n 2 127.0.0.1 >nul\r\n" +
+        "goto wait\r\n" +
+        ":copy\r\n" +
+        Robocopy +
+        "if not errorlevel 8 exit /b 0\r\n" +
+        "ping -n 4 127.0.0.1 >nul\r\n" +
+        Robocopy +
+        "exit /b 0\r\n";
+
+    /// <summary>How many one-second checks the script makes for the old launcher to quit (text: it goes into the script).</summary>
+    public const string QuitWaitSeconds = "60";
+
+    private const string Robocopy =
+        "robocopy \"%" + StageVariable + "%\" \"%" + AppVariable + "%\" /E /IS /IT /R:5 /W:1 >nul\r\n";
+
+    /// <summary>
+    /// True while a swap script holds <see cref="LockFileName"/> in <paramref name="updatesRoot"/>, i.e. it is
+    /// copying the new release into the install folder right now. A read-only open that refuses other writers fails
+    /// exactly while someone has the file open for writing; a leftover lock file nobody holds reads as false.
+    /// Never throws.
+    /// </summary>
+    public static bool IsSwapRunning(string updatesRoot)
+    {
+        try
+        {
+            var path = Path.Combine(updatesRoot, LockFileName);
+            if (!File.Exists(path)) return false; // the usual start: no exception on the cold-start path
+            using var _ = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return false;
+        }
+        catch (FileNotFoundException) { return false; }
+        catch (DirectoryNotFoundException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+        catch (IOException) { return true; } // sharing violation: the script has it open
+    }
 
     /// <summary>
     /// Writes the script into <paramref name="updatesRoot"/> (ASCII only) and returns how to start it: cmd.exe on the

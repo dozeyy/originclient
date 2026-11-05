@@ -38,6 +38,9 @@
   <ItemGroup Condition="'$(TargetFramework)' != 'net472'">
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
+    <!-- The launcher's writer of origin-install.json (a Windows self-update adds its release's files): round-tripped
+         through this engine's reader here. net10.0 only: it is launcher code (System.Text.Json), not engine code. -->
+    <Compile Include="..\OriginLauncher.App\Core\Install\SetupInstallRecord.cs" Link="Shared\SetupInstallRecord.cs" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
   </ItemGroup>
 </Project>
