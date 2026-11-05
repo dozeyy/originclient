@@ -7,6 +7,7 @@
 Run: python tools/ci/test_ci_gates.py
 """
 import importlib.util
+import json
 import os
 import re
 import tempfile
@@ -1117,6 +1118,128 @@ class CoversBoot(unittest.TestCase):
         self.assertIn("players:", wf)
         self.assertIn('${PLAYER:+--player "$PLAYER"}', wf)
         self.assertIn('if [ -n "$PAIR$PLAYER" ]; then args+=(--expect-perf', wf)
+
+
+@unittest.skipUnless(_have("javac"), "needs javac")
+class MixinTargetGate(unittest.TestCase):
+    """LV-4: the 26.x dead-hook gate reads a real class file jar and CAN fail."""
+
+    MC = {
+        "net/minecraft/client/Minecraft.java":
+            "package net.minecraft.client; public class Minecraft { public void tick() {} }",
+        "net/minecraft/client/gui/Base.java":
+            "package net.minecraft.client.gui; public class Base { protected long big = 1L; double d = 2.0;"
+            " public void draw(int x) {} }",
+        "net/minecraft/client/gui/Screen.java":
+            "package net.minecraft.client.gui; public class Screen extends Base {"
+            " private int width; public static final String TITLE = \"t\";"
+            " protected void render(float t) { draw(1); } public static class Inner { void go() {} } }",
+    }
+
+    def _setup(self, mixin_src):
+        tmp = tempfile.mkdtemp()
+        srcdir, out = os.path.join(tmp, "mc"), os.path.join(tmp, "classes")
+        files = []
+        for rel, text in self.MC.items():
+            p = os.path.join(srcdir, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w") as f:
+                f.write(text)
+            files.append(p)
+        import subprocess
+        import zipfile
+        subprocess.run(["javac", "-d", out] + files, check=True, capture_output=True)
+        jar = os.path.join(tmp, "minecraft-common-abc-26.9.jar")
+        with zipfile.ZipFile(jar, "w") as z:
+            for d, _, fs in os.walk(out):
+                for fn in fs:
+                    z.write(os.path.join(d, fn), os.path.relpath(os.path.join(d, fn), out).replace(os.sep, "/"))
+        mod = os.path.join(tmp, "module")
+        os.makedirs(os.path.join(mod, "src", "client", "resources"))
+        with open(os.path.join(mod, "gradle.properties"), "w") as f:
+            f.write("minecraft_version=26.9\n")
+        with open(os.path.join(mod, "src", "client", "resources", "x.mixins.json"), "w") as f:
+            json.dump({"package": "com.o.mixin", "client": ["ScreenMixin"]}, f)
+        jd = os.path.join(mod, "src", "client", "java", "com", "o", "mixin")
+        os.makedirs(jd)
+        with open(os.path.join(jd, "ScreenMixin.java"), "w") as f:
+            f.write(mixin_src)
+        return mod, jar
+
+    GOOD = """package com.o.mixin;
+import net.minecraft.client.gui.Screen;
+// @Inject(method = "commentedOutIsIgnored")
+@Mixin(Screen.class)
+public class ScreenMixin {
+    @Inject(method = "render(F)V", at = @At("HEAD"))
+    void a() {}
+    @Redirect(method = {"render", "<init>"}, at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/gui/Screen;draw(I)V"))
+    void b() {}
+    @Inject(method = "rend*", at = @At(value = "FIELD", target = "Lnet/minecraft/client/gui/Screen;big:J"))
+    void c() {}
+    @Accessor("width") int w();
+    @Accessor static String getTITLE() { return null; }
+    @Invoker void callRender(float t);
+}
+"""
+
+    def _run(self, src):
+        mod, jar = self._setup(src)
+        gate = _load("check_mixin_targets", os.path.join(HERE, "check_mixin_targets.py"))
+        import contextlib
+        import io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = gate.main([mod, "--jar", jar])
+        return rc, buf.getvalue()
+
+    def test_live_targets_pass(self):
+        rc, out = self._run(self.GOOD)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("No dead mixin targets.", out)
+
+    def test_dead_method_fails(self):
+        rc, out = self._run(self.GOOD.replace('method = "render(F)V"', 'method = "renderOld(F)V"'))
+        self.assertEqual(rc, 1)
+        self.assertIn('method "renderOld"', out)
+
+    def test_dead_call_target_fails(self):
+        rc, out = self._run(self.GOOD.replace("Screen;draw(I)V", "Screen;paint(I)V"))
+        self.assertEqual(rc, 1)
+        self.assertIn("Screen.paint", out)
+
+    def test_dead_class_and_accessor_fail(self):
+        rc, out = self._run(self.GOOD.replace('@Accessor("width")', '@Accessor("height")'))
+        self.assertIn('@Accessor "height"', out)
+        rc, out = self._run(self.GOOD.replace("@Mixin(Screen.class)", "@Mixin(Screen.Gone.class)"))
+        self.assertEqual(rc, 1)
+        self.assertIn("Screen$Gone does not exist", out)
+
+    def test_nested_class_target(self):
+        src = ("package com.o.mixin;\nimport net.minecraft.client.gui.Screen;\n"
+               "@Mixin(Screen.Inner.class)\nclass ScreenMixin { @Inject(method = \"go\") void a() {} }\n")
+        rc, out = self._run(src)
+        self.assertEqual(rc, 0, out)
+
+    def test_no_jar_fails_loudly(self):
+        mod, _ = self._setup(self.GOOD)
+        gate = _load("check_mixin_targets", os.path.join(HERE, "check_mixin_targets.py"))
+        gate.find_jars = lambda module_dir, version: []
+        import contextlib
+        import io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = gate.main([mod])
+        self.assertEqual(rc, 1)
+        self.assertIn("UNCHECKED", buf.getvalue())
+
+    def test_workflow_runs_it_for_unobfuscated_modules(self):
+        wf = _read(os.path.join(ROOT, ".github", "workflows", "build-mods.yml"))
+        self.assertIn("tools/ci/check_mixin_targets.py", wf)
+        for m in ("26.1", "26.2", "26.3"):
+            g = _read(os.path.join(ROOT, "src", "mods", "versions", m, "build.gradle"))
+            self.assertIsNone(re.search(r"^\s*mappings\b", g, re.M), m + " is expected to be unobfuscated")
 
 
 if __name__ == "__main__":
