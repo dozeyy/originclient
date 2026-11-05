@@ -496,6 +496,37 @@ public class GameFoldersTests : IDisposable
     }
 
     [Fact]
+    public void PacksTooBigOrWithoutRoomOnTheDiskAreLeftOutWithANotice()
+    {
+        var root = OldLayout("1.21.1");
+        InstanceMigration.MigrateVersion(root, Steve);
+        var src = Path.Combine(root, "accounts", Steve);
+        Write($"1.21.1/accounts/{Steve}/shaderpacks/Complementary.zip", new string('x', 1000));
+
+        string? notice = null, stage = null;
+        var big = Path.Combine(root, "accounts", Alex);
+        Assert.True(AccountSeed.Seed(big, src, stage: s => stage = s, notice: n => notice = n, maxPackBytes: 999));
+        Assert.Contains("more than 4 GB", notice);
+        Assert.Null(stage);
+        Assert.False(Exists($"1.21.1/accounts/{Alex}/shaderpacks"));
+        Assert.Equal("servers", Read($"1.21.1/accounts/{Alex}/servers.dat")); // the settings still came over
+
+        notice = null;
+        var full = Path.Combine(root, "accounts", "third");
+        Assert.True(AccountSeed.Seed(full, src, notice: n => notice = n, freeBytes: _ => AccountSeed.FreeSpaceMargin + 500));
+        Assert.Contains("not enough free disk space", notice);
+        Assert.False(Exists("1.21.1/accounts/third/shaderpacks"));
+
+        notice = null;
+        var fits = Path.Combine(root, "accounts", "fourth");
+        Assert.True(AccountSeed.Seed(fits, src, stage: s => stage = s, notice: n => notice = n,
+            freeBytes: _ => AccountSeed.FreeSpaceMargin + 2000));
+        Assert.Null(notice);
+        Assert.Equal(AccountSeed.CopyingPacksStage, stage);
+        Assert.Equal(1000, new FileInfo(Path.Combine(fits, "shaderpacks", "Complementary.zip")).Length);
+    }
+
+    [Fact]
     public void SeedingNeverTouchesAnExistingFolder()
     {
         var target = Path.Combine(_root, "1.21.1", "accounts", Alex);
