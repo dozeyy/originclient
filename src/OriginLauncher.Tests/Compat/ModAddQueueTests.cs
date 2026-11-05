@@ -62,4 +62,18 @@ public class ModAddQueueTests
         Assert.False(queue.HasWaiting);
         Assert.False(queue.Busy);
     }
+
+    // Bug run 11 PROF-8: looking at Home and coming back used to wipe unanswered "Replace?" rows, so those jars were
+    // never added and nothing said so. They stay on the same version and profile, and go on any real change.
+    [Fact]
+    public void Unanswered_replace_rows_survive_a_tab_switch_but_not_a_version_or_profile_change()
+    {
+        Assert.True(ModAddQueue.KeepsAnswers("1.21.1", null, "1.21.1", null, wasDemo: false));
+        Assert.True(ModAddQueue.KeepsAnswers("1.21.1", "p1", "1.21.1", "p1", wasDemo: false));
+        Assert.False(ModAddQueue.KeepsAnswers("1.21.1", null, "1.20.1", null, wasDemo: false));
+        Assert.False(ModAddQueue.KeepsAnswers("1.21.1", null, "1.21.1", "p1", wasDemo: false));
+        Assert.False(ModAddQueue.KeepsAnswers("1.21.1", "p1", "1.21.1", "p2", wasDemo: false));
+        Assert.False(ModAddQueue.KeepsAnswers("1.21.1", null, "1.21.1", null, wasDemo: true));
+        Assert.False(ModAddQueue.KeepsAnswers(null, null, null, null, wasDemo: false));
+    }
 }
