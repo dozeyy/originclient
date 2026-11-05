@@ -6,7 +6,7 @@
 //   node tools/website/smoke.mjs [--shots <dir>] [--chrome <path>] [--site <dir>]
 //
 // Fails on: any console error or page error (CSP refusals included), sideways scrolling, and
-// the behaviours the bug sweep fixed (island stops drawing when covered / with reduced motion,
+// the behaviours the bug sweep fixed (island stops drawing when covered, keeps moving even with reduced motion,
 // download section per system, Checkout reachable on a laptop with a hat worn).
 // Requests to other hosts are answered with 503 here, so the result never depends on the network
 // (and the Store's "service down" path is what gets exercised).
@@ -98,7 +98,7 @@ for (const p of PAGES) {
   }
 }
 
-// ---- the island rests while covered, and with reduced motion
+// ---- the island rests while covered; with reduced motion it still moves (Will, 2026-11-05)
 {
   const where = 'island';
   const { ctx, page } = await open('/', { width: 1366, height: 768, where });
@@ -125,7 +125,8 @@ for (const p of PAGES) {
     await rm.page.waitForTimeout(1000);
     const still = await rafIn(rm.page, 1500);
     console.log(`island frames with reduced motion: ${still}/1.5s`);
-    if (still > 2) fail('island reduced motion', `keeps drawing with reduced motion (${still} frames in 1.5s)`);
+    // DECISIONS 2026-11-05: the island glides, floats and sways whatever the OS reduced-motion setting says.
+    if (still < 5) fail('island reduced motion', `should keep moving with reduced motion (${still} frames in 1.5s)`);
   }
   await rm.ctx.close();
 }
