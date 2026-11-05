@@ -247,7 +247,7 @@ public sealed class OptionsTxtFormat : ISyncFormat
 
     public Dictionary<string, string>? Read(string path)
     {
-        var file = ReadLines(path);
+        var file = ReadLines(path, encoding: null);
         return file == null ? null : ToMap(file.Value.Lines);
     }
 
@@ -277,7 +277,7 @@ public sealed class OptionsTxtFormat : ISyncFormat
         var newline = Environment.NewLine;
         if (File.Exists(path))
         {
-            var read = ReadLines(path);
+            var read = ReadLines(path, EncodingFor(target.Version));
             if (read == null) return null; // corrupt: leave it alone
             (lines, newline) = read.Value;
         }
@@ -319,7 +319,7 @@ public sealed class OptionsTxtFormat : ISyncFormat
             lines.Insert(0, $"version:{dataVersion}");
         }
 
-        AtomicFile.WriteAllText(path, string.Join(newline, lines) + newline);
+        AtomicFile.WriteAllBytes(path, EncodingFor(target.Version).GetBytes(string.Join(newline, lines) + newline));
         return ToMap(lines);
     }
 
@@ -425,13 +425,33 @@ public sealed class OptionsTxtFormat : ISyncFormat
 
     // ---- file shape ----
 
+    private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
+    private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+    // 1.8.9 (pre-1.13) reads and writes options.txt in the JVM's default charset (Cp1252 on Windows: FileReader /
+    // FileWriter), not UTF-8. Rewriting it as UTF-8 turned a "§" or "â" in its resourcePacks / lastServer lines into
+    // U+FFFD, and 1.8.9 then dropped that pack (LOC-3). Latin-1 maps every byte to one char and back, so the lines
+    // Settings Sync doesn't touch keep their exact bytes; GamePresetWriter writes 1.8.9's files the same way.
+    internal static Encoding EncodingFor(string version) =>
+        McVersion.AtLeast(version, GlfwKeyNamesSince) ? Utf8 : Encoding.Latin1;
+
     // The file's lines plus the newline it uses (Minecraft writes the OS one;
-    // a rewrite keeps whatever the file already has).
-    private static (List<string> Lines, string Newline)? ReadLines(string path)
+    // a rewrite keeps whatever the file already has). No encoding (a read with no version at hand): UTF-8 when the
+    // bytes are valid UTF-8, else Latin-1 (a 1.8.9 file with a non-ASCII byte), never U+FFFD.
+    private static (List<string> Lines, string Newline)? ReadLines(string path, Encoding? encoding)
     {
         try
         {
-            var text = File.ReadAllText(path, Encoding.UTF8);
+            var bytes = File.ReadAllBytes(path);
+            string text;
+            if (encoding != null) text = encoding.GetString(bytes);
+            else
+            {
+                try { text = StrictUtf8.GetString(bytes); }
+                catch (DecoderFallbackException) { text = Encoding.Latin1.GetString(bytes); }
+            }
+            // A UTF-8 BOM some editors add: never part of the first key.
+            if (text.Length > 0 && text[0] == '\uFEFF') text = text[1..];
             // A crash mid-write can leave a file full of NUL bytes.
             if (text.Contains('\0')) return null;
             var newline = text.Contains("\r\n") ? "\r\n" : text.Contains('\n') ? "\n" : Environment.NewLine;
