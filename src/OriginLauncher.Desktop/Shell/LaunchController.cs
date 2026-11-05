@@ -282,6 +282,11 @@ public sealed class LaunchController
             // A first Play on this account copies the player's packs: the launch screen says so while it runs.
             var seedStage = new Progress<string>(Stage);
             var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key, seedStage, ticket.Token), ticket.Token);
+            // An older configuration's Sodium/Iris files left behind by a game that ended with no launcher listening go back
+            // to the shipped set's before anything reads or edits them (MULTI-3): provisioning seeds iris.properties and
+            // repairs NUL configs next, and those edits belong to the shipped set, not to the old configuration's saved
+            // copy. This launch's own configuration goes in later (ActiveConfiguration.Begin).
+            await Task.Run(() => ConfigOverlay.RestoreLeftover(gameDir, OriginPaths.ConfigOverlays(version, key)));
             var seedNotice = AccountFolders.TakeSeedNotice(gameDir);
             var (heap, legacy) = await LaunchHeap.PlanAsync(freshSettings, version, gameDir, ticket.Token);
             if (heap.Warning != null) Stage(heap.Warning);
@@ -312,9 +317,6 @@ public sealed class LaunchController
             GpuPreference.PreferHighPerformanceGpu(process.StartInfo.FileName);
             GpuPreference.ApplyOffload(process.StartInfo); // a hybrid laptop's discrete GPU (GpuPreference.Linux.cs)
             ShaderCache.Apply(process.StartInfo, freshSettings.ShaderCacheNvidia, freshSettings.ShaderCacheAmd);
-            // An older configuration's Sodium/Iris files left behind by a game that ended with no launcher listening go back
-            // to the shipped set's before anything reads them (MULTI-3); this launch's own configuration goes in later.
-            await Task.Run(() => ConfigOverlay.RestoreLeftover(gameDir, OriginPaths.ConfigOverlays(version, key)));
             if (freshSettings.SyncSettingsAcrossVersions)
             {
                 Stage("Syncing settings");

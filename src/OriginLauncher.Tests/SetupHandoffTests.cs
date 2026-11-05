@@ -145,7 +145,7 @@ public class SetupHandoffTests
     {
         var path = TempFile(Handoff.Compose(8192, "1.21.1", true));
         SetupChoicesData? seen = null;
-        SetupChoicesFile.Consume(path, c => seen = c);
+        SetupChoicesFile.Consume(path, SettingsNextTo(path), c => seen = c);
         Assert.NotNull(seen);
         Assert.Equal(8192, seen!.RamMb);
         Assert.True(seen.SyncSettingsAcrossVersions);
@@ -157,7 +157,7 @@ public class SetupHandoffTests
     {
         var path = TempFile(null);
         var called = false;
-        SetupChoicesFile.Consume(path, _ => called = true);
+        SetupChoicesFile.Consume(path, SettingsNextTo(path), _ => called = true);
         Assert.False(called);
     }
 
@@ -173,26 +173,64 @@ public class SetupHandoffTests
     {
         var path = TempFile(content);
         var called = false;
-        SetupChoicesFile.Consume(path, _ => called = true);
+        SetupChoicesFile.Consume(path, SettingsNextTo(path), _ => called = true);
         Assert.False(called);
         Assert.False(File.Exists(path));
     }
 
+    private static string SettingsNextTo(string path) => Path.Combine(Path.GetDirectoryName(path)!, "settings.json");
+
     // UPG-6: settings.json busy at that moment (antivirus scanning fresh files) must not lose the Setup choices: the
-    // file stays and the next start applies it.
+    // file is set aside and the next start applies it, once.
     [Fact]
-    public void AFileWhoseApplyFailsWithAnIoErrorIsKeptForTheNextStart()
+    public void AFileWhoseApplyFailsWithAnIoErrorIsAppliedAtTheNextStart()
     {
         var path = TempFile(Handoff.Compose(4096, null, null));
-        SetupChoicesFile.Consume(path, _ => throw new IOException("settings.json is locked"));
-        Assert.True(File.Exists(path));
-        SetupChoicesFile.Consume(path, _ => throw new UnauthorizedAccessException("busy"));
-        Assert.True(File.Exists(path));
+        var retry = path + SetupChoicesFile.RetrySuffix;
+        SetupChoicesFile.Consume(path, SettingsNextTo(path), _ => throw new IOException("settings.json is locked"));
+        Assert.False(File.Exists(path));
+        Assert.True(File.Exists(retry));
+        SetupChoicesFile.Consume(path, SettingsNextTo(path), _ => throw new UnauthorizedAccessException("busy"));
+        Assert.True(File.Exists(retry));
 
         SetupChoicesData? seen = null;
-        SetupChoicesFile.Consume(path, c => seen = c);
+        SetupChoicesFile.Consume(path, SettingsNextTo(path), c => seen = c);
         Assert.Equal(4096, seen!.RamMb);
-        Assert.False(File.Exists(path));
+        Assert.False(File.Exists(retry));
+
+        var again = false;
+        SetupChoicesFile.Consume(path, SettingsNextTo(path), _ => again = true);
+        Assert.False(again); // applied once, never again
+    }
+
+    // A set-aside hand-off never overwrites settings the player changed after it (settings.json written since).
+    [Fact]
+    public void ASetAsideFileYieldsToSettingsChangedSince()
+    {
+        var path = TempFile(Handoff.Compose(4096, "1.20.1", null));
+        var retry = path + SetupChoicesFile.RetrySuffix;
+        SetupChoicesFile.Consume(path, SettingsNextTo(path), _ => throw new IOException("settings.json is locked"));
+        Assert.True(File.Exists(retry));
+        File.SetLastWriteTimeUtc(retry, DateTime.UtcNow.AddMinutes(-5));
+        File.WriteAllText(SettingsNextTo(path), "{}"); // the player changed a setting later in that session
+
+        var called = false;
+        SetupChoicesFile.Consume(path, SettingsNextTo(path), _ => called = true);
+        Assert.False(called);
+        Assert.False(File.Exists(retry));
+    }
+
+    // A newer hand-off from Setup replaces one still waiting.
+    [Fact]
+    public void AFreshHandOffReplacesAWaitingOne()
+    {
+        var path = TempFile(Handoff.Compose(4096, null, null));
+        SetupChoicesFile.Consume(path, SettingsNextTo(path), _ => throw new IOException("busy"));
+        File.WriteAllText(path, Handoff.Compose(8192, null, null));
+        SetupChoicesData? seen = null;
+        SetupChoicesFile.Consume(path, SettingsNextTo(path), c => seen = c);
+        Assert.Equal(8192, seen!.RamMb);
+        Assert.False(File.Exists(path + SetupChoicesFile.RetrySuffix));
     }
 
     [Fact]
@@ -200,7 +238,7 @@ public class SetupHandoffTests
     {
         // Not swallowed (a real bug should surface) but the file must not linger and re-apply every start.
         var path = TempFile(Handoff.Compose(4096, null, null));
-        Assert.Throws<InvalidOperationException>(() => SetupChoicesFile.Consume(path, _ => throw new InvalidOperationException()));
+        Assert.Throws<InvalidOperationException>(() => SetupChoicesFile.Consume(path, SettingsNextTo(path), _ => throw new InvalidOperationException()));
         Assert.False(File.Exists(path));
     }
 }
