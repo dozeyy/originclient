@@ -4,7 +4,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using OriginLauncher.App.Core;
@@ -23,7 +22,7 @@ namespace OriginLauncher.Mac.UI.Pages;
 /// <summary>
 /// Settings (twin of the WPF UI/Pages/SettingsPage.xaml.cs): the same rules, the same Core calls, the same strings.
 /// Every write goes through SettingsStore.Update; every control writes only its own setting. Mac differences: the
-/// startup switch is the LaunchAgent (InstallRegistry.Mac), Browse is Finder's folder picker, no Shader cache card
+/// startup switch is the LaunchAgent (InstallRegistry.Mac), no Shader cache card
 /// (see the XAML), and the page is detached (not hidden) when another tab shows, so leaving is DetachedFromVisualTree.
 /// </summary>
 public sealed partial class SettingsPage : UserControl
@@ -54,7 +53,8 @@ public sealed partial class SettingsPage : UserControl
 
         _ramSaveTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(250) };
         _ramSaveTimer.Tick += (_, _) => PersistPendingRam();
-        DetachedFromVisualTree += (_, _) => PersistPendingRam();
+        // Leaving the page (Cmd+1-4 or a tab) moves no focus out of a text box: save what it still holds (WP-5).
+        DetachedFromVisualTree += (_, _) => FlushEdits();
         // The crash window may have reset (or Undo restored) a version's arguments while Settings was away.
         AttachedToVisualTree += (_, _) => ReloadJvmFromStore();
 
@@ -64,7 +64,6 @@ public sealed partial class SettingsPage : UserControl
         RamSlider.Minimum = RamAdvice.SliderMinimumMb;
         RamSlider.Maximum = RamAdvice.MaximumMb(_totalRamMb);
         ShowRam(RamPolicy.IsManual(_settings));
-        InstallPathTextBox.Text = _settings.InstallPath;
         ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
         ResolutionHeightTextBox.Text = _settings.ResolutionHeight.ToString();
 
@@ -83,9 +82,6 @@ public sealed partial class SettingsPage : UserControl
         StartAtLoginToggle.IsCheckedChanged += (_, _) => StartAtLoginToggle_Changed();
         RamSlider.ValueChanged += (_, e) => RamSlider_ValueChanged(e.NewValue);
         RamAutoButton.Click += (_, _) => RamAutoButton_Click();
-        InstallPathTextBox.LostFocus += (_, _) => InstallPathTextBox_LostFocus();
-        InstallPathTextBox.TextChanged += (_, _) => InstallPathTextBox_TextChanged();
-        BrowseButton.Click += async (_, _) => await BrowseAsync();
         SettingsSyncToggle.IsCheckedChanged += (_, _) => SettingsSyncToggle_Changed();
         PresetButton.Click += async (_, _) => await ApplyPresetAsync();
         OfflineTestToggle.IsCheckedChanged += (_, _) =>
@@ -217,44 +213,11 @@ public sealed partial class SettingsPage : UserControl
 
     private static string FormatRam(int ramMb) => $"{ramMb / 1024d:0.##} GB";
 
-    // ---- Install folder and resolution ----
-    // A rejected path is NOT saved and is not silently put back: the box keeps what was typed, shows a Danger edge and
-    // says what is wrong right under it (FieldRules); fixing the text clears it as you type.
-    private void InstallPathTextBox_LostFocus()
-    {
-        if (_isLoading) return;
-        var path = (InstallPathTextBox.Text ?? "").Trim();
-        if (ShowFieldProblem(InstallPathErrorText, FieldRules.InstallFolderProblem(path), InstallPathTextBox)) return;
-        _settings.InstallPath = path;
-        SettingsStore.TryUpdate(s => s.InstallPath = path);
-    }
-
-    private void InstallPathTextBox_TextChanged()
-    {
-        if (_isLoading || !InstallPathTextBox.Classes.Contains("invalid")) return;
-        ShowFieldProblem(InstallPathErrorText, FieldRules.InstallFolderProblem(InstallPathTextBox.Text ?? ""), InstallPathTextBox);
-    }
-
-    private async Task BrowseAsync()
-    {
-        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { CanPickFolder: true } storage) return;
-        IStorageFolder? start = null;
-        try
-        {
-            if (Directory.Exists(InstallPathTextBox.Text)) start = await storage.TryGetFolderFromPathAsync(InstallPathTextBox.Text!);
-        }
-        catch { /* no start folder: Finder opens where it likes */ }
-        var picked = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            AllowMultiple = false,
-            SuggestedStartLocation = start,
-        });
-        if (picked.Count == 0 || picked[0].TryGetLocalPath() is not { } folder) return;
-        InstallPathTextBox.Text = folder;
-        ShowFieldProblem(InstallPathErrorText, null, InstallPathTextBox);
-        _settings.InstallPath = folder;
-        SettingsStore.TryUpdate(s => s.InstallPath = folder);
-    }
+    // ---- Resolution ----
+    // A rejected value is NOT saved and is not silently put back: the boxes keep what was typed, show a Danger edge
+    // and say what is wrong right under them (FieldRules); fixing the text clears it as you type.
+    // (The old "Install folder" card is gone: nothing ever read that folder, game files always live in Origin's own
+    // data folder. Windows removed it in f4d3d3bf.)
 
     /// <summary>Shows or clears a field's problem: the Danger edge on the boxes and the sentence under them. True when there is one.</summary>
     private static bool ShowFieldProblem(TextBlock message, string? problem, params TextBox[] boxes)
@@ -265,11 +228,9 @@ public sealed partial class SettingsPage : UserControl
         return problem != null;
     }
 
-    /// <summary>Render mode: the two error states the shots show (a path that is not a folder, a width that is too small).</summary>
+    /// <summary>Render mode: the error state the shots show (a width that is too small).</summary>
     internal void TourShowFieldErrors()
     {
-        InstallPathTextBox.Text = "games";
-        ShowFieldProblem(InstallPathErrorText, FieldRules.InstallFolderProblem(InstallPathTextBox.Text), InstallPathTextBox);
         ResolutionWidthTextBox.Text = "100";
         ShowFieldProblem(ResolutionErrorText, FieldRules.ResolutionProblem("100", FieldRules.MinWidth, "Width"), ResolutionWidthTextBox);
     }
@@ -277,16 +238,35 @@ public sealed partial class SettingsPage : UserControl
     /// <summary>Render mode: put the fields back the way the settings have them.</summary>
     internal void TourClearFieldErrors()
     {
-        InstallPathTextBox.Text = _settings.InstallPath;
         ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
-        ShowFieldProblem(InstallPathErrorText, null, InstallPathTextBox);
         ShowFieldProblem(ResolutionErrorText, null, ResolutionWidthTextBox, ResolutionHeightTextBox);
+    }
+
+    /// <summary>
+    /// Saves what is typed but not yet saved (twin of the WPF SettingsPage.FlushEdits): the Java arguments and
+    /// resolution boxes save on LostFocus, which never fires when the player leaves the page with Cmd+1-4 or closes the
+    /// window with Cmd+W / Cmd+Q. Runs when the page is detached and from MainWindow's Closing, so the next Play uses
+    /// what the boxes show. Every write is TryUpdate: a busy settings.json never stops the window closing.
+    /// </summary>
+    internal void FlushEdits()
+    {
+        PersistPendingRam();
+        if (!_jvmLoading && _jvmDirty)
+        {
+            SaveJvmOptions();
+            UpdateJvmCustomizedList();
+            UpdateJvmUndo();
+        }
+        var width = (ResolutionWidthTextBox.Text ?? "").Trim();
+        var height = (ResolutionHeightTextBox.Text ?? "").Trim();
+        if (width != _settings.ResolutionWidth.ToString() || height != _settings.ResolutionHeight.ToString())
+            ResolutionTextBox_LostFocus();
     }
 
     private void ResolutionTextBox_LostFocus()
     {
         if (_isLoading) return;
-        // Same rule as the folder: say what is wrong under the row instead of quietly putting the old number back.
+        // Say what is wrong under the row instead of quietly putting the old number back.
         var widthProblem = FieldRules.ResolutionProblem(ResolutionWidthTextBox.Text ?? "", FieldRules.MinWidth, "Width");
         var heightProblem = FieldRules.ResolutionProblem(ResolutionHeightTextBox.Text ?? "", FieldRules.MinHeight, "Height");
         ResolutionWidthTextBox.Classes.Set("invalid", widthProblem != null);

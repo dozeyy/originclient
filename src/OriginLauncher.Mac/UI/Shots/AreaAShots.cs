@@ -48,7 +48,7 @@ internal static class AreaAShots
             window.TourNavigate(0);
             home.TourShowRunning("Steve");
             RenderShots.Snap(window, "07-play-running");
-            home.TourShowRunning("Steve", ["Shaders are off for this profile: Origin has not tested an Iris with your Sodium 0.6.9. Add a matching Iris to the profile to turn them back on."]);
+            home.TourShowRunning("Steve", ["Shaders are off for this profile: no tested Iris for your Sodium 0.6.9. Add a matching Iris to turn them back on."]);
             RenderShots.Snap(window, "07b-play-running-notice");
             home.TourShowReady();
         });
@@ -451,12 +451,12 @@ internal static class AreaAShots
     private static void Inputs(MainWindow window, SettingsPage page)
     {
         page.TourClickRail("SecGame");
-        page.InstallPathTextBox.Focus(NavigationMethod.Tab);
+        page.ResolutionWidthTextBox.Focus(NavigationMethod.Tab);
         RenderShots.Snap(window, "14n-input-focus");
         window.Focus();
-        page.ResolutionWidthTextBox.IsEnabled = false;
+        page.ResolutionHeightTextBox.IsEnabled = false;
         RenderShots.Snap(window, "14o-input-disabled");
-        page.ResolutionWidthTextBox.IsEnabled = true;
+        page.ResolutionHeightTextBox.IsEnabled = true;
         page.TourShowFieldErrors();
         RenderShots.Snap(window, "14p-input-error");
         page.TourClearFieldErrors();
