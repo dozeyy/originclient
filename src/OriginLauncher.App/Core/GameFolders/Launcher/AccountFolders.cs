@@ -133,14 +133,16 @@ public static class AccountFolders
             // exists-check and rename take Gate (commitLock). Held for the whole copy, Gate made Cancel do nothing
             // and froze the launcher on an account switch (EnsureMigrated on the UI thread), and every other
             // account's Play waited behind it (N92-1).
+            SeedNotices.Entry? mine = null;
             try
             {
                 AccountSeed.Seed(dir, source, Log, stage: stage is null ? null : new Action<string>(stage.Report),
-                    notice: text => SeedNotices[dir] = text, cancel: cancel, commitLock: Gate);
+                    notice: text => mine = Notices.Set(dir, text), cancel: cancel, commitLock: Gate);
             }
             catch (OperationCanceledException)
             {
-                SeedNotices.TryRemove(dir, out _); // that first Play never ran
+                // That first Play never ran: forget its own sentence only, never a newer launch's for this folder.
+                Notices.Forget(dir, mine);
                 throw;
             }
             lock (Gate) Directory.CreateDirectory(dir);
@@ -155,10 +157,10 @@ public static class AccountFolders
     }
 
     // A first Play whose packs were left out (AccountSeed): the sentence Home adds to that launch's running line.
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> SeedNotices = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly SeedNotices Notices = new();
 
     /// <summary>The "packs weren't copied" sentence for this game folder's first Play, once; null otherwise.</summary>
-    public static string? TakeSeedNotice(string gameDir) => SeedNotices.TryRemove(gameDir, out var text) ? text : null;
+    public static string? TakeSeedNotice(string gameDir) => Notices.Take(gameDir);
 
     // ---- the shared mods folder (one per version, SharedMods) ------------------
 

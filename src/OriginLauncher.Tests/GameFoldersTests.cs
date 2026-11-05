@@ -783,4 +783,24 @@ public class GameFoldersTests : IDisposable
     [InlineData(true, true, false)]
     public void SignedOutPlayOpensSignIn(bool hasAccount, bool offlineTest, bool opens) =>
         Assert.Equal(opens, AccountLaunchBook.SignedOutPlayOpensSignIn(hasAccount, offlineTest));
+
+    [Fact]
+    public void ACancelledLaunchForgetsOnlyItsOwnPacksNotice()
+    {
+        // A cancelled first Play must not delete the newer launch's "packs weren't copied" sentence for the same
+        // folder, even when the two sentences are the same words.
+        var notices = new SeedNotices();
+        var dir = Path.Combine(_root, "1.21.1", "accounts", Alex);
+        const string text = "Your resource and shader packs weren't copied to this account (more than 4 GB).";
+        var older = notices.Set(dir, text);
+        notices.Set(dir, text); // the newer launch
+        notices.Forget(dir, older);
+        Assert.Equal(text, notices.Take(dir));
+        Assert.Null(notices.Take(dir)); // once
+
+        var own = notices.Set(dir, text);
+        notices.Forget(dir, own);
+        Assert.Null(notices.Take(dir));
+        notices.Forget(dir, null); // a launch that set nothing
+    }
 }
