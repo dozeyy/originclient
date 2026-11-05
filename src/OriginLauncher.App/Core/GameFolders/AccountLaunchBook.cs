@@ -17,8 +17,12 @@ public enum LaunchTone
     Error,
 }
 
-/// <summary>A status-pill line remembered per account, so switching accounts shows each one's own state.</summary>
-public sealed record LaunchNote(string Text, LaunchTone Tone);
+/// <summary>
+/// A status-pill line remembered per account, so switching accounts shows each one's own state. <see cref="Version"/>
+/// is the version it was written about: an idle account shows it again only while that version is selected
+/// (<see cref="AccountLaunchBook.IdleNoteOf"/>).
+/// </summary>
+public sealed record LaunchNote(string Text, LaunchTone Tone, string? Version = null);
 
 /// <summary>What the Play button does when clicked.</summary>
 public enum PlayAction
@@ -212,6 +216,21 @@ public sealed class AccountLaunchBook
     public LaunchNote? NoteOf(string key)
     {
         lock (_gate) return _entries.TryGetValue(key, out var e) ? e.Note : null;
+    }
+
+    /// <summary>
+    /// The last line of an account with no game (a refusal, a failed launch, "Minecraft closed"), while the version it
+    /// was written about is still the one selected; null otherwise. Home shows it again after another tab or account
+    /// (MULTI-2): before, an idle account's line was only remembered, so "Launch anyway" (LaunchOverride, which compares
+    /// the line on screen with the refusal) refused again after a trip to the Mods tab. A new launch clears it
+    /// (BeginPrepare).
+    /// </summary>
+    public LaunchNote? IdleNoteOf(string key, string? version)
+    {
+        if (version == null) return null;
+        lock (_gate)
+            return _entries.TryGetValue(key, out var e) && e.Phase == GamePhase.Idle
+                   && e.Note is { Version: { } v } note && v == version ? note : null;
     }
 
     private Entry EntryFor(string key)

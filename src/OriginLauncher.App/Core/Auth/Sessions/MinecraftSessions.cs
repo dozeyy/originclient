@@ -118,6 +118,17 @@ public sealed class MinecraftSessions
     public const string OfflinePlayLine = "Playing offline: multiplayer needs a connection";
 
     /// <summary>
+    /// Home's line once the game is up: <paramref name="running"/> ("Running - Steve"), the offline line instead when it
+    /// plays on a saved session, and the crash window's "started without your mods" line when that one try runs. Offline
+    /// AND without mods says both (N94-3): the mods line used to replace the offline one, so a server's "Invalid session"
+    /// came with no hint why. Shared by the three launchers so the words can't drift.
+    /// </summary>
+    public static string PlayingLine(string running, bool offline, string? withoutModsLine) =>
+        withoutModsLine == null ? (offline ? OfflinePlayLine : running)
+        : offline ? $"{OfflinePlayLine}. {withoutModsLine}"
+        : withoutModsLine;
+
+    /// <summary>
     /// The sign-in failed because Microsoft couldn't be reached, not because it refused: no connection, a timeout
     /// (OfflineLaunch.IsNoConnection), or a 5xx ("_unavailable"). A refused refresh token (sign in again), a 429 (wait)
     /// or a crossed account are real answers and keep their own handling.

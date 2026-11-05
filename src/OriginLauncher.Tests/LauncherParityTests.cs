@@ -182,7 +182,10 @@ public sealed class LauncherParityTests
                  })
         {
             Assert.Contains("playingOffline = signedIn.Offline;", home);
-            Assert.Contains("if (playingOffline) runningMessage = MinecraftSessionBroker.OfflinePlayLine;", home);
+            // N94-3: offline AND without the player's mods says both (one shared rule, MinecraftSessions.PlayingLine).
+            Assert.Contains("MinecraftSessions.PlayingLine(runningMessage, playingOffline, withoutModsLine);", home);
+            // MULTI-3: an older Sodium's settings left by a game that ended with no launcher listening go back first.
+            Assert.Contains("ConfigOverlay.RestoreLeftover(gameDir, OriginPaths.ConfigOverlays(version, key))", home);
             Assert.Contains("LaunchFailureText.ForAsync(ex, upToDateMessage,", home);
             Assert.Contains("RequiredModMissingException or JavaPathUnreadableException)", home);
             Assert.DoesNotContain("await UpdateService.CheckAsync();", home);

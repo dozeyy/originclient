@@ -605,6 +605,70 @@ public class SettingsSyncTests
         Assert.Equal(40, ModsFile(b)["mods"]!.AsObject().Count);
     }
 
+    // N94-1: deleting every saved profile in one session (they all reach the store together at game exit) sticks; a
+    // restart that only kept a key naming an entry in /meta but put mod settings back to the starter's is still a reset.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DeletingEveryProfileSticksUnlessTheRestOfTheFileWasReset(bool modsReset)
+    {
+        var a = Instance("1.21.1");
+        var b = Instance("1.20.1");
+        var mods = new JsonObject();
+        for (var i = 0; i < 40; i++) mods[$"m{i}"] = new JsonObject { ["enabled"] = i % 2 == 0 };
+        var saved = new JsonObject();
+        foreach (var name in new[] { "Bedwars", "Skyblock" })
+        {
+            var snapshot = new JsonObject();
+            for (var i = 0; i < 40; i++) snapshot[$"m{i}"] = new JsonObject { ["enabled"] = false };
+            saved[name] = new JsonObject { ["mods"] = snapshot };
+        }
+        var full = new JsonObject
+        {
+            ["mods"] = mods.DeepClone(),
+            ["profiles"] = saved,
+            ["meta"] = new JsonObject { ["activeProfile"] = "Bedwars", ["panelBacking"] = false },
+        };
+        Write(a, "config/originclient-mods.json", full.ToJsonString(), 1);
+        Write(b, "config/originclient-mods.json", full.ToJsonString(), 1);
+        var engine = Engine();
+        engine.Seed(new[] { a, b });
+        engine.Push(a);
+        engine.Push(b);
+
+        // Deleting the active profile clears activeProfile; the rest of /meta and every mod setting stay. A restart
+        // instead puts the mods back to the starter's (all on).
+        var after = new JsonObject();
+        for (var i = 0; i < 40; i++) after[$"m{i}"] = new JsonObject { ["enabled"] = modsReset || i % 2 == 0 };
+        var file = new JsonObject
+        {
+            ["mods"] = after,
+            ["profiles"] = new JsonObject(),
+            ["meta"] = new JsonObject { ["panelBacking"] = false },
+        };
+        Write(a, "config/originclient-mods.json", file.ToJsonString(), 30);
+        engine.Harvest(a);
+        engine.Harvest(b);
+        engine.Push(b);
+        engine.Push(a);
+
+        foreach (var instance in new[] { a, b })
+        {
+            var root = ModsFile(instance);
+            if (modsReset)
+            {
+                Assert.NotNull(root["profiles"]?["Bedwars"]);
+                Assert.NotNull(root["profiles"]?["Skyblock"]);
+            }
+            else
+            {
+                Assert.Null(root["profiles"]?["Bedwars"]);
+                Assert.Null(root["profiles"]?["Skyblock"]);
+                Assert.Null(root["meta"]?["activeProfile"]);
+            }
+        }
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(2)]

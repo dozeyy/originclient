@@ -176,22 +176,34 @@ public sealed class SettingsSyncEngine
         // A file the game couldn't read is renamed .corrupt and restarted from its starter config (ModsConfig), which
         // keeps most mod keys but loses every entry AND the bookkeeping beside the marker (/meta). A real delete keeps
         // /meta, except a key that named a deleted entry (/meta/activeProfile when the active profile goes). So a lost
-        // bookkeeping key, or every one of several entries gone at once, is a reset: no deletions.
+        // bookkeeping key is a reset: no deletions.
         string EntryOf(string key) => key[prefix.Length..].Split('/')[0];
         var goneEntries = vanished.Where(k => !Outside(k)).Select(EntryOf).ToHashSet(StringComparer.Ordinal);
         var allEntries = baseline.Keys.Where(k => !Outside(k)).Select(EntryOf).ToHashSet(StringComparer.Ordinal);
-        if (allEntries.Count > 1 && goneEntries.SetEquals(allEntries)) return true;
+        // The raw value a key naming a gone entry holds (a JSON string; pointer escapes undone).
+        var named = goneEntries
+            .Select(e => JsonValue.Create(e.Replace("~1", "/").Replace("~0", "~")).ToJsonString())
+            .ToHashSet(StringComparer.Ordinal);
+        bool NamesGoneEntry(string key) => named.Contains(baseline[key]);
         var marker = format.WholeReplaceMarker;
         var cut = marker?.LastIndexOf('/') ?? -1;
         if (marker != null && cut > 0)
         {
             var bookkeeping = marker[..(cut + 1)]; // "/meta/"
-            // The raw value a key naming a gone entry holds (a JSON string; pointer escapes undone).
-            var named = goneEntries
-                .Select(e => JsonValue.Create(e.Replace("~1", "/").Replace("~0", "~")).ToJsonString())
-                .ToHashSet(StringComparer.Ordinal);
-            if (vanished.Any(k => k.StartsWith(bookkeeping, StringComparison.Ordinal) && !named.Contains(baseline[k])))
+            if (vanished.Any(k => k.StartsWith(bookkeeping, StringComparison.Ordinal) && !NamesGoneEntry(k)))
                 return true;
+        }
+        // Every one of several entries gone at once: the player deleting them all in one session (Settings Sync only
+        // harvests at game exit, so one-by-one deletes arrive together) looks the same as a restart whose /meta had
+        // nothing but a key naming an entry. A restart also puts the rest of the file back to the starter's values;
+        // a delete-all leaves everything outside the entries as it was. So it is a reset only when something outside
+        // moved too (N94-1: deleting every saved profile used to bring them all back at the next launch).
+        if (allEntries.Count > 1 && goneEntries.SetEquals(allEntries))
+        {
+            var outsideMoved = vanished.Any(k => Outside(k) && !NamesGoneEntry(k))
+                || current.Any(kv => Outside(kv.Key) && baseline.TryGetValue(kv.Key, out var before)
+                                     && !format.MatchesBaseline(kv.Key, kv.Value, before));
+            if (outsideMoved) return true;
         }
         var vanishedOutside = vanished.Count(Outside);
         return vanishedOutside > Math.Max(MassDeletionFloor, baseline.Keys.Count(Outside) * MassDeletionShare);
