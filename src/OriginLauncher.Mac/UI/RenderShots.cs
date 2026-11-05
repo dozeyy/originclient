@@ -26,8 +26,12 @@ internal static class RenderShots
     // The fixture: the Windows run's own default (VersionCatalog.DefaultVersion, 26.3 today).
     private static readonly string Version = VersionCatalog.DefaultVersion;
 
+    /// <summary>True for a render-shots run: the backdrop decodes on the UI thread so each shot shows its art (ArtStage).</summary>
+    internal static bool Active { get; private set; }
+
     public static int Run(string outDir)
     {
+        Active = true;
         Directory.CreateDirectory(outDir);
         Motion.Off = true;
         AppBuilder.Configure<App>()

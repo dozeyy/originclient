@@ -5,6 +5,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using OriginLauncher.App.UI;
 using OriginLauncher.App.UI.Controls;
+using OriginLauncher.Desktop.Shots;
 using OriginLauncher.Desktop.Theme;
 
 namespace OriginLauncher.Desktop.Shell;
@@ -13,6 +14,8 @@ namespace OriginLauncher.Desktop.Shell;
 // (full colour, never greyscale, tier picked from the window's physical width), Fill.ArtShade, the Home
 // numeral centred in the band between the bar and the strip, and the page dim the other pages sit on.
 // Nothing is drawn around the numeral (12.1). The art crossfades in motion.scene when the family changes.
+// The full-window JPEG is decoded off the UI thread (newest pick wins) and the last 3 are kept, like WPF's ArtStage: a
+// 1280-3840 wide decode on the UI thread was a hitch on the first pick of each family (PERF-2).
 public sealed class ArtStage : Panel
 {
     private readonly Image _back = new() { Stretch = Stretch.UniformToFill };
@@ -56,7 +59,23 @@ public sealed class ArtStage : Panel
         if (key == _artKey) return;
         var first = _artKey == null;
         _artKey = key;
-        var bmp = Load(key, _tier == 0 ? 1280 : _tier);
+        var tier = _tier == 0 ? 1280 : _tier;
+        // Cached (back to a family seen lately) or a render run (a shot must show its art): at once.
+        var hit = CacheGet(key, tier);
+        if (hit != null || ShotRunner.Active)
+        {
+            Present(hit ?? Load(key, tier), first);
+            return;
+        }
+        _ = Task.Run(() => Load(key, tier)).ContinueWith(t =>
+        {
+            // Only the newest pick lands: a fast run of picks never ends on an older family.
+            if (_artKey == key) Present(t.Result, first);
+        }, TaskScheduler.FromCurrentSynchronizationContext());
+    }
+
+    private void Present(Bitmap? bmp, bool first)
+    {
         if (first || Motion.Off)
         {
             _front.Source = bmp;
@@ -94,25 +113,65 @@ public sealed class ArtStage : Panel
         var tier = Tiers.FirstOrDefault(t => t >= need, Tiers[^1]);
         if (tier == _tier) return;
         _tier = tier;
-        if (_artKey != null) _front.Source = Load(_artKey, tier);
+        if (_artKey is not { } key) return;
+        var hit = CacheGet(key, tier);
+        if (hit != null || ShotRunner.Active)
+        {
+            _front.Source = hit ?? Load(key, tier);
+            return;
+        }
+        _ = Task.Run(() => Load(key, tier)).ContinueWith(t =>
+        {
+            if (_artKey == key && _tier == tier && t.Result != null) _front.Source = t.Result;
+        }, TaskScheduler.FromCurrentSynchronizationContext());
     }
 
-    private static readonly Dictionary<string, Bitmap?> Cache = new();
+    // The last 3 full-window pictures (family + the tier asked for), least recently used first. Decoded here, not
+    // through Assets.Bitmap, whose cache keeps every file forever (the art is up to 3840 wide): a dropped picture is
+    // freed by the GC once neither image layer shows it.
+    private const int CacheSize = 3;
+    private static readonly List<(string Id, Bitmap Bmp)> Cache = new();
 
+    private static Bitmap? CacheGet(string key, int tier)
+    {
+        var id = $"{key}@{tier}";
+        lock (Cache)
+        {
+            var at = Cache.FindIndex(c => c.Id == id);
+            if (at < 0) return null;
+            var hit = Cache[at];
+            Cache.RemoveAt(at);
+            Cache.Add(hit);
+            return hit.Bmp;
+        }
+    }
+
+    // The tier asked for, else the next smaller one that exists. Safe off the UI thread: the stream is read whole.
     private static Bitmap? Load(string key, int tier)
     {
+        if (CacheGet(key, tier) is { } hit) return hit;
         for (var i = Array.IndexOf(Tiers, tier); i >= 0; i--)
         {
-            var name = $"Assets/Art/{key}-c{Tiers[i]}.jpg";
+            Bitmap bmp;
+            try
+            {
+                var uri = Assets.Uri($"Assets/Art/{key}-c{Tiers[i]}.jpg");
+                if (!Avalonia.Platform.AssetLoader.Exists(uri)) continue;
+                using var stream = Avalonia.Platform.AssetLoader.Open(uri);
+                bmp = new Bitmap(stream);
+            }
+            catch (Exception)
+            {
+                continue; // fail soft: try the smaller tier, else the dark background stays
+            }
+            var id = $"{key}@{tier}";
             lock (Cache)
             {
-                if (Cache.TryGetValue(name, out var hit) && hit != null) return hit;
-                var bmp = Assets.Bitmap(name);
-                if (bmp == null) continue;
-                Cache[name] = bmp;
-                if (Cache.Count > 3) Cache.Remove(Cache.Keys.First(k => k != name));
-                return bmp;
+                Cache.RemoveAll(c => c.Id == id);
+                Cache.Add((id, bmp));
+                while (Cache.Count > CacheSize) Cache.RemoveAt(0);
             }
+            return bmp;
         }
         return null;
     }
