@@ -1399,17 +1399,12 @@ public partial class HomePage : UserControl
                 Note(key, after.Text, after.Tone);
             if (!verdict.IsCrash) return;
 
-            if (crashedWhileStarting)
-            {
-                if (idle)
-                    Note(key, game.LogPath != null
-                        ? $"Minecraft crashed while starting (exit code {exitCode}) - log saved to {game.LogPath}"
-                        : $"Minecraft crashed while starting (exit code {exitCode}).", LaunchTone.Error);
-                // A boot crash is the one case where a bad file on disk is a live suspect, so drop the "already
-                // verified" stamp and make the next launch re-hash the whole install. This is the safety net that
-                // lets normal launches skip verification. Only for a real crash: a closed boot keeps its stamp.
+            // A boot crash is the one case where a bad file on disk is a live suspect, so drop the "already verified"
+            // stamp and make the next launch re-hash the whole install. This is the safety net that lets normal
+            // launches skip verification. Only for a real crash whose cause could be a file (CrashVerdict.
+            // InstallFilesSuspect): a known mod / memory / Java-argument cause keeps the fast relaunch.
+            if (crashedWhileStarting && verdict.InstallFilesSuspect)
                 Core.Versions.InstallVerification.Invalidate(OriginPaths.VersionRoot(game.Version));
-            }
 
             var launcherVersion = Core.Updates.UpdateService.CurrentVersion.ToString();
             var windowsUser = Environment.UserName;
