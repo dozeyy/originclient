@@ -185,11 +185,36 @@ public class StageProgressTests
     [InlineData("Downloading libraries (340/340)", "Downloading libraries", 1.0)]
     [InlineData("Verifying game files (0/10)", "Verifying game files", 0.0)]
     [InlineData("Copying (12/10)", "Copying", 1.0)]
+    [InlineData("Downloading Minecraft (120/540 MB)", "Downloading Minecraft", 120.0 / 540)]
     public void CountedStagesFillTheBar(string text, string label, double fraction)
     {
         var p = StageProgress.Parse(text);
         Assert.Equal(label, p.Label);
         Assert.Equal(fraction, p.Fraction!.Value, 6);
+    }
+
+    // JL-8: a first download reads in megabytes under "Downloading Minecraft"; a check that downloads (almost) nothing
+    // keeps the file count under the caller's label.
+    [Fact]
+    public void A_real_download_reads_in_megabytes_and_a_check_keeps_the_file_count()
+    {
+        const long Mb = 1024 * 1024;
+        Assert.Equal("Downloading Minecraft (120/540 MB)",
+            OriginLauncher.App.Core.Versions.InstallProgressThrottle.Format("Verifying game files", 412, 3900, 120 * Mb, 540 * Mb));
+        Assert.Equal("Verifying game files (412/3900)",
+            OriginLauncher.App.Core.Versions.InstallProgressThrottle.Format("Verifying game files", 412, 3900, 0, 0));
+        // A weekly check that repairs one small asset is still a check.
+        Assert.Equal("Verifying game files (412/3900)",
+            OriginLauncher.App.Core.Versions.InstallProgressThrottle.Format("Verifying game files", 412, 3900, 100_000, 300_000));
+        // Bytes all in: back to the file count while the last files are checked.
+        Assert.Equal("Verifying game files (3899/3900)",
+            OriginLauncher.App.Core.Versions.InstallProgressThrottle.Format("Verifying game files", 3899, 3900, 540 * Mb, 540 * Mb));
+        Assert.Equal("Preparing game files",
+            OriginLauncher.App.Core.Versions.InstallProgressThrottle.Format("Preparing game files", 0, 0, 0, 0));
+        // The bar fills from the megabytes.
+        var p = StageProgress.Parse(
+            OriginLauncher.App.Core.Versions.InstallProgressThrottle.Format("Verifying game files", 1, 2, 270 * Mb, 540 * Mb));
+        Assert.Equal(0.5, p.Fraction!.Value, 6);
     }
 
     [Theory]

@@ -12,14 +12,16 @@ public readonly record struct StageProgress(string Label, double? Fraction)
     public static StageProgress Parse(string? text)
     {
         var line = (text ?? "").Trim();
-        // "label (done/total)" — only the trailing counter, nothing else in the line.
+        // "label (done/total)" or "label (done/total MB)" (a download, InstallProgressThrottle) — only the trailing
+        // counter, nothing else in the line.
         if (line.EndsWith(')'))
         {
             var open = line.LastIndexOf('(');
             var slash = line.LastIndexOf('/');
-            if (open > 0 && slash > open
+            var end = line.EndsWith(" MB)", StringComparison.Ordinal) ? line.Length - 4 : line.Length - 1;
+            if (open > 0 && slash > open && end > slash
                 && int.TryParse(line.AsSpan(open + 1, slash - open - 1), out var done)
-                && int.TryParse(line.AsSpan(slash + 1, line.Length - slash - 2), out var total)
+                && int.TryParse(line.AsSpan(slash + 1, end - slash - 1), out var total)
                 && total > 0 && done >= 0)
             {
                 var label = line[..open].TrimEnd();

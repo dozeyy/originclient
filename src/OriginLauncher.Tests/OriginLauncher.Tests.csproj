@@ -260,6 +260,8 @@
          per-file retry, run against a real local socket server. -->
     <Compile Include="..\OriginLauncher.App\Core\Net\DownloadHttp.cs" LinkBase="Net" />
     <Compile Include="..\OriginLauncher.App\Core\Versions\RetryingGameInstaller.cs" LinkBase="Versions" />
+    <!-- The install stage line: megabytes while downloading, the file count while checking (JL-8). -->
+    <Compile Include="..\OriginLauncher.App\Core\Versions\InstallProgressThrottle.cs" LinkBase="Versions" />
     <!-- The Modrinth install path (Fabric API, voice chat): a stalled live query must skip the mod, not fail the launch. -->
     <Compile Include="..\OriginLauncher.App\Core\Loaders\FabricApiInstaller.cs" LinkBase="Loaders" />
     <!-- The pinned perf jars: a pin bump keeps Origin's previous jar when Modrinth can't be reached (fail-hard only on a first install). -->
