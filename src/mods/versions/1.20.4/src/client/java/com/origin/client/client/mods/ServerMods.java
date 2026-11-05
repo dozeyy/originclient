@@ -33,6 +33,10 @@ public final class ServerMods {
 		// Hypixel sends all of its chat as unsigned system ("game") messages.
 		ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) -> {
 			try {
+				// JG-11: the answer to Origin's own /locraw is read for Quickplay and kept out of chat
+				if (!overlay && !com.origin.client.client.util.HypixelLocraw.onMessage(message.getString(), System.currentTimeMillis())) {
+					return false;
+				}
 				return Hypixel.allowMessage(message, overlay);
 			} catch (Throwable t) {
 				return true;
