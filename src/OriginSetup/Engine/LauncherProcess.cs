@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Threading;
 
 namespace OriginSetup.Engine;
 
@@ -14,16 +15,50 @@ public static class LauncherProcess
 {
     private const string ProcessName = "OriginLauncher.App";
 
+    // The launcher's self-update copies into the install folder from a script after the launcher has quit; while it
+    // runs it holds this file open for writing (launcher: Core/Updates/WindowsApplyScript.LockFileName; the name is
+    // checked by tools/release/check_consistency.py). Installing meanwhile would have the script overwrite Setup's
+    // newer files with its older stage a moment later, so a running swap counts as "Origin is open".
+    public const string SwapLockFileName = "apply-update.lock";
+
+    private static string SwapLockPath => Path.Combine(Handoff.DataRoot, "updates", SwapLockFileName);
+
     public static bool IsRunning()
     {
+        if (SwapRunning(SwapLockPath)) return true;
         var running = OursRunning();
         foreach (var p in running) p.Dispose();
         return running.Count > 0;
     }
 
-    /// <summary>Asks every launcher window in this session to close, waits, then ends any that remain.</summary>
+    /// <summary>
+    /// True while someone holds <paramref name="lockPath"/> open for writing (the swap script). Read-only open that
+    /// refuses writers: never writes, never throws. A leftover file nobody holds reads as false.
+    /// </summary>
+    public static bool SwapRunning(string lockPath)
+    {
+        try
+        {
+            using (new FileStream(lockPath, FileMode.Open, FileAccess.Read, FileShare.Read)) return false;
+        }
+        catch (FileNotFoundException) { return false; }
+        catch (DirectoryNotFoundException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+        catch (IOException) { return true; }
+    }
+
+    /// <summary>
+    /// Lets a running self-update swap finish (bounded: the script gives up on its own within ~2 minutes), then asks
+    /// every launcher window in this session to close, waits, then ends any that remain.
+    /// </summary>
     public static void Close(TimeSpan grace)
     {
+        var swapDeadline = DateTime.UtcNow.AddMinutes(2);
+        if (SwapRunning(SwapLockPath))
+        {
+            while (SwapRunning(SwapLockPath) && DateTime.UtcNow < swapDeadline) Thread.Sleep(250);
+            Thread.Sleep(1500); // the script starts the launcher right after the copy: let it appear so it is closed too
+        }
         foreach (var p in OursRunning())
         {
             using (p)

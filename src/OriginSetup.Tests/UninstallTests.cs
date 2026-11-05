@@ -63,6 +63,58 @@ public class UninstallTests
         Assert.False(Directory.Exists(Path.Combine(dir, "ThirdParty")), "a folder left empty is removed");
     }
 
+    // UPG-7: files a launcher self-update added (a new bundled version's jar) are in Setup's record too, so uninstall
+    // from a folder the player picked removes them; the player's own files stay.
+    [Fact]
+    public void FilesASelfUpdateAddedAreRemovedFromAPickedFolder()
+    {
+        var dir = Temp();
+        Install(dir, createdFolder: false);
+        Put(dir, "my-notes.txt", "keep me");
+
+        var stage = Temp(); // the release the launcher swaps in: what Setup placed plus new files
+        Put(stage, "OriginLauncher.App.exe");
+        Put(stage, "Bundled/OriginClient/originclient-26.4.jar");
+        Put(stage, "runtimes/new.dll");
+        Assert.True(OriginLauncher.App.Core.Install.SetupInstallRecord.AddRelease(dir, stage));
+        Put(dir, "Bundled/OriginClient/originclient-26.4.jar");
+        Put(dir, "runtimes/new.dll");
+
+        var manifest = InstallManifest.Read(dir)!;
+        Assert.False(manifest.OwnsFolder);
+        Assert.Contains("Bundled/OriginClient/originclient-26.4.jar", manifest.Files);
+        Assert.Single(manifest.Files, f => f == "OriginLauncher.App.exe");
+
+        var plan = UninstallPlan.For(dir, Temp());
+        Assert.Equal(UninstallScope.ListedFiles, plan.Scope);
+        Assert.True(plan.Execute());
+        Assert.False(File.Exists(Path.Combine(dir, "Bundled", "OriginClient", "originclient-26.4.jar")));
+        Assert.False(Directory.Exists(Path.Combine(dir, "runtimes")));
+        Assert.Equal("keep me", File.ReadAllText(Path.Combine(dir, "my-notes.txt")));
+    }
+
+    [Fact]
+    public void ASelfUpdateLeavesAnOwnedOrUnrecordedFolderAlone()
+    {
+        var stage = Temp();
+        Put(stage, "new.dll");
+        var none = Temp();
+        Assert.False(OriginLauncher.App.Core.Install.SetupInstallRecord.AddRelease(none, stage));
+        Assert.False(File.Exists(Path.Combine(none, InstallManifest.FileName)));
+
+        var owned = Temp();
+        new InstallManifest(true, new[] { "OriginLauncher.App.exe" }).Write(owned);
+        var before = File.ReadAllText(Path.Combine(owned, InstallManifest.FileName));
+        Assert.False(OriginLauncher.App.Core.Install.SetupInstallRecord.AddRelease(owned, stage));
+        Assert.Equal(before, File.ReadAllText(Path.Combine(owned, InstallManifest.FileName)));
+
+        // A path that would leave the folder is never written.
+        var listed = Temp();
+        new InstallManifest(false, new[] { "a.dll" }).Write(listed);
+        Assert.True(OriginLauncher.App.Core.Install.SetupInstallRecord.Add(listed, new[] { "../evil.dll", "C:/x.dll", "sub/ok.dll" }));
+        Assert.Equal(new[] { "a.dll", "sub/ok.dll" }, InstallManifest.Read(listed)!.Files);
+    }
+
     [Fact]
     public void TheDataFolderIsNeverRemovedWithAlsoDeleteOff()
     {

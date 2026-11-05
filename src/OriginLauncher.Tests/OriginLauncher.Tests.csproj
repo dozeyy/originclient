@@ -123,6 +123,8 @@
          model, RamAdvice and RamPolicy are linked further down. -->
     <Compile Include="..\OriginLauncher.App\Core\Install\SetupChoicesData.cs" LinkBase="Install" />
     <Compile Include="..\OriginLauncher.App\Core\Install\SetupChoicesFile.cs" LinkBase="Install" />
+    <!-- Setup's origin-install.json, extended by a Windows self-update with the release's files (UPG-7). -->
+    <Compile Include="..\OriginLauncher.App\Core\Install\SetupInstallRecord.cs" LinkBase="Install" />
     <Compile Include="..\OriginSetup\Engine\Handoff.cs" LinkBase="Install" />
     <!-- Mod profiles: the naming/server/selection rules, the profile list edits,
          the launch mods folder and the profile folder copy/delete (all pure). -->
