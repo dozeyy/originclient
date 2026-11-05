@@ -23,32 +23,9 @@ public static partial class UpdateService
                       ?? Path.Combine(appDir, "OriginLauncher.App.exe");
         var pid = Environment.ProcessId;
 
-        // robocopy instead of xcopy: copies new + changed files including
-        // ones that appeared in this release, and its success exit codes
-        // (0-7) don't abort the script. Paths are pre-trimmed of trailing
-        // backslashes so the quoted arguments can't swallow a quote.
-        var script = Path.Combine(updatesRoot, "apply-update.cmd");
-        File.WriteAllText(script, $"""
-@echo off
-setlocal
-:wait
-tasklist /FI "PID eq {pid}" 2>nul | find "{pid}" >nul
-if not errorlevel 1 (
-  timeout /t 1 /nobreak >nul
-  goto wait
-)
-robocopy "{stageDir}" "{appDir}" /E /IS /IT >nul
-start "" "{exePath}"
-endlocal
-""");
-
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = script,
-            UseShellExecute = true,
-            WindowStyle = ProcessWindowStyle.Hidden,
-            CreateNoWindow = true
-        });
+        // Paths travel in the script's environment, never in its text (WindowsApplyScript): a non-English letter or a
+        // "%" in the user folder no longer breaks the swap.
+        Process.Start(WindowsApplyScript.Prepare(updatesRoot, pid, stageDir, appDir, exePath));
     }
 
     private static void ShutdownApp() => Application.Current.Shutdown();
