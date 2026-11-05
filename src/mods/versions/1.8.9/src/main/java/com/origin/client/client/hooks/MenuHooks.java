@@ -305,7 +305,7 @@ public class MenuHooks {
 	}
 
 	/**
-	 * Adds a "Cosmetics" row under the pause menu's own buttons (1.16.5's
+	 * Adds a "Cosmetics" row to the pause menu, right under Back to Game (1.16.5's
 	 * CosmeticsPauseMixin), so a player can change what they wear without
 	 * leaving the world. Indistinguishable from its neighbours: a plain GuiButton
 	 * (skinned like every other pause button), its bounds COPIED from the menu's
@@ -338,10 +338,12 @@ public class MenuHooks {
 			if (above != Integer.MIN_VALUE) gap = low.yPosition - above;
 			int h = wide.height;
 			int lift = Math.max(0, Math.min((h + gap) / 4, top - TITLE_CLEARANCE));
+			// Cosmetics goes in right under the top row (Back to Game): every row below moves down
+			// one step, so Disconnect stays last and Cosmetics never sits next to it (JG-12).
 			for (GuiButton b : buttons) {
-				b.yPosition -= lift;
+				b.yPosition += (b.yPosition > top ? h + gap : 0) - lift;
 			}
-			GuiButton cosmetics = new GuiButton(COSMETICS_ID, wide.xPosition, low.yPosition + low.height + gap,
+			GuiButton cosmetics = new GuiButton(COSMETICS_ID, wide.xPosition, top - lift + h + gap,
 					wide.width, h, "Cosmetics");
 			buttons.add(cosmetics);
 			ACTIONS.put(cosmetics, new Runnable() {

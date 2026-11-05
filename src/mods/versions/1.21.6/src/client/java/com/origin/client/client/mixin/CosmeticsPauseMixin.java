@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Adds a "Cosmetics" row under the pause menu's own buttons, so a player can
+ * Adds a "Cosmetics" row to the pause menu, right under Back to Game, so a player can
  * change what they wear without leaving the world. Kept separate from
  * PauseScreenMixin (which is shared across versions) because cosmetics don't
  * ship on every version yet.
@@ -71,13 +71,15 @@ public abstract class CosmeticsPauseMixin extends Screen {
 			if (above != Integer.MIN_VALUE) gap = low.getY() - above;
 			int h = wide.getHeight();
 			int lift = Math.max(0, Math.min((h + gap) / 4, top - TITLE_CLEARANCE));
+			// Cosmetics goes in right under the top row (Back to Game): every row below moves down
+			// one step, so the leave button stays last and Cosmetics never sits next to it (JG-12).
 			for (Button b : buttons) {
-				b.setY(b.getY() - lift);
+				b.setY(b.getY() - lift + (b.getY() > top ? h + gap : 0));
 			}
 			final Screen self = this;
 			this.addRenderableWidget(Button.builder(Component.literal("Cosmetics"),
 					b -> this.minecraft.setScreen(new CosmeticsScreen(self)))
-					.bounds(wide.getX(), low.getY() + low.getHeight() + gap, wide.getWidth(), h).build());
+					.bounds(wide.getX(), top - lift + h + gap, wide.getWidth(), h).build());
 		} catch (Throwable ignored) {
 			// fail-soft: the pause menu stays vanilla
 		}
