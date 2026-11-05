@@ -51,7 +51,7 @@ public final class ReconnectButton {
 		try {
 			if (mc.getSingleplayerServer() != null) {
 				lastServer = null;
-			} else if (mc.level != null || mc.screen instanceof ConnectScreen) {
+			} else if (mc.level != null || mc.gui.screen() instanceof ConnectScreen) {
 				ServerData sd = mc.getCurrentServer();
 				if (sd != null && sd.ip != null && !sd.ip.trim().isEmpty()) {
 					lastServer = sd.ip.trim();
