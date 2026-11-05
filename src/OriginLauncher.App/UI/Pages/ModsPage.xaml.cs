@@ -38,6 +38,8 @@ public partial class ModsPage : UserControl
     private readonly ModAddQueue _imports = new();
     private bool _warming;             // Origin's jars are being checked by their bytes (off the UI thread)
     private IReadOnlyList<ModEntry>? _demo; // render shots only: made-up rows instead of the disk
+    private IReadOnlyDictionary<string, ModUpdateOffer>? _demoUpdates; // render shots only: made-up Update buttons
+    private string? _updating;         // the jar whose Update is downloading (its button shows "Updating...")
     // What the rows on screen were last built from (plain rows only, no confirm/replace/landing): a re-show with the
     // same version, profile and jars keeps them instead of rebuilding every card (a tab switch back to Mods).
     private string? _builtKey;
@@ -59,6 +61,7 @@ public partial class ModsPage : UserControl
         _pendingRemove = null;
         _pendingReplace.Clear();
         _demo = null;
+        _demoUpdates = null;
         ResolveProfile();
         VersionChipText.Text = version ?? "No version";
         VersionChip.Visibility = version != null ? Visibility.Visible : Visibility.Collapsed;
@@ -129,6 +132,7 @@ public partial class ModsPage : UserControl
         // A jar named like one of Origin's that this launcher session has not checked yet shows as built-in (no
         // switch, no Remove) until its bytes say whose it is; that check hashes, so it runs off the UI thread.
         if (_demo == null && !_warming && mods.Any(m => m.Checking)) WarmOwnership(_version);
+        if (_demo == null) CheckForUpdates(_version, _profile?.Id, mods);
         var plain = landed == null && _pendingRemove == null && _pendingReplace.Count == 0 && _demo == null;
         var key = $"{_version}|{_profile?.Id}|{_profile?.Name}";
         if (plain && key == _builtKey && _builtFrom != null && mods.SequenceEqual(_builtFrom)) return; // same rows
@@ -382,7 +386,8 @@ public partial class ModsPage : UserControl
             text.Children.Add(nameLine);
         }
         else text.Children.Add(NameText(mod.DisplayName, !mod.Enabled));
-        text.Children.Add(FileText(mod.FileName));
+        var update = mod.Enabled ? UpdateFor(mod) : null;
+        text.Children.Add(FileText(update != null ? ModUpdateCheck.Caption(mod.FileName, update) : mod.FileName));
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
 
@@ -396,8 +401,32 @@ public partial class ModsPage : UserControl
         System.Windows.Automation.AutomationProperties.SetName(toggle, $"Enable {mod.DisplayName}");
         toggle.Checked += (s, _) => OnToggle(mod.FileName, true, (ToggleButton)s);
         toggle.Unchecked += (s, _) => OnToggle(mod.FileName, false, (ToggleButton)s);
-        Grid.SetColumn(toggle, 2);
-        grid.Children.Add(toggle);
+        if (update != null)
+        {
+            // Modrinth has a newer release of this jar for this version: Update downloads it (checked against
+            // Modrinth's SHA-512) and swaps it in like Replace does, the old file kept turned off.
+            var updating = _updating == mod.FileName;
+            var button = new Button
+            {
+                Content = updating ? "Updating..." : "Update",
+                Style = (Style)FindResource("Button.Secondary.Inline"),
+                Margin = new Thickness(0, 0, Space("Space.2"), 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                IsEnabled = !updating && _updating == null,
+            };
+            System.Windows.Automation.AutomationProperties.SetName(button, $"Update {mod.DisplayName} to {update.NewVersion}");
+            button.Click += (_, _) => UpdateMod(mod, update);
+            var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            actions.Children.Add(button);
+            actions.Children.Add(toggle);
+            Grid.SetColumn(actions, 2);
+            grid.Children.Add(actions);
+        }
+        else
+        {
+            Grid.SetColumn(toggle, 2);
+            grid.Children.Add(toggle);
+        }
 
         var remove = IconButton("Icon.Trash", $"Remove {mod.DisplayName}");
         remove.Click += (_, _) => { _pendingRemove = mod.FileName; Refresh(); };
@@ -681,6 +710,7 @@ public partial class ModsPage : UserControl
         _pendingReplace.Remove(offer);
         if (!replace || _version == null)
         {
+            if (offer.IsUpdate) ModrinthUpdates.Discard(offer.SourcePath);
             Refresh();
             return;
         }
@@ -695,10 +725,56 @@ public partial class ModsPage : UserControl
         var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var confirmed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { offer.FileName };
         var report = await Task.Run(() => ModManager.Import(version, new[] { offer.SourcePath }, profileId, confirmed));
+        if (offer.IsUpdate) ModrinthUpdates.Discard(offer.SourcePath); // copied in (or refused): the download is done with
         var next = _imports.Finish(stillSameVersion: _version == version);
         if (_version != version) return;
         ApplyImport(report, before, version, profileId);
+        if (ModUpdateCheck.UpdatedLine(offer, report) is { } updated) ShowStatus(updated, error: false);
         RunNext(next);
+    }
+
+    // ---- Update (a newer Modrinth release of one of the player's jars; Core/Mods/ModUpdateCheck) ---------------
+
+    private ModUpdateOffer? UpdateFor(ModEntry mod) =>
+        _demoUpdates != null ? _demoUpdates.GetValueOrDefault(mod.FileName)
+        : _demo == null && _version != null ? ModUpdateCheck.OfferFor(_version, _profile?.Id, mod.FileName)
+        : null;
+
+    // Asks Modrinth in the background (hashes only, at most every 6 hours per folder); new answers rebuild the rows.
+    private async void CheckForUpdates(string version, string? profileId, IReadOnlyList<ModEntry> mods)
+    {
+        var jars = mods.Where(m => !m.IsManaged && !m.Checking && m.Enabled).Select(m => m.FileName).ToList();
+        if (!await ModUpdateCheck.RefreshAsync(version, profileId, jars)) return;
+        if (_version != version || _profile?.Id != profileId) return;
+        _builtKey = null;
+        Refresh();
+    }
+
+    // Downloads the update (off the UI thread), then runs the same Replace a dropped newer jar gets.
+    private async void UpdateMod(ModEntry mod, ModUpdateOffer offer)
+    {
+        if (_version == null || _demo != null || _updating != null) return;
+        var version = _version;
+        var profileId = _profile?.Id;
+        _updating = mod.FileName;
+        _builtKey = null;
+        Refresh();
+        ShowStatus($"Updating {mod.DisplayName} to {offer.NewVersion}...", error: false);
+        var (path, error) = await ModUpdateCheck.DownloadAsync(version, profileId, offer);
+        _updating = null;
+        _builtKey = null;
+        if (_version != version || _profile?.Id != profileId)
+        {
+            ModrinthUpdates.Discard(path);
+            return;
+        }
+        if (path == null)
+        {
+            ShowStatus(error, error: true);
+            Refresh();
+            return;
+        }
+        AnswerReplace(ModUpdateCheck.ReplaceFor(mod, offer, path), replace: true);
     }
 
     // A spacing token (Theme/Spacing.xaml, the 8 px grid) as a number for code-built layout.
@@ -881,6 +957,18 @@ public partial class ModsPage : UserControl
     {
         if (!OriginPaths.IsScratchRoot) return;
         ShowStatus(message, error);
+    }
+
+    // Render mode only: an Update button (Modrinth has a newer release) on the named demo row.
+    internal void TourShowUpdate(string fileName, string newVersion)
+    {
+        if (!OriginPaths.IsScratchRoot) return;
+        _demoUpdates = new Dictionary<string, ModUpdateOffer>(StringComparer.OrdinalIgnoreCase)
+        {
+            [fileName] = new(fileName, newVersion, fileName, "https://cdn.modrinth.com/demo.jar", new string('0', 128)),
+        };
+        _builtKey = null;
+        Refresh();
     }
 
     // Render mode only: the "Remove <name>?" confirm on the named demo row.

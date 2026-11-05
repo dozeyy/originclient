@@ -225,6 +225,10 @@ internal static class AreaBShots
         mods.TourConfirmRemove("litematica-fabric-1.21.1-0.19.50.jar");
         Shot(window, $"{prefix}d-mods-remove-confirm");
 
+        window.TourShowModsDemo(DemoMods, 0);
+        mods.TourShowUpdate("litematica-fabric-1.21.1-0.19.50.jar", "0.21.0");
+        Shot(window, $"{prefix}d2-mods-update");
+
         mods.TourNoVersion();
         Shot(window, $"{prefix}e-mods-no-version");
 

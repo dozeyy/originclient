@@ -122,6 +122,10 @@ public static partial class OriginPaths
     // so the banner shows Will's current promos even when offline.
     public static string PromoFeedCache => Path.Combine(Root, "cache", "promos.json");
 
+    // The Mods page's Update button (Core/Mods/ModUpdateCheck): each Modrinth download lands in its own folder here,
+    // is checked, then swapped into the mods folder by the page's Replace, and the folder is deleted.
+    public static string ModUpdateDownloads => Path.Combine(Root, "cache", "mod-updates");
+
     // Player heads (Core/Skins/PlayerHeads.cs): each player's raw skin PNG from
     // Mojang, named <uuid without dashes>.png (an empty file = no custom skin).
     public static string SkinCache => Path.Combine(Root, "cache", "skins");

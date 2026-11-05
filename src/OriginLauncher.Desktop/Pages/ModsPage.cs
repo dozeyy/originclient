@@ -44,6 +44,8 @@ public sealed class ModsPage : Panel, IPage
     private bool _dragOver;
     // One import at a time; jars dropped or a Replace answered meanwhile wait here and go in next (Core/Compat/ModAddQueue).
     private readonly ModAddQueue _imports = new();
+    private IReadOnlyDictionary<string, ModUpdateOffer>? _demoUpdates; // render runs only: made-up Update buttons
+    private string? _updating; // the jar whose Update is downloading (its button shows "Updating...")
     private IReadOnlyList<ModEntry>? _demo; // render runs only: made-up rows instead of the disk
     // What the rows on screen were last built from (plain rows only): a re-show with the same version, profile and
     // jars keeps them instead of rebuilding every row (a tab switch back to Mods).
@@ -182,6 +184,7 @@ public sealed class ModsPage : Panel, IPage
         _pendingRemove = null;
         _pendingReplace.Clear();
         _demo = null;
+        _demoUpdates = null;
         ResolveProfile();
         _versionChipText.Text = version ?? "No version";
         _versionChip.IsVisible = version != null;
@@ -229,6 +232,7 @@ public sealed class ModsPage : Panel, IPage
         }
 
         var mods = _demo ?? ModManager.Enumerate(_version, _profile?.Id);
+        if (_demo == null) CheckForUpdates(_version, _profile?.Id, mods);
         var plain = landed == null && _pendingRemove == null && _pendingReplace.Count == 0 && _demo == null;
         var key = $"{_version}|{_profile?.Id}|{_profile?.Name}";
         if (plain && key == _builtKey && _builtFrom != null && mods.SequenceEqual(_builtFrom)) return; // same rows
@@ -312,14 +316,28 @@ public sealed class ModsPage : Panel, IPage
         Control name = added
             ? Ui.Row(Space.S2, NameText(mod.DisplayName, !mod.Enabled), AddedTag())
             : NameText(mod.DisplayName, !mod.Enabled);
-        var text = Ui.Column(0, name, FileText(mod.FileName));
+        var update = mod.Enabled ? UpdateFor(mod) : null;
+        var text = Ui.Column(0, name, FileText(update != null ? ModUpdateCheck.Caption(mod.FileName, update) : mod.FileName));
         text.VerticalAlignment = VerticalAlignment.Center;
         text.Margin = new Thickness(Space.S3, 0, Space.S3, 0);
         grid.Children.Add(text.At(1));
 
         var toggle = new Toggle($"Enable {mod.DisplayName}") { IsOn = mod.Enabled, Margin = new Thickness(0, 0, Space.S3, 0) };
         toggle.Toggled += on => OnToggle(mod.FileName, on, toggle);
-        grid.Children.Add(toggle.At(2));
+        if (update != null)
+        {
+            // Modrinth has a newer release of this jar for this version: Update downloads it (checked against
+            // Modrinth's SHA-512) and swaps it in like Replace does, the old file kept turned off.
+            var updating = _updating == mod.FileName;
+            var button = Ui.Button(updating ? "Updating..." : "Update", Look.Secondary, height: Sizes.ControlSm).Margin(0, 0, Space.S2, 0);
+            button.IsEnabled = _updating == null;
+            button.VerticalAlignment = VerticalAlignment.Center;
+            button.Click += (_, _) => UpdateMod(mod, update);
+            var actions = Ui.Row(0, button, toggle);
+            actions.VerticalAlignment = VerticalAlignment.Center;
+            grid.Children.Add(actions.At(2));
+        }
+        else grid.Children.Add(toggle.At(2));
 
         var remove = QuietIconButton(Icons.Trash, $"Remove {mod.DisplayName}");
         remove.Click += (_, _) => { _pendingRemove = mod.FileName; Refresh(); };
@@ -644,6 +662,7 @@ public sealed class ModsPage : Panel, IPage
         _pendingReplace.Remove(offer);
         if (!replace || _version == null || _demo != null)
         {
+            if (offer.IsUpdate) ModrinthUpdates.Discard(offer.SourcePath);
             Refresh();
             return;
         }
@@ -658,10 +677,56 @@ public sealed class ModsPage : Panel, IPage
         var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var confirmed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { offer.FileName };
         var report = await Task.Run(() => ModManager.Import(version, [offer.SourcePath], profileId, confirmed));
+        if (offer.IsUpdate) ModrinthUpdates.Discard(offer.SourcePath); // copied in (or refused): the download is done with
         var next = _imports.Finish(stillSameVersion: _version == version);
         if (_version != version) return;
         ApplyImport(report, before, version, profileId);
+        if (ModUpdateCheck.UpdatedLine(offer, report) is { } updated) _status.Show(updated, error: false);
         RunNext(next);
+    }
+
+    // ---- Update (a newer Modrinth release of one of the player's jars; Core/Mods/ModUpdateCheck) ---------------
+
+    private ModUpdateOffer? UpdateFor(ModEntry mod) =>
+        _demoUpdates != null ? _demoUpdates.GetValueOrDefault(mod.FileName)
+        : _demo == null && _version != null ? ModUpdateCheck.OfferFor(_version, _profile?.Id, mod.FileName)
+        : null;
+
+    // Asks Modrinth in the background (hashes only, at most every 6 hours per folder); new answers rebuild the rows.
+    private async void CheckForUpdates(string version, string? profileId, IReadOnlyList<ModEntry> mods)
+    {
+        var jars = mods.Where(m => !m.IsManaged && !m.Checking && m.Enabled).Select(m => m.FileName).ToList();
+        if (!await ModUpdateCheck.RefreshAsync(version, profileId, jars)) return;
+        if (_version != version || _profile?.Id != profileId) return;
+        _builtKey = null;
+        Refresh();
+    }
+
+    // Downloads the update (off the UI thread), then runs the same Replace a dropped newer jar gets.
+    private async void UpdateMod(ModEntry mod, ModUpdateOffer offer)
+    {
+        if (_version == null || _demo != null || _updating != null) return;
+        var version = _version;
+        var profileId = _profile?.Id;
+        _updating = mod.FileName;
+        _builtKey = null;
+        Refresh();
+        _status.Show($"Updating {mod.DisplayName} to {offer.NewVersion}...", error: false);
+        var (path, error) = await ModUpdateCheck.DownloadAsync(version, profileId, offer);
+        _updating = null;
+        _builtKey = null;
+        if (_version != version || _profile?.Id != profileId)
+        {
+            ModrinthUpdates.Discard(path);
+            return;
+        }
+        if (path == null)
+        {
+            _status.Show(error, error: true);
+            Refresh();
+            return;
+        }
+        AnswerReplace(ModUpdateCheck.ReplaceFor(mod, offer, path), replace: true);
     }
 
     // ---- the drop zone ----------------------------------------------------------------------------------------
@@ -712,6 +777,7 @@ public sealed class ModsPage : Panel, IPage
     {
         if (!OriginPaths.IsScratchRoot) return;
         _demo = mods;
+        _demoUpdates = null;
         _status.Hide();
         var first = carrying < 0 ? mods.FirstOrDefault(m => !m.IsManaged) : null;
         Refresh(first == null ? null : new HashSet<string> { first.FileName });
@@ -727,6 +793,18 @@ public sealed class ModsPage : Panel, IPage
     {
         if (!OriginPaths.IsScratchRoot) return;
         _pendingRemove = fileName;
+        Refresh();
+    }
+
+    /// <summary>An Update button (Modrinth has a newer release) on the named demo row.</summary>
+    internal void TourShowUpdate(string fileName, string newVersion)
+    {
+        if (!OriginPaths.IsScratchRoot) return;
+        _demoUpdates = new Dictionary<string, ModUpdateOffer>(StringComparer.OrdinalIgnoreCase)
+        {
+            [fileName] = new(fileName, newVersion, fileName, "https://cdn.modrinth.com/demo.jar", new string('0', 128)),
+        };
+        _builtKey = null;
         Refresh();
     }
 

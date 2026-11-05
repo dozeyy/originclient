@@ -51,6 +51,12 @@ internal static class ModsProfilesShots
         RenderShots.Pump(500);
         RenderShots.Snap(window, outDir, $"{prefix}d-mods-remove-confirm");
 
+        // Modrinth has a newer Litematica for this version: the row's Update button and its caption.
+        window.TourShowModsDemo(demoMods, 0);
+        mods.TourShowUpdate("litematica-fabric-1.21.1-0.19.50.jar", "0.21.0");
+        RenderShots.Pump(500);
+        RenderShots.Snap(window, outDir, $"{prefix}d2-mods-update");
+
         mods.TourNoVersion();
         RenderShots.Pump(500);
         RenderShots.Snap(window, outDir, $"{prefix}e-mods-no-version");

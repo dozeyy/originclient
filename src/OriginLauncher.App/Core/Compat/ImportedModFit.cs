@@ -93,10 +93,14 @@ internal static class ImportedModFit
             var dep = p.Dependency;
             problems.Add(p.Kind == DependencyProblemKind.Missing
                 ? $"needs {dep.Id}, which is turned off here"
-                : $"needs {dep.Id} {dep.Predicate.Display}, but Origin has {p.Found}");
+                // "is installed", not "Origin has": the copy in the folder may be the player's own earlier import.
+                : $"needs {dep.Id} {dep.Predicate.Display}, but {p.Found} is installed");
         }
+        // The Mods page's Update button (Core/Mods/ModUpdateCheck) only appears for the player's own jars that Modrinth
+        // has a newer release of, so the text names it as one way, never the only one.
         return problems.Count == 0 ? null
-            : ReasonPrefix + string.Join("; ", problems) + ". Update that mod on the Mods page, then turn this one on.";
+            : ReasonPrefix + string.Join("; ", problems)
+              + ". Get versions that match (Update on the Mods page gets a newer one from Modrinth when there is one), then turn this one on there.";
     }
 
     // The shared mods folder as it will be: an id the folder ever had but now has turned off is "known and absent".
