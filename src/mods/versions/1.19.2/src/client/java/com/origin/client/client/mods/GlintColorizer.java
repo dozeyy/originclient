@@ -52,6 +52,11 @@ public final class GlintColorizer {
 
 	private static DynamicTexture item, held, armor;
 	private static String builtKey = null;
+	// What builtKey was painted from, and when (sync() repaints a changed look at most every REBUILD_MS).
+	private static boolean builtLunar;
+	private static int builtItem, builtArmor;
+	private static long builtAt;
+	private static final long REBUILD_MS = 100;
 	private static boolean broken = false;
 
 	private GlintColorizer() {
@@ -74,18 +79,31 @@ public final class GlintColorizer {
 		if (broken || !Mods.on(MOD)) {
 			return;
 		}
-		String key = lunar() + ":" + itemColor() + ":" + armorColor();
-		if (key.equals(builtKey)) {
+		// PERF-4: compared as numbers (no String a frame), and a changed look is repainted at most
+		// 10 times a second. A Chroma colour changes every frame, and repainting + re-uploading three
+		// glint textures that often cost FPS; a rainbow stepping 10x a second still reads smooth.
+		boolean l = lunar();
+		int ic = itemColor(), ac = armorColor();
+		if (builtKey != null && l == builtLunar && ic == builtItem && ac == builtArmor) {
 			return;
 		}
+		long now = System.currentTimeMillis();
+		if (builtKey != null && now - builtAt < REBUILD_MS) {
+			return;
+		}
+		String key = l + ":" + ic + ":" + ac;
 		try {
 			ResourceLocation[] glint = Era.glintTextures();   // {item, entity}
 			float[][] itemI = intensity(glint[0]);
 			float[][] entityI = intensity(glint[1]);
-			item = paint(item, ITEM_TEX, itemI, itemColor());
-			held = paint(held, HELD_TEX, entityI, itemColor());
-			armor = paint(armor, ARMOR_TEX, entityI, armorColor());
+			item = paint(item, ITEM_TEX, itemI, ic);
+			held = paint(held, HELD_TEX, entityI, ic);
+			armor = paint(armor, ARMOR_TEX, entityI, ac);
 			builtKey = key;
+			builtLunar = l;
+			builtItem = ic;
+			builtArmor = ac;
+			builtAt = now;
 		} catch (Throwable t) {
 			broken = true;
 			com.origin.client.OriginClient.LOGGER.warn("Origin: Glint Colorizer could not build its textures; glints stay vanilla", t);
