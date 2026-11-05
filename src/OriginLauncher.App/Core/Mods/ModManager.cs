@@ -209,7 +209,7 @@ public static class ModManager
             var report = ModImporter.Import(paths, context);
             // What the new set means at Play, said now: the player's own Sodium can switch Origin's shaders or one of
             // Origin's mods off (Compat/PlayerOverrides), which used to reach only logs/mod-compat-<version>.log.
-            return report is { Ok: true, Added: > 0 }
+            return report.Ok && (report.Added > 0 || report.TurnedOn.Count > 0)
                 ? report with { Notes = report.Notes.Concat(OverrideNotices(version, profileId)).ToList() }
                 : report;
         }

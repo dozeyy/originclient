@@ -27,6 +27,9 @@ public enum ImportAction
     /// <summary>The identical file is already there.</summary>
     AlreadyThere,
 
+    /// <summary>The identical file is there but turned off: dropping it again means "add it back", so it is turned on.</summary>
+    TurnOn,
+
     /// <summary>A profile never takes a second copy of what Origin installs itself.</summary>
     AlreadyOrigin,
 
@@ -66,6 +69,9 @@ public sealed record ImportReport(
     /// <summary>Jars that were already installed exactly as dropped: nothing was copied, and they are not "added".</summary>
     public int AlreadyInstalled { get; init; }
 
+    /// <summary>Mods (their names) that were there but turned off, dropped again as the identical file: turned back on.</summary>
+    public IReadOnlyList<string> TurnedOn { get; init; } = Array.Empty<string>();
+
     /// <summary>The line the Mods page shows: what was added, then why anything was not.</summary>
     public string Message
     {
@@ -73,6 +79,13 @@ public sealed record ImportReport(
         {
             var parts = new List<string>();
             if (Added > 0) parts.Add(Added == 1 ? "Added 1 mod." : $"Added {Added} mods.");
+            if (TurnedOn.Count > 0)
+                parts.Add(TurnedOn.Count switch
+                {
+                    1 => $"Turned {TurnedOn[0]} back on.",
+                    2 => $"Turned {TurnedOn[0]} and {TurnedOn[1]} back on.",
+                    _ => $"Turned {TurnedOn.Count} mods back on.",
+                });
             if (AlreadyInstalled > 0) parts.Add(AlreadyInstalled == 1 ? "1 mod was already installed." : $"{AlreadyInstalled} mods were already installed.");
             parts.AddRange(Brief(Refused));
             parts.AddRange(Brief(Notes));
@@ -191,8 +204,10 @@ public static class ModImporter
                 $"{name} wasn't added: a different mod with that file name is already installed. Rename the file and try again.", file.Info, null);
         if (twin != null)
         {
-            if (SameFile(src, twin) && twin.Enabled)
-                return new ImportItem(src, name, ImportAction.AlreadyThere, null, file.Info, twin);
+            // The identical file: nothing to copy. Turned off, dropping it again means "add it back" (bug run 11 PROF-9: it
+            // used to ask "Replace?" and then keep an identical second copy under an odd -replaced- name).
+            if (SameFile(src, twin))
+                return new ImportItem(src, name, twin.Enabled ? ImportAction.AlreadyThere : ImportAction.TurnOn, null, file.Info, twin);
             var action = context.ConfirmedReplace?.Contains(name) == true ? ImportAction.Replace : ImportAction.AskReplace;
             return new ImportItem(src, name, action, null, file.Info, twin);
         }
@@ -247,6 +262,7 @@ public static class ModImporter
         catch (Exception ex) { return Failed($"Couldn't open the mods folder: {ex.Message}"); }
 
         int added = 0, already = 0, skipped = 0;
+        var turnedOn = new List<string>();
         var offers = new List<ReplaceOffer>();
         var refused = new List<string>();
         var notes = new List<string>();
@@ -260,6 +276,12 @@ public static class ModImporter
                 case ImportAction.AlreadyOrigin: originInstalled = true; break;
                 case ImportAction.Refuse: refused.Add(item.Reason!); break;
                 case ImportAction.AlreadyThere: already++; break;
+                case ImportAction.TurnOn:
+                    // A rename (X.jar.disabled -> X.jar), the same as the page's switch, never a rewrite of the jar.
+                    var turned = Mods.ModManager.SetEnabledIn(context.Folder, item.FileName, enabled: true);
+                    if (!turned.Ok) refused.Add(turned.Error ?? "Couldn't turn that mod back on - " + CloseGameHint);
+                    else turnedOn.Add(item.Info?.Name ?? item.Info?.Id ?? item.FileName);
+                    break;
                 case ImportAction.AskReplace:
                     offers.Add(new ReplaceOffer(item.SourcePath, item.FileName, item.Info?.Name ?? item.Info?.Id ?? item.FileName,
                         item.Info?.Version, item.Existing!.FileName, item.Existing.Info.Version));
@@ -274,14 +296,14 @@ public static class ModImporter
             }
         }
 
-        if (added == 0 && already == 0 && offers.Count == 0)
+        if (added == 0 && already == 0 && turnedOn.Count == 0 && offers.Count == 0)
         {
             var error = originInstalled ? "Origin already includes that mod, so there's no need to add it."
                 : refused.Count > 0 ? string.Join(" ", refused.Take(2)) + (refused.Count > 2 ? $" (and {refused.Count - 2} more)" : "")
                 : skipped > 0 ? "Only .jar mod files can be added." : "No mods to add.";
             return new ImportReport(0, offers, refused, notes, error);
         }
-        return new ImportReport(added, offers, refused, notes, null) { AlreadyInstalled = already };
+        return new ImportReport(added, offers, refused, notes, null) { AlreadyInstalled = already, TurnedOn = turnedOn };
     }
 
     private static ImportReport Failed(

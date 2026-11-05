@@ -246,6 +246,27 @@ public sealed class ModImporterTests : IDisposable
         Assert.Equal("Added 1 mod. 1 mod was already installed.", report.Message);
     }
 
+    // Bug run 11 PROF-9: dropping the very jar of a mod that is switched off asked "Replace?" and then kept an identical
+    // second copy as "appleskin-replaced-<ticks>.jar.disabled". It now just turns the mod back on.
+    [Fact]
+    public void DroppingTheIdenticalJarOfATurnedOffModTurnsItBackOn()
+    {
+        var off = WriteJar(_mods, "appleskin.jar", "appleskin", "3.0.0");
+        var src = Path.Combine(_incoming, "appleskin.jar");
+        System.IO.File.Copy(off, src);
+        System.IO.File.Move(off, off + ".disabled");
+
+        var report = ModImporter.Import(new[] { src }, Context());
+
+        Assert.True(report.Ok);
+        Assert.Empty(report.NeedsReplace);
+        Assert.Equal(0, report.Added);
+        Assert.Equal(new[] { "appleskin" }, report.TurnedOn);
+        Assert.Equal("Turned appleskin back on.", report.Message);
+        Assert.True(System.IO.File.Exists(Path.Combine(_mods, "appleskin.jar")));
+        Assert.Equal(new[] { "appleskin.jar" }, Directory.GetFiles(_mods).Select(Path.GetFileName).ToArray());
+    }
+
     [Fact]
     public void ATurnedOffTwinIsStillTheSameMod()
     {
