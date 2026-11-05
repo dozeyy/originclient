@@ -121,6 +121,31 @@ public sealed partial class ModsPage : UserControl
             IntroText.Text = $"Your own .jar mods for this version, shared by all your accounts. Origin's {BuiltIn} mods stay up to date on their own.";
     }
 
+    private bool _warming; // Origin's jars are being checked by their bytes (off the UI thread)
+
+    // Checks Origin's jars in the version's folder off the UI thread, then rebuilds the rows with the answer.
+    private async void WarmOwnership(string version)
+    {
+        _warming = true;
+        var folder = ModManager.ModsFolder(version);
+        var decided = 0;
+        try
+        {
+            decided = await Task.Run(() => ModManager.WarmOwnership(folder));
+        }
+        catch (Exception)
+        {
+            // The check is a convenience: the rows stay as they are.
+        }
+        finally
+        {
+            _warming = false;
+        }
+        // Rebuild when something was decided, or when the page moved to another version meanwhile (its rows may be
+        // waiting for a check of their own). Nothing decided (a jar a running game holds): the rows stay as they are.
+        if (decided > 0 || _version != version) Refresh();
+    }
+
     private void Refresh(ICollection<string>? landed = null)
     {
         if (_version == null)
@@ -139,6 +164,10 @@ public sealed partial class ModsPage : UserControl
         }
 
         var mods = _demo ?? ModManager.Enumerate(_version, _profile?.Id);
+        // A jar named like one of Origin's that this launcher session has not checked yet shows as built-in (no
+        // switch, no Remove) until its bytes say whose it is; that check hashes, so it runs off the UI thread (the
+        // WPF page's twin: a player's own Sodium/Iris/JEI must not read as Origin's until the next Play, X-1).
+        if (_demo == null && !_warming && mods.Any(m => m.Checking)) WarmOwnership(_version);
         if (_demo == null) CheckForUpdates(_version, _profile?.Id, mods);
         var plain = landed == null && _pendingRemove == null && _pendingReplace.Count == 0 && _demo == null;
         var key = $"{_version}|{_profile?.Id}|{_profile?.Name}";
@@ -147,7 +176,7 @@ public sealed partial class ModsPage : UserControl
         _builtFrom = plain ? mods.ToList() : null;
         UserModsPanel.Children.Clear();
         BuiltInPanel.Children.Clear();
-        var user = mods.Where(m => !m.IsManaged).ToList();
+        var user = mods.Where(m => !m.IsManaged && !m.Checking).ToList(); // a turned-off one still Checking may be Origin's leftover: shown once decided
         var managed = _profile != null ? new List<ModEntry>() : mods.Where(m => m.IsManaged).ToList();
 
         if (_pendingReplace.Count > 0) UserModsPanel.Children.Add(BuildReplaceRow(_pendingReplace[0]));
