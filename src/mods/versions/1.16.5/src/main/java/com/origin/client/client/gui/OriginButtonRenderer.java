@@ -292,7 +292,7 @@ public final class OriginButtonRenderer {
 		lab.want = sdf;
 		lab.sdf = sdf && OriginTtfFont.covers(lab.text);   // a label Inter can't spell: Minecraft's font (LOC-1)
 		lab.em = em;
-		if (sdf) {
+		if (lab.sdf) {   // measured in the font it is drawn in
 			lab.width = interWidth(lab.text, em, 0f, true);
 			lab.cap = interCap(em, true);
 		} else {
