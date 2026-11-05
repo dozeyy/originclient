@@ -203,6 +203,23 @@ public class CrashEngineTests
         Assert.Equal(CrashFixKind.RepairFiles, unnamed.SafeFix?.Kind);
     }
 
+    [Fact]
+    public void Only_a_file_problem_or_an_unsure_diagnosis_makes_the_next_launch_recheck_the_install()
+    {
+        // Known, non-file causes keep the fast path (bug run 5, JL-13).
+        var oom = V("java.lang.OutOfMemoryError: Java heap space");
+        Assert.Equal(CrashCause.OutOfMemory, oom.Finding.Cause);
+        Assert.False(oom.InstallFilesSuspect);
+        Assert.False(V(MissingDep).InstallFilesSuspect);
+
+        // A file problem, or nothing recognisable, still drops the "verified" stamp.
+        Assert.True(V("Error: Invalid or corrupt jarfile /games/libraries/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar").InstallFilesSuspect);
+        Assert.True(V("java.util.zip.ZipException: invalid CEN header").InstallFilesSuspect);
+        var unknown = V("something odd happened");
+        Assert.True(unknown.Finding.Confidence < CrashConfidence.Strong);
+        Assert.True(unknown.InstallFilesSuspect);
+    }
+
     // ---- mods ----------------------------------------------------------------------------------------------------
 
     private const string MissingDep = """

@@ -474,7 +474,7 @@ public sealed class LaunchController
                     ReleaseScene(game);
                     if (game.StoppedByPlayer) { Note(game.Key, "Cancelled", LaunchTone.Neutral, game.Version); return; }
                     if (exitCode == 0) { Note(game.Key, "Ready", LaunchTone.Neutral, game.Version); return; }
-                    Note(game.Key, $"Minecraft closed while starting (exit code {exitCode}).", LaunchTone.Neutral, game.Version);
+                    Note(game.Key, "Minecraft closed while starting.", LaunchTone.Neutral, game.Version);
                     Dispatcher.UIThread.Post(() => _ = ShowCrashReportAsync(game, exitCode, crashedWhileStarting: true),
                         DispatcherPriority.Background);
                     return;
@@ -644,14 +644,10 @@ public sealed class LaunchController
             if (idle && GameExitStatus.AfterVerdict(verdict.IsCrash, crashedWhileStarting) is { } after)
                 Note(key, after.Text, after.Tone, game.Version);
             if (!verdict.IsCrash) return;
-            if (crashedWhileStarting)
-            {
-                if (idle)
-                    Note(key, game.LogPath != null
-                        ? $"Minecraft crashed while starting (exit code {exitCode}) - log saved to {game.LogPath}"
-                        : $"Minecraft crashed while starting (exit code {exitCode}).", LaunchTone.Error, game.Version);
+            // The line stays plain words (the crash window has the exit code and the log); a boot crash re-checks
+            // the install next time only when a bad file could be the cause (CrashVerdict.InstallFilesSuspect).
+            if (crashedWhileStarting && verdict.InstallFilesSuspect)
                 InstallVerification.Invalidate(OriginPaths.VersionRoot(game.Version));
-            }
 
             var launcherVersion = UpdateService.CurrentVersion.ToString();
             var user = Environment.UserName;

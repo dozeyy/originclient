@@ -11,16 +11,18 @@ public static class GameExitStatus
 {
     public static readonly LaunchNote Ready = new("Ready", LaunchTone.Neutral);
     public static readonly LaunchNote CrashedInGame = new("Minecraft crashed", LaunchTone.Error);
+    // Plain words only: the crash window that opens with it carries the exit code, the log and "Open logs folder"
+    // (bug run 5, JL-9: the old line printed "exit code -1073740791 - log saved to C:\Users\..." under Play).
+    public static readonly LaunchNote CrashedWhileStarting = new("Minecraft crashed while starting", LaunchTone.Error);
 
     /// <summary>The line the moment a game that reached its window exits, before any verdict.</summary>
     public static LaunchNote OnExit() => Ready;
 
     /// <summary>
-    /// The line once CrashEngine decided. Null = leave the line alone: a crash while starting keeps the boot watcher's
-    /// own crash line, which names the log.
+    /// The line once CrashEngine decided. Never an exit code or a path: the crash window shows those.
     /// </summary>
-    public static LaunchNote? AfterVerdict(bool isCrash, bool crashedWhileStarting) =>
+    public static LaunchNote AfterVerdict(bool isCrash, bool crashedWhileStarting) =>
         !isCrash ? Ready
-        : crashedWhileStarting ? null
+        : crashedWhileStarting ? CrashedWhileStarting
         : CrashedInGame;
 }

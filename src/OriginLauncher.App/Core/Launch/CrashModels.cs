@@ -109,4 +109,14 @@ public sealed record CrashVerdict(bool IsCrash, string CloseReason, CrashFinding
     /// <summary>Show the one-time "Try once without my mods" button (cause below strong, added mods present, no
     /// retry spent). It changes nothing on disk: only the next launch leaves the player's own mods out.</summary>
     public bool OfferTryWithoutAddedMods { get; init; }
+
+    /// <summary>
+    /// A boot crash where a bad file on disk is still a live suspect, so the next launch must re-hash the whole install
+    /// (InstallVerification.Invalidate). True when the cause is damaged files, or when the diagnosis is below Strong
+    /// (unknown / possible: anything could be at fault). A Strong or Confirmed other cause (a named mod, memory, Java
+    /// arguments, the Java version) keeps the fast path: re-checking thousands of files would not fix it and made every
+    /// "turn this mod off and relaunch" slow (bug run 5, JL-13). The RepairFiles fix still invalidates on its own.
+    /// </summary>
+    public bool InstallFilesSuspect =>
+        Finding.Cause == CrashCause.DamagedFiles || Finding.Confidence < CrashConfidence.Strong;
 }

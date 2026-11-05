@@ -38,11 +38,16 @@ public class GameExitStatusTests
     }
 
     [Fact]
-    public void A_real_crash_in_game_turns_the_line_red_and_a_boot_crash_keeps_its_own_line()
+    public void A_real_crash_in_game_turns_the_line_red_and_a_boot_crash_says_so_in_plain_words()
     {
         Assert.Equal(GameExitStatus.CrashedInGame, GameExitStatus.AfterVerdict(isCrash: true, crashedWhileStarting: false));
         Assert.Equal(LaunchTone.Error, GameExitStatus.CrashedInGame.Tone);
-        Assert.Null(GameExitStatus.AfterVerdict(isCrash: true, crashedWhileStarting: true));
+        var boot = GameExitStatus.AfterVerdict(isCrash: true, crashedWhileStarting: true);
+        Assert.Equal(GameExitStatus.CrashedWhileStarting, boot);
+        Assert.Equal(LaunchTone.Error, boot.Tone);
+        // The exit code and the log path live in the crash window, never on the line under Play.
+        Assert.DoesNotContain("code", boot.Text);
+        Assert.DoesNotContain("log", boot.Text);
         Assert.Equal(GameExitStatus.Ready, GameExitStatus.AfterVerdict(isCrash: false, crashedWhileStarting: true));
     }
 }
