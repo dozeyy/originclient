@@ -68,6 +68,13 @@ public final class ReconnectButton {
 			return;
 		}
 		List<AbstractWidget> buttons = Screens.getWidgets(screen);
+		// Fabric fires AFTER_INIT again on a resize, and the 1.20.2+ disconnect screen only
+		// re-lays its widgets out then (they are not cleared): never add a second one.
+		for (AbstractWidget b : buttons) {
+			if ("Reconnect".equals(b.getMessage().getString())) {
+				return;
+			}
+		}
 		AbstractWidget last = null;
 		for (AbstractWidget b : buttons) {
 			if (last == null || b.getY() > last.getY()) {
