@@ -35,6 +35,26 @@ public static class HomeImport
         return new HomeImportOutcome(true, line, LeftOutLine(Shown(result.Skipped), failed));
     }
 
+    /// <summary>
+    /// Whether a plan may be copied from Home, or the outcome that stops it. A real blocker (no account, not enough disk
+    /// space) is said as it is. When the plan simply has nothing to copy, Home names the setups that stayed behind and
+    /// why ("Minecraft is running from this setup. Close it..."): the engine's "The list below says why" line points at
+    /// the Import page's list, which Home doesn't have, so it is never Home's answer.
+    /// </summary>
+    public static HomeImportOutcome? BeforeCopy(BulkImportPlan plan)
+    {
+        var blocker = plan.Blocked.FirstOrDefault(b => !string.Equals(b, BulkRules.NoneCanComeOver, StringComparison.Ordinal));
+        if (blocker != null) return Refused(HomeBlocker(blocker));
+        if (plan.Groups.Count == 0 || plan.Blocked.Count > 0) return NothingToCopy(plan.Skipped);
+        return null;
+    }
+
+    // The disk-space line's "leave worlds out" is something only the Import page can do: Home says where.
+    private static string HomeBlocker(string blocker) =>
+        blocker.EndsWith(BulkRules.LeaveWorldsOutHint, StringComparison.Ordinal)
+            ? $"{blocker} {ImportPrompt.MoreLabel} lets you leave worlds out."
+            : blocker;
+
     /// <summary>The plan found nothing to copy: one line, and which setups stayed behind.</summary>
     public static HomeImportOutcome NothingToCopy(IEnumerable<SkippedSetup> skipped) =>
         new(false, "Nothing here can come over yet.", LeftOutLine(Shown(skipped), Array.Empty<string>()));
@@ -71,7 +91,9 @@ public static class HomeImport
 
     /// <summary>
     /// "Didn't come over: Lunar: 1.8.9. Origin can't run this version." for one skipped setup, "Didn't come over: A, B
-    /// and 2 more." for several (the Import page's report has every reason). Null when everything came over.
+    /// and 2 more." for several (the Import page's report has every reason). When several stayed behind for the same
+    /// reason (the old launcher still open is the common one), that reason follows, so Home always says what fixes it.
+    /// Null when everything came over.
     /// </summary>
     public static string? LeftOutLine(IReadOnlyList<SkippedSetup> skipped, IReadOnlyList<string> failed)
     {
@@ -79,7 +101,18 @@ public static class HomeImport
         if (names.Count == 0) return null;
         if (names.Count == 1 && skipped.Count == 1) return $"Didn't come over: {names[0]}. {Sentence(skipped[0].Reason)}";
         var shown = names.Count <= 3 ? string.Join(", ", names) : $"{string.Join(", ", names.Take(2))} and {names.Count - 2} more";
-        return $"Didn't come over: {shown}.";
+        return SharedReason(skipped, failed) is { } reason ? $"Didn't come over: {shown}. {Sentence(reason)}" : $"Didn't come over: {shown}.";
+    }
+
+    // One reason for every setup left behind, or null when they differ (or one failed while copying).
+    private static string? SharedReason(IReadOnlyList<SkippedSetup> skipped, IReadOnlyList<string> failed)
+    {
+        if (failed.Count > 0 || skipped.Count == 0) return null;
+        var first = skipped[0].Reason;
+        if (skipped.All(s => string.Equals(s.Reason, first, StringComparison.Ordinal))) return first;
+        // "Origin's Minecraft 1.21.1 is still running" names each setup's own version: same fix, different words.
+        if (skipped.All(s => s.Kind == SkipKind.TargetRunning)) return "Close Minecraft first: Origin's game for these versions is still running.";
+        return null;
     }
 
     /// <summary>The copy's real fraction: bytes when the engine counts them, else setups done plus the current one's step.</summary>
