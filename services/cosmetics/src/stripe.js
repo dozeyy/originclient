@@ -26,7 +26,7 @@
 //                          separated Minecraft names or UUIDs; a name counts only
 //                          for the account Origin last verified with it (mayTest),
 //                          so nobody can borrow it.
-import { json, fail, normUuid, slotOf, NAME_RE, rowsIn } from './common.js';
+import { json, fail, normUuid, slotOf, SLOTS, NAME_RE, rowsIn } from './common.js';
 import { CATALOG } from './catalog.gen.js';
 
 const STRIPE = 'https://api.stripe.com/v1';
@@ -283,7 +283,10 @@ async function revoke(env, paymentIntent) {
     env.DB.prepare('DELETE FROM owned WHERE payment = ?').bind(String(paymentIntent)),
   ];
   for (const { uuid, item } of rows) {
+    // An item that has left the catalog has no slot, so nothing can be wearing it: skip it. Building
+    // "SET null = NULL" would be a syntax error that rolls the whole refund back, and the buyer keeps it.
     const slot = slotOf(item);
+    if (!SLOTS.includes(slot)) continue;
     stmts.push(env.DB.prepare(`UPDATE equipped SET ${slot} = NULL WHERE uuid = ? AND ${slot} = ?`).bind(uuid, item));
   }
   await env.DB.batch(stmts);
