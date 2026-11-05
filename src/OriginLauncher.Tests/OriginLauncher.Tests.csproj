@@ -206,6 +206,8 @@
     <!-- Mod blame from crash logs (uses the real ModManager linked further down). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashAnalyzer.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\CrashReportBundle.cs" LinkBase="Launch" />
+    <!-- Which of the player's mods to check first after "Try once without my mods" started the game. -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\ModSuspects.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" LinkBase="Launch" />
     <!-- Heap cap + G1 flags for 1.8.9-era versions, and the pinned Temurin 8 provisioner (pure; network faked). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\HeapPlan.cs" LinkBase="Launch" />
