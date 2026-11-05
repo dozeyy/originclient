@@ -23,8 +23,12 @@ on:
         description: "Optional name for this run's folder (launcher-<label>)"
         default: ""
 
+# TOKENS (SEC-2, same rule as launcher-release.yml): the workflow's token is read-only. `shots` builds and runs the
+# launcher (NuGet restore and package build targets are third-party code), so it checks out with
+# persist-credentials: false and can't write anything. Only `publish` gets contents: write, and it runs no repo code:
+# it pushes the PNGs `shots` uploaded.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: launcher-shots-${{ github.ref }}-${{ github.event.inputs.label }}
@@ -37,6 +41,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-dotnet@v6
         with:
@@ -120,6 +126,8 @@ jobs:
 
   publish:
     needs: shots
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
