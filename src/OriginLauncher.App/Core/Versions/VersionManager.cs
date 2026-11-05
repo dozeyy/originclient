@@ -765,14 +765,14 @@ public sealed class VersionManager
         // happening in each case.
         progress?.Report(decision.FullVerify ? "Verifying game files..." : "Preparing game files...");
         var fileProgress = new InstallProgressThrottle(
-            progress, decision.FullVerify ? "Verifying game files" : "Preparing game files").Progress;
+            progress, decision.FullVerify ? "Verifying game files" : "Preparing game files");
 
         // CmlLib's InstallAndBuildProcessAsync is exactly these three calls (4.0.6);
         // they are made one at a time only so the launch-time harness can tell the
         // version lookup, the file pass and the process build apart.
         var resolved = await launcher.GetVersionAsync(versionName, ct);
         LaunchTimeline.Mark("version");
-        await launcher.InstallAsync(resolved, fileProgress, null, ct);
+        await launcher.InstallAsync(resolved, fileProgress.Progress, fileProgress.Bytes, ct);
         LaunchTimeline.Mark("files");
         PlatformLaunch.AdjustOption(version, option);
         var built = launcher.BuildProcess(resolved, option);
@@ -863,14 +863,14 @@ public sealed class VersionManager
 
         progress?.Report(decision.FullVerify ? "Verifying game files..." : "Preparing game files...");
         var fileProgress = new InstallProgressThrottle(
-            progress, decision.FullVerify ? "Verifying game files" : "Preparing game files").Progress;
+            progress, decision.FullVerify ? "Verifying game files" : "Preparing game files");
 
         // CmlLib resolves the Forge JSON like any custom version: inheritsFrom
         // 1.8.9 (libraries, LWJGL 2 natives, Mojang's jre-legacy Java 8) and
         // its legacy "minecraftArguments" string, plus option's extra game
         // arguments (a friend's server: --server/--port, JoinArguments).
         PlatformLaunch.AdjustOption(version, option);
-        var built = await launcher.InstallAndBuildProcessAsync(forgeVersionName, option, fileProgress, null, ct);
+        var built = await launcher.InstallAndBuildProcessAsync(forgeVersionName, option, fileProgress.Progress, fileProgress.Bytes, ct);
         if (decision.FullVerify) InstallVerification.MarkVerified(sharedRoot, version, forgeVersionName);
 
         if (temurinJavaw != null) built.StartInfo.FileName = temurinJavaw;
