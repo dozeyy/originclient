@@ -171,6 +171,17 @@ public final class Quickplay {
 	private static boolean openWasDown = false, againWasDown = false;
 
 	public static void tick(Minecraft mc) {
+		// JG-11: the game the player is in, from Hypixel's own /locraw (asked once per world), so
+		// Play Again works however they joined it: an NPC, a typed /play, a party warp, a relaunch.
+		if (com.origin.client.client.util.HypixelLocraw.tick(mc.theWorld,
+				Mods.on(ID) && mc.thePlayer != null && onHypixel(mc), System.currentTimeMillis())) {
+			run(mc, "locraw", null);
+		}
+		String seen = com.origin.client.client.util.HypixelLocraw.takeSeen();
+		if (seen != null) {
+			lastId = seen;
+			lastLabel = label(seen);
+		}
 		boolean active = Mods.on(ID) && mc.thePlayer != null && mc.currentScreen == null;
 		boolean open = active && KeyCodes.isDown(Mods.keyCode(ID, "key"));
 		boolean again = active && KeyCodes.isDown(Mods.keyCode(ID, "requeueKey"));
@@ -180,19 +191,31 @@ public final class Quickplay {
 			if (lastId != null) {
 				run(mc, "play " + lastId, lastLabel);
 			} else if (mc.thePlayer != null) {
-				actionBar(mc, "Pick a game in Quickplay first");
+				actionBar(mc, "Join a Hypixel game first");
 			}
 		}
 		openWasDown = open;
 		againWasDown = again;
 	}
 
-	/** Joins a mode (remembered for Play Again). */
+	/** Joins a mode (remembered for Play Again; /locraw confirms it once the game loads). */
 	public static void play(Minecraft mc, Game game, Mode mode) {
 		String label = mode.name().equals("Play") ? game.name() : game.name() + " \u00b7 " + mode.name();
 		lastId = mode.playId();
 		lastLabel = label;
 		run(mc, "play " + mode.playId(), label);
+	}
+
+	/** Quickplay's name for a /play id ("Bed Wars \u00b7 Doubles"), or the id itself for a mode it doesn't list. */
+	private static String label(String playId) {
+		for (Game game : GAMES) {
+			for (Mode mode : game.modes()) {
+				if (mode.playId().equals(playId)) {
+					return mode.name().equals("Play") ? game.name() : game.name() + " \u00b7 " + mode.name();
+				}
+			}
+		}
+		return playId;
 	}
 
 	/** Goes to the game's lobby. */
@@ -210,7 +233,7 @@ public final class Quickplay {
 			return;
 		}
 		mc.thePlayer.sendChatMessage("/" + command);   // 1.8.9: commands go out as "/" chat
-		if (mc.thePlayer != null && Mods.bool(ID, "displayMessage")) {
+		if (mc.thePlayer != null && label != null && Mods.bool(ID, "displayMessage")) {
 			actionBar(mc, "Joining " + label + "...");
 		}
 	}
