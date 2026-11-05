@@ -157,6 +157,10 @@ public partial class HomePage : UserControl
     /// <summary>Play failed because this account's saved Microsoft sign-in no longer works (its name): MainWindow asks
     /// once, and "Sign in again" opens the sign-in card.</summary>
     public event Action<string>? SignInAgainRequested;
+
+    /// <summary>Play was pressed with nobody signed in: MainWindow opens the sign-in card (JL-7), the same card the
+    /// account pill opens. Never a grey Play that does nothing.</summary>
+    public event Action? SignInRequested;
     /// <summary>
     /// MainWindow: a launch is starting, bring Home on screen first. The launch cover lives on Home, so a launch
     /// started while another tab shows (the crash window's Fix and relaunch after a mid-game crash) would otherwise
@@ -637,7 +641,7 @@ public partial class HomePage : UserControl
     {
         var key = SelectedKey();
         var phase = key != null ? _launches.PhaseOf(key) : GamePhase.Idle;
-        ApplyPlayButton(AccountLaunchBook.ButtonFor(phase, canPlay: key != null, hasVersion: _selectedVersion != null));
+        ApplyPlayButton(AccountLaunchBook.ButtonFor(phase, hasVersion: _selectedVersion != null));
         // Join follows Play: usable only when Play itself could start a launch.
         JoinButton.IsEnabled = key != null && phase == GamePhase.Idle && _selectedVersion != null;
         if (ImportRunState.IsApplying || _fixRunning) // _fixRunning: a fixed copy is being made (HomePage.Fix.cs)
@@ -847,7 +851,7 @@ public partial class HomePage : UserControl
         else
         {
             account = _selectedAccount;
-            if (account == null && !offlineTest) return;
+            if (AccountLaunchBook.SignedOutPlayOpensSignIn(account != null, offlineTest)) { SignInRequested?.Invoke(); return; }
             key = InstanceLayout.KeyFor(account?.Id);
         }
         if ((target?.Version ?? _selectedVersion) is not { } version) return;
@@ -1716,7 +1720,7 @@ public partial class HomePage : UserControl
     /// </summary>
     internal void TourShowRunning(string playerName, IReadOnlyList<string>? notices = null)
     {
-        ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Running, canPlay: true, hasVersion: true));
+        ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Running, hasVersion: true));
         SetStatus(Core.GameFolders.LaunchedMods.WithNotices($"Running - {playerName}", notices ?? []), StatusTone.Success);
     }
 
@@ -1726,7 +1730,7 @@ public partial class HomePage : UserControl
     /// </summary>
     internal void TourShowReady(bool hover)
     {
-        ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Idle, canPlay: true, hasVersion: true));
+        ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Idle, hasVersion: true));
         SetStatus("Ready to play", StatusTone.Success);
         // The hover pose: the fill the style's hover trigger animates to, set straight (no mouse in render mode).
         PlayButton.Background = new SolidColorBrush(((SolidColorBrush)FindResource(hover ? "Brush.AccentHover" : "Brush.Accent")).Color);

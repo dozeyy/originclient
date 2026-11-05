@@ -637,7 +637,7 @@ public class GameFoldersTests : IDisposable
     [Fact]
     public void ThePlayButtonReadsRunningAndStaysClickableWhileTheGameIsOpen()
     {
-        var view = AccountLaunchBook.ButtonFor(GamePhase.Running, canPlay: true, hasVersion: true);
+        var view = AccountLaunchBook.ButtonFor(GamePhase.Running, hasVersion: true);
         Assert.True(view.Enabled);
         Assert.True(view.ShowsRunning);
         Assert.False(view.Spinner);
@@ -648,7 +648,7 @@ public class GameFoldersTests : IDisposable
     [InlineData(GamePhase.Starting)]
     public void ThePlayButtonSpinsWhileALaunchIsUnderWay(GamePhase phase)
     {
-        var view = AccountLaunchBook.ButtonFor(phase, canPlay: true, hasVersion: true);
+        var view = AccountLaunchBook.ButtonFor(phase, hasVersion: true);
         Assert.False(view.Enabled);
         Assert.True(view.Spinner);
         Assert.False(view.ShowsRunning);
@@ -656,15 +656,21 @@ public class GameFoldersTests : IDisposable
     }
 
     [Theory]
-    [InlineData(true, true, true)]
-    [InlineData(true, false, false)]
-    [InlineData(false, true, false)]
-    [InlineData(false, false, false)]
-    public void AnIdleAccountsPlayButton(bool canPlay, bool hasVersion, bool enabled)
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void AnIdleAccountsPlayButton(bool hasVersion, bool enabled)
     {
-        var view = AccountLaunchBook.ButtonFor(GamePhase.Idle, canPlay, hasVersion);
+        var view = AccountLaunchBook.ButtonFor(GamePhase.Idle, hasVersion);
         Assert.Equal(enabled, view.Enabled);
         Assert.False(view.ShowsRunning);
         Assert.False(view.Spinner);
     }
+
+    [Theory]
+    [InlineData(false, false, true)]  // signed out: Play opens the sign-in card (JL-7), never a dead grey button
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]  // offline test mode (dev builds) plays without an account
+    [InlineData(true, true, false)]
+    public void SignedOutPlayOpensSignIn(bool hasAccount, bool offlineTest, bool opens) =>
+        Assert.Equal(opens, AccountLaunchBook.SignedOutPlayOpensSignIn(hasAccount, offlineTest));
 }

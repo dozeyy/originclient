@@ -48,6 +48,7 @@ public sealed partial class MainWindow
         _accountPanel.AccountSelected += (_, _) => SetAccountPanelOpen(false);
         _accountPanel.AddAccountRequested += (_, _) => OpenSignInPanel();
         Home.SignInAgainRequested += name => _ = AskToSignInAgainAsync(name);
+        Home.SignInRequested += OpenSignInPanel; // Play signed out (JL-7); OpenSignInPanel ignores a second open
 
         AccountButton.Click += (_, _) =>
         {

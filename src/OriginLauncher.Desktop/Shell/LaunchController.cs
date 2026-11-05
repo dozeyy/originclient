@@ -180,7 +180,7 @@ public sealed class LaunchController
         else
         {
             account = AccountStore.GetSelected(AccountStore.Load());
-            if (account == null && !offlineTest) return;
+            if (AccountLaunchBook.SignedOutPlayOpensSignIn(account != null, offlineTest)) { if (!_window.DialogOpen) SignInPanel.Open(_window); return; }
             key = InstanceLayout.KeyFor(account?.Id);
         }
         var version = target.Version;
