@@ -863,6 +863,15 @@ public final class HudElements {
 	}
 
 	/** Per-module rounded backing at the element's own opacity (0 = none). */
+	// Toast slots taken right now, from this version's toast manager (ToastBand reads it).
+	private static int toastSlots(Minecraft mc) {
+		try {
+			return ToastBand.slots(mc.getToastManager());
+		} catch (Throwable t) {
+			return 0;
+		}
+	}
+
 	public static void drawBacking(net.minecraft.client.gui.GuiGraphics g, int x, int y, int w, int h, double bg) {
 		if (bg <= 0.01) {
 			return;
@@ -1102,6 +1111,9 @@ public final class HudElements {
 			int[] size = e.measure().apply(mc);
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = pos.x(sw, w), y = pos.y(sh, h);
+			if (e.id().equals("potionhud")) {
+				y = ToastBand.below(x, y, w, sw, toastSlots(mc));   // step below any toasts showing (JG-9)
+			}
 			drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
 			var p = g.pose();
 			p.pushMatrix();

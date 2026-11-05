@@ -69,7 +69,8 @@ public final class HudLayout {
 		// top right
 		spot("serveraddress", 2, -4, 4, 1.0);
 		// Potions start under one toast (vanilla's 160 x 32 advancement / recipe / tutorial pop-ups draw
-		// over the top-right corner); Server IP, the less urgent line, takes the corner itself.
+		// over the top-right corner); Server IP, the less urgent line, takes the corner itself. While more
+		// toasts stack up, ToastBand moves the potions below them (no room here to reserve more, JG-9).
 		spot("potionhud", 2, -4, 36, 1.0);
 		spot("itemcounter", 2, -104, 80, 1.0);
 
