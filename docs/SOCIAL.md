@@ -214,7 +214,8 @@ and a chat read in the game stayed unread in the launcher. Now the service keeps
 friend's uuid, or `"party"`), the newest chat id read there (`chat_read`, migrations/0008_reads.sql):
 - A client marks a chat read with `/v1/messages/read { with, upTo }` while it shows that chat (on opening it, and
   when a line arrives in it). Sending a DM or a party line marks that chat read too (you answered it). Markers only
-  move forward; a repeated or older one writes nothing; `upTo` is capped at the newest chat id.
+  move forward; a repeated or older one writes nothing; `upTo` is capped at the newest chat id. One a second per
+  account (429), and only for a conversation that exists or the party you are in (else 404).
 - `/v1/sync` with `readsSince` returns `reads` (the markers changed since then) and `readsAt` (send it back as the
   next `readsSince`; 0 on start = all of them). `readsAt` rises strictly per account, so nothing is skipped or
   repeated. Usually 0 rows: one index seek per sync. Clients that don't send `readsSince` get no `reads`.
@@ -227,8 +228,9 @@ friend's uuid, or `"party"`), the newest chat id read there (`chat_read`, migrat
 - Migration 0008 marks every DM received before it as read, once (INSERT OR IGNORE), so updating doesn't flag 30 days
   of old messages as new.
 
-History: the first sync brings the newest 50 DMs of EACH conversation (at most 2,000 in all, the most recently active
-conversations first), so a quiet friend's chat is never pushed out by a busy one. It used to be the newest 100 DMs
+History: the first sync brings the newest 50 DMs of EACH friend's conversation (at most 2,000 in all, the most recently
+active conversations first), so a quiet friend's chat is never pushed out by a busy one. It reads them per friend
+through the `chat_pair` index (two seeks of at most 50 entries each), never the account's whole 30 days. It used to be the newest 100 DMs
 across all conversations. `/v1/messages/history { with, before? }` returns up to 50 older lines of one conversation
 (oldest first) and `more`; both clients call it once per session when a chat opens with no lines at all.
 

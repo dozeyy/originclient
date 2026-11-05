@@ -18,7 +18,7 @@ export const L = {
   STATE_FRESH_MS: 90 * SECOND,     // older positions are not shown
   TEXT_MAX: 256,                   // DM / party chat length (UTF-16 units, like Java/C# strings)
   LABEL_MAX: 32,                   // ping label length
-  RATE_MS: SECOND,                 // one DM / party line / ping / invite / friend request a second
+  RATE_MS: SECOND,                 // one DM / party line / ping / invite / friend request / read marker a second
   CHAT_KEEP_MS: 30 * DAY,
   PING_TTL_MS: MINUTE,
   WARP_TTL_MS: 2 * MINUTE,
@@ -27,9 +27,9 @@ export const L = {
   PARTY_IDLE_MS: HOUR,             // a member seen nowhere for an hour drops out (cron)
   FRIENDS_MAX: 200,
   OUTGOING_MAX: 50,                // pending friend requests you sent
-  // First sync (since = 0): the newest 50 DMs of EACH conversation (so a quiet
-  // friend's chat isn't pushed out by a busy one), at most 2,000 in all, the most
-  // recently active conversations first; older lines come from /v1/messages/history.
+  // First sync (since = 0): the newest 50 DMs of EACH friend's conversation (so a
+  // quiet friend's chat isn't pushed out by a busy one), at most 2,000 in all, the
+  // most recently active conversations first; older lines come from /v1/messages/history.
   DM_HISTORY_PER: 50,
   DM_HISTORY_MAX: 2000,
   PARTY_HISTORY: 50,               // ...and the newest 50 party lines since you joined

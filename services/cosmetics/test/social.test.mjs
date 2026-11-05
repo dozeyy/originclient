@@ -1362,3 +1362,35 @@ test('store reserve: Friends polling slows down before it can use up the day\'s 
   await scheduled({ scheduledTime: 60_000 * 500 }, env, clock);
   assert.equal(rows("SELECT * FROM meta WHERE k = 'social_budget'").length, 1);
 });
+
+test('read markers: one a second, and only for a conversation that exists or the party you are in', async () => {
+  const will = await signIn('Will'), alex = await signIn('Alex'), sam = await signIn('Sam');
+  await befriend(will, alex);
+  const line = (await call(alex.token, '/v1/messages/send', { to: will.uuid, text: 'hi' })).body.message;
+  step = 0;
+  assert.equal((await call(will.token, '/v1/messages/read', { with: alex.uuid, upTo: line.id })).status, 200);
+  const fast = await call(will.token, '/v1/messages/read', { with: alex.uuid, upTo: line.id });
+  assert.equal(fast.status, 429);
+  assert.match(fast.body.error, /one a second/);
+  step = 1001; tick(1000);
+  // Made-up rows are refused: a player you never talked to, any random uuid, a party you aren't in.
+  for (const peer of [sam.uuid, 'f'.repeat(32), 'party']) {
+    assert.equal((await call(will.token, '/v1/messages/read', { with: peer, upTo: line.id })).status, 404, peer);
+  }
+  assert.deepEqual(rows(`SELECT peer FROM chat_read WHERE uuid = '${will.uuid}'`).map(r => r.peer), [alex.uuid]);
+});
+
+test('history: the first sync finds each friend\'s newest lines through the chat_pair index, never every DM kept', async () => {
+  const will = await signIn('Will'), alex = await signIn('Alex');
+  await befriend(will, alex);
+  let sql = null;
+  const prepare = env.DB.prepare;
+  env.DB.prepare = text => { if (/JOIN chat c ON c\.id IN/.test(text)) sql = text; return prepare(text); };
+  await sync(will);
+  env.DB.prepare = prepare;
+  assert.ok(sql, 'the first sync used the per-friend history query');
+  const plan = env.DB.raw.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(will.uuid).map(r => r.detail);
+  assert.ok(plan.some(d => /SEARCH chat USING COVERING INDEX chat_pair/.test(d)), plan.join('\n'));
+  assert.ok(plan.some(d => /SEARCH c USING INTEGER PRIMARY KEY/.test(d)), plan.join('\n'));
+  assert.ok(!plan.some(d => /\bSCAN\b/.test(d)), plan.join('\n'));
+});
