@@ -132,7 +132,7 @@ public partial class MainWindow : Window
             UpdateBadge.Visibility = Visibility.Visible;
             _homePage.RefreshUpdateGate();
         });
-        _homePage.UpdateRequiredRefused += () => _ = AskToUpdateAsync();
+        _homePage.UpdateRequiredRefused += play => _ = AskToUpdateAsync(play);
         _homePage.SignInAgainRequested += name => _ = AskToSignInAgainAsync(name);
         _homePage.SignInRequested += () => { if (!_signInPanelOpen && !UpdatePrompt.IsVisible) OpenSignInPanel(); };
         // A click whose setting couldn't be saved (settings.json busy): one plain toast, never the crash window.
@@ -229,15 +229,21 @@ public partial class MainWindow : Window
     }
 
 
+    // The Play the prompt's "Update and play" continues after the restart; null for a plain chip click.
+    private PlayAfterUpdate? _playAfterUpdate;
+
     // Play was refused for a mandatory update: ask once, and Update runs the chip's own install. Not while that
     // install is already running (the chip is disabled then) or when nothing is on offer any more.
-    private async Task AskToUpdateAsync()
+    private async Task AskToUpdateAsync(PlayAfterUpdate play)
     {
         if (UpdateService.Available == null || !UpdateBadge.IsEnabled) return;
         if (await UpdatePrompt.ShowAsync(UpdateRequiredWords.PromptTitle, UpdateRequiredWords.PromptText,
                 UpdateRequiredWords.UpdateButton, UpdateRequiredWords.LaterButton)
             && UpdateService.Available != null && UpdateBadge.IsEnabled)
+        {
+            _playAfterUpdate = play; // "Update and play": the next start launches it (JL-5)
             UpdateBadge_Click(UpdateBadge, new RoutedEventArgs());
+        }
     }
 
     // Play failed on an expired sign-in: ask once, and "Sign in again" goes straight to the sign-in card (adding an
@@ -289,7 +295,10 @@ public partial class MainWindow : Window
         {
             // Downloads + stages the new build, then shuts this process down;
             // the swap script relaunches the updated launcher.
-            await UpdateService.DownloadAndRestartAsync(progress, stopWaiting.Token);
+            // Taken here so only the click the prompt made carries it; the chip on its own never starts a game.
+            var playAfter = _playAfterUpdate;
+            _playAfterUpdate = null;
+            await UpdateService.DownloadAndRestartAsync(progress, stopWaiting.Token, playAfter);
         }
         catch (OperationCanceledException) when (stopWaiting.IsCancellationRequested)
         {
@@ -1317,6 +1326,9 @@ public partial class MainWindow : Window
         await ShowRecoveryResultAsync(); // MainWindow.ImportWiring.cs: the toast, and Home/Profiles refreshed after a rollback
 
         if (App.IsRenderMode) return;
+        // "Update and play" (JL-5): the Play the required update refused starts now, with no second click.
+        if (!App.StartWithImport && UpdateService.TakePlayAfterUpdate() is { } play)
+            _ = _homePage.ResumeAfterUpdateAsync(play);
         if (App.StartWithImport)
         {
             await Task.Delay(1200); // let the opening animation finish

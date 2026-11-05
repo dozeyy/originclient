@@ -152,7 +152,7 @@ public partial class HomePage : UserControl
     public event Action<bool>? LaunchSceneChanged;
 
     /// <summary>MainWindow: Play (or any launch) was refused because an update is required; it asks to update.</summary>
-    public event Action? UpdateRequiredRefused;
+    public event Action<PlayAfterUpdate>? UpdateRequiredRefused;
 
     /// <summary>Play failed because this account's saved Microsoft sign-in no longer works (its name): MainWindow asks
     /// once, and "Sign in again" opens the sign-in card.</summary>
@@ -817,6 +817,12 @@ public partial class HomePage : UserControl
 
     private async void PlayButton_Click(object sender, RoutedEventArgs e) => await LaunchAsync(null, LaunchRoute.Play);
 
+    /// <summary>MainWindow, on the first start after "Update and play": the Play the update refused, as it was (same
+    /// account, version and server), with no second click (JL-5). Every launch check runs as usual.</summary>
+    public Task ResumeAfterUpdateAsync(PlayAfterUpdate play) =>
+        LaunchAsync(new LaunchTarget(play.Version, play.Server, play.AccountKey),
+            play.Server != null ? LaunchRoute.JoinServer : LaunchRoute.Play);
+
     private async Task LaunchAsync(LaunchTarget? target, LaunchRoute route)
     {
         // Enter, a friend's Join and the version picker all land here: none of them may start a game mid-import.
@@ -897,7 +903,7 @@ public partial class HomePage : UserControl
             Note(key, UpdateRequiredText, LaunchTone.Warning);
             // The status line alone was easy to miss (Will, 2026-11-03: "it just won't let you launch"): the click
             // also opens the Update required prompt, whose Update button installs it.
-            UpdateRequiredRefused?.Invoke();
+            UpdateRequiredRefused?.Invoke(new PlayAfterUpdate(key, version, target?.Server)); // "Update and play" continues it
             return;
         }
 

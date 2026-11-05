@@ -170,6 +170,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Updates\FeedPoll.cs" LinkBase="Updates" />
     <!-- "Quit to swap in X" remembered across the restart, so a swap that failed after the quit never gates Play forever. -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\SwapAttempt.cs" LinkBase="Updates" />
+    <!-- "Update and play": the Play a required update refused, continued by the next start (JL-5). -->
+    <Compile Include="..\OriginLauncher.App\Core\Updates\PlayAfterUpdate.cs" LinkBase="Updates" />
+    <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateRequiredWords.cs" LinkBase="Updates" />
     <!-- The small self-update: the new release rebuilt from the installed folder + only the changed files, every staged file verified (pure: paths are parameters). -->
     <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateDelta.cs" LinkBase="Updates" />
     <!-- The background download's state machine (published -> downloading -> staged -> swap; failures fall back; a running game waits) and the stage's re-check before the swap (pure). -->

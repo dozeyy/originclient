@@ -39,7 +39,7 @@ public sealed partial class MainWindow
     private void HookUpdates()
     {
         UpdateBadge.Click += UpdateBadge_Click;
-        Home.UpdateRequiredRefused += () => _ = AskToUpdateAsync();
+        Home.UpdateRequiredRefused += play => _ = AskToUpdateAsync(play);
         // A click whose setting couldn't be saved (settings.json busy): one plain toast, never a crash (WPF twin).
         SettingsStore.SaveRefused += () => Dispatcher.UIThread.Post(() =>
             Toasts.Show(new SocialToast(SocialToastKind.Notice, "Settings", SettingsStore.BusyLine)));
@@ -47,6 +47,11 @@ public sealed partial class MainWindow
         UpdateService.AvailableChanged += (_, _) => Dispatcher.UIThread.Post(ShowUpdateState);
         if (OriginPaths.IsScratchRoot) return;
 
+        // "Update and play" (JL-5): the Play the required update refused starts once the window is up, no second click.
+        Opened += (_, _) =>
+        {
+            if (UpdateService.TakePlayAfterUpdate() is { } play) _ = Home.ResumeAfterUpdateAsync(play);
+        };
         _ = PollForUpdatesAsync();
         // Re-check the instant the launcher regains focus, so a release just published is caught at once instead of on
         // the next poll tick (throttled).
@@ -124,16 +129,22 @@ public sealed partial class MainWindow
         if (!UpdateNote.IsVisible) UpdateLabel.IsVisible = !compact;
     }
 
+    // The Play the prompt's "Update and play" continues after the restart; null for a plain chip click.
+    private PlayAfterUpdate? _playAfterUpdate;
+
     // Play was refused for a mandatory update: ask once, and Update runs the chip's own install (the WPF MainWindow's
     // AskToUpdateAsync). Not while that install is already running (the chip is disabled then) or when nothing is on
     // offer any more.
-    private async Task AskToUpdateAsync()
+    private async Task AskToUpdateAsync(PlayAfterUpdate play)
     {
         if (UpdateService.Available == null || !UpdateBadge.IsEnabled) return;
         if (await Confirm.ShowAsync(UpdateRequiredWords.PromptTitle, UpdateRequiredWords.PromptText,
                 UpdateRequiredWords.UpdateButton, UpdateRequiredWords.LaterButton)
             && UpdateService.Available != null && UpdateBadge.IsEnabled)
+        {
+            _playAfterUpdate = play; // "Update and play": the next start launches it (JL-5)
             UpdateBadge_Click(UpdateBadge, new RoutedEventArgs());
+        }
     }
 
     private async void UpdateBadge_Click(object? sender, RoutedEventArgs e)
@@ -178,7 +189,10 @@ public sealed partial class MainWindow
         try
         {
             // Downloads, verifies and unpacks the new app, starts the swap script, then quits; the script reopens it.
-            await UpdateService.DownloadAndRestartAsync(progress, stopWaiting.Token);
+            // Taken here so only the click the prompt made carries it; the chip on its own never starts a game.
+            var playAfter = _playAfterUpdate;
+            _playAfterUpdate = null;
+            await UpdateService.DownloadAndRestartAsync(progress, stopWaiting.Token, playAfter);
         }
         catch (OperationCanceledException) when (stopWaiting.IsCancellationRequested)
         {

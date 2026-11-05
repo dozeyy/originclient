@@ -68,8 +68,9 @@ public static class UpdatePrompt
 
     private static string Short(Version v) => v.Build >= 0 ? v.ToString(3) : v.ToString();
 
-    /// <summary>The chip was clicked: download, verify, install and restart, with the progress in a dialog.</summary>
-    public static void Open(MainWindow window)
+    /// <summary>The chip was clicked: download, verify, install and restart, with the progress in a dialog.
+    /// <paramref name="playAfter"/>: the refused Play "Update and play" continues after the restart (null for the chip).</summary>
+    public static void Open(MainWindow window, PlayAfterUpdate? playAfter = null)
     {
         if (_busy) return;
         if (Shots.ShotRunner.Active || UpdateService.Available is not { } update)
@@ -79,21 +80,21 @@ public static class UpdatePrompt
             window.Toast("Origin is up to date", Tone.Success);
             return;
         }
-        _ = RunAsync(window, update);
+        _ = RunAsync(window, update, playAfter);
     }
 
     /// <summary>Play was refused for a mandatory update: ask once (the WPF MainWindow's AskToUpdateAsync), and Update
     /// runs the chip's own install. Not while that install is running or when nothing is on offer any more.</summary>
-    public static async Task AskAsync(MainWindow window)
+    public static async Task AskAsync(MainWindow window, PlayAfterUpdate play)
     {
         if (_busy || Shots.ShotRunner.Active || UpdateService.Available == null) return;
         if (await Confirm.AskAsync(window, UpdateRequiredWords.PromptTitle, UpdateRequiredWords.PromptText,
                 UpdateRequiredWords.UpdateButton, UpdateRequiredWords.LaterButton)
             && UpdateService.Available != null)
-            Open(window);
+            Open(window, play);
     }
 
-    private static async Task RunAsync(MainWindow window, UpdateService.AvailableUpdate update)
+    private static async Task RunAsync(MainWindow window, UpdateService.AvailableUpdate update, PlayAfterUpdate? playAfter = null)
     {
         _busy = true;
         var status = Ui.Caption("Starting the download");
@@ -136,7 +137,7 @@ public static class UpdatePrompt
         {
             // Downloads, verifies (SHA-256), stages the new build, then shuts this process down; the apply script
             // swaps the files and opens the updated launcher.
-            await UpdateService.DownloadAndRestartAsync(progress, stopWaiting.Token);
+            await UpdateService.DownloadAndRestartAsync(progress, stopWaiting.Token, playAfter);
             window.CloseDialog(); // only reached if the process was not shut down (nothing to restart into)
         }
         catch (OperationCanceledException) when (stopWaiting.IsCancellationRequested)

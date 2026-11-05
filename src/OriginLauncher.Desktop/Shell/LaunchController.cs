@@ -136,6 +136,12 @@ public sealed class LaunchController
     /// <summary>Play: launches the selected version, or brings the account's open game forward.</summary>
     public Task PlayOrFocusAsync(string version) => LaunchAsync(new LaunchTarget(version), LaunchRoute.Play);
 
+    /// <summary>The first start after "Update and play": the Play the update refused, as it was (same account, version
+    /// and server), with no second click (JL-5; the WPF HomePage's twin).</summary>
+    public Task ResumeAfterUpdateAsync(PlayAfterUpdate play) =>
+        LaunchAsync(new LaunchTarget(play.Version, play.Server, play.AccountKey),
+            play.Server != null ? LaunchRoute.JoinServer : LaunchRoute.Play);
+
     /// <summary>Enter on Home (and the import page's Play).</summary>
     public Task PlayFromKeyboardAsync(string version) => LaunchAsync(new LaunchTarget(version), LaunchRoute.EnterKey);
 
@@ -213,7 +219,7 @@ public sealed class LaunchController
             Note(key, UpdateRequiredWords.Status, LaunchTone.Warning, version);
             // The line alone was easy to miss (Windows' fix, v1.0.85): also the Update required prompt, whose Update
             // button installs it.
-            _ = UpdatePrompt.AskAsync(_window);
+            _ = UpdatePrompt.AskAsync(_window, new PlayAfterUpdate(key, version, target.Server)); // "Update and play"
             return;
         }
 

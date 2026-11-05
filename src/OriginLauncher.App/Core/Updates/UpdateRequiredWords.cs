@@ -9,8 +9,10 @@ public static class UpdateRequiredWords
 {
     public const string Status = "Update required - press Update at the top";
     public const string PromptTitle = "Update required";
+    // Updates are mandatory (DECISIONS 2026-07-08), so "Not now" can't open Play: the text says so up front, and the
+    // Update button continues straight into the game the player pressed Play for (PlayAfterUpdate, bug run 5, JL-5).
     public const string PromptText =
-        "A new version of Origin is out. Update to keep playing - it only takes a moment, and the launcher reopens by itself.";
-    public const string UpdateButton = "Update";
+        "A new version of Origin is out, and Play needs it. It only takes a moment: Origin reopens by itself and starts your game.";
+    public const string UpdateButton = "Update and play";
     public const string LaterButton = "Not now";
 }

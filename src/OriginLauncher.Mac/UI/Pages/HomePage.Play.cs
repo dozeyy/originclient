@@ -147,7 +147,7 @@ public sealed partial class HomePage
     public event Action<bool>? LaunchSceneChanged;
 
     /// <summary>Play was refused for a mandatory update: the window asks once, and Update installs it.</summary>
-    public event Action? UpdateRequiredRefused;
+    public event Action<PlayAfterUpdate>? UpdateRequiredRefused;
 
     /// <summary>Play failed because this account's saved Microsoft sign-in no longer works (its name): the window asks
     /// once, and "Sign in again" opens the sign-in card.</summary>
@@ -368,6 +368,12 @@ public sealed partial class HomePage
 
     private async void PlayButton_Click(object? sender, RoutedEventArgs e) => await LaunchAsync(null, LaunchRoute.Play);
 
+    /// <summary>The window, on the first start after "Update and play": the Play the update refused, as it was (same
+    /// account, version and server), with no second click (JL-5; the WPF HomePage's twin).</summary>
+    public Task ResumeAfterUpdateAsync(PlayAfterUpdate play) =>
+        LaunchAsync(new LaunchTarget(play.Version, play.Server, play.AccountKey),
+            play.Server != null ? LaunchRoute.JoinServer : LaunchRoute.Play);
+
     // ---- The Play-flow proof (`--play-plan`, PlayPlan.cs) ----
     // Set only by the headless proof, and honoured only in a scratch data folder: the launch runs every step for real and
     // hands over the built game process instead of starting it. Null in the launcher: nothing changes.
@@ -438,7 +444,7 @@ public sealed partial class HomePage
             Note(key, UpdateRequiredWords.Status, LaunchTone.Warning);
             // The line alone was easy to miss (Windows' fix, v1.0.85): the click also opens the Update required prompt,
             // whose Update button installs it (MainWindow.Update.cs AskToUpdateAsync).
-            UpdateRequiredRefused?.Invoke();
+            UpdateRequiredRefused?.Invoke(new PlayAfterUpdate(key, version, target?.Server)); // "Update and play" continues it
             return;
         }
 
