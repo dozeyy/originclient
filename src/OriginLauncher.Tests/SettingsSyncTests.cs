@@ -460,6 +460,151 @@ public class SettingsSyncTests
         Assert.Equal(20, back["mods"]!.AsObject().Count(m => m.Value?["enabled"]?.GetValue<bool>() == true));
     }
 
+    private static JsonNode ModsFile(SyncInstance instance) =>
+        JsonNode.Parse(File.ReadAllText(Path.Combine(instance.Directory, "config", "originclient-mods.json")))!;
+
+    [Fact]
+    public void ASettingResetAndSetAgainLaterSticksEverywhere()
+    {
+        // SS-1: a reset (key removed) stored a deletion; setting the key again in a later session
+        // looked like a newly appearing default, so the deletion won and removed it at every push.
+        var a = Instance("1.21.1");
+        var b = Instance("1.20.1");
+        var start = """{ "mods": { "zoom": { "enabled": true, "fov": 30.0 } }, "hud": { "fps": [1, 2, 2, 1, 0] }, "profiles": { "PvP": { "mods": { "zoom": { "fov": 20.0 } } } }, "meta": {} }""";
+        Write(a, "config/originclient-mods.json", start, 1);
+        Write(b, "config/originclient-mods.json", start, 1);
+        var engine = Engine();
+        engine.Seed(new[] { a, b });
+        engine.Push(a);
+
+        // Session 1 in 1.21.1: reset Zoom FOV, reset the FPS piece, delete the profile.
+        Write(a, "config/originclient-mods.json", """{ "mods": { "zoom": { "enabled": true } }, "hud": {}, "profiles": {}, "meta": {} }""", 30);
+        engine.Harvest(a);
+        engine.Push(a);
+
+        // Session 2 in 1.21.1: set all three again.
+        Write(a, "config/originclient-mods.json", """{ "mods": { "zoom": { "enabled": true, "fov": 15.0 } }, "hud": { "fps": [0, 9, 9, 1, 0] }, "profiles": { "PvP": { "mods": { "zoom": { "fov": 25.0 } } } }, "meta": {} }""", 60);
+        engine.Harvest(a);
+        engine.Harvest(b);
+        engine.Push(b);
+        engine.Push(a);
+
+        foreach (var instance in new[] { a, b })
+        {
+            var root = ModsFile(instance);
+            Assert.Equal(15.0, root["mods"]!["zoom"]!["fov"]!.GetValue<double>());
+            Assert.Equal(9.0, root["hud"]!["fps"]![1]!.GetValue<double>());
+            Assert.Equal(25.0, root["profiles"]!["PvP"]!["mods"]!["zoom"]!["fov"]!.GetValue<double>());
+        }
+
+        // And it survives the next launch.
+        engine.Harvest(a);
+        engine.Push(a);
+        Assert.Equal(15.0, ModsFile(a)["mods"]!["zoom"]!["fov"]!.GetValue<double>());
+    }
+
+    [Fact]
+    public void AKeySetAgainInAnotherVersionAfterAResetSticks()
+    {
+        var a = Instance("1.21.1");
+        var b = Instance("1.20.1");
+        var start = """{ "mods": { "zoom": { "fov": 30.0 } } }""";
+        Write(a, "config/originclient-mods.json", start, 1);
+        Write(b, "config/originclient-mods.json", start, 1);
+        var engine = Engine();
+        engine.Seed(new[] { a, b });
+        engine.Push(a);
+
+        Write(a, "config/originclient-mods.json", """{ "mods": { "zoom": {} } }""", 30);
+        engine.Harvest(a);
+        engine.Push(a);
+        engine.Harvest(b);
+        engine.Push(b);
+        Assert.Null(ModsFile(b)["mods"]!["zoom"]!["fov"]);
+
+        Write(b, "config/originclient-mods.json", """{ "mods": { "zoom": { "fov": 15.0 } } }""", 60);
+        engine.Harvest(b);
+        engine.Harvest(a);
+        engine.Push(a);
+        engine.Push(b);
+        Assert.Equal(15.0, ModsFile(a)["mods"]!["zoom"]!["fov"]!.GetValue<double>());
+        Assert.Equal(15.0, ModsFile(b)["mods"]!["zoom"]!["fov"]!.GetValue<double>());
+    }
+
+    [Fact]
+    public void ADeletedKeyDoesNotComeBackFromABrandNewDefaultFile()
+    {
+        // The SS-1 fix must not let a freshly created file (no baseline) undo a deletion.
+        var a = Instance("1.21.1");
+        Write(a, "config/originclient-mods.json", """{ "mods": { "zoom": { "fov": 30.0 } } }""", 1);
+        var engine = Engine();
+        engine.Seed(new[] { a });
+        engine.Push(a);
+        Write(a, "config/originclient-mods.json", """{ "mods": { "zoom": {} } }""", 30);
+        engine.Harvest(a);
+
+        var fresh = Instance("1.19.4");
+        Write(fresh, "config/originclient-mods.json", """{ "mods": { "zoom": { "fov": 30.0 } } }""", 90);
+        engine.Harvest(fresh);
+        engine.Push(fresh);
+        engine.Push(a);
+        Assert.Null(ModsFile(a)["mods"]!["zoom"]!["fov"]);
+        Assert.Null(ModsFile(fresh)["mods"]!["zoom"]!["fov"]);
+    }
+
+    [Fact]
+    public void DeletingAWholeModProfileSticksDespiteItsSize()
+    {
+        // SS-2: one profile is a full snapshot, so deleting it drops about half the file's keys.
+        var a = Instance("1.21.1");
+        var b = Instance("1.20.1");
+        var mods = new JsonObject();
+        var snapshot = new JsonObject();
+        for (var i = 0; i < 40; i++)
+        {
+            mods[$"m{i}"] = new JsonObject { ["enabled"] = true };
+            snapshot[$"m{i}"] = new JsonObject { ["enabled"] = false };
+        }
+        var withProfile = new JsonObject
+        {
+            ["mods"] = mods.DeepClone(),
+            ["profiles"] = new JsonObject { ["Bedwars"] = new JsonObject { ["mods"] = snapshot } },
+            // Deleting the active profile also clears this (OriginModMenuScreen).
+            ["meta"] = new JsonObject { ["activeProfile"] = "Bedwars" },
+        };
+        Write(a, "config/originclient-mods.json", withProfile.ToJsonString(), 1);
+        Write(b, "config/originclient-mods.json", withProfile.ToJsonString(), 1);
+        var engine = Engine();
+        engine.Seed(new[] { a, b });
+        engine.Push(a);
+        engine.Push(b);
+
+        var deleted = new JsonObject { ["mods"] = mods.DeepClone(), ["profiles"] = new JsonObject(), ["meta"] = new JsonObject() };
+        Write(a, "config/originclient-mods.json", deleted.ToJsonString(), 30);
+        engine.Harvest(a);
+        engine.Harvest(b);
+        engine.Push(b);
+        engine.Push(a);
+
+        foreach (var instance in new[] { a, b })
+        {
+            var root = ModsFile(instance);
+            Assert.Null(root["profiles"]!["Bedwars"]); // gone whole: an empty shell would still be listed
+            Assert.Null(root["meta"]!["activeProfile"]);
+            Assert.Equal(40, root["mods"]!.AsObject().Count);
+        }
+
+        // A file that lost its mod settings as well is still a reset, not deletions.
+        Write(b, "config/originclient-mods.json", withProfile.ToJsonString(), 40);
+        engine.Harvest(b);
+        engine.Push(b);
+        Write(b, "config/originclient-mods.json", """{ "profiles": {} }""", 50);
+        engine.Harvest(b);
+        engine.Push(b);
+        Assert.NotNull(ModsFile(b)["profiles"]!["Bedwars"]);
+        Assert.Equal(40, ModsFile(b)["mods"]!.AsObject().Count);
+    }
+
     [Fact]
     public void PackHubPendingDeletesAndInstalledFilesStayInTheirOwnVersion()
     {
