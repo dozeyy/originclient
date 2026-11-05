@@ -842,7 +842,7 @@ public final class Mods {
 		add("hypixel", "Hypixel", "Hypixel levels, Bed Wars stats and chat tools.", true,
 				ModOption.header("Hypixel API"),
 				ModOption.text("apiKey", "API Key", "").secret()
-						.tip("Your personal key from developer.hypixel.net. Click, then paste with Ctrl+V and press Enter. It stays on this PC and is only sent to Hypixel."),
+						.tip("Your key from developer.hypixel.net. Keys from there expire after about 3 days: when levels stop, get a new one there and paste it here. Click, then paste with Ctrl+V and press Enter. It stays on this PC and is only sent to Hypixel."),
 				ModOption.header("Levels & Stats"),
 				ModOption.toggle("levelHead", "Level Head", false)
 						.tip("Show each player's Hypixel level on their nametag."),

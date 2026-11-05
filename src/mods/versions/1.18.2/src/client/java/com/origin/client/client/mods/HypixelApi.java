@@ -152,7 +152,11 @@ public final class HypixelApi {
 				synchronized (QUEUE) {
 					QUEUE.clear();
 				}
-				notifyPlayer("Hypixel rejected your API key. Paste a valid key in Origin's Hypixel mod settings.");
+				// Hypixel answers 403 for an expired key and a mistyped one alike. Keys from the
+				// developer dashboard last about 3 days, so "expired" is nearly always the truth
+				// (JG-5: the old "rejected" read like Origin or the key was at fault).
+				notifyPlayer("Your Hypixel API key has expired (keys last about 3 days). Get a new one at"
+						+ " developer.hypixel.net and paste it in Origin's Hypixel mod settings.");
 				return 0;
 			}
 			if (code == 429) {

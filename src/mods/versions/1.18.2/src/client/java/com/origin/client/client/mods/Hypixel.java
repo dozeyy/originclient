@@ -143,7 +143,7 @@ public final class Hypixel {
 				&& (Mods.bool(MOD, "levelHead") || Mods.bool(MOD, "levelsInTab") || Mods.bool(MOD, "bedwarsStats"))) {
 			keyHintShown = true;
 			mc.player.displayClientMessage(new TextComponent(
-					"Hypixel levels and stats need your Hypixel API key: Right Shift > Mods > Hypixel > API Key."), false);
+					"Hypixel levels and stats need your Hypixel API key: " + menuKeyName() + " > Mods > Hypixel > API Key."), false);
 		}
 		if (Mods.bool(MOD, "autoTip") && System.currentTimeMillis() >= nextTipAt) {
 			nextTipAt = System.currentTimeMillis() + TIP_EVERY_MS;
@@ -154,6 +154,15 @@ public final class Hypixel {
 			if (Mods.bool(MOD, "autoWho")) {
 				command(mc, "who");
 			}
+		}
+	}
+
+	/** The player's own Origin-menu key ("Right Shift" unless rebound in Controls), for hints. */
+	private static String menuKeyName() {
+		try {
+			return com.origin.client.client.OriginKeyBindings.openModMenu.getTranslatedKeyMessage().getString();
+		} catch (Throwable t) {
+			return "Right Shift";
 		}
 	}
 
