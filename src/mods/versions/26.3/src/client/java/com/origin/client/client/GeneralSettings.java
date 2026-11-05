@@ -28,6 +28,12 @@ public final class GeneralSettings {
 	private static Boolean lastBorderless = null;
 	private static boolean borderlessApplied = false;
 	private static int savedX, savedY, savedW, savedH;
+	// Leaving borderless returns to a maximised window if that is what it was.
+	private static boolean savedMaximised;
+	// The remembered window (WindowMemory) when Borderless was already on at launch: not
+	// applied then (Borderless owns the window), so it is the window that leaving Borderless
+	// returns to, not the launch size the window happened to have (LONG-3).
+	private static int[] launchRestore;
 	private static final BorderlessFit.Guard guard = new BorderlessFit.Guard();
 	// One "covers its monitor" log line per enter: the proof in latest.log that the
 	// first-tick apply held (CI boot-smoke greps it too).
@@ -60,8 +66,12 @@ public final class GeneralSettings {
 				}
 				SDLVideo.SDL_GetWindowSize(win, w, h);
 				int[] restore = WindowMemory.start(net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().toFile(), w.get(0), h.get(0));
-				if (restore != null && !Mods.bool(Mods.GENERAL_ID, "borderlessFullscreen")) {
-					restoreWindow(win, restore);
+				if (restore != null) {
+					if (Mods.bool(Mods.GENERAL_ID, "borderlessFullscreen")) {
+						launchRestore = restore;   // enterBorderless (next, this tick) keeps it to return to
+					} else {
+						restoreWindow(win, restore);
+					}
 				}
 				return;
 			}
@@ -151,6 +161,14 @@ public final class GeneralSettings {
 				}
 				enterBorderless(win);
 			} else if (!want && borderlessApplied) {
+				// Same under F11 the other way: moving the window out from under vanilla's
+				// fullscreen leaves the game thinking it is still fullscreen. Finish the
+				// leave once F11 has handed the window back.
+				if (mc.options.fullscreen().get()
+						|| (SDLVideo.SDL_GetWindowFlags(win) & SDLVideo.SDL_WINDOW_FULLSCREEN) != 0L) {
+					lastBorderless = null;
+					return;
+				}
 				leaveBorderless(win);
 			}
 			return;
@@ -165,18 +183,27 @@ public final class GeneralSettings {
 			// A maximised window first goes back to its normal size: SDL3 ignores a
 			// size request on a maximised window, and the normal size is the one to
 			// return to when Borderless goes off.
+			boolean wasMaximised = (SDLVideo.SDL_GetWindowFlags(win) & SDLVideo.SDL_WINDOW_MAXIMIZED) != 0L;
 			restoreIfMaximised(win);
 			IntBuffer x = stack.mallocInt(1), y = stack.mallocInt(1), w = stack.mallocInt(1), h = stack.mallocInt(1);
 			SDLVideo.SDL_GetWindowPosition(win, x, y);
 			SDLVideo.SDL_GetWindowSize(win, w, h);
 			int[] bounds = displayBounds(win);
+			int[] remembered = launchRestore;
+			launchRestore = null;   // only the first enter of this launch
 			if (bounds == null) {
 				return;
 			}
-			savedX = x.get(0);
-			savedY = y.get(0);
-			savedW = w.get(0);
-			savedH = h.get(0);
+			int[] back = {x.get(0), y.get(0), w.get(0), h.get(0)};
+			if (remembered != null) {
+				back = WindowMemory.placeOn(bounds, remembered[0], remembered[1]);
+				wasMaximised = remembered[2] == 1;
+			}
+			savedX = back[0];
+			savedY = back[1];
+			savedW = back[2];
+			savedH = back[3];
+			savedMaximised = wasMaximised;
 			fit(win, bounds);
 			borderlessApplied = true;
 			guard.reset(System.currentTimeMillis());
@@ -193,6 +220,10 @@ public final class GeneralSettings {
 			SDLVideo.SDL_SetWindowBordered(win, true);
 			SDLVideo.SDL_SetWindowSize(win, Math.max(320, savedW), Math.max(240, savedH));
 			SDLVideo.SDL_SetWindowPosition(win, savedX, savedY);
+			if (savedMaximised) {
+				SDLVideo.SDL_SyncWindow(win);      // the size must land first: it is what un-maximising returns to
+				SDLVideo.SDL_MaximizeWindow(win);
+			}
 			borderlessApplied = false;
 		} catch (Throwable t) {
 			// fail-soft
