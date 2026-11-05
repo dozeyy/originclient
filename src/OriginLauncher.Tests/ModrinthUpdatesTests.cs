@@ -26,11 +26,11 @@ public sealed class ModrinthUpdatesTests : IDisposable
     private static readonly string Next = new('b', 128);
 
     private static string Version(string project, string number, string type, string published, string sha512,
-        string file = "mod-2.0.jar", string loaders = "\"fabric\"", string games = "\"1.21.1\"") => $$"""
-        {"project_id":"{{project}}","version_number":"{{number}}","version_type":"{{type}}","date_published":"{{published}}",
-         "loaders":[{{loaders}}],"game_versions":[{{games}}],
-         "files":[{"primary":true,"url":"https://cdn.modrinth.com/data/x/versions/y/{{file}}","filename":"{{file}}",
-                   "hashes":{"sha1":"00","sha512":"{{sha512}}"}}]}
+        string file = "mod-2.0.jar", string loaders = "\"fabric\"", string games = "\"1.21.1\"") => $$$"""
+        {"project_id":"{{{project}}}","version_number":"{{{number}}}","version_type":"{{{type}}}","date_published":"{{{published}}}",
+         "loaders":[{{{loaders}}}],"game_versions":[{{{games}}}],
+         "files":[{"primary":true,"url":"https://cdn.modrinth.com/data/x/versions/y/{{{file}}}","filename":"{{{file}}}",
+                   "hashes":{"sha1":"00","sha512":"{{{sha512}}}"}}]}
         """;
 
     private static Dictionary<string, ModUpdateOffer> Offers(string current, string latest) =>
