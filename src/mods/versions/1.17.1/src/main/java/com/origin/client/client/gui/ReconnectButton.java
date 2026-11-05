@@ -68,16 +68,14 @@ public final class ReconnectButton {
 			return;
 		}
 		List<AbstractWidget> buttons = Screens.getButtons(screen);
-		// Fabric fires AFTER_INIT again on a resize, and the 1.20.2+ disconnect screen only
-		// re-lays its widgets out then (they are not cleared): never add a second one.
-		for (AbstractWidget b : buttons) {
-			if ("Reconnect".equals(b.getMessage().getString())) {
-				return;
-			}
-		}
+		// Fabric fires AFTER_INIT again on a resize, and the 1.20.2+ disconnect screen only re-lays
+		// its own widgets out then (they are not cleared): ours is moved, never added twice.
+		AbstractWidget mine = null;
 		AbstractWidget last = null;
 		for (AbstractWidget b : buttons) {
-			if (last == null || b.y > last.y) {
+			if ("Reconnect".equals(b.getMessage().getString())) {
+				mine = b;
+			} else if (last == null || b.y > last.y) {
 				last = b;
 			}
 		}
@@ -87,6 +85,11 @@ public final class ReconnectButton {
 		int y = last != null ? last.y + bh + 4 : screen.height / 2 + 30;
 		if (y + bh > screen.height - 4 && last != null) {
 			y = last.y - bh - 4;   // no room under it (a tiny window): above it
+		}
+		if (mine != null) {
+			mine.x = x;
+			mine.y = y;
+			return;
 		}
 		buttons.add(new net.minecraft.client.gui.components.Button(x, y, bw, bh, new net.minecraft.network.chat.TextComponent("Reconnect"),
 				b -> com.origin.client.client.social.Social.join(server)));
