@@ -336,7 +336,10 @@ async function boot() {
   // the 3D world (fails soft to the flat sky backdrop)
   try {
     const { createWorld } = await import('./world.js');
-    world = await createWorld($('#world'), { mobile: innerWidth <= 900, reducedMotion, heroZone: heroZone() });   // same 900px line as the CSS phone/tablet layout
+    // The island always glides, floats and sways, whatever the OS reduced-motion setting says: with it on, the
+    // camera snapped from pose to pose while scrolling down the island and nothing floated (Will, 2026-11-05:
+    // "looks dumb, revert it"). Other page animations still respect reduced motion.
+    world = await createWorld($('#world'), { mobile: innerWidth <= 900, reducedMotion: false, heroZone: heroZone() });   // same 900px line as the CSS phone/tablet layout
     addEventListener('resize', syncHeroZone);
     // a scrollbar coming or going shifts the layout without a resize event
     if (window.ResizeObserver) { let cw = document.documentElement.clientWidth; new ResizeObserver(() => { const w = document.documentElement.clientWidth; if (w !== cw) { cw = w; syncHeroZone(); } }).observe(document.documentElement); }

@@ -70,6 +70,7 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - The site is the island in the sky. The scroll-through Install/Launch replicas and the in-game "Play" chapter are removed; don't re-add without asking (2026-10-11).
 - The AI helper page is removed (2026-10-25).
 - No GitHub link or "public code" card on the site; don't re-add. The privacy page still names GitHub because the installer and update check really come from it (2026-11-02).
+- The island always moves (glide, float, sway) even with the OS reduced-motion setting on; other page animations still respect it (2026-11-05).
 - Website-only changes deploy without waiting for Will: push ONLY website commits to `main` (2026-10-13). Never ship unreleased launcher/mod work with them.
 
 ## How Claude works here
