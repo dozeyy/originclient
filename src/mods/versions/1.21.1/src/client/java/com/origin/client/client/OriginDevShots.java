@@ -58,6 +58,8 @@ public final class OriginDevShots {
 		// ORIGIN_SHOTS_SET=clean (Will's clean in-game look, 2026-10-19): the title with one button held in
 		// its hover state, Controls, and the world-loading / connecting screens, on top of the STY_ menus.
 		TITLE_HOVER, TITLE_HOVER_BTN, TITLE_PRESS, TITLE_FOCUS, CONTROLS, LEVEL_LOADING, CONNECTING,
+		// the disconnect screen after a lost connection, with Origin's Reconnect (JG-6)
+		DISCONNECTED,
 		// The world-loading screen half way: the progress bar's real fill (design set only).
 		LEVEL_LOADING_MID,
 		// Realms' long-running task screen ("Connecting to the realm..."), the other loading screen with a
@@ -259,6 +261,13 @@ public final class OriginDevShots {
 				case LEVEL_LOADING -> new net.minecraft.client.gui.screens.LevelLoadingScreen(
 						net.minecraft.server.level.progress.StoringChunkProgressListener.create(2));
 				case CONNECTING -> connectScreen();
+				case DISCONNECTED -> {
+					com.origin.client.client.gui.ReconnectButton.devRemember("mc.example.net");
+					yield new net.minecraft.client.gui.screens.DisconnectedScreen(
+							new net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen(new TitleScreen()),
+							net.minecraft.network.chat.Component.translatable("disconnect.lost"),
+							net.minecraft.network.chat.Component.translatable("disconnect.timeout"));
+				}
 				case LEVEL_LOADING_MID -> midLoading();
 				case CONNECTING_REALMS -> realmsTask();
 				case CREATE_TABS, WORLD_PAUSE -> new net.minecraft.client.gui.screens.worldselection.SelectWorldScreen(new TitleScreen());
@@ -477,7 +486,7 @@ public final class OriginDevShots {
 			// Origin mod menu (must be unchanged), and the title at 720p and GUI scale 3 / 4 (clipping checks).
 			// The startup loading screen comes from the boot shot below.
 			Kind[] ks = {Kind.TITLE, Kind.TITLE_HOVER, Kind.STY_OPTIONS, Kind.STY_VIDEO, Kind.CONTROLS,
-					Kind.STY_SOUND, Kind.STY_SERVERS, Kind.STY_LOADING, Kind.LEVEL_LOADING, Kind.CONNECTING, Kind.CONNECTING_REALMS, Kind.MENU};
+					Kind.STY_SOUND, Kind.STY_SERVERS, Kind.STY_LOADING, Kind.LEVEL_LOADING, Kind.CONNECTING, Kind.CONNECTING_REALMS, Kind.DISCONNECTED, Kind.MENU};
 			for (Kind k : ks) {
 				SHOTS.add(new Shot(1920, 1080, 2, k));
 			}

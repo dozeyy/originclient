@@ -47,6 +47,11 @@ public final class ReconnectButton {
 		});
 	}
 
+	/** Dev shots only (OriginDevShots DISCONNECTED): a server to offer, as if one had been joined. */
+	public static void devRemember(String server) {
+		lastServer = server;
+	}
+
 	private static void tick(Minecraft mc) {
 		try {
 			if (mc.getSingleplayerServer() != null) {
