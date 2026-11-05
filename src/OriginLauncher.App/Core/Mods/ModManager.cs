@@ -16,8 +16,16 @@ namespace OriginLauncher.App.Core.Mods;
 /// turned-off one (IsManaged false) is not shown, until <see cref="ModManager.WarmOwnership"/> has checked it off the
 /// UI thread, so Origin's own Fabric API / Sodium (or a leftover Origin set aside) never gets an on/off switch or a
 /// Remove button just because nothing was launched yet.
+/// <paramref name="DisplayName"/> is the mod's own name from inside the jar ("Xaero's World Map") once
+/// <see cref="ModManager.WarmNames"/> has read it, with <paramref name="Version"/> its own version; until then (or for a
+/// jar that says nothing) a name made from the file name, and <paramref name="NameUnread"/> is true while a read is due.
 /// </summary>
-public sealed record ModEntry(string FileName, string DisplayName, bool Enabled, bool IsManaged, bool Checking = false);
+public sealed record ModEntry(string FileName, string DisplayName, bool Enabled, bool IsManaged, bool Checking = false,
+    string? Version = null, bool NameUnread = false)
+{
+    /// <summary>The row's second line: "1.39.2 - XaerosWorldMap_1.39.2_Fabric_1.21.jar", or the file name alone.</summary>
+    public string FileLine => Version == null ? FileName : $"{Version} - {FileName}";
+}
 
 /// <summary>Result of a file operation. <c>Ok</c> false carries a user-facing
 /// <c>Error</c> (e.g. "close Minecraft first") — nothing here ever throws to
@@ -138,7 +146,8 @@ public static partial class ModManager
                 if (aside == true) continue;
                 checking = aside == null;
             }
-            entries.Add(new ModEntry(jarName, PrettyName(jarName), enabled, managed, checking));
+            var (display, version, unread) = NameOf(path, jarName);
+            entries.Add(new ModEntry(jarName, display, enabled, managed, checking, version, unread));
         }
 
         return entries
@@ -770,8 +779,64 @@ public static partial class ModManager
         return SHA256.HashData(sa).AsSpan().SequenceEqual(SHA256.HashData(sb));
     }
 
-    // Turn "sodium-fabric-0.6.13+mc1.21.1.jar" into "sodium-fabric 0.6.13".
-    // Purely cosmetic; the real identity is always the filename.
+    // ---- names from inside the jars (bug run 11 PROF-5) ----
+    // The Mods page showed "litematica-fabric-1.21.1-0.19.50" over "litematica-fabric-1.21.1-0.19.50.jar", and built-in
+    // cards "fabric-api-0.116.13+1.21.1", while the Replace prompt used the mod's real name. The name and version come
+    // from the jar's own fabric.mod.json / mcmod.info, read OFF the UI thread (WarmNames) and remembered by path + size +
+    // time (ModFolderScanner's cache); Enumerate, on the UI thread, only looks them up.
+
+    // Jars that were read and said nothing usable, by "path|size|time": not read again on every refresh.
+    private static readonly ConcurrentDictionary<string, byte> Nameless = new(StringComparer.OrdinalIgnoreCase);
+
+    private static (string Display, string? Version, bool Unread) NameOf(string path, string jarName)
+    {
+        if (ModFolderScanner.CachedInfo(path) is { ReadFailed: false } info && !string.IsNullOrWhiteSpace(info.Name))
+            return (info.Name.Trim(), string.IsNullOrWhiteSpace(info.Version) ? null : info.Version.Trim(), false);
+        var key = StampKey(path);
+        return (PrettyName(jarName), null, key != null && !Nameless.ContainsKey(key));
+    }
+
+    // "path|size|time", or null when the file can't be stat'ed.
+    private static string? StampKey(string path)
+    {
+        try
+        {
+            var file = new FileInfo(path);
+            return file.Exists ? $"{path}|{file.Length}|{file.LastWriteTimeUtc.Ticks}" : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Reads the names of the jars in <paramref name="folder"/> that have not been read yet (the Mods page calls it off
+    /// the UI thread when a row is <see cref="ModEntry.NameUnread"/>, then rebuilds). Returns how many got a real name.
+    /// Never throws.
+    /// </summary>
+    public static int WarmNames(string folder)
+    {
+        var named = 0;
+        try
+        {
+            foreach (var path in Directory.EnumerateFiles(folder))
+            {
+                var name = Path.GetFileName(path);
+                if (!name.EndsWith(JarSuffix, StringComparison.OrdinalIgnoreCase) && !name.EndsWith(DisabledSuffix, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!NameOf(path, JarNameOf(path)).Unread) continue;
+                var info = ModFolderScanner.ReadInfo(path, readNested: false);
+                if (info is { ReadFailed: false } && !string.IsNullOrWhiteSpace(info.Name)) named++;
+                else if (info != null && StampKey(path) is { } key) Nameless[key] = 0; // said nothing: final
+                // null: couldn't open it right now (a game holds it): asked again on the next refresh
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* the rows keep their file names */ }
+        return named;
+    }
+
+    // Turn "sodium-fabric-0.6.13+mc1.21.1.jar" into "sodium-fabric-0.6.13+mc1.21.1": the fallback name for a jar that
+    // has not been read yet or says nothing. Purely cosmetic; the real identity is always the filename.
     private static string PrettyName(string jarName)
     {
         var name = jarName.EndsWith(JarSuffix, StringComparison.OrdinalIgnoreCase)

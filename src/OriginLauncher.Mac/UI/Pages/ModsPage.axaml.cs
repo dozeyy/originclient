@@ -126,6 +126,30 @@ public sealed partial class ModsPage : UserControl
 
     private bool _warming; // Origin's jars are being checked by their bytes (off the UI thread)
 
+    private bool _naming; // the jars' own names are being read (off the UI thread)
+
+    // Reads the mods' own names and versions from their jars off the UI thread (ModManager.WarmNames), then rebuilds the
+    // rows with them, if the page still shows the same folder. Until then the rows show their file names.
+    private async void WarmNames(string version, string? profileId)
+    {
+        _naming = true;
+        var folder = ModManager.ModsFolder(version, profileId);
+        var named = 0;
+        try
+        {
+            named = await Task.Run(() => ModManager.WarmNames(folder));
+        }
+        catch (Exception)
+        {
+            // Names are a convenience: the rows keep their file names.
+        }
+        finally
+        {
+            _naming = false;
+        }
+        if (named > 0 && _version == version && _profile?.Id == profileId) Refresh();
+    }
+
     // Checks Origin's jars in the version's folder off the UI thread, then rebuilds the rows with the answer.
     private async void WarmOwnership(string version)
     {
@@ -171,6 +195,7 @@ public sealed partial class ModsPage : UserControl
         // switch, no Remove) until its bytes say whose it is; that check hashes, so it runs off the UI thread (the
         // WPF page's twin: a player's own Sodium/Iris/JEI must not read as Origin's until the next Play, X-1).
         if (_demo == null && !_warming && mods.Any(m => m.Checking)) WarmOwnership(_version);
+        if (_demo == null && !_naming && mods.Any(m => m.NameUnread)) WarmNames(_version, _profile?.Id);
         if (_demo == null) CheckForUpdates(_version, _profile?.Id, mods);
         var plain = landed == null && _pendingRemove == null && _pendingReplace.Count == 0 && _demo == null;
         var key = $"{_version}|{_profile?.Id}|{_profile?.Name}";
@@ -392,7 +417,7 @@ public sealed partial class ModsPage : UserControl
         }
         else text.Children.Add(NameText(mod.DisplayName, !mod.Enabled));
         var update = mod.Enabled ? UpdateFor(mod) : null;
-        text.Children.Add(FileText(update != null ? ModUpdateCheck.Caption(mod.FileName, update) : mod.FileName));
+        text.Children.Add(FileText(update != null ? ModUpdateCheck.Caption(mod.FileName, update) : mod.FileLine));
         grid.Children.Add(text.At(1));
 
         var toggle = new ToggleButton

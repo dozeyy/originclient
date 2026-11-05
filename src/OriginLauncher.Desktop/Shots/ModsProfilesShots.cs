@@ -18,16 +18,16 @@ public static class ModsProfilesShots
 {
     private static readonly ModEntry[] DemoMods =
     [
-        new("XaerosWorldMap_1.39.2_Fabric_1.21.jar", "Xaero's World Map", true, false),
-        new("litematica-fabric-1.21.1-0.19.50.jar", "Litematica", true, false),
-        new("appleskin-fabric-mc1.21-3.0.5.jar", "AppleSkin", false, false),
+        new("XaerosWorldMap_1.39.2_Fabric_1.21.jar", "Xaero's World Map", true, false, Version: "1.39.2"),
+        new("litematica-fabric-1.21.1-0.19.50.jar", "Litematica", true, false, Version: "0.19.50"),
+        new("appleskin-fabric-mc1.21-3.0.5.jar", "AppleSkin", false, false, Version: "3.0.5"),
         new("origin-client-1.21.1.jar", "Origin Client", true, true),
         new("sodium-fabric-0.6.13+mc1.21.1.jar", "Sodium", true, true),
         new("iris-fabric-1.8.8+mc1.21.1.jar", "Iris Shaders", true, true),
     ];
 
     private static readonly ModEntry[] DemoModsDropped =
-        [new("zoomify-2.14.2+1.21.1.jar", "Zoomify", true, false), .. DemoMods];
+        [new("zoomify-2.14.2+1.21.1.jar", "Zoomify", true, false, Version: "2.14.2+1.21.1"), .. DemoMods];
 
     private static int DemoCount(ModProfile p) => p.Name.StartsWith("PvP", StringComparison.Ordinal) ? 1 : p.HasServer ? 6 : 3;
 
