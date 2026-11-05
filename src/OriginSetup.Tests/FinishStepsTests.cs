@@ -45,4 +45,14 @@ public class FinishStepsTests
     {
         Assert.Empty(Installer.Finish(new[] { new Installer.FinishStep("a", () => { }, "never") }));
     }
+
+    [Fact]
+    public void The_done_line_says_desktop_only_when_the_shortcut_was_made()
+    {
+        // N92-5: an update that left the player's deleted desktop icon off still said "on your desktop".
+        Assert.Equal("Origin is on your desktop and in the Start menu.",
+            new Installer.InstallOutcome(Array.Empty<string>(), onDesktop: true).DoneLead);
+        Assert.Equal("Origin is in the Start menu.", new Installer.InstallOutcome(Array.Empty<string>(), onDesktop: false).DoneLead);
+        Assert.Equal("no desktop shortcut", new Installer.InstallOutcome(new[] { "no desktop shortcut" }, onDesktop: false).DoneLead);
+    }
 }

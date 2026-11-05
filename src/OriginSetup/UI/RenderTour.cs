@@ -56,6 +56,9 @@ public static class RenderTour
         setup.TourDone("Origin is installed", "Installed, version 1.0.40",
             new[] { "Couldn't add a desktop shortcut: Windows protects your desktop from new files." });
                                                Snap(setup, outDir, "09b-done-no-desktop-shortcut");
+        // An update that left the desktop icon the player had deleted off: the line names only the Start menu.
+        setup.TourDone("Origin is up to date", "Installed, version 1.0.40", onDesktop: false);
+                                               Snap(setup, outDir, "09c-done-update-no-desktop-icon");
         setup.TourProblem();                   Snap(setup, outDir, "10-problem-offline");
         setup.TourOriginOpen();                Snap(setup, outDir, "11-origin-open");
         // Customize: closed is shot 01 (the footer's Customize button); open at its defaults, open with memory and
