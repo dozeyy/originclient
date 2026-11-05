@@ -28,21 +28,54 @@ public sealed class BugRun9Tests : IDisposable
     public void The_swap_script_bounds_every_wait()
     {
         var text = WindowsApplyScript.Text;
-        var robocopy = text.Split("\r\n").Where(l => l.StartsWith("robocopy ", StringComparison.Ordinal)).ToList();
-        Assert.Equal(2, robocopy.Count); // one pass, and one more only after a failed one
+        var lines = text.Split("\r\n");
+        var robocopy = lines.Where(l => l.StartsWith("robocopy ", StringComparison.Ordinal)).ToList();
+        Assert.Equal(4, robocopy.Count); // the rest (+1 retry), then the entry files (+1 retry)
         Assert.All(robocopy, l => Assert.Contains(" /R:5 /W:1", l)); // robocopy's defaults are 1,000,000 x 30 s
-        Assert.Contains("if not errorlevel 8 exit /b 0\r\n", text); // the second pass only after a failure (8+)
         Assert.Contains("if %waited% geq " + WindowsApplyScript.QuitWaitSeconds + " exit /b 1\r\n", text);
-
-        // The lock is held around the whole wait + copy and released before the launcher is started again, so the new
-        // launcher doesn't see a swap running and bow out.
-        var call = text.IndexOf("call :swap 9>\"" + WindowsApplyScript.LockFileName + "\"\r\n", StringComparison.Ordinal);
-        var start = text.IndexOf("start \"\" \"%ORIGIN_UPDATE_EXE%\"", StringComparison.Ordinal);
-        var label = text.IndexOf("\r\n:swap\r\n", StringComparison.Ordinal);
-        Assert.True(call >= 0 && start > call && label > start, "lock -> start -> subroutine order");
-        // Still no path and no if-block in the script (SEC-1).
-        Assert.DoesNotContain("(", text.Replace("2>nul", ""));
         Assert.All(Encoding.ASCII.GetBytes(text), b => Assert.True(b < 0x80));
+        Assert.DoesNotContain("(", text); // no if-blocks a ")" in a path could end (SEC-1)
+    }
+
+    // Code review: never a new main dll beside old dependencies. The entry files are left out of the first copy and
+    // copied only once it fully worked; a copy that still failed after its retry leaves the old launcher whole.
+    [Fact]
+    public void The_entry_files_are_copied_last_and_only_after_the_rest_worked()
+    {
+        var lines = WindowsApplyScript.Text.Split("\r\n").ToList();
+        int Index(string line) => lines.IndexOf(line);
+        var rest = lines.FindAll(l => l.StartsWith("robocopy ", StringComparison.Ordinal) && l.Contains(" /XF \"%ORIGIN_UPDATE_ENTRY%\""));
+        var entry = lines.FindAll(l => l.StartsWith("robocopy ", StringComparison.Ordinal) && !l.Contains("/XF")
+                                       && l.Contains("\"%ORIGIN_UPDATE_ENTRY%\" "));
+        Assert.Equal(2, rest.Count);
+        Assert.Equal(2, entry.Count);
+        Assert.All(rest, l => Assert.Contains(" /E ", l));
+        Assert.All(entry, l => Assert.DoesNotContain(" /E ", l));
+
+        var lastRest = lines.LastIndexOf(rest[1]);
+        var giveUp = Index("if errorlevel 8 exit /b 1");
+        var entryLabel = Index(":entry");
+        Assert.True(lastRest < giveUp && giveUp < entryLabel && entryLabel < lines.IndexOf(entry[0]),
+            "rest -> give up on failure -> entry files");
+        Assert.Equal(Index(rest[0]) + 1, Index("if not errorlevel 8 goto entry"));
+
+        Assert.Equal("OriginLauncher.App.*", WindowsApplyScript.EntryPattern(@"C:\Users\a\AppData\Local\Programs\OriginLauncher\OriginLauncher.App.exe"));
+        var psi = WindowsApplyScript.StartInfo(_root, 1, @"C:\s\", @"C:\a\", @"C:\a\OriginLauncher.App.exe");
+        Assert.Equal("OriginLauncher.App.*", psi.Environment[WindowsApplyScript.EntryVariable]);
+    }
+
+    // Code review: the lock is held around the wait + copy and released before the launcher starts again; if cmd can't
+    // open the lock file, the swap still runs (unlocked) instead of being skipped.
+    [Fact]
+    public void The_swap_runs_even_when_the_lock_cant_be_opened()
+    {
+        var lines = WindowsApplyScript.Text.Split("\r\n").ToList();
+        var locked = lines.IndexOf("call :swap 9>\"" + WindowsApplyScript.LockFileName + "\"");
+        var fallback = lines.IndexOf("if not defined swapran call :swap");
+        var start = lines.IndexOf("start \"\" \"%ORIGIN_UPDATE_EXE%\"");
+        var label = lines.IndexOf(":swap");
+        Assert.True(lines.IndexOf("set swapran=") < locked && locked < fallback && fallback < start && start < label);
+        Assert.Equal("set swapran=1", lines[label + 1]); // marked first thing, so a swap that ran is never run twice
     }
 
     [Fact]
