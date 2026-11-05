@@ -1363,21 +1363,35 @@ test('store reserve: Friends polling slows down before it can use up the day\'s 
   assert.equal(rows("SELECT * FROM meta WHERE k = 'social_budget'").length, 1);
 });
 
-test('read markers: one a second, and only for a conversation that exists or the party you are in', async () => {
+test('read markers: a few at once, then one a second, and only for a conversation that exists or the party you are in', async () => {
   const will = await signIn('Will'), alex = await signIn('Alex'), sam = await signIn('Sam');
   await befriend(will, alex);
+  await befriend(will, sam);
   const line = (await call(alex.token, '/v1/messages/send', { to: will.uuid, text: 'hi' })).body.message;
+  const samLine = (await call(sam.token, '/v1/messages/send', { to: will.uuid, text: 'yo' })).body.message;
   step = 0;
+  // N92-4: two chats opened within a second (and the other client marking one too) all count.
   assert.equal((await call(will.token, '/v1/messages/read', { with: alex.uuid, upTo: line.id })).status, 200);
+  assert.equal((await call(will.token, '/v1/messages/read', { with: sam.uuid, upTo: samLine.id })).status, 200);
+  assert.deepEqual((await sync(will, { readsSince: 0 })).reads, { [alex.uuid]: line.id, [sam.uuid]: samLine.id });
+  // A burst of five, then one a second: a client can't flood the table.
+  for (let i = 2; i < 5; i++) assert.equal((await call(will.token, '/v1/messages/read', { with: alex.uuid, upTo: line.id })).status, 200, `call ${i + 1}`);
   const fast = await call(will.token, '/v1/messages/read', { with: alex.uuid, upTo: line.id });
   assert.equal(fast.status, 429);
   assert.match(fast.body.error, /one a second/);
-  step = 1001; tick(1000);
+  tick(1000);
+  assert.equal((await call(will.token, '/v1/messages/read', { with: alex.uuid, upTo: line.id })).status, 200);
+  assert.equal((await call(will.token, '/v1/messages/read', { with: alex.uuid, upTo: line.id })).status, 429);
+  // A quiet minute fills the allowance again.
+  tick(60_000);
+  for (let i = 0; i < 5; i++) assert.equal((await call(will.token, '/v1/messages/read', { with: alex.uuid, upTo: line.id })).status, 200, `refill ${i + 1}`);
+  step = 1001; tick(60_000);
+  const stranger = await signIn('Stranger');
   // Made-up rows are refused: a player you never talked to, any random uuid, a party you aren't in.
-  for (const peer of [sam.uuid, 'f'.repeat(32), 'party']) {
+  for (const peer of [stranger.uuid, 'f'.repeat(32), 'party']) {
     assert.equal((await call(will.token, '/v1/messages/read', { with: peer, upTo: line.id })).status, 404, peer);
   }
-  assert.deepEqual(rows(`SELECT peer FROM chat_read WHERE uuid = '${will.uuid}'`).map(r => r.peer), [alex.uuid]);
+  assert.deepEqual(rows(`SELECT peer FROM chat_read WHERE uuid = '${will.uuid}' ORDER BY peer`).map(r => r.peer).sort(), [alex.uuid, sam.uuid].sort());
 });
 
 test('history: the first sync finds each friend\'s newest lines through the chat_pair index, never every DM kept', async () => {

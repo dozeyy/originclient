@@ -15,7 +15,7 @@ import { json, fail, normUuid, NAME_RE } from './common.js';
 import { verifyIdentity } from './mojang.js';
 import {
   L, MSG, CLIENTS, ACTIVITIES, randomHex, sha256Hex, cleanText, normServer, normVersion, normDim, coord, num,
-  allow, areFriends, addChat, markRead, partyOut, MEMBER_COLUMNS, bumpRev, bumpFriendsOf, friendsEtagOf,
+  allow, allowBurst, areFriends, addChat, markRead, partyOut, MEMBER_COLUMNS, bumpRev, bumpFriendsOf, friendsEtagOf,
 } from './social-shared.js';
 import { PARTY_ROUTES, leaveParty, leaveStatements } from './party.js';
 
@@ -672,14 +672,15 @@ async function sendMessage(env, me, body, now) {
 // POST /v1/messages/read { with: <friend uuid> | "party", upTo: <chat id> }: the
 // player read that conversation up to that line, in the launcher or the game; the
 // other one hears it through sync `reads`. upTo is capped at the newest chat id.
-// One a second per account (clients send one when a chat opens or a line lands in
-// it), and only for a conversation that exists (a DM either way, chat_pair index)
+// L.READ_BURST at once, then one a second per account (clients send one when a chat
+// opens or a line lands in it; two chats opened together must both count), and
+// only for a conversation that exists (a DM either way, chat_pair index)
 // or the party you are in, so nobody can fill chat_read with made-up rows.
 async function readMessages(env, me, body, now) {
   const peer = body.with === 'party' ? 'party' : normUuid(body.with);
   const upTo = Number(body.upTo);
   if (!peer || peer === me.uuid || !Number.isSafeInteger(upTo) || upTo < 1) return fail(400, 'That chat is not valid.');
-  if (!(await allow(env, me.uuid, 'read', now))) return fail(429, MSG.slowDown);
+  if (!(await allowBurst(env, me.uuid, 'read', now, L.READ_BURST))) return fail(429, MSG.slowDown);
   const row = await env.DB.prepare(`SELECT COALESCE((SELECT MAX(id) FROM chat), 0) AS newest,
       CASE WHEN ?2 = 'party' THEN EXISTS (SELECT 1 FROM party_members WHERE uuid = ?1)
         ELSE EXISTS (SELECT 1 FROM chat WHERE to_uuid = ?1 AND from_uuid = ?2)
