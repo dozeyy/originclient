@@ -205,19 +205,19 @@ public static class PlayerOverrides
                 else
                 {
                     SetAside(wins["sodium"],
-                        $"Your {addon} needs Iris, and Origin has not tested an Iris with your Sodium {mineVersion}: Origin's Sodium and Iris are used.");
+                        $"Your {addon} needs Iris, which is untested with your Sodium {mineVersion}: Origin's Sodium and Iris are used.");
                     wins.Remove("sodium");
                 }
             }
             else if (mineId == "sodium")
             {
                 KeepOut(originMods["iris"],
-                    $"Shaders are off for this profile: Origin has not tested an Iris with your Sodium {mineVersion}. Add a matching Iris to the profile to turn them back on.");
+                    $"Shaders are off for this profile: no tested Iris for your Sodium {mineVersion}. Add a matching Iris to turn them back on.");
             }
             else
             {
                 SetAside(wins["iris"],
-                    $"Your Iris {mineVersion} needs the Sodium it was made for: Origin's Sodium and Iris are used. Add that Sodium to the profile to use your Iris.");
+                    $"Your Iris {mineVersion} needs the Sodium it was made for: Origin's pair is used. Add that Sodium to use yours.");
                 wins.Remove("iris");
             }
         }

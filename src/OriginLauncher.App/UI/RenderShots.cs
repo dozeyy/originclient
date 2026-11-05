@@ -279,7 +279,7 @@ public static class RenderShots
         Pump(600);
         Snap(window, outDir, "07-play-running");
         // Running with what the player's own Sodium changed (Compat/PlayerOverrides.Notices, Core/GameFolders/LaunchedMods).
-        window.TourShowRunning("Steve", ["Shaders are off for this profile: Origin has not tested an Iris with your Sodium 0.6.9. Add a matching Iris to the profile to turn them back on."]);
+        window.TourShowRunning("Steve", ["Shaders are off for this profile: no tested Iris for your Sodium 0.6.9. Add a matching Iris to turn them back on."]);
         Pump(400);
         Snap(window, outDir, "07b-play-running-notice");
         window.TourShowRunning("Steve");
@@ -1274,14 +1274,15 @@ public static class RenderShots
                                   + $"{rect.Width:0.#}x{rect.Height:0.#} bounds (ClipToBounds)");
                         }
                     }
-                    if (fe is TextBlock tb && Trimmed(tb) is { } fullWidth)
+                    if (fe is TextBlock tb && TrimNeed(tb) is { } need)
                     {
                         // A button's own label: its string content, or a TextBlock given as its content.
                         var label = Ancestor<System.Windows.Controls.Primitives.ButtonBase>(tb) is { } button
                                     && (button.Content is string c && c == tb.Text || ReferenceEquals(button.Content, tb));
                         var title = tb.Name == "HeaderTitle" || ReferenceEquals(tb.Style, h1) || ReferenceEquals(tb.Style, h2);
-                        var what = $"'{tb.Text}' needs {fullWidth:0.#} px, has {tb.ActualWidth:0.#} ({Describe(tb)})";
+                        var what = $"'{tb.Text}' {need} ({Describe(tb)})";
                         if (label || title) hits.Add($"{name}: TRIMMED {(label ? "button label" : "header title")} {what}");
+                        else if (MustFitShots.TryGetValue(name, out var mustFit) && tb.Name == mustFit) hits.Add($"{name}: TRIMMED in a shot whose text must show in full: {what}");
                         else trims.Add($"WARN {name}: {what}");
                     }
                 }
@@ -1325,6 +1326,35 @@ public static class RenderShots
 
     private static bool OneLine(TextBlock tb) =>
         tb.TextWrapping == TextWrapping.NoWrap && tb.Inlines.Count <= 1 && !string.IsNullOrEmpty(tb.Text);
+
+    // Texts that must show in full in a shot (shot -> the TextBlock's name): a trim there fails the workflow instead of
+    // a warning. 07b is Home's running line with a notice that ends in what to do (WP-2: it was cut after one row).
+    private static readonly Dictionary<string, string> MustFitShots = new(StringComparer.Ordinal)
+    {
+        ["07b-play-running-notice"] = "StatusText",
+    };
+
+    // What a trimmed text needs, or null when it shows in full: one line ending in "...", or a wrapped text with
+    // more rows than its box shows (its last row ends in "...").
+    private static string? TrimNeed(TextBlock tb)
+    {
+        if (Trimmed(tb) is { } fullWidth) return $"needs {fullWidth:0.#} px, has {tb.ActualWidth:0.#}";
+        if (RowsTrimmed(tb) is { } fullHeight) return $"needs {fullHeight:0.#} px of rows, has {tb.ActualHeight:0.#}";
+        return null;
+    }
+
+    private static double? RowsTrimmed(TextBlock tb)
+    {
+        if (tb.TextTrimming == TextTrimming.None || tb.TextWrapping == TextWrapping.NoWrap
+            || tb.Inlines.Count > 1 || string.IsNullOrEmpty(tb.Text)) return null;
+        var width = tb.ActualWidth - tb.Padding.Left - tb.Padding.Right;
+        if (width <= 0) return null;
+        var text = ShapeText(tb);
+        text.MaxTextWidth = width;
+        if (!double.IsNaN(tb.LineHeight)) text.LineHeight = tb.LineHeight;
+        var height = tb.ActualHeight - tb.Padding.Top - tb.Padding.Bottom;
+        return text.Height > height + 1 ? text.Height : null; // 1 px: layout rounding, not a lost row
+    }
 
     // The full width of a trimmed one-line text, or null when it isn't trimmed.
     private static double? Trimmed(TextBlock tb)

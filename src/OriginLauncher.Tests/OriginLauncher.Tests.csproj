@@ -71,6 +71,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Promos\*.cs" LinkBase="Promos" />
     <!-- Settings field rules (install folder, window size): the sentence shown under a rejected box. -->
     <Compile Include="..\OriginLauncher.App\Core\FieldRules.cs" LinkBase="Settings" />
+    <!-- Home's status line under Play: how many rows it may take and when it carries a tooltip (all three launchers). -->
+    <Compile Include="..\OriginLauncher.App\Core\StatusLineRule.cs" LinkBase="Home" />
     <!-- Mods page icons: jar icon parsing and the in-memory result cache. -->
     <Compile Include="..\OriginLauncher.App\Core\Mods\Icons\*.cs" LinkBase="ModIcons" />
     <Compile Include="..\OriginLauncher.App\Core\Sync\*.cs" LinkBase="Sync" />

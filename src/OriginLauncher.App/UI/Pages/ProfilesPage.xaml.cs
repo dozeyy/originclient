@@ -489,7 +489,10 @@ public partial class ProfilesPage : UserControl
         content.Children.Add(plus);
         content.Children.Add(new TextBlock { Text = "New profile", FontFamily = (FontFamily)FindResource("Font.Primary"), FontSize = (double)FindResource("FontSize.Title"), FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center });
         var sub = Small("Its own mods, one version", "Brush.TextMuted");
+        // At 150-200% scaling the card is narrower than the line: it wraps, centred, instead of ending in "..." (WP-12).
         sub.HorizontalAlignment = HorizontalAlignment.Center;
+        sub.TextWrapping = TextWrapping.Wrap;
+        sub.TextAlignment = TextAlignment.Center;
         sub.Margin = new Thickness(0, 4, 0, 0);
         content.Children.Add(sub);
         button.Content = content;
