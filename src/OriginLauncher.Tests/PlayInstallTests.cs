@@ -393,6 +393,44 @@ public class PlayInstallTests : IDisposable
         Assert.Equal([Fabric], dropped);
     }
 
+    // JL-11: a first install with too little room is refused before anything is downloaded or journalled.
+    [Fact]
+    public async Task ARefusedRoomCheck_StopsBeforeAnyDownload_AndAnInstalledVersionIsNeverChecked()
+    {
+        var shortage = new DiskShortage("C:", DiskSpace.FirstInstallBytes, 400L * 1024 * 1024);
+        var provisioned = false;
+        await Assert.ThrowsAsync<NotEnoughDiskSpaceException>(() => InstallSession.RunAsync(_installed, _journal, Fabric,
+            null, () => { provisioned = true; return Task.FromResult(0); },
+            ensureRoom: () => throw new NotEnoughDiskSpaceException(shortage)));
+        Assert.False(provisioned);
+        Assert.Equal(InstallState.NotInstalled, _installed.Check(Fabric).State); // no journal was opened
+
+        WriteEverything(Fabric);
+        var checkedRoom = false;
+        await InstallSession.RunAsync(_installed, _journal, Fabric, null, () => Task.FromResult(0),
+            ensureRoom: () => checkedRoom = true);
+        Assert.False(checkedRoom); // an installed version plays without a space check
+    }
+
+    [Fact]
+    public void TheDiskFullLine_NamesTheDriveAndHowMuchIsNeededAndFree()
+    {
+        Assert.Null(DiskSpace.Shortage("C:", 2L << 30, DiskSpace.FirstInstallBytes));
+        var s = DiskSpace.Shortage("C:", 400L * 1024 * 1024, DiskSpace.FirstInstallBytes)!;
+        Assert.Equal("Origin needs about 1.5 GB free on C: (0.4 GB free).", s.Sentence);
+        var f = PlayFailure.From(new NotEnoughDiskSpaceException(s), "1.21.1");
+        Assert.Contains("disk is full", f.Message);
+        Assert.Contains("1.5 GB free on C: (0.4 GB free)", f.Message);
+        Assert.EndsWith(PlayFailure.RetryLine, f.Message);
+
+        Assert.Equal("C:", DiskSpace.DriveLabel(@"C:\", windows: true));
+        Assert.Equal("your disk", DiskSpace.DriveLabel("/", windows: false));
+        Assert.Equal("your disk", DiskSpace.DriveLabel("/System/Volumes/Data", windows: false));
+        Assert.Equal("/home", DiskSpace.DriveLabel("/home/", windows: false));
+        // Measuring a real folder never throws, whatever the OS.
+        Assert.NotNull(DiskSpace.Measure(Path.GetTempPath()));
+    }
+
     [Fact]
     public void AFailedJournalWriteOrRemoval_IsLoggedOnce_AndNeverThrows()
     {
