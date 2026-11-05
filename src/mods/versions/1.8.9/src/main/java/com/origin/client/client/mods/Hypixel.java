@@ -122,21 +122,41 @@ public final class Hypixel {
 	private static long nextTipAt = 0;
 	private static boolean keyHintShown = false;
 	private static int whoInTicks = -1;
+	// HYPIXEL-3: Hypixel switches servers (lobby hops, game joins) by sending the player to
+	// another backend. On 1.20.2+ that can pass through the configuration phase, where
+	// Minecraft has no world or player for a moment. That gap is not leaving Hypixel: the
+	// level cache, the party list and the tip timer survive it. Only another server's world,
+	// or no world for LEAVE_GRACE_MS (back at the menus), ends the Hypixel session.
+	private static final long LEAVE_GRACE_MS = 15_000L;
+	private static boolean session = false;   // on Hypixel, short no-world gaps included
+	private static long gapSince = 0;
 
 	static void tick(Minecraft mc) {
-		boolean was = onHypixel;
-		onHypixel = mc.thePlayer != null && mc.theWorld != null && isHypixelServer(mc);
+		boolean inWorld = mc.thePlayer != null && mc.theWorld != null;
+		onHypixel = inWorld && isHypixelServer(mc);
 		if (!onHypixel) {
-			if (was) {
-				onLeave();
+			if (session) {
+				long now = System.currentTimeMillis();
+				if (gapSince == 0) {
+					gapSince = now;
+				}
+				// another server's world, or no world for longer than a switch takes: really left
+				if (inWorld || now - gapSince >= LEAVE_GRACE_MS) {
+					session = false;
+					gapSince = 0;
+					onLeave();
+				}
 			}
 			return;
 		}
+		gapSince = 0;
+		boolean joined = !session;
+		session = true;
 		HypixelApi.optionKey = Mods.text(MOD, "apiKey").trim();
 		// Waypoints are kept per Hypixel game and map (JG-8): the world's one /locraw (util/
 		// HypixelLocraw, asked for Quickplay too) also names the place, so ask it while Waypoints is on.
 		com.origin.client.client.util.HypixelLocraw.waypointsWant = Mods.on("waypoints");
-		if (!was) {
+		if (joined) {
 			nextTipAt = System.currentTimeMillis() + 30_000L;   // first tip shortly after joining
 		}
 		String title = sidebarTitle(mc);
@@ -334,6 +354,8 @@ public final class Hypixel {
 	private static final Pattern P_LEFT = Pattern.compile("^" + ONE
 			+ " (?:has left the party|has been removed from the party|was removed from your party because they disconnected)\\.?$");
 	private static final Pattern P_KICKED_OFFLINE = Pattern.compile("^Kicked " + ONE + " because they were offline\\.?$");
+	// the leader's own /p disband (HYPIXEL-2); whole line on one name, so player chat can't fake it
+	private static final Pattern P_DISBANDED = Pattern.compile("^" + ONE + " has disbanded the party!$");
 	private static final Pattern P_WITH = Pattern.compile("^You'll be partying with: (.+)$");
 	private static final Pattern P_LIST = Pattern.compile("^Party (?:Leader|Moderators|Members): (.+)$");
 
@@ -358,6 +380,7 @@ public final class Hypixel {
 
 	private static void trackParty(String line) {
 		if (line.startsWith("You left the party") || line.startsWith("The party was disbanded")
+				|| P_DISBANDED.matcher(line).matches()
 				|| line.startsWith("You have been kicked from the party") || line.startsWith("You are not currently in a party")
 				|| line.startsWith("You are not in a party") || line.startsWith("Party Members (")) {
 			synchronized (PARTY) {

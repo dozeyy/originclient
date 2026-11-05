@@ -14,8 +14,11 @@ import java.util.regex.Pattern;
  * Hypixel answers /locraw with one system line of JSON:
  *   {"server":"mini123A","gametype":"BEDWARS","mode":"BEDWARS_EIGHT_TWO","map":"Lighthouse"}
  * In a lobby the "mode" is missing (or "LOBBY"); SkyBlock's is the island ("hub", "dynamic"), not a
- * /play id. For every other game the mode, lowercased, IS the /play id ("bedwars_eight_two"), the
- * same mapping every Hypixel requeue mod uses.
+ * /play id. The "mode" is Hypixel's API mode key, which is the /play id ONLY for Bed Wars, Duels,
+ * Murder Mystery, Build Battle, SkyWars and The Pit ("bedwars_eight_two"). Every other game names its
+ * modes differently (Blitz and Smash Heroes both say "solo_normal", SkyWars' own /play id; TNT Run
+ * says "TNTRUN"), so those go through {@link #TABLE} to Quickplay's own ids (HYPIXEL-1). A game
+ * neither covers gives {@link #UNKNOWN}: Play Again then says so instead of joining a wrong game.
  *
  * The same reply also names where on the network the player is, for waypoints kept per Hypixel
  * game and map (JG-8): {@link #placeIn} gives "gametype/map" ("bedwars/lighthouse", "skyblock/hub",
@@ -46,6 +49,54 @@ public final class HypixelLocraw {
 	public static volatile boolean waypointsWant;
 	// a /play id is Hypixel's own lower-case word: anything else is never sent as a command
 	private static final Pattern PLAY_ID = Pattern.compile("[a-z0-9_]{1,64}");
+
+	/** takeSeen's answer for a game whose /play id Origin doesn't know. Never a valid id ('?' fails
+	 *  PLAY_ID), so it can't be sent as a command; Quickplay shows a short message for it. */
+	public static final String UNKNOWN = "?";
+
+	/** Games whose API mode key, lowercased, is their /play id (checked against Hypixel's mode list). */
+	private static final java.util.Set<String> MODE_IS_ID = new java.util.HashSet<>(java.util.Arrays.asList(
+			"BEDWARS", "DUELS", "MURDER_MYSTERY", "BUILD_BATTLE", "SKYWARS", "PIT"));
+
+	/**
+	 * "GAMETYPE:MODE" (upper case) -> /play id, for every other game Quickplay lists; "GAMETYPE:*" for
+	 * a single-mode game whatever its mode key. Keys are Hypixel's API names (the ones /locraw
+	 * replies with); ids are Quickplay's own. Anything missing here is UNKNOWN, never a guess.
+	 */
+	private static final java.util.Map<String, String> TABLE = new java.util.HashMap<>();
+
+	static {
+		String[] rows = {
+				"SURVIVAL_GAMES:SOLO_NORMAL", "blitz_solo_normal", "SURVIVAL_GAMES:TEAMS_NORMAL", "blitz_teams_normal",
+				"SUPER_SMASH:SOLO_NORMAL", "super_smash_solo_normal", "SUPER_SMASH:2V2_NORMAL", "super_smash_2v2_normal",
+				"SUPER_SMASH:TEAMS_NORMAL", "super_smash_teams_normal",
+				"TNTGAMES:TNTRUN", "tnt_tntrun", "TNTGAMES:PVPRUN", "tnt_pvprun", "TNTGAMES:BOWSPLEEF", "tnt_bowspleef",
+				"TNTGAMES:TNTTAG", "tnt_tntag", "TNTGAMES:CAPTURE", "tnt_capture",
+				"WALLS3:STANDARD", "mw_standard", "WALLS3:FACE_OFF", "mw_face_off",
+				"UHC:SOLO", "uhc_solo", "UHC:TEAMS", "uhc_teams",
+				"MCGO:NORMAL", "mcgo_normal", "MCGO:DEATHMATCH", "mcgo_deathmatch",
+				"WOOL_GAMES:WOOL_WARS_TWO_FOUR", "wool_wool_wars_two_four",
+				"ARCADE:PARTY", "arcade_party_games_1", "ARCADE:PARTY_GAMES", "arcade_party_games_1",
+				"ARCADE:HOLE_IN_THE_WALL", "arcade_hole_in_the_wall", "ARCADE:MINI_WALLS", "arcade_mini_walls",
+				"ARCADE:SOCCER", "arcade_soccer", "ARCADE:ENDER", "arcade_ender_spleef",
+				"ARCADE:THROW_OUT", "arcade_throw_out", "ARCADE:DRAGONWARS2", "arcade_dragon_wars",
+				"ARCADE:ONEINTHEQUIVER", "arcade_bounty_hunters", "ARCADE:FARM_HUNT", "arcade_farm_hunt",
+				"ARCADE:HIDE_AND_SEEK_PROP_HUNT", "arcade_hide_and_seek_prop_hunt",
+				"ARCADE:HIDE_AND_SEEK_PARTY_POOPER", "arcade_hide_and_seek_party_pooper",
+				"ARCADE:STARWARS", "arcade_starwars", "ARCADE:DRAW_THEIR_THING", "arcade_pixel_painters",
+				"ARCADE:PIXEL_PARTY", "arcade_pixel_party", "PROTOTYPE:PIXEL_PARTY", "arcade_pixel_party",
+				"ARCADE:DROPPER", "arcade_dropper",
+				"ARCADE:ZOMBIES_DEAD_END", "arcade_zombies_dead_end", "ARCADE:ZOMBIES_BAD_BLOOD", "arcade_zombies_bad_blood",
+				"ARCADE:ZOMBIES_ALIEN_ARCADIUM", "arcade_zombies_alien_arcadium",
+				// Classic Games: each is its own gametype on the network
+				"QUAKECRAFT:SOLO", "quake_solo", "QUAKECRAFT:TEAMS", "quake_teams",
+				"PAINTBALL:*", "paintball", "VAMPIREZ:*", "vampirez", "WALLS:*", "walls", "GINGERBREAD:*", "tkr",
+				"ARENA:1V1", "arena_1v1",
+		};
+		for (int i = 0; i < rows.length; i += 2) {
+			TABLE.put(rows[i], rows[i + 1]);
+		}
+	}
 
 	private static Object world;
 	private static long askAt, askedAt;
@@ -112,14 +163,16 @@ public final class HypixelLocraw {
 		return !ours;
 	}
 
-	/** The /play id from the newest reply since the last call, or null (Quickplay's Play Again reads it). */
+	/** The /play id (or UNKNOWN) from the newest game reply since the last call, or null (Quickplay's
+	 *  Play Again reads it). */
 	public static synchronized String takeSeen() {
 		String s = seen;
 		seen = null;
 		return s;
 	}
 
-	/** The /play id a /locraw reply names, or null: a lobby, SkyBlock, Housing, Limbo, or not a reply. */
+	/** The /play id a /locraw reply names; UNKNOWN for a game with no known id; null: a lobby, SkyBlock,
+	 *  Housing, Limbo, or not a reply. */
 	public static String playId(String json) {
 		String server = null, gametype = null, mode = null;
 		Matcher m = FIELD.matcher(json);
@@ -140,10 +193,20 @@ public final class HypixelLocraw {
 			return null;
 		}
 		String id = mode.toLowerCase(Locale.ROOT);
-		if (id.equals("lobby") || !PLAY_ID.matcher(id).matches()) {
+		if (id.equals("lobby")) {
 			return null;
 		}
-		return id;
+		if (!MODE_IS_ID.contains(type)) {
+			String key = mode.toUpperCase(Locale.ROOT);
+			id = TABLE.get(type + ":" + key);
+			if (id == null) {
+				id = TABLE.get(type + ":*");
+			}
+			if (id == null) {
+				return UNKNOWN;
+			}
+		}
+		return PLAY_ID.matcher(id).matches() ? id : UNKNOWN;
 	}
 
 	/** Where on Hypixel the world {@code level} is ("bedwars/lighthouse"), or null when not known for it. */

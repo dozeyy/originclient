@@ -108,8 +108,13 @@ public final class Quickplay {
 		boolean again = active && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "requeueKey"));
 		if (open && !openWasDown) {
 			mc.setScreen(new com.origin.client.client.gui.QuickplayScreen());
-		} else if (again && !againWasDown && onHypixel(mc)) {   // Play Again is Hypixel-only
-			if (lastId != null) {
+		} else if (again && !againWasDown) {
+			if (!onHypixel(mc)) {
+				// Hypixel's /play ids mean nothing (or something else) on other servers
+				mc.player.displayClientMessage(new TextComponent("Play Again only works on Hypixel"), true);
+			} else if (com.origin.client.client.util.HypixelLocraw.UNKNOWN.equals(lastId)) {
+				mc.player.displayClientMessage(new TextComponent("Play Again doesn't know this game yet"), true);
+			} else if (lastId != null) {
 				run(mc, "play " + lastId, lastLabel);
 			} else if (mc.player != null) {
 				mc.player.displayClientMessage(new TextComponent("Join a Hypixel game first"), true);
@@ -127,7 +132,7 @@ public final class Quickplay {
 		run(mc, "play " + mode.playId(), label);
 	}
 
-	/** Quickplay's name for a /play id ("Bed Wars · Doubles"), or the id itself for a mode it doesn't list. */
+	/** Quickplay's name for a /play id ("Bed Wars · Doubles"), or "your last game" for a mode it doesn't list. */
 	private static String label(String playId) {
 		for (Game game : GAMES) {
 			for (Mode mode : game.modes()) {
@@ -136,7 +141,7 @@ public final class Quickplay {
 				}
 			}
 		}
-		return playId;
+		return "your last game";
 	}
 
 	/** Goes to the game's lobby. */
