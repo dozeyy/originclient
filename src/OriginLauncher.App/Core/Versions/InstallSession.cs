@@ -14,8 +14,10 @@ public static class InstallSession
     /// before the first await, so call it from a worker thread. Exceptions pass through untouched.
     /// <paramref name="dropVerifyStamp"/> runs when an install opens: a version that is missing or part
     /// installed must be verified in full this time, never fast-pathed on an old stamp.
-    /// <paramref name="ensureRoom"/> runs first when an install opens, before the journal or any download: it throws
-    /// to refuse the install (the free-space check, DiskSpace.EnsureRoomForInstall), leaving nothing half done.
+    /// <paramref name="ensureRoom"/> runs first when a NEW install opens (not installed at all), before the journal or
+    /// any download: it throws to refuse the install (the free-space check, DiskSpace.EnsureRoomForInstall), leaving
+    /// nothing half done. A Partial install skips it: what is left may be a few MB, and asking for the whole 1.5 GB
+    /// would refuse a finish that fits; a disk that really fills up still says the drive and numbers (VersionManager).
     /// </summary>
     public static async Task<T> RunAsync<T>(
         InstalledVersions installed, InstallJournal journal, string version,
@@ -26,7 +28,7 @@ public static class InstallSession
         var opened = state is InstallState.NotInstalled or InstallState.Partial;
         if (opened)
         {
-            ensureRoom?.Invoke();
+            if (state == InstallState.NotInstalled) ensureRoom?.Invoke();
             // Said first so the launch screen names the work before the first download starts. The version is
             // already on screen (eyebrow and numeral), so the line is only the verb.
             progress?.Report(state == InstallState.NotInstalled

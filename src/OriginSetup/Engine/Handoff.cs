@@ -19,9 +19,9 @@ public static class Handoff
 
     public static string FilePath => Path.Combine(DataRoot, FileName);
 
-    public static void Write(int? ramMb, string? defaultVersion, bool? settingsSync = null)
+    public static void Write(int? ramMb, string? defaultVersion, bool? settingsSync = null, bool ramAuto = false)
     {
-        var json = Compose(ramMb, defaultVersion, settingsSync);
+        var json = Compose(ramMb, defaultVersion, settingsSync, ramAuto);
         if (json == null) return;
         Directory.CreateDirectory(DataRoot);
         File.WriteAllText(FilePath, json);
@@ -31,12 +31,14 @@ public static class Handoff
     /// The file's text, or null when the player set nothing. settingsSync is
     /// Settings Sync on/off from the Customize page (launcher:
     /// LauncherSettings.SyncSettingsAcrossVersions); null = left as it was, so the
-    /// field is omitted and an old launcher or an old file is unaffected.
+    /// field is omitted and an old launcher or an old file is unaffected. ramAuto = Reset over a Manual install: the
+    /// launcher goes back to Auto memory (launcher: SetupChoicesData.RamAuto); it replaces any RamMb.
     /// </summary>
-    public static string? Compose(int? ramMb, string? defaultVersion, bool? settingsSync)
+    public static string? Compose(int? ramMb, string? defaultVersion, bool? settingsSync, bool ramAuto = false)
     {
         var fields = new List<string>();
-        if (ramMb is int ram) fields.Add($"\"RamMb\": {ram}");
+        if (ramAuto) fields.Add("\"RamAuto\": true");
+        else if (ramMb is int ram) fields.Add($"\"RamMb\": {ram}");
         if (defaultVersion != null) fields.Add($"\"SelectedVersion\": \"{Escape(defaultVersion)}\"");
         if (settingsSync is bool sync) fields.Add($"\"SyncSettingsAcrossVersions\": {(sync ? "true" : "false")}");
         return fields.Count == 0 ? null : "{ " + string.Join(", ", fields) + " }";
@@ -92,6 +94,14 @@ public static class Handoff
             return new ExistingChoices(null, null);
         }
     }
+
+    /// <summary>
+    /// The version Customize hands over (KD-8 review). Untouched: nothing (the launcher keeps its own). Changed to a
+    /// version: that version. Changed to "Newest" (tag null) from the player's own version: the newest version by
+    /// name, because nothing at all would mean "keep yours" and the pick would be lost.
+    /// </summary>
+    public static string? VersionToSend(bool changed, string? selectedTag, string? newestVersion) =>
+        !changed ? null : selectedTag ?? newestVersion;
 
     // A JSON number as DataContractJsonSerializer hands it to an object member (the smallest fitting type).
     private static int? WholeMb(object? value)

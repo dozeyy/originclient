@@ -412,6 +412,18 @@ public class PlayInstallTests : IDisposable
         Assert.False(checkedRoom); // an installed version plays without a space check
     }
 
+    // Review: a Partial install may need only a few MB more; the whole first-install estimate would refuse a finish
+    // that fits. Only a version with nothing installed is checked up front.
+    [Fact]
+    public async Task APartlyInstalledVersion_IsNotRefusedByTheFirstInstallRoomCheck()
+    {
+        WriteClient(Fabric); // loader missing: Partial
+        var checkedRoom = false;
+        await InstallSession.RunAsync(_installed, _journal, Fabric, null, () => Task.FromResult(0),
+            ensureRoom: () => checkedRoom = true);
+        Assert.False(checkedRoom);
+    }
+
     [Fact]
     public void TheDiskFullLine_NamesTheDriveAndHowMuchIsNeededAndFree()
     {

@@ -12,6 +12,9 @@ namespace OriginLauncher.App.Core.Install;
 public sealed class SetupChoicesData
 {
     public int? RamMb { get; set; }
+    /// <summary>true = the player pressed Reset on Customize over a Manual install: back to Auto memory (KD-8 review).
+    /// Wins over RamMb. Absent in files from older installers.</summary>
+    public bool? RamAuto { get; set; }
     public string? SelectedVersion { get; set; }
 
     /// <summary>Settings Sync (Core/SettingsSync.cs) switched on/off on the Customize page; null = untouched. Same name as the setting it sets.</summary>
@@ -25,9 +28,12 @@ public sealed class SetupChoicesData
     /// field the file lacks leaves that setting exactly as it was. Called from
     /// inside SettingsStore.Update, the only settings writer.
     /// </summary>
-    public void ApplyTo(LauncherSettings settings, int maxRamMb, Func<string?, bool> isSupportedVersion)
+    public void ApplyTo(LauncherSettings settings, int maxRamMb, Func<string?, bool> isSupportedVersion,
+        int totalPhysicalMb = 0)
     {
-        if (RamMb is int ram)
+        if (RamAuto == true)
+            Launch.RamPolicy.SetAuto(settings, totalPhysicalMb);
+        else if (RamMb is int ram)
         {
             // The installer only sends RamMb when the player moved its slider, so it is a Manual choice.
             Launch.RamPolicy.SetManual(
