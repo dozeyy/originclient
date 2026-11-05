@@ -182,6 +182,22 @@ public final class ShaderDownloader {
 		t.start();
 	}
 
+	/**
+	 * A pack the player just downloaded is switched on (JG-7: Download used to stop at
+	 * Installed, and the pack then had to be found in the shader list and applied by hand).
+	 * On the game thread, where the shader pipeline is rebuilt. Fail-soft: when shaders
+	 * can't take it (no shader mod, a pack the loader refuses) the pack simply stays
+	 * installed and the shader list still offers it; the pack loader's own checks and
+	 * Origin's compatibility warning still run on it.
+	 */
+	private static void use(String name) {
+		net.minecraft.client.Minecraft.getInstance().execute(() -> {
+			if (IrisBridge.installed() && !IrisBridge.apply(name)) {
+				com.origin.client.OriginClient.LOGGER.warn("Origin: couldn't switch on the downloaded shader pack {}", name);
+			}
+		});
+	}
+
 	private static void run(String slug, String gameVersion) {
 		try {
 			// resolve: prefer an iris build for this exact game version, fall
@@ -207,6 +223,7 @@ public final class ShaderDownloader {
 			Path dest = dir.resolve(name);
 			if (Files.exists(dest)) {
 				STATES.put(slug, new State(Status.DONE, 1, name));
+				use(name);   // switch it on
 				writeIndex(null);
 				return;
 			}
@@ -247,6 +264,7 @@ public final class ShaderDownloader {
 				Files.move(tmp, dest, StandardCopyOption.REPLACE_EXISTING);
 			}
 			STATES.put(slug, new State(Status.DONE, 1, name));
+			use(name);   // switch it on
 			writeIndex(null);
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Shader download failed for {}", slug, t);
