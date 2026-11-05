@@ -305,7 +305,7 @@ public class CosmeticsScreen extends OriginWindow {
 			case OFF -> "Cosmetics are coming soon.";
 			case UNREACHABLE -> "Couldn't reach Origin. Check your connection.";
 			case READY -> mine != null ? null
-				: !DEMO && CosmeticsService.mineFailed() ? "Couldn't load your cosmetics. Close and reopen this screen to try again."
+				: !DEMO && CosmeticsService.mineFailedRetrying() ? "Couldn't load your cosmetics. Trying again..."
 				: "Loading your cosmetics...";
 		};
 		maxScroll = 0;

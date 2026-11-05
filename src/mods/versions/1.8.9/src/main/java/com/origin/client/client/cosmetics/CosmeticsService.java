@@ -500,7 +500,17 @@ public final class CosmeticsService {
 		return t;
 	});
 
+	/**
+	 * The service's built-in address: the same Worker the launcher hard-codes
+	 * (Core/Social/SocialEndpoints.cs). Used when originclient.org's pointer can't be
+	 * fetched (a school filter, a DNS or Vercel outage), so cosmetics and Friends never
+	 * depend on the website being up.
+	 */
+	static final String DEFAULT_API = "https://origin-cosmetics.will-f11.workers.dev";
+
 	private static volatile String api = null;
+	/** api came from the last good pointer or DEFAULT_API because the pointer couldn't be fetched. */
+	private static volatile boolean viaFallback = false;
 	private static volatile Status status = Status.STARTING;
 	private static volatile long discoveredAt = 0;
 	/** How long after discoveredAt tick() looks for the service again (see discover()). */
@@ -513,6 +523,10 @@ public final class CosmeticsService {
 	private static volatile Mine mine = null;
 	/** The last read of your own cosmetics failed (the screen says so instead of "Loading..." forever). */
 	private static volatile boolean mineFailed = false;
+	/** When the Cosmetics screen last showed "couldn't load" (it asks every frame while it does). */
+	private static volatile long mineWatchedAt = 0;
+	private static final long MINE_WATCH_MS = 3_000, MINE_RETRY_FIRST_MS = 5_000, MINE_RETRY_MAX_MS = 60_000;
+	private static long mineRetryAt = 0, mineRetryWait = MINE_RETRY_FIRST_MS;   // worker thread only
 	/** What you just picked, shown straight away while the save is in flight. */
 	private static volatile Look picked = null;
 
@@ -545,6 +559,19 @@ public final class CosmeticsService {
 	/** True when the last attempt to read your own cosmetics failed and none are loaded. */
 	public static boolean mineFailed() {
 		return mineFailed && mine == null;
+	}
+
+	/**
+	 * {@link #mineFailed()} for the Cosmetics screen, which calls it every frame while it
+	 * shows the error: while it does, the worker keeps trying again with a backoff, so the
+	 * screen recovers by itself once the network is back.
+	 */
+	public static boolean mineFailedRetrying() {
+		boolean failed = mineFailed();
+		if (failed) {
+			mineWatchedAt = System.currentTimeMillis();
+		}
+		return failed;
 	}
 
 	/**
@@ -753,9 +780,30 @@ public final class CosmeticsService {
 
 	private static void tick() {
 		try {
-			if (status != Status.READY && System.currentTimeMillis() - discoveredAt > rediscoverWait) {
+			// Not found yet, or running on the fallback address: look at the pointer again on the
+			// backoff (15 s doubling to 10 min), so a moved or switched-off service still lands.
+			boolean wasReady = status == Status.READY;
+			if ((!wasReady || viaFallback) && System.currentTimeMillis() - discoveredAt > rediscoverWait) {
 				discover();
+				if (!wasReady || mine == null) {
+					refreshMineNow();
+				}
+			}
+			// While the Cosmetics screen says it couldn't load your cosmetics, try again by
+			// itself: 5 s, then doubling to a minute (mineFailedRetrying() marks it as watched).
+			long clock = System.currentTimeMillis();
+			if (mine != null || clock - mineWatchedAt > MINE_WATCH_MS) {
+				mineRetryAt = 0;
+				mineRetryWait = MINE_RETRY_FIRST_MS;
+			} else if (mineRetryAt == 0) {
+				mineRetryAt = clock + mineRetryWait;
+			} else if (clock >= mineRetryAt) {
+				if (status != Status.READY) {
+					discover();
+				}
 				refreshMineNow();
+				mineRetryWait = Math.min(MINE_RETRY_MAX_MS, mineRetryWait * 2);
+				mineRetryAt = clock + mineRetryWait;
 			}
 			if (status == Status.READY && !WANTED.isEmpty()) {
 				lookupBatch();
@@ -800,14 +848,23 @@ public final class CosmeticsService {
 			String a = o != null && o.has("api") && !o.get("api").isJsonNull() ? o.get("api").getAsString().trim() : "";
 			api = a.isEmpty() ? null : trimSlash(a);
 			status = a.isEmpty() ? Status.OFF : Status.READY;
+			viaFallback = false;
 		} catch (Exception e) {
-			status = Status.UNREACHABLE;
+			// The pointer is out of reach: keep the address that worked last, else the built-in
+			// one, as the launcher does. A service the pointer switched off stays off.
+			if (status != Status.OFF) {
+				if (api == null) {
+					api = DEFAULT_API;
+				}
+				status = Status.READY;
+				viaFallback = true;
+			}
 		}
-		// Unreachable (the game started offline, a DNS blip): look again soon, 15 s doubling
-		// to 10 min, so cosmetics and Friends (SocialClient takes its address from api())
-		// come back within seconds of the network, not after a flat 10 minutes. Reached, or
-		// switched off by the pointer: the full 10 minutes, and the backoff starts over.
-		if (status == Status.UNREACHABLE) {
+		// On the fallback address (the pointer couldn't be fetched: the game started offline,
+		// a DNS blip, the website down): look at the pointer again soon, 15 s doubling to
+		// 10 min, so a moved or switched-off service is picked up. Reached, or switched off by
+		// the pointer: the full 10 minutes, and the backoff starts over.
+		if (viaFallback) {
 			rediscoverWait = unreachableBackoff;
 			unreachableBackoff = Math.min(REDISCOVER_MS, unreachableBackoff * 2);
 		} else {
