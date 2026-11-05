@@ -90,6 +90,12 @@ public final class HudHooks {
 			com.origin.client.client.mods.MenuBlur.onFrame();
 			com.origin.client.client.mods.PerfSettings.refresh();
 			com.origin.client.client.hud.FrameWatch.onFrame(mc());
+			// Motion Blur's per-frame blend: it must use this frame's duration, not the tick's
+			try {
+				com.origin.client.client.mods.MotionBlur.frame(mc());
+			} catch (Throwable ignored) {
+				// fail soft: the blur keeps its last strength
+			}
 			try {
 				com.origin.client.client.hud.FrameStats.frame(System.nanoTime());
 			} catch (Throwable t) {
