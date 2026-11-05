@@ -23,6 +23,9 @@ public static class ModUpdateCheck
 
     private static readonly Dictionary<string, Entry> ByFolder = new(StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> Running = new(StringComparer.OrdinalIgnoreCase);
+    // Updates found to break the next Play (RefusalFor), by folder|file|new version: no Update button for them again
+    // this launcher run (pressing it would only download and refuse the same file once more).
+    private static readonly HashSet<string> Refused = new(StringComparer.OrdinalIgnoreCase);
     // A jar's SHA-512 by (path, size, write time): a re-check of an unchanged folder hashes nothing.
     private static readonly Dictionary<string, (long Length, DateTime Written, string Sha512)> Hashes = new(StringComparer.OrdinalIgnoreCase);
 
@@ -31,7 +34,62 @@ public static class ModUpdateCheck
     {
         var folder = ModManager.ModsFolder(version, profileId);
         lock (Gate)
-            return ByFolder.TryGetValue(folder, out var entry) && entry.Offers.TryGetValue(fileName, out var offer) ? offer : null;
+            return ByFolder.TryGetValue(folder, out var entry) && entry.Offers.TryGetValue(fileName, out var offer)
+                   && !Refused.Contains(RefusedKey(folder, offer)) ? offer : null;
+    }
+
+    private static string RefusedKey(string folder, ModUpdateOffer offer) => $"{folder}|{offer.FileName}|{offer.NewVersion}";
+
+    /// <summary>
+    /// After the download, before the Replace: the sentence that keeps the old copy when the new one would stop the
+    /// next Play (it needs a newer Fabric API / Loader or a library than this folder has; ModImporter.UpdateProblems),
+    /// and that offer disappears for this launcher run. Null when the update can go in. A bug in the check never
+    /// blocks an update. Reads jars: call it off the UI thread.
+    /// </summary>
+    public static string? RefusalFor(string version, string? profileId, ModEntry mod, ModUpdateOffer offer, string downloadedJar)
+    {
+        IReadOnlyList<CompatFinding> problems;
+        try
+        {
+            var context = ModManager.ImportContextFor(version, profileId);
+            // The Fabric Loader this version's instance really has (its install stamp), so a "fabricloader >=X" the
+            // update declares is judged against it; unknown (no valid stamp: the next Play installs the newest
+            // loader) meets any range.
+            if (InstalledLoader(version) is { } loader)
+                context = context with { Platform = context.Platform with { LoaderVersion = loader } };
+            problems = ModImporter.UpdateProblems(downloadedJar, mod.FileName, context);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            System.Diagnostics.Trace.WriteLine($"[ModUpdateCheck] dependency check of {offer.NewFileName}: {ex.Message}");
+            return null;
+        }
+        if (problems.Count == 0) return null;
+        lock (Gate) Refused.Add(RefusedKey(ModManager.ModsFolder(version, profileId), offer));
+        return RefusedLine(mod.DisplayName, offer.NewVersion, version, problems);
+    }
+
+    private static string? InstalledLoader(string version)
+    {
+        var decision = Versions.InstallVerification.Evaluate(OriginPaths.VersionRoot(version), version);
+        if (decision.FullVerify || Versions.FabricLoaderFloor.ForcesFullVerify(decision.CachedVersionName)) return null;
+        return GameFolders.SharedMods.LoaderVersionOf(decision.CachedVersionName)?.ToString();
+    }
+
+    /// <summary>"Sodium Extra 0.6.1 wasn't updated: it needs fabric-api >=0.100.0, and Origin has 0.92.2 for 1.21.1.
+    /// Your current copy is kept."</summary>
+    public static string RefusedLine(string modName, string newVersion, string mcVersion, IReadOnlyList<CompatFinding> problems)
+    {
+        static string Why(CompatFinding f, string mc) => f.Kind switch
+        {
+            FindingKind.Breaks => $"it doesn't work with {f.TargetId}{(f.Found is { } found ? " " + DependencyRules.Shown(found) : "")}",
+            FindingKind.WrongVersion when f.Found is { } found =>
+                $"it needs {f.TargetId}{(f.Range is { } r ? " " + r : "")}, and {(f.TargetIsOrigin ? "Origin has" : "this folder has")} {DependencyRules.Shown(found)} for {mc}",
+            _ => $"it needs {f.TargetId}{(f.Range is { } r2 ? " " + r2 : "")}, which isn't installed for {mc}",
+        };
+        var reasons = problems.Take(2).Select(f => Why(f, mcVersion)).ToList();
+        var more = problems.Count > 2 ? $" (and {problems.Count - 2} more)" : "";
+        return $"{modName} {newVersion} wasn't updated: {string.Join("; ", reasons)}{more}. Your current copy is kept.";
     }
 
     /// <summary>
@@ -80,8 +138,12 @@ public static class ModUpdateCheck
         }
     }
 
-    /// <summary>Downloads and checks an update (see ModrinthUpdates.DownloadAsync). The page then runs its Replace with the path.</summary>
-    public static Task<(string? Path, string? Error)> DownloadAsync(string version, string? profileId, ModUpdateOffer offer)
+    /// <summary>
+    /// Downloads and checks an update (see ModrinthUpdates.DownloadAsync), then checks that it would still load here
+    /// (RefusalFor): one that needs a newer Fabric API / Loader than this version has is discarded and its sentence
+    /// comes back as the error, so the old jar stays. The page then runs its Replace with the path.
+    /// </summary>
+    public static Task<(string? Path, string? Error)> DownloadAsync(string version, string? profileId, ModEntry mod, ModUpdateOffer offer)
     {
         var installed = Path.Combine(ModManager.ModsFolder(version, profileId), offer.FileName);
         return Task.Run(async () =>
@@ -89,8 +151,14 @@ public static class ModUpdateCheck
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
             try
             {
-                return await ModrinthUpdates.DownloadAsync(Http, offer, installed, OriginPaths.ModUpdateDownloads, cts.Token)
+                var (path, error) = await ModrinthUpdates.DownloadAsync(Http, offer, installed, OriginPaths.ModUpdateDownloads, cts.Token)
                     .ConfigureAwait(false);
+                if (path != null && RefusalFor(version, profileId, mod, offer, path) is { } refusal)
+                {
+                    ModrinthUpdates.Discard(path);
+                    return ((string?)null, (string?)refusal);
+                }
+                return (path, error);
             }
             catch (OperationCanceledException)
             {
@@ -107,10 +175,16 @@ public static class ModUpdateCheck
         new(downloadedJar, offer.NewFileName, mod.DisplayName, offer.NewVersion, mod.FileName, null) { IsUpdate = true };
 
     /// <summary>The status line after an update's Replace went in; null for any other import (its own message stands).</summary>
-    public static string? UpdatedLine(ReplaceOffer offer, ImportReport report) =>
-        offer.IsUpdate && report is { Ok: true, Added: > 0 }
-            ? $"Updated {offer.ModName} to {offer.NewVersion}. The old file is kept, turned off."
-            : null;
+    /// <remarks>The import's own notes (what the new copy still lacks, "Shaders are off for this profile...") come
+    /// after it: the line used to replace them, so the one warning that mattered was never seen (N92-2).</remarks>
+    public static string? UpdatedLine(ReplaceOffer offer, ImportReport report)
+    {
+        if (!offer.IsUpdate || report is not { Ok: true, Added: > 0 }) return null;
+        var line = $"Updated {offer.ModName} to {offer.NewVersion}. The old file is kept, turned off.";
+        if (report.Notes.Count == 0) return line;
+        var more = report.Notes.Count > 2 ? $" (and {report.Notes.Count - 2} more)" : "";
+        return $"{line} {string.Join(" ", report.Notes.Take(2))}{more}";
+    }
 
     private static string Signature(string folder, IReadOnlyList<string> jars)
     {

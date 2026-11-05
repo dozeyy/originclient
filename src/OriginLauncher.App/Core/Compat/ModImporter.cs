@@ -125,11 +125,7 @@ public static class ModImporter
 
     public static IReadOnlyList<ImportItem> Plan(IEnumerable<string> sources, ImportContext context)
     {
-        var role = context.IsProfile ? ModRole.Profile : ModRole.SharedLoose;
-        var existing = ModFolderScanner.Scan(context.Folder, role, context.IsProfile ? null : context.IsOriginProvisioned);
-        if (context.IsProfile && context.OriginFolder != null)
-            existing.AddRange(ModFolderScanner.Scan(context.OriginFolder, ModRole.SharedLoose, context.IsOriginProvisioned)
-                .Where(m => m.Role == ModRole.Managed));
+        var existing = ExistingFor(context);
 
         var items = new List<ImportItem?>();
         var candidates = new List<(int Index, string Source, string Name, ModFile File)>();
@@ -203,6 +199,46 @@ public static class ModImporter
 
         var notes = report.For(file).Where(f => NoteKinds.Contains(f.Kind)).Select(f => $"{file.DisplayName}: {f.Summary}").Distinct().ToList();
         return new ImportItem(src, name, ImportAction.Add, null, file.Info, null) { Notes = notes };
+    }
+
+    /// <summary>
+    /// For an update (a newer copy of the installed jar <paramref name="installedFileName"/>): what the new copy needs
+    /// that this folder can't give and the installed copy didn't need - a newer Fabric API, Fabric Loader or library
+    /// than Origin installs for this version, a missing requirement, a declared conflict - each a finding that would
+    /// keep the mod (and so the next Play) from loading. Empty when the update is safe to put in. The same engine and
+    /// the same view of the folder as a drop (Plan), with the new copy in the installed one's place. A drop only
+    /// NOTES these (the player may add the library next); an update would swap a working jar for a broken one, so the
+    /// Mods page keeps the old copy instead (bug run 7, N92-2).
+    /// </summary>
+    public static IReadOnlyList<CompatFinding> UpdateProblems(string newJar, string installedFileName, ImportContext context)
+    {
+        var existing = ExistingFor(context);
+        var installed = existing.FirstOrDefault(e => e.Role != ModRole.Managed
+            && string.Equals(JarName(e.FileName), JarName(installedFileName), StringComparison.OrdinalIgnoreCase));
+        var info = ModFolderScanner.ReadInfo(newJar);
+        if (installed == null || info == null || info.ReadFailed) return Array.Empty<CompatFinding>();
+        var candidate = new ModFile(newJar, Path.GetFileName(newJar), true, ModRole.ImportCandidate, info);
+        var platform = PlayerCopiesWin(context) ? context.Platform with { PlayerCopiesWin = true } : context.Platform;
+
+        static bool Breaking(CompatFinding f) =>
+            NoteKinds.Contains(f.Kind) && f.Severity == Severity.Blocking && f.Certainty == Certainty.Confirmed;
+        static string Key(CompatFinding f) => $"{f.Kind}|{f.TargetId}";
+        var before = CompatEngine.Check(existing, platform).For(installed).Where(Breaking).Select(Key).ToHashSet(StringComparer.Ordinal);
+        var swapped = existing.Where(e => !ReferenceEquals(e, installed)).Append(candidate).ToList();
+        return CompatEngine.Check(swapped, platform).For(candidate)
+            .Where(f => Breaking(f) && !before.Contains(Key(f)))
+            .GroupBy(Key).Select(g => g.First()).ToList();
+    }
+
+    // The folder as Plan sees it: its own jars, plus Origin's (shared folder) jars for a profile.
+    private static List<ModFile> ExistingFor(ImportContext context)
+    {
+        var role = context.IsProfile ? ModRole.Profile : ModRole.SharedLoose;
+        var existing = ModFolderScanner.Scan(context.Folder, role, context.IsProfile ? null : context.IsOriginProvisioned);
+        if (context.IsProfile && context.OriginFolder != null)
+            existing.AddRange(ModFolderScanner.Scan(context.OriginFolder, ModRole.SharedLoose, context.IsOriginProvisioned)
+                .Where(m => m.Role == ModRole.Managed));
+        return existing;
     }
 
     public static ImportReport Apply(IReadOnlyList<ImportItem> items, ImportContext context)
