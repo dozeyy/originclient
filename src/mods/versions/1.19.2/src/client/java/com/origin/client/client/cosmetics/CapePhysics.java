@@ -86,6 +86,11 @@ public final class CapePhysics {
 		final float[] roll = new float[N], rollV = new float[N], rollPrev = new float[N];
 		final float[] tPitch = new float[N], tRoll = new float[N];
 		float calm, calmPrev;   // 1 = standing still (idle sway), 0 = moving
+		// The body yaw this simulation last stepped with. A turn is measured against it, never
+		// against the entity's previous-tick yaw: the inventory / Cosmetics preview poses the body
+		// for its draw and leaves that field alone, which read as a huge turn every tick (COSM-6).
+		float lastBodyYaw;
+		boolean hasBodyYaw;
 
 		State(AbstractClientPlayer p) {
 			// A stable per-player offset so two capes side by side don't sway in unison.
@@ -313,6 +318,7 @@ public final class CapePhysics {
 		int n = tick - s.lastTick;
 		s.lastTick = tick;
 		if (n < 0 || n > 40) {
+			s.hasBodyYaw = false;   // a turn across a long gap is no turn
 			targets(s, p);
 			snap(s);   // long gap (out of range, or teleported): start settled
 			return;
@@ -361,7 +367,9 @@ public final class CapePhysics {
 		float sway = Mth.clamp(lateral, -20f, 20f) * 0.5f;
 		// Turning: the hem swings to the side you turn towards (it stays where it was
 		// while the body rotates away from it).
-		float turn = Mth.wrapDegrees(p.yBodyRot - p.yBodyRotO);
+		float turn = s.hasBodyYaw ? Mth.wrapDegrees(p.yBodyRot - s.lastBodyYaw) : 0f;
+		s.lastBodyYaw = p.yBodyRot;
+		s.hasBodyYaw = true;
 		sway += Mth.clamp(turn * 0.25f, -5f, 5f);
 
 		float base = 6f + speedAngle + rise + (p.isCrouching() ? 25f : 0f);

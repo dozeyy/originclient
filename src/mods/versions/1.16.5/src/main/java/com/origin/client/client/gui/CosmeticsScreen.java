@@ -927,8 +927,8 @@ public class CosmeticsScreen extends OriginWindow {
 
 	/**
 	 * Click = wear it; click what you already wear = take it off; "None" = take
-	 * off everything on the character. A cape and a back item (wings, backpack)
-	 * replace each other.
+	 * off everything on the character. A cape and an item that hides it (wings)
+	 * replace each other; a backpack and a cape are worn together.
 	 */
 	private void pick(Tile t) {
 		if (saving) {
@@ -942,10 +942,20 @@ public class CosmeticsScreen extends OriginWindow {
 			next = now.with(t.slot(), null);
 		} else {
 			next = now.with(t.slot(), t.id());
-			if (t.slot() == Cosmetics.Slot.BACK) {
-				next = next.with(Cosmetics.Slot.CAPE, null);
-			} else if (t.slot() == Cosmetics.Slot.CAPE) {
-				next = next.with(Cosmetics.Slot.BACK, null);
+			// Only an item that hides the cape (wings) and a cape replace each other. A backpack
+			// wears WITH a cape: the cape hangs further back (capeOffset), as in the store (COSM-1).
+			if (t.slot() == Cosmetics.Slot.CAPE) {
+				for (Cosmetics.Slot s : Cosmetics.Slot.values()) {
+					Cosmetics.Item worn = s == Cosmetics.Slot.CAPE ? null : Cosmetics.get(next.get(s));
+					if (worn != null && worn.hidesCape()) {
+						next = next.with(s, null);
+					}
+				}
+			} else {
+				Cosmetics.Item it = Cosmetics.get(t.id());
+				if (it != null && it.hidesCape()) {
+					next = next.with(Cosmetics.Slot.CAPE, null);
+				}
 			}
 		}
 		if (next.equals(now)) {
