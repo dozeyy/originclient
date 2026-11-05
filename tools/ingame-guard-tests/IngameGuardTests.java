@@ -1,11 +1,10 @@
 // Pure-Java proofs for the in-game guards (bug run 3): WorldEdit CUI numbers a server
 // sends (CuiNumbers), the damaged-config set-aside (ConfigFiles), Hypixel detection
 // (HypixelDetect) and the per-version singleplayer key Portal Calc now shares with
-// waypoints (WaypointScope), and waypoints per Hypixel game and map (HypixelLocation,
-// WaypointScope.hypixel, JG-8). Run by run.py against the shared copies.
+// waypoints (WaypointScope), and the waypoint key per Hypixel game and map (WaypointScope.hypixel,
+// JG-8; the place itself: tools/locraw-tests). Run by run.py against the shared copies.
 import com.origin.client.client.ConfigFiles;
 import com.origin.client.client.mods.HypixelDetect;
-import com.origin.client.client.mods.HypixelLocation;
 import com.origin.client.client.waypoints.WaypointScope;
 import com.origin.client.client.worldedit.CuiNumbers;
 
@@ -118,32 +117,6 @@ public class IngameGuardTests {
 		eq("servers are not migrated", null, WaypointScope.unversioned("mp:play.example.com", "1.21.1"));
 
 		// ---- JG-8: waypoints per Hypixel game and map ----
-		eq("bed wars game", "bedwars/lighthouse", HypixelLocation.parse(
-				"{\"server\":\"mini12A\",\"gametype\":\"BEDWARS\",\"mode\":\"BEDWARS_EIGHT_ONE\",\"map\":\"Lighthouse\"}"));
-		eq("bed wars lobby", "bedwars/lobby", HypixelLocation.parse(
-				"{\"server\":\"lobby7\",\"gametype\":\"BEDWARS\",\"lobbyname\":\"bedwarslobby51\"}"));
-		eq("skyblock hub", "skyblock/hub", HypixelLocation.parse(
-				" {\"server\": \"mini1B\", \"gametype\": \"SKYBLOCK\", \"mode\": \"hub\", \"map\": \"Hub\"} "));
-		eq("mode when no map", "skyblock/dynamic", HypixelLocation.parse(
-				"{\"server\":\"mini9\",\"gametype\":\"SKYBLOCK\",\"mode\":\"dynamic\"}"));
-		eq("limbo", "limbo", HypixelLocation.parse("{\"server\":\"limbo\"}"));
-		eq("plain chat is not a reply", null, HypixelLocation.parse("[MVP+] Someone: {\"server\":\"x\"}"));
-		eq("json without server", null, HypixelLocation.parse("{\"gametype\":\"BEDWARS\"}"));
-		HypixelLocation.clear();
-		eq("no ask right at the switch", false, HypixelLocation.tick(11, true, 1000));
-		eq("ask after the delay", true, HypixelLocation.tick(11, true, 1000 + 1500));
-		eq("asked once", false, HypixelLocation.tick(11, true, 1000 + 1600));
-		eq("our reply is hidden", true, HypixelLocation.take("{\"server\":\"m\",\"gametype\":\"DUELS\",\"map\":\"Arena\"}", 3000));
-		eq("place known in that world", "duels/arena", HypixelLocation.place(11));
-		eq("not in another world", null, HypixelLocation.place(12));
-		eq("a typed /locraw later shows", false, HypixelLocation.take("{\"server\":\"m\",\"gametype\":\"DUELS\",\"map\":\"Arena\"}", 60000));
-		eq("new world forgets the place", false, HypixelLocation.tick(12, true, 70000));
-		eq("forgotten", null, HypixelLocation.place(12));
-		eq("waypoints off: no ask", false, HypixelLocation.tick(12, false, 80000));
-		eq("asks once waypoints are on", true, HypixelLocation.tick(12, true, 80050));
-		eq("one retry when Hypixel stays quiet", true, HypixelLocation.tick(12, true, 80050 + 5001));
-		eq("no second retry", false, HypixelLocation.tick(12, true, 80050 + 20000));
-		HypixelLocation.clear();
 		String hk = WaypointScope.server("mc.hypixel.net");
 		eq("hypixel place key", "mp:mc.hypixel.net/bedwars/lighthouse", WaypointScope.hypixel(hk, "bedwars/lighthouse", "minecraft:overworld"));
 		eq("hypixel unknown place: server + dimension", "mp:mc.hypixel.net/minecraft:overworld", WaypointScope.hypixel(hk, null, "minecraft:overworld"));
