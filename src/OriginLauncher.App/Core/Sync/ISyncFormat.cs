@@ -51,6 +51,14 @@ public interface ISyncFormat
     string? WholeEntrySubtree => null;
 
     /// <summary>
+    /// The values the game restarts this file from when it can't read it (originclient-mods.json: ModsConfig renames a
+    /// damaged file .corrupt and starts again from the bundled default-mods-config.json), flattened like
+    /// <see cref="Read"/>. Lets Settings Sync tell that restart from the player deleting every entry at once: a restart
+    /// puts keys back to these values, a player's own edits don't. null: unknown.
+    /// </summary>
+    IReadOnlyDictionary<string, string>? Starter => null;
+
+    /// <summary>
     /// Writes the store's view into the target file. A null value in
     /// <paramref name="desired"/> is a deletion. Returns the file's resulting
     /// key map (the new baseline), or null when the file was skipped.

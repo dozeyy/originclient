@@ -53,13 +53,14 @@ public sealed class JsonConfigFormat : ISyncFormat
     private readonly string[] _localKeys;
 
     private JsonConfigFormat(bool ownConfig, bool allowsDeletions, string[]? localKeys = null, string? wholeReplaceMarker = null,
-        string? wholeEntrySubtree = null)
+        string? wholeEntrySubtree = null, IReadOnlyDictionary<string, string>? starter = null)
     {
         _ownConfig = ownConfig;
         AllowsDeletions = allowsDeletions;
         _localKeys = localKeys ?? Array.Empty<string>();
         WholeReplaceMarker = wholeReplaceMarker;
         WholeEntrySubtree = wholeEntrySubtree;
+        Starter = starter;
     }
 
     /// <summary>
@@ -70,11 +71,11 @@ public sealed class JsonConfigFormat : ISyncFormat
     /// JSON Pointer subtrees that describe this instance's own folder, never
     /// synced (see ISyncFormat.StaysIn). <paramref name="wholeReplaceMarker"/>:
     /// see ISyncFormat.WholeReplaceMarker. <paramref name="wholeEntrySubtree"/>:
-    /// see ISyncFormat.WholeEntrySubtree.
+    /// see ISyncFormat.WholeEntrySubtree. <paramref name="starter"/>: see ISyncFormat.Starter.
     /// </summary>
     public static JsonConfigFormat OriginConfig(bool allowsDeletions, string[]? localKeys = null, string? wholeReplaceMarker = null,
-        string? wholeEntrySubtree = null) =>
-        new(ownConfig: true, allowsDeletions, localKeys, wholeReplaceMarker, wholeEntrySubtree);
+        string? wholeEntrySubtree = null, IReadOnlyDictionary<string, string>? starter = null) =>
+        new(ownConfig: true, allowsDeletions, localKeys, wholeReplaceMarker, wholeEntrySubtree, starter);
 
     public static readonly JsonConfigFormat ThirdParty = new(ownConfig: false, allowsDeletions: false);
 
@@ -83,6 +84,15 @@ public sealed class JsonConfigFormat : ISyncFormat
     public string? WholeReplaceMarker { get; }
 
     public string? WholeEntrySubtree { get; }
+
+    public IReadOnlyDictionary<string, string>? Starter { get; }
+
+    /// <summary>A JSON text flattened the way <see cref="Read"/> flattens a file; null when it isn't JSON.</summary>
+    public static Dictionary<string, string>? FlattenText(string json)
+    {
+        try { return Flatten(JsonNode.Parse(json, documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip })); }
+        catch (JsonException) { return null; }
+    }
 
     public Dictionary<string, string>? Read(string path)
     {

@@ -605,28 +605,45 @@ public class SettingsSyncTests
         Assert.Equal(40, ModsFile(b)["mods"]!.AsObject().Count);
     }
 
-    // N94-1: deleting every saved profile in one session (they all reach the store together at game exit) sticks; a
-    // restart that only kept a key naming an entry in /meta but put mod settings back to the starter's is still a reset.
+    // N94-1: deleting every saved profile in one session (they all reach the store together at game exit) sticks, also
+    // when the player moved a HUD element, changed a setting or reset one element in that same session. A damaged file
+    // the game restarted from its starter config (settings back to the starter's values, an empty /hud) keeps them.
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void DeletingEveryProfileSticksUnlessTheRestOfTheFileWasReset(bool modsReset)
+    [InlineData("delete", false)]
+    [InlineData("delete+hud move", false)]
+    [InlineData("delete+hud reset", false)]
+    [InlineData("restarted", true)]
+    public void DeletingEveryProfileSticksUnlessTheFileWasRestartedFromItsStarter(string session, bool profilesKept)
     {
+        Assert.NotNull(SyncedFiles.ModsStarter);
+        Assert.True(SyncedFiles.ModsStarter!.ContainsKey("/mods/keystrokes/enabled"));
+        JsonObject Starter()
+        {
+            using var stream = typeof(SyncedFiles).Assembly.GetManifestResourceStream(SyncedFiles.ModsStarterResource)!;
+            return JsonNode.Parse(stream)!.AsObject();
+        }
+
         var a = Instance("1.21.1");
         var b = Instance("1.20.1");
-        var mods = new JsonObject();
-        for (var i = 0; i < 40; i++) mods[$"m{i}"] = new JsonObject { ["enabled"] = i % 2 == 0 };
-        var saved = new JsonObject();
-        foreach (var name in new[] { "Bedwars", "Skyblock" })
+        // The player's own file: the starter with two mods turned on, three HUD elements placed, two saved profiles.
+        var mods = Starter()["mods"]!.AsObject();
+        mods["keystrokes"]!["enabled"] = true;
+        mods["togglesprint"]!["enabled"] = true;
+        var hud = new JsonObject
         {
-            var snapshot = new JsonObject();
-            for (var i = 0; i < 40; i++) snapshot[$"m{i}"] = new JsonObject { ["enabled"] = false };
-            saved[name] = new JsonObject { ["mods"] = snapshot };
-        }
+            ["coords"] = new JsonArray(0, 4, 4, 1.0, false),
+            ["fps"] = new JsonArray(0, 4, 16, 1.0, false),
+            ["cps"] = new JsonArray(0, 4, 28, 1.0, false),
+        };
         var full = new JsonObject
         {
             ["mods"] = mods.DeepClone(),
-            ["profiles"] = saved,
+            ["hud"] = hud.DeepClone(),
+            ["profiles"] = new JsonObject
+            {
+                ["Bedwars"] = new JsonObject { ["mods"] = mods.DeepClone() },
+                ["Skyblock"] = new JsonObject { ["mods"] = mods.DeepClone() },
+            },
             ["meta"] = new JsonObject { ["activeProfile"] = "Bedwars", ["panelBacking"] = false },
         };
         Write(a, "config/originclient-mods.json", full.ToJsonString(), 1);
@@ -636,17 +653,31 @@ public class SettingsSyncTests
         engine.Push(a);
         engine.Push(b);
 
-        // Deleting the active profile clears activeProfile; the rest of /meta and every mod setting stay. A restart
-        // instead puts the mods back to the starter's (all on).
-        var after = new JsonObject();
-        for (var i = 0; i < 40; i++) after[$"m{i}"] = new JsonObject { ["enabled"] = modsReset || i % 2 == 0 };
-        var file = new JsonObject
+        JsonObject after;
+        if (session == "restarted")
         {
-            ["mods"] = after,
-            ["profiles"] = new JsonObject(),
-            ["meta"] = new JsonObject { ["panelBacking"] = false },
-        };
-        Write(a, "config/originclient-mods.json", file.ToJsonString(), 30);
+            after = Starter(); // ModsConfig: the damaged file renamed .corrupt, the starter written in its place
+        }
+        else
+        {
+            // Deleting the active profile clears activeProfile; the rest of /meta stays.
+            var afterHud = hud.DeepClone().AsObject();
+            var afterMods = mods.DeepClone().AsObject();
+            if (session == "delete+hud move")
+            {
+                afterHud["coords"] = new JsonArray(0, 120, 60, 1.5, true);
+                afterMods["chunkborders"]!["thickness"] = 2.5;
+            }
+            if (session == "delete+hud reset") afterHud.Remove("fps");
+            after = new JsonObject
+            {
+                ["mods"] = afterMods,
+                ["hud"] = afterHud,
+                ["profiles"] = new JsonObject(),
+                ["meta"] = new JsonObject { ["panelBacking"] = false },
+            };
+        }
+        Write(a, "config/originclient-mods.json", after.ToJsonString(), 30);
         engine.Harvest(a);
         engine.Harvest(b);
         engine.Push(b);
@@ -655,18 +686,11 @@ public class SettingsSyncTests
         foreach (var instance in new[] { a, b })
         {
             var root = ModsFile(instance);
-            if (modsReset)
-            {
-                Assert.NotNull(root["profiles"]?["Bedwars"]);
-                Assert.NotNull(root["profiles"]?["Skyblock"]);
-            }
-            else
-            {
-                Assert.Null(root["profiles"]?["Bedwars"]);
-                Assert.Null(root["profiles"]?["Skyblock"]);
-                Assert.Null(root["meta"]?["activeProfile"]);
-            }
+            Assert.Equal(profilesKept, root["profiles"]?["Bedwars"] != null);
+            Assert.Equal(profilesKept, root["profiles"]?["Skyblock"] != null);
         }
+        if (session == "delete+hud move")
+            Assert.Equal(120, ModsFile(b)["hud"]!["coords"]![1]!.GetValue<int>()); // the move itself still travels
     }
 
     [Theory]

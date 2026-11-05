@@ -195,18 +195,40 @@ public sealed class SettingsSyncEngine
         }
         // Every one of several entries gone at once: the player deleting them all in one session (Settings Sync only
         // harvests at game exit, so one-by-one deletes arrive together) looks the same as a restart whose /meta had
-        // nothing but a key naming an entry. A restart also puts the rest of the file back to the starter's values;
-        // a delete-all leaves everything outside the entries as it was. So it is a reset only when something outside
-        // moved too (N94-1: deleting every saved profile used to bring them all back at the next launch).
-        if (allEntries.Count > 1 && goneEntries.SetEquals(allEntries))
-        {
-            var outsideMoved = vanished.Any(k => Outside(k) && !NamesGoneEntry(k))
-                || current.Any(kv => Outside(kv.Key) && baseline.TryGetValue(kv.Key, out var before)
-                                     && !format.MatchesBaseline(kv.Key, kv.Value, before));
-            if (outsideMoved) return true;
-        }
+        // nothing but a key naming an entry. What only a restart does (LooksRestarted): it puts settings back to the
+        // STARTER's values (format.Starter) and empties sections the starter has nothing in (its "hud" is empty). The
+        // player's own edits in that session (a HUD element dragged, a mod toggled, one element reset) don't
+        // (N94-1: deleting every saved profile used to bring them all back at the next launch).
+        if (allEntries.Count > 1 && goneEntries.SetEquals(allEntries) && LooksRestarted(format, baseline, current, vanished, Outside, NamesGoneEntry))
+            return true;
         var vanishedOutside = vanished.Count(Outside);
         return vanishedOutside > Math.Max(MassDeletionFloor, baseline.Keys.Count(Outside) * MassDeletionShare);
+    }
+
+    // See IsMassDrop's delete-all rule. Evidence of a restart, outside the entries: a key that changed TO its starter
+    // value, or a whole top-level section (all of /hud) gone where the starter has none of those keys. A key naming a
+    // gone entry (/meta/activeProfile) is the delete's own doing. With no starter known, only the emptied section counts.
+    private static bool LooksRestarted(ISyncFormat format, Dictionary<string, string> baseline, Dictionary<string, string> current,
+        List<string> vanished, Func<string, bool> outside, Func<string, bool> namesGoneEntry)
+    {
+        var starter = format.Starter;
+        static string SectionOf(string key) => key.Split('/') is { Length: > 2 } parts ? parts[1] : "";
+        var emptied = vanished
+            .Where(k => outside(k) && !namesGoneEntry(k) && starter?.ContainsKey(k) != true)
+            .GroupBy(SectionOf, StringComparer.Ordinal);
+        foreach (var section in emptied)
+        {
+            if (section.Key.Length == 0 || section.Count() < 2) continue;
+            var had = baseline.Keys.Count(k => outside(k) && !namesGoneEntry(k) && SectionOf(k) == section.Key);
+            if (section.Count() == had) return true;
+        }
+        if (starter == null) return false;
+        foreach (var (key, raw) in current)
+        {
+            if (!outside(key) || !baseline.TryGetValue(key, out var before) || format.MatchesBaseline(key, raw, before)) continue;
+            if (starter.TryGetValue(key, out var initial) && format.Equivalent(key, raw, initial)) return true;
+        }
+        return false;
     }
 
     // A failed load loses the marker with everything else, so only a marker that is present
