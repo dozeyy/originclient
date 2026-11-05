@@ -527,6 +527,55 @@ public class GameFoldersTests : IDisposable
     }
 
     [Fact]
+    public void CancellingAPackCopyLeavesNothingBehind()
+    {
+        // N92-1: Cancel on the launch screen stops the copy between files: no game folder, no half-made temp copy.
+        var root = OldLayout("1.21.1");
+        InstanceMigration.MigrateVersion(root, Steve);
+        var src = Path.Combine(root, "accounts", Steve);
+        Write($"1.21.1/accounts/{Steve}/shaderpacks/Complementary.zip", "shaders");
+        Write($"1.21.1/accounts/{Steve}/resourcepacks/Faithful.zip", "faithful");
+
+        using var cts = new CancellationTokenSource();
+        var target = Path.Combine(root, "accounts", Alex);
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            AccountSeed.Seed(target, src, stage: _ => cts.Cancel(), freeBytes: _ => null, cancel: cts.Token));
+        Assert.False(Directory.Exists(target));
+        Assert.DoesNotContain(Directory.EnumerateDirectories(Path.Combine(root, "accounts")),
+            d => Path.GetFileName(d).StartsWith(".seeding-", StringComparison.Ordinal));
+
+        // The next Play seeds normally.
+        Assert.True(AccountSeed.Seed(target, src, freeBytes: _ => null));
+        Assert.Equal("shaders", Read($"1.21.1/accounts/{Alex}/shaderpacks/Complementary.zip"));
+    }
+
+    [Fact]
+    public void AFolderMadeWhileThePacksCopyWinsAndTheCopyIsDropped()
+    {
+        // N92-1: the copy runs outside the folder lock; only the final exists-check and rename take it.
+        var root = OldLayout("1.21.1");
+        InstanceMigration.MigrateVersion(root, Steve);
+        var src = Path.Combine(root, "accounts", Steve);
+        Write($"1.21.1/accounts/{Steve}/shaderpacks/Complementary.zip", "shaders");
+
+        var gate = new object();
+        var target = Path.Combine(root, "accounts", Alex);
+        var lockFreeDuringCopy = false;
+        Assert.False(AccountSeed.Seed(target, src, freeBytes: _ => null, commitLock: gate, stage: _ =>
+        {
+            // Another thread can take the lock while the packs copy (an account switch on the UI thread).
+            lockFreeDuringCopy = Task.Run(() => { lock (gate) return true; }).Wait(TimeSpan.FromSeconds(5));
+            Directory.CreateDirectory(target);
+            File.WriteAllText(Path.Combine(target, "options.txt"), "made meanwhile");
+        }));
+        Assert.True(lockFreeDuringCopy);
+        Assert.Equal("made meanwhile", Read($"1.21.1/accounts/{Alex}/options.txt"));
+        Assert.False(Exists($"1.21.1/accounts/{Alex}/shaderpacks"));
+        Assert.DoesNotContain(Directory.EnumerateDirectories(Path.Combine(root, "accounts")),
+            d => Path.GetFileName(d).StartsWith(".seeding-", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void SeedingNeverTouchesAnExistingFolder()
     {
         var target = Path.Combine(_root, "1.21.1", "accounts", Alex);

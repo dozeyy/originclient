@@ -17,7 +17,9 @@ namespace OriginLauncher.App.Core.GameFolders;
 // shared instances/<version>/mods/ (SharedMods).
 //
 // Crash-safe: the copy is built in a temporary sibling folder and renamed into
-// place in one step, so a game folder is either fully seeded or absent.
+// place in one step, so a game folder is either fully seeded or absent. The copy
+// can be cancelled between files (the launch's Cancel), and only that last step
+// takes the caller's lock (commitLock): a folder that appeared meanwhile wins.
 public static class AccountSeed
 {
     // Top-level settings files. options.txt + servers.dat are vanilla; the
@@ -31,6 +33,13 @@ public static class AccountSeed
     private static readonly string[] PackFolders = { "resourcepacks", "shaderpacks" };
 
     private const string SeedingPrefix = ".seeding-";
+
+    // Temp folders a Seed in this process is filling right now: CleanAbandonedSeeds leaves them alone (a cancelled
+    // launch's copy may still be finishing its current file while the next launch of that account starts).
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> InProgress =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly object NoCallerLock = new();
 
     /// <summary>Packs bigger than this in total are not copied (minutes of copying on a first Play); the account starts without them.</summary>
     public const long MaxPackBytes = 4L << 30;
@@ -142,16 +151,21 @@ public static class AccountSeed
     /// <summary>
     /// Creates <paramref name="gameDir"/> holding a copy of
     /// <paramref name="sourceGameDir"/>'s settings and packs (or empty when there is no
-    /// source). Does nothing when the folder already exists. Returns true when
-    /// it created the folder. Never throws.
+    /// source). Does nothing when the folder already exists (or appears while the
+    /// copy runs). Returns true when it created the folder. Never throws, except
+    /// OperationCanceledException when <paramref name="cancel"/> fires (the half-made
+    /// copy is deleted and no folder is made).
     /// </summary>
     /// <param name="stage">Told <see cref="CopyingPacksStage"/> before packs copy (the launch screen's line).</param>
     /// <param name="notice">Told one plain sentence when the packs were left out (too big, or not enough free space).</param>
     /// <param name="maxPackBytes">Tests only: the size limit.</param>
     /// <param name="freeBytes">Tests only: the free space on the disk holding a folder (null = unknown).</param>
+    /// <param name="cancel">Checked between files.</param>
+    /// <param name="commitLock">Held only for the final exists-check and rename (AccountFolders' folder lock).</param>
     public static bool Seed(string gameDir, string? sourceGameDir, Action<string>? log = null,
         Action<string>? stage = null, Action<string>? notice = null,
-        long maxPackBytes = MaxPackBytes, Func<string, long?>? freeBytes = null)
+        long maxPackBytes = MaxPackBytes, Func<string, long?>? freeBytes = null,
+        CancellationToken cancel = default, object? commitLock = null)
     {
         log ??= _ => { };
         if (Directory.Exists(gameDir)) return false;
@@ -165,16 +179,16 @@ public static class AccountSeed
             CleanAbandonedSeeds(parent, key);
 
             if (sourceGameDir == null || !Directory.Exists(sourceGameDir))
-            {
-                Directory.CreateDirectory(gameDir);
-                return true;
-            }
+                return Commit(() => Directory.CreateDirectory(gameDir));
 
-            temp = Path.Combine(parent, $"{SeedingPrefix}{key}-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(temp);
+            var seeding = Path.Combine(parent, $"{SeedingPrefix}{key}-{Guid.NewGuid():N}");
+            temp = seeding;
+            InProgress[seeding] = 0;
+            Directory.CreateDirectory(seeding);
             var copied = 0;
             foreach (var relative in FilesToSeed(sourceGameDir))
             {
+                cancel.ThrowIfCancellationRequested();
                 if (CopyShared(Path.Combine(sourceGameDir, relative), Path.Combine(temp, relative)))
                     copied++;
             }
@@ -204,11 +218,17 @@ public static class AccountSeed
                 stage?.Invoke(CopyingPacksStage);
                 foreach (var relative in packFiles)
                 {
+                    cancel.ThrowIfCancellationRequested();
                     if (CopyShared(Path.Combine(sourceGameDir, relative), Path.Combine(temp, relative)))
                         packs++;
                 }
             }
-            Directory.Move(temp, gameDir);
+            cancel.ThrowIfCancellationRequested();
+            if (!Commit(() => Directory.Move(seeding, gameDir)))
+            {
+                log($"new game folder {key}: made meanwhile (another launch or the migration); this copy is dropped");
+                return false;
+            }
             temp = null;
             log($"new game folder {key}: copied {copied} settings file(s) and {packs} pack file(s) from {Path.GetFileName(sourceGameDir)}");
             return true;
@@ -219,7 +239,7 @@ public static class AccountSeed
             // Fall back to an empty folder: an unseeded launch beats a failed one.
             try
             {
-                if (!Directory.Exists(gameDir)) Directory.CreateDirectory(gameDir);
+                Commit(() => Directory.CreateDirectory(gameDir));
                 return true;
             }
             catch (Exception inner) when (inner is IOException or UnauthorizedAccessException)
@@ -230,7 +250,22 @@ public static class AccountSeed
         finally
         {
             // Our own half-made copy only — never the player's files.
-            if (temp != null) TryDeleteTree(temp);
+            if (temp != null)
+            {
+                TryDeleteTree(temp);
+                InProgress.TryRemove(temp, out _);
+            }
+        }
+
+        // The one step under the caller's lock: a folder that appeared while the copy ran wins.
+        bool Commit(Action make)
+        {
+            lock (commitLock ?? NoCallerLock)
+            {
+                if (Directory.Exists(gameDir)) return false;
+                make();
+                return true;
+            }
         }
     }
 
@@ -291,7 +326,7 @@ public static class AccountSeed
         try
         {
             foreach (var dir in Directory.EnumerateDirectories(accountsDir, SeedingPrefix + key + "-*"))
-                TryDeleteTree(dir);
+                if (!InProgress.ContainsKey(dir)) TryDeleteTree(dir);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

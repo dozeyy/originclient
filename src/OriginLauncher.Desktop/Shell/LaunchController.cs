@@ -278,7 +278,7 @@ public sealed class LaunchController
 
             // A first Play on this account copies the player's packs: the launch screen says so while it runs.
             var seedStage = new Progress<string>(Stage);
-            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key, seedStage), ticket.Token);
+            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key, seedStage, ticket.Token), ticket.Token);
             var seedNotice = AccountFolders.TakeSeedNotice(gameDir);
             var (heap, legacy) = await LaunchHeap.PlanAsync(freshSettings, version, gameDir, ticket.Token);
             if (heap.Warning != null) Stage(heap.Warning);
