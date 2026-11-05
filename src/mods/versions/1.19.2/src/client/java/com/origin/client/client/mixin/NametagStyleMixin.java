@@ -1,9 +1,6 @@
 package com.origin.client.client.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.client.renderer.RenderType;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.cosmetics.PlusBadge;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
@@ -101,9 +98,10 @@ public class NametagStyleMixin {
 			int bg = over ? Mods.color("nametags", "ownBackgroundColor") : Mods.color("nametags", "backgroundColor");
 			newBg = scaleAlpha(bg, op);
 		}
-		// The box is drawn here, ONCE, before the glyphs, never by Font (JP-1 on 1.20+, LV-2 here):
+		// The box is drawn ONCE, by Font, before the glyphs (JP-1 on 1.20+, LV-2 here):
 		// - this era's Font runs its text pass twice with Text Shadow on (shadow, then glyphs) and
-		//   each run adds the background, so the box drew twice (40% black became 64%).
+		//   each run adds the background, so the box drew twice (40% black became 64%). With a
+		//   shadow, the box gets a call of its own whose glyphs are invisible (below).
 		// - Iris (even with no shader pack) batches entity rendering and draws every no-depth-test
 		//   layer (the see-through text and its box) AFTER the depth-tested text, so the see-through
 		//   box landed ON TOP of the white name: a dark grey smudge. Under that batching the box
@@ -121,13 +119,18 @@ public class NametagStyleMixin {
 			newBg = originclient$carriedBg;
 			originclient$carriedBg = 0;
 		}
-		if (newBg != 0) {
-			originclient$box(matrix, buffer, see, x, y, font.width(text), newBg, light);
-		}
 		// The see-through pass gets no shadow (vanilla never gives it one): a dark copy at the
 		// faint pass's alpha only muddies the name when Iris draws it on top.
 		boolean drawShadow = wantShadow && !see;
-		int w = font.drawInBatch(text, x, y, newColor, drawShadow, matrix, buffer, seeThrough, 0, light);
+		if (newBg != 0 && drawShadow) {
+			// Box only: Font's own box in its own layer, with glyphs at alpha 4/255 (Font keeps an
+			// alpha of 4+; the text shader discards anything under 0.1, 1.16.5's alpha test leaves
+			// them at 1.5%). Origin's own quad in a text layer here lost the glyphs under Iris
+			// with no shader pack (CI dev-shots r7nt, 1.19.4), so the box stays Font's.
+			font.drawInBatch(text, x, y, 0x04FFFFFF, false, matrix, buffer, seeThrough, newBg, light);
+			newBg = 0;
+		}
+		int w = font.drawInBatch(text, x, y, newColor, drawShadow, matrix, buffer, seeThrough, newBg, light);
 		if (padW > 0f) {
 			PlusBadge.nametag(matrix, buffer, see, x, y, padW, newColor >>> 24, light);
 		}
@@ -139,7 +142,6 @@ public class NametagStyleMixin {
 	private static int originclient$carriedBg;
 	private static Class<?> originclient$lastBufferClass;
 	private static boolean originclient$lastLate;
-	private static ResourceLocation originclient$white;
 
 	/** True when this buffer is Iris's batched entity buffer (its batchedentityrendering package), which orders
 	 *  no-depth-test layers after depth-tested ones. Cached per buffer class: one compare a tag. */
@@ -152,25 +154,6 @@ public class NametagStyleMixin {
 		return originclient$lastLate;
 	}
 
-	/** Font's own background box (x-1 .. x+width, y-1 .. y+9), 0.01 behind the shadow (z 0) and the
-	 *  glyphs (+0.03; +z faces the camera here), so the text always wins the depth test whatever the
-	 *  order. This era has no text-background layer: Font draws its box as a white glyph in the text
-	 *  layer, so this draws Origin's own white texture in the same text / text-see-through layer
-	 *  (the one PlusBadge uses), which every shader pack treats as text. */
-	private static void originclient$box(Matrix4f m, MultiBufferSource buffer, boolean seeThrough, float x, float y,
-							int width, int argb, int light) {
-		if (originclient$white == null) {
-			originclient$white = new ResourceLocation("originclient", "textures/cosmetics/white.png");
-		}
-		VertexConsumer vc = buffer.getBuffer(seeThrough
-				? RenderType.textSeeThrough(originclient$white) : RenderType.text(originclient$white));
-		int r = argb >> 16 & 0xFF, g = argb >> 8 & 0xFF, b = argb & 0xFF, a = argb >>> 24;
-		float x0 = x - 1f, x1 = x + width, y0 = y + 9f, y1 = y - 1f, z = -0.01f;
-		vc.vertex(m, x0, y0, z).color(r, g, b, a).uv(0.5f, 0.5f).uv2(light).endVertex();
-		vc.vertex(m, x1, y0, z).color(r, g, b, a).uv(0.5f, 0.5f).uv2(light).endVertex();
-		vc.vertex(m, x1, y1, z).color(r, g, b, a).uv(0.5f, 0.5f).uv2(light).endVertex();
-		vc.vertex(m, x0, y1, z).color(r, g, b, a).uv(0.5f, 0.5f).uv2(light).endVertex();
-	}
 
 	private static int scaleAlpha(int argb, double f) {
 		int a = (int) Math.round(((argb >>> 24) & 0xFF) * f);
