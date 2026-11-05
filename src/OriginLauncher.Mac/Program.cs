@@ -76,6 +76,11 @@ internal static class Program
             return 0;
         }
 
+        // "Open Origin when you log in" follows the app when it is moved (out of Downloads into Applications, renamed):
+        // the LaunchAgent is re-pointed at this copy (UPG-5). A dev build never touches the player's real login item.
+        if (!OriginLauncher.App.Core.Updates.UpdateService.IsDevBuild && Environment.ProcessPath is { } exe)
+            OriginLauncher.App.Core.Install.InstallRegistry.RefreshStartAtLogin(exe);
+
         // A release build never keeps the dev-only offline test switch on (DeveloperAccess).
         if (DeveloperAccess.NeedsReset(OriginLauncher.App.Core.Updates.UpdateService.IsDevBuild, SettingsStore.Load()))
         {

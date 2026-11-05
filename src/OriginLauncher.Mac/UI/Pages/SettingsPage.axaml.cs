@@ -71,6 +71,11 @@ public sealed partial class SettingsPage : UserControl
         SettingsSyncToggle.IsChecked = _settings.SyncSettingsAcrossVersions;
         ShowSyncState();
         StartAtLoginToggle.IsChecked = InstallRegistry.IsStartWithWindows();
+        // Run from a translocated copy (opened straight from Downloads or the disk image), a login item would point at a
+        // folder that is gone by the next login (UPG-5): the switch waits until Origin is in Applications.
+        var translocated = InstallRegistry.IsTranslocated(Environment.ProcessPath ?? AppContext.BaseDirectory);
+        StartAtLoginToggle.IsEnabled = !translocated;
+        StartAtLoginWhy.IsVisible = translocated;
 
         InitializeJvmSection();
         WireEvents();

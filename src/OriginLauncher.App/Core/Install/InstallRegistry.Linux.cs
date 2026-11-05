@@ -40,9 +40,30 @@ public static class InstallRegistry
             if (File.Exists(DesktopFilePath)) File.Delete(DesktopFilePath);
             return;
         }
-        Directory.CreateDirectory(AutostartDir);
+        Write(Entry(exePath));
+    }
+
+    /// <summary>
+    /// At every start: if "open when you log in" is on but its entry points somewhere else (the .AppImage was moved or
+    /// renamed, or a package install replaced it), point it at what runs now, so the switch that shows ON really opens
+    /// Origin at the next login (UPG-5). Nothing happens when it is off or already matches. Never throws.
+    /// </summary>
+    public static void RefreshStartAtLogin(string exePath)
+    {
+        try
+        {
+            if (!File.Exists(DesktopFilePath)) return;
+            var want = Entry(exePath);
+            if (File.ReadAllText(DesktopFilePath) != want) Write(want);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
+    }
+
+    // The autostart entry's whole text for exePath (compared as-is by RefreshStartAtLogin).
+    internal static string Entry(string exePath)
+    {
         var target = LinuxInstall.LoginTarget(exePath, LinuxInstall.AppImage, OriginPaths.UserAppCopy, File.Exists);
-        var entry = $"""
+        return $"""
 [Desktop Entry]
 Type=Application
 Name=Origin Launcher
@@ -52,7 +73,12 @@ Terminal=false
 X-GNOME-Autostart-enabled=true
 
 """;
-        // Written beside and renamed in, so the session never reads half a file.
+    }
+
+    // Written beside and renamed in, so the session never reads half a file.
+    private static void Write(string entry)
+    {
+        Directory.CreateDirectory(AutostartDir);
         var temp = DesktopFilePath + ".tmp";
         File.WriteAllText(temp, entry, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         File.Move(temp, DesktopFilePath, overwrite: true);
