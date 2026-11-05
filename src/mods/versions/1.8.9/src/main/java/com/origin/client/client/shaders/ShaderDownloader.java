@@ -46,20 +46,44 @@ public final class ShaderDownloader {
 	 * Deletes an installed pack's file from shaderpacks/ and resets it to IDLE
 	 * (so the row shows Download again). No-op unless the pack is DONE -- its
 	 * State.message() holds the downloaded filename.
+	 *
+	 * SHADER-2: when it is the pack OptiFine has selected, shaders are switched off
+	 * first: OptiFine holds the selected pack's zip open, and on Windows that blocks
+	 * the delete. If the file still can't be deleted the row stays Installed (the
+	 * truth) and removeNotice() tells the player what to do.
 	 */
 	public static void remove(String slug) {
 		State s = state(slug);
 		if (s.status() != Status.DONE) {
 			return;
 		}
+		String fileName;
 		try {
 			// message() is the filename; strip any path parts defensively
-			String fileName = java.nio.file.Paths.get(s.message()).getFileName().toString();
+			fileName = java.nio.file.Paths.get(s.message()).getFileName().toString();
+		} catch (Throwable t) {
+			return;
+		}
+		if (fileName.equals(IrisBridge.selectedPack())) {
+			IrisBridge.apply(null);
+		}
+		try {
 			Files.deleteIfExists(IrisBridge.shaderpacksDir().resolve(fileName));
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Shader remove failed for " + slug, t);
+			removeNotice = "Couldn't remove " + fileName
+					+ ": close the game and delete it from the shaderpacks folder";
+			return;
 		}
+		removeNotice = null;
 		STATES.remove(slug);
+	}
+
+	// Why the last Remove left a pack installed (shown in the browser's header); null = nothing to say.
+	private static volatile String removeNotice;
+
+	public static String removeNotice() {
+		return removeNotice;
 	}
 
 	/**
@@ -68,6 +92,7 @@ public final class ShaderDownloader {
 	 * browser screen (re)opens.
 	 */
 	public static void syncWithDisk() {
+		removeNotice = null;
 		Path dir = IrisBridge.shaderpacksDir();
 		// Packs installed in an earlier session: every allowlisted pack has a pinned file
 		// name, so a pack whose file is in shaderpacks/ shows Installed again.

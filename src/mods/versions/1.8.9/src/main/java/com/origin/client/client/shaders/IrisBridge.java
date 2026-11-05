@@ -176,7 +176,10 @@ public final class IrisBridge {
 
 	/** Applies a pack (null = shaders off) the way OptiFine's own screen does:
 	 *  setShaderPack(name), then uninit() so the pipeline rebuilds on the next
-	 *  frame. True on success. */
+	 *  frame, then storeConfig() so optionsshaders.txt keeps the choice. OptiFine
+	 *  saves only when its own screen closes, so a pack switched on with that screen
+	 *  shut (a download that finished in game) was gone next launch (SHADER-5).
+	 *  True on success. */
 	public static boolean apply(String packName) {
 		try {
 			Class<?> c = shadersClass();
@@ -186,6 +189,11 @@ public final class IrisBridge {
 			Method set = c.getMethod("setShaderPack", String.class);
 			set.invoke(null, packName == null ? "OFF" : packName);
 			uninit(c);
+			try {
+				c.getMethod("storeConfig").invoke(null);
+			} catch (Throwable t) {
+				// switched for this session; just not saved
+			}
 			return true;
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("OptiFine shader apply failed, falling back to OptiFine's screen", t);

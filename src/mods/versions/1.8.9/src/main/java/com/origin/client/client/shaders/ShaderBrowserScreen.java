@@ -63,6 +63,14 @@ public class ShaderBrowserScreen extends OriginWindow {
 		compatWarning = selectedPackWarning();
 	}
 
+	@Override
+	public void tick() {
+		super.tick();
+		// The selected pack can change while the browser is open (a finished download
+		// switches its pack on); the line follows it, and fills in once the check is done.
+		compatWarning = selectedPackWarning();
+	}
+
 	private void rebuildView() {
 		view.clear();
 		String q = query.trim().toLowerCase(Locale.ROOT);
@@ -77,16 +85,12 @@ public class ShaderBrowserScreen extends OriginWindow {
 		scrollTarget = 0;
 	}
 
-	/** Name check first; reads the pack's program headers only if the name is unknown. */
+	/** Name check first; an unknown pack's program headers are read off the render thread
+	 *  (ShaderCompat.browserWarning), so null until that read is done. */
 	private static String selectedPackWarning() {
 		try {
 			String sel = IrisBridge.selectedPack();
-			if (sel == null) {
-				return null;
-			}
-			int probed = ShaderCompat.classify(sel, 0, gameVersion()) == ShaderCompat.Verdict.UNKNOWN
-					? ShaderCompat.probeMaxVersion(IrisBridge.shaderpacksDir().resolve(sel).toFile()) : 0;
-			String w = ShaderCompat.warningFor(sel, probed, gameVersion());
+			String w = ShaderCompat.browserWarning(sel, IrisBridge.shaderpacksDir().toFile());
 			return w == null ? null : "\"" + sel + "\": " + w;
 		} catch (Throwable t) {
 			return null;
@@ -107,6 +111,10 @@ public class ShaderBrowserScreen extends OriginWindow {
 
 	@Override
 	protected String subheading() {
+		String notice = ShaderDownloader.removeNotice();
+		if (notice != null) {
+			return notice;
+		}
 		return "Shader packs that run on Minecraft " + gameVersion() + " with OptiFine";
 	}
 

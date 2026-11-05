@@ -277,6 +277,52 @@ public final class ShaderCompat {
 		t.start();
 	}
 
+	// The shader browser's warning line, per pack name: "" = checked, no warning. Kept apart
+	// from the once-per-session world check above (takeWarning consumes its result).
+	private static final java.util.Map<String, String> BROWSER_WARNINGS =
+			new java.util.concurrent.ConcurrentHashMap<String, String>();
+	private static final java.util.Set<String> BROWSER_CHECKING =
+			java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
+
+	/**
+	 * The warning for the selected pack, for the shader browser (SHADER-8). Known names
+	 * are answered at once; an unknown pack's zip is read on a daemon thread, so opening
+	 * the browser never waits on the disk. Null until that read is done, and for no warning.
+	 * Asked again every tick, so a pack switch (a download turning a new pack on) shows the
+	 * new pack's verdict instead of the old one's.
+	 */
+	public static String browserWarning(final String selectedName, final File packsDir) {
+		if (selectedName == null) {
+			return null;
+		}
+		String known = BROWSER_WARNINGS.get(selectedName);
+		if (known != null) {
+			return known.isEmpty() ? null : known;
+		}
+		if (classify(selectedName, 0, GAME_VERSION) != Verdict.UNKNOWN) {
+			String w = warningFor(selectedName, 0, GAME_VERSION);
+			BROWSER_WARNINGS.put(selectedName, w == null ? "" : w);
+			return w;
+		}
+		if (BROWSER_CHECKING.add(selectedName)) {
+			Thread t = new Thread(new Runnable() {
+				@Override
+				public void run() {
+					String w = null;
+					try {
+						w = warningFor(selectedName, probeMaxVersion(new File(packsDir, selectedName)), GAME_VERSION);
+					} catch (Throwable ignored) {
+						// no warning is better than a crash
+					}
+					BROWSER_WARNINGS.put(selectedName, w == null ? "" : w);
+				}
+			}, "origin-shader-compat-browser");
+			t.setDaemon(true);
+			t.start();
+		}
+		return null;
+	}
+
 	/** The warning once the background check found one (returned a single time), else null. */
 	public static String takeWarning() {
 		String w = pendingWarning;

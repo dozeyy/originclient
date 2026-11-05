@@ -176,4 +176,63 @@ public final class IrisBridge {
 			}
 		}
 	}
+
+	/** The pack Iris's config names, whether or not shaders are on; null = none. */
+	public static String selectedPack() {
+		try {
+			Object cfg = irisConfig();
+			@SuppressWarnings("unchecked")
+			Optional<String> name = (Optional<String>) cfg.getClass().getMethod("getShaderPackName").invoke(cfg);
+			return name.orElse(null);
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	/**
+	 * Rebuilds Iris's Shader Packs screen if it is the open screen (SHADER-4). Iris copies
+	 * its config into the screen's list once, when the screen is built, and writes that list
+	 * back on Done/Esc: a pack switched on behind it (a download that finished after the
+	 * player went back to Iris's screen) was undone by Done. Setting the open screen again
+	 * re-runs its init from the new config, the path a window resize takes; its parent stays.
+	 */
+	public static void refreshIrisScreen() {
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			Screen open = mc.screen;
+			if (open != null && open.getClass().getName().endsWith(".ShaderPackScreen")) {
+				mc.setScreen(open);
+			}
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Couldn't refresh Iris's shader screen", t);
+		}
+	}
+
+	// Shader Performance Mode as last seen; null until the first tick.
+	private static Boolean seenPerformanceMode;
+
+	/**
+	 * Rebuilds an active pack's pipeline whenever Shader Performance Mode changes, whatever
+	 * changed it (SHADER-3): the toggle, its reset arrow, a loaded Profile, an FPS Coach tip
+	 * or Settings Sync. See reloadIfPackActive for why a rebuild is needed. One tick check of
+	 * the setting instead of a reload call in every write path, so no path can miss it.
+	 */
+	public static void watchShaderPerformanceMode() {
+		if (!installed()) {
+			return;
+		}
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+			try {
+				boolean now = com.origin.client.client.mods.Mods.bool(
+						com.origin.client.client.mods.Mods.PERFORMANCE_ID, "shaderPerformanceMode");
+				Boolean was = seenPerformanceMode;
+				seenPerformanceMode = now;
+				if (was != null && was != now) {
+					reloadIfPackActive();
+				}
+			} catch (Throwable t) {
+				// settings not readable this tick: try again next tick
+			}
+		});
+	}
 }

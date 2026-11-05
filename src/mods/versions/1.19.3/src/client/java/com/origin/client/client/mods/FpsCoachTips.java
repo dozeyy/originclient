@@ -235,10 +235,9 @@ public final class FpsCoachTips {
 			return null;
 		}
 		Mods.set(Mods.PERFORMANCE_ID, "shaderPerformanceMode", on);
-		Iris.reloadIfInUse();   // the pack picks the new shadow distance up on reload
+		// the pack picks the new shadow distance up: IrisBridge.watchShaderPerformanceMode reloads it
 		return () -> {
 			Mods.set(Mods.PERFORMANCE_ID, "shaderPerformanceMode", from);
-			Iris.reloadIfInUse();
 		};
 	}
 
@@ -314,13 +313,6 @@ public final class FpsCoachTips {
 			} catch (Throwable t) {
 				com.origin.client.OriginClient.LOGGER.warn("FPS Coach: couldn't switch shaders through Iris's API", t);
 				return false;
-			}
-		}
-
-		/** Re-applies the current state, which makes Iris rebuild the active pack. */
-		static void reloadIfInUse() {
-			if (shadersInUse()) {
-				setEnabled(true);
 			}
 		}
 

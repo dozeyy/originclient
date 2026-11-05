@@ -1251,9 +1251,7 @@ public class OriginModMenuScreen extends Screen {
 
 	private void flipToggle(String id, ModOption o) {
 		vSetBool(id, o.key, !vBool(id, o.key));
-		if (Mods.PERFORMANCE_ID.equals(id) && "shaderPerformanceMode".equals(o.key)) {
-			com.origin.client.client.shaders.IrisBridge.reloadIfPackActive();
-		}
+		// Shader Performance Mode's Iris reload: IrisBridge.watchShaderPerformanceMode (every write path).
 		if ("fullbright".equals(id) && "fullBright".equals(o.key) && Mods.bool(id, o.key)
 				&& com.origin.client.client.shaders.IrisBridge.currentPack() != null) {
 			Minecraft mc = Minecraft.getInstance();
