@@ -576,6 +576,11 @@ public final class OriginButtonRenderer {
 		return !titleBroken && !com.origin.client.client.OriginStyle.vanillaTitle() && OriginTtfFont.ready();
 	}
 
+	/** titleTextActive(), and Inter has every letter of {@code text}; else that text stays Minecraft's font (LOC-1). */
+	public static boolean titleTextActive(String text) {
+		return titleTextActive() && OriginTtfFont.covers(text);
+	}
+
 	/** Inter at a GUI-px baseline / em: drawn 1:1 in physical pixels under a 1/guiScale pose. */
 	private static void drawInter(Gfx g, String text, float x, float baseline, float em, int argb, boolean bold) {
 		int gs = Gfx.guiScale();

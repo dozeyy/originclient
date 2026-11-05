@@ -350,7 +350,7 @@ public final class OriginDeck {
 	// that is the size the glyphs are rasterised and spaced at.
 
 	public float textW(String str, float size, boolean bold, float tracking) {
-		if (OriginTtfFont.ready()) {
+		if (OriginTtfFont.ready() && OriginTtfFont.covers(str)) {
 			return OriginTtfFont.widthEm(str, size * s, tracking * s, bold) / s;
 		}
 		FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
@@ -383,7 +383,7 @@ public final class OriginDeck {
 		if ((argb >>> 24) < 4) {
 			return; // vanilla Font would draw alpha < 4 as opaque
 		}
-		if (OriginTtfFont.ready()) {
+		if (OriginTtfFont.ready() && OriginTtfFont.covers(str)) {
 			OriginTtfFont.drawEm(g, str, physX, physBaseline, size * s, tracking * s, argb, bold);
 		} else {
 			// Fail-soft: vanilla glyphs scaled so their caps match Inter's.

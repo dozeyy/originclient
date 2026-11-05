@@ -46,44 +46,10 @@ public final class OriginSdfFont {
 	public static final float MATCH_DY = -2.0f;
 
 
-	// Typographic characters the bundled Inter atlas does NOT carry, mapped to
-	// glyphs it DOES — otherwise each renders as a blank space-width GAP (the "on
-	// [wide gap] a" the em-dash caused in "On — a solid backdrop…"). One place, so
-	// every label/tooltip/description is spaced correctly by construction.
-	private static final Map<Character, Character> SUBS = new HashMap<>();
-	static {
-		SUBS.put('—', '-');   // — em dash  → hyphen
-		SUBS.put('–', '-');   // – en dash  → hyphen
-		SUBS.put('‘', '\'');  // ' left single quote  → apostrophe
-		SUBS.put('’', '\'');  // ' right single quote → apostrophe
-		SUBS.put('“', '"');   // " left double quote  → straight quote
-		SUBS.put('”', '"');   // " right double quote → straight quote
-		SUBS.put('＋', '+');   // ＋ fullwidth plus → plus
-		SUBS.put('✕', '×'); // ✕ heavy multiply → × (which IS in the atlas)
-		SUBS.put(' ', ' ');   // non-breaking space → space
-	}
-
-	/** Swap any atlas-missing typographic char for a present equivalent so it
-	 *  never renders as a blank gap. Cheap: allocates only when a sub is needed. */
+	// Typographic characters the atlas lacks (em dash, curly quotes, middle dot...) are drawn as a
+	// look-alike it has; GlyphCoverage holds that one table for normalize() and covers().
 	private static String normalize(String s) {
-		boolean needs = false;
-		for (int i = 0; i < s.length(); i++) {
-			// every SUBS key is non-ASCII: plain letters skip the boxed map lookup entirely
-			char c = s.charAt(i);
-			if (c >= 0x80 && SUBS.containsKey(c)) {
-				needs = true;
-				break;
-			}
-		}
-		if (!needs) {
-			return s;
-		}
-		StringBuilder b = new StringBuilder(s.length());
-		for (int i = 0; i < s.length(); i++) {
-			Character r = SUBS.get(s.charAt(i));
-			b.append(r == null ? s.charAt(i) : r);
-		}
-		return b.toString();
+		return GlyphCoverage.normalize(s);
 	}
 
 	private record Glyph(float x, float y, float w, float h, float ox, float oy, float adv) {
@@ -132,6 +98,19 @@ public final class OriginSdfFont {
 		// lookup is a map hit after the first compile (see OriginShaders.fetch).
 		return REGULAR.ok && OriginShaders.msdf() != null;
 	}
+
+	/**
+	 * True when every letter of {@code text} has a glyph in the Inter atlas, which is ASCII plus a few
+	 * symbols (LOC-1). A German, Russian or Chinese string is false: the caller draws THAT string with
+	 * Minecraft's font, which has every script, instead of Inter leaving each missing letter a blank gap.
+	 */
+	public static boolean covers(String text) {
+		ensureLoaded();
+		return REGULAR.ok && GlyphCoverage.covers(text, HAS);
+	}
+
+	// Both weights are baked from one character set; a glyph only one of them has would still be a gap.
+	private static final GlyphCoverage.Has HAS = c -> REGULAR.glyph(c) != null && (!BOLD.ok || BOLD.glyph(c) != null);
 
 	/** Whether menus should route text through this renderer right now. */
 	public static boolean active() {

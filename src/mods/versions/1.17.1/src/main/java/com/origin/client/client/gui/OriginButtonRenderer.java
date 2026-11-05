@@ -246,7 +246,7 @@ public final class OriginButtonRenderer {
 		Component message;
 		String text;
 		float width, cap, em;
-		boolean sdf;
+		boolean sdf, want;   // sdf = drawn in Inter; want = Inter was asked for (the cache key)
 	}
 
 	private static final Map<Object, Label> LABELS = new WeakHashMap<>();
@@ -257,12 +257,13 @@ public final class OriginButtonRenderer {
 		if (lab == null) {
 			lab = new Label();
 			LABELS.put(button, lab);
-		} else if (lab.message == message && lab.sdf == sdf && lab.em == em) {
+		} else if (lab.message == message && lab.want == sdf && lab.em == em) {
 			return lab;
 		}
 		lab.message = message;
 		lab.text = message.getString();
-		lab.sdf = sdf;
+		lab.want = sdf;
+		lab.sdf = sdf && OriginSdfFont.covers(lab.text);   // a translated label Inter can't spell: Minecraft's font (LOC-1)
 		lab.em = em;
 		if (sdf) {
 			lab.width = OriginSdfFont.widthEm(lab.text, em, 0f, true);
@@ -348,6 +349,11 @@ public final class OriginButtonRenderer {
 	/** True when the title's own text should be Inter: Origin title on, title skin not latched, SDF face live. */
 	public static boolean titleTextActive() {
 		return !titleBroken && !com.origin.client.client.OriginStyle.vanillaTitle() && OriginSdfFont.active();
+	}
+
+	/** titleTextActive(), and Inter has every letter of {@code text}; else that text stays Minecraft's font (LOC-1). */
+	public static boolean titleTextActive(String text) {
+		return titleTextActive() && OriginSdfFont.covers(text);
 	}
 
 	/** Inter text whose 8 GUI px line box starts at {@code top} (what vanilla drawString(..., y) would fill). */

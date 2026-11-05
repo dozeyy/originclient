@@ -31,6 +31,7 @@ on:
       - "tools/ingame-guard-tests/**"
       - "tools/hud-layout-tests/**"
       - "tools/locraw-tests/**"
+      - "tools/glyph-coverage-tests/**"
       - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
@@ -61,6 +62,7 @@ on:
       - "tools/ingame-guard-tests/**"
       - "tools/hud-layout-tests/**"
       - "tools/locraw-tests/**"
+      - "tools/glyph-coverage-tests/**"
       - "tools/compat-gates/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
@@ -159,6 +161,10 @@ jobs:
       # /locraw reply -> /play id, one ask per world, only Origin's own answer hidden from chat.
       - name: Test Hypixel /locraw reader
         run: python3 tools/locraw-tests/run.py
+      # Origin's Inter text never leaves a letter it lacks as a blank gap (gui/GlyphCoverage, LOC-1):
+      # accented, Cyrillic or Chinese strings are drawn in Minecraft's font; checked against the real atlas.
+      - name: Test Inter glyph fallback
+        run: python3 tools/glyph-coverage-tests/run.py
 
       # The starter config new players are seeded from (default-mods-config.json in every live
       # module): every slider value inside its Mods.java range, and none of the known values
