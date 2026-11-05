@@ -638,7 +638,8 @@ final class Readouts {
 				}
 				int x = (int) Math.round(mid + dx);
 				g.fill(x - 2, 13, x + 2, 17, withAlpha(0xFF000000, edgeAlpha(dx, mid) * 3 / 4));
-				g.fill(x - 1, 14, x + 1, 16, withAlpha(wp.color, edgeAlpha(dx, mid)));
+				// the marker colour, as on the in-world diamond and the Locator Bar gem (MAP-4)
+				g.fill(x - 1, 14, x + 1, 16, withAlpha(wp.iconColor, edgeAlpha(dx, mid)));
 			}
 		}
 

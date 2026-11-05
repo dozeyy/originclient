@@ -1116,16 +1116,17 @@ public final class HudElements {
 		if (FrameWatch.minimised()) {
 			return;   // window minimised: nobody can see the HUD (unfocused but visible keeps it)
 		}
-		if (mc.options.renderDebug) {
-			return;   // F3 is open (pre-1.20.2: the Options.renderDebug flag): its text sits where the HUD's default spots are
-		}
+		// F3 is open (pre-1.20.2: the Options.renderDebug flag): its text sits where the HUD's default spots are, so the anchored
+		// elements step aside. The world-projected overlays after the loop (waypoint labels,
+		// party pings) still draw: walking to a waypoint with F3 open is when you want both (MAP-1).
+		boolean debugOpen = mc.options.renderDebug;
 		passes++;
 		if (mc.player == null || mc.options.hideGui || mc.screen instanceof HudEditorScreen) {
 			return;
 		}
 		int sw = g.guiWidth(), sh = g.guiHeight();
 		for (Element e : ALL) {
-			if (!Mods.on(e.modId())) {
+			if (debugOpen || !Mods.on(e.modId())) {
 				continue;
 			}
 			HudPos pos = e.pos();

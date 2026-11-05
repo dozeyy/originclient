@@ -222,16 +222,27 @@ public final class WaypointHud {
 	// ContextualBarRenderer: left = (sw-182)/2, top = sh - 24 - 5).
 	private static final int BAR_W = 182, BAR_H = 5, BAR_Y_FROM_BOTTOM = 29;
 
-	// Non-separate placement: the XP bar's exact HUD slot. In Survival the real XP
-	// bar draws it (we only overlay icons); in Creative (no XP bar) we blit a copy
-	// of the empty XP-bar sprite in the same spot to host the icons — it shows no XP.
+	// Non-separate placement: the XP bar's exact HUD slot. Vanilla fills that slot with the
+	// XP bar (Survival), the jump meter while riding a horse or camel, or its own Locator Bar
+	// when the server sends waypoints (other players nearby);
+	// Origin's gems go on top of whatever is there. Only a really empty slot (Creative on
+	// foot) gets a copy of the empty XP-bar sprite to host them: blitting that copy over the
+	// jump meter or vanilla's Locator Bar hid it (MAP-3). Spectator has no bar at all.
 	private static void renderXpHostedBar(GuiGraphics g, Minecraft mc, int sw, int sh) {
+		if (mc.gameMode == null || mc.player.isSpectator()) {
+			return;
+		}
 		int bx = (sw - BAR_W) / 2;
 		int by = sh - BAR_Y_FROM_BOTTOM;
-		boolean realXpBar = mc.gameMode != null && mc.gameMode.hasExperience();
-		// Survival: real bar present → overlay only. Creative: copy the XP sprite.
-		drawBar(g, mc, bx, by, BAR_W, !realXpBar);
+		boolean vanillaLocator = mc.player.connection.getWaypointManager().hasWaypoints();
+		boolean slotTaken = vanillaLocator || mc.gameMode.hasExperience() || mc.player.jumpableVehicle() != null;
+		drawBar(g, mc, bx, by, BAR_W, !slotTaken, vanillaLocator ? VANILLA_LOCATOR_HALF_CONE : 0);
 	}
+
+	// Vanilla's Locator Bar puts a player dead ahead in the middle and one 60 degrees off at
+	// the end; sharing its strip, Origin's gems use that same scale so a waypoint and a
+	// player in the same direction line up (MAP-3).
+	private static final double VANILLA_LOCATOR_HALF_CONE = 60.0;
 
 	// Draws the locator icons across an XP-bar-sized strip (182×5). When copyXpBar is
 	// true it first blits the REAL empty-XP-bar sprite so the strip is a pixel-exact
@@ -239,6 +250,13 @@ public final class WaypointHud {
 	// Survival passes false because the real XP bar is already underneath. Shared by
 	// every mode so the icon logic is identical.
 	public static void drawBar(GuiGraphics g, Minecraft mc, int bx, int by, int barW, boolean copyXpBar) {
+		drawBar(g, mc, bx, by, barW, copyXpBar, 0);
+	}
+
+	// fixedHalfCone > 0: the strip spans that many degrees each side instead of the
+	// player's view (used on vanilla's own Locator Bar).
+	public static void drawBar(GuiGraphics g, Minecraft mc, int bx, int by, int barW, boolean copyXpBar,
+			double fixedHalfCone) {
 		if (mc.player == null || mc.level == null) {
 			return;
 		}
@@ -257,7 +275,8 @@ public final class WaypointHud {
 		double vFov = Math.toRadians(((com.origin.client.client.mixin.GameRendererAccessor) mc.gameRenderer)
 				.originclient$getFov(mc.gameRenderer.getMainCamera(), 1.0f, true));
 		double aspect = (double) Math.max(1, mc.getWindow().getWidth()) / Math.max(1, mc.getWindow().getHeight());
-		double halfCone = Math.toDegrees(Math.atan(Math.tan(vFov / 2.0) * aspect));
+		double halfCone = fixedHalfCone > 0 ? fixedHalfCone
+				: Math.toDegrees(Math.atan(Math.tan(vFov / 2.0) * aspect));
 
 		String dim = mc.level.dimension().identifier().toString();
 		// 1.21.11 dropped Camera.getYRot(); the yaw is derived from the camera's

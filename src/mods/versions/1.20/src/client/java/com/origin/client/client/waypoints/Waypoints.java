@@ -70,6 +70,9 @@ public final class Waypoints {
 	private static String loadedKey = null;
 	// The Hypixel place (util/HypixelLocraw) the current key was made with; null = none.
 	private static String loadedPlace = null;
+	// The address key of the Realm the current key names (its list before Realms were keyed
+	// by name, MAP-7); null when not on a Realm. Set by currentKey, read by switchTo.
+	private static String realmAddressKey = null;
 	private static boolean initialized = false;
 	// Hot-path guard: the world is re-resolved only when the client level object changes
 	// (weak, so a left world can still be collected). A dimension change replaces the
@@ -113,17 +116,25 @@ public final class Waypoints {
 		switchTo(key);
 	}
 
-	/** "sp:<save folder>" / "mp:<address>" / "lan:<host>" for the world the player is in. */
+	/** "sp:<version>#<seed>:<save folder>" / "realm:<name>" / "mp:<address>" / "lan:<host>" for the world the player is in. */
 	private static String currentKey(Minecraft mc) {
+		realmAddressKey = null;
 		try {
 			IntegratedServer sp = mc.getSingleplayerServer();
 			if (sp != null) {
 				Path dir = sp.getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
-				return WaypointScope.singleplayer(String.valueOf(dir.getFileName()), mcVersion());
+				return singleplayerKey(String.valueOf(dir.getFileName()), sp);
 			}
 			ServerData sd = mc.getCurrentServer();
 			if (sd != null && sd.ip != null) {
-				String server = WaypointScope.server(sd.ip);   // Realms are keyed by their address too
+				String server = WaypointScope.server(sd.ip);
+				// A Realm by its name: its address is the host it runs on today and changes when
+				// Mojang moves it, which used to start an empty list (MAP-7).
+				String realm = mc.isConnectedToRealms() ? WaypointScope.realm(sd.name) : null;
+				if (realm != null) {
+					realmAddressKey = server;
+					return realm;
+				}
 				// Hypixel: one list per game and map, not one for the whole network (JG-8).
 				// A known place also means Hypixel when it was joined by a numeric IP.
 				if (loadedPlace != null || com.origin.client.client.mods.HypixelDetect.isHypixelHost(sd.ip)) {
@@ -135,6 +146,15 @@ public final class Waypoints {
 			// fall through to the shared bucket
 		}
 		return "other:unknown";
+	}
+
+	/** A world's key with its seed (MAP-2); the folder key if the seed can't be read. */
+	private static String singleplayerKey(String folder, IntegratedServer sp) {
+		try {
+			return WaypointScope.singleplayer(folder, mcVersion(), sp.overworld().getSeed());
+		} catch (Throwable t) {
+			return WaypointScope.singleplayer(folder, mcVersion());
+		}
 	}
 
 	/** This game's Minecraft version ("1.21.1"); "" if Fabric can't say (old sp key then). */
@@ -160,15 +180,9 @@ public final class Waypoints {
 		if (key != null) {
 			Path f = fileFor(key);
 			try {
-				// singleplayer keys gained the version: start from the world's old list
-				String previous = WaypointScope.unversioned(key, mcVersion());
-				if (previous == null) {
-					// a Hypixel SkyBlock place starts from the old all-of-Hypixel list
-					previous = WaypointScope.hypixelPrevious(key);
-				}
-				if (previous != null) {
-					WaypointScope.adoptPrevious(fileFor(previous), f);
-				}
+				// start from the list this world/server had under an older key (version, seed,
+				// Realm name, Hypixel place): copied once, the old file stays as the backup
+				WaypointScope.adoptEarlier(configDir(), key, mcVersion(), realmAddressKey);
 			} catch (Exception e) {
 				com.origin.client.OriginClient.LOGGER.warn("Could not copy this world's earlier Origin waypoints", e);
 			}
@@ -237,6 +251,7 @@ public final class Waypoints {
 		w.z = z;
 		w.dimension = dim;
 		w.color = color;
+		w.iconColor = color;   // the marker (diamond, gem, map dot) wears the beam's colour (MAP-4)
 		ALL.add(w);
 		save();
 		return w;
@@ -290,6 +305,9 @@ public final class Waypoints {
 		w.dimension = dim;
 		w.color = DEATH_COLOR;
 		w.death = true;
+		// one red marker everywhere: diamond, Locator Bar gem, map dot and label (MAP-4)
+		w.iconColor = DEATH_COLOR;
+		w.textColor = DEATH_COLOR;
 		w.showBeam = true;
 		w.showText = true;
 		ALL.add(w);

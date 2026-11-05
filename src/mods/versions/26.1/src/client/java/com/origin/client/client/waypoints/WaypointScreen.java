@@ -503,9 +503,13 @@ public class WaypointScreen extends OriginWindow {
 	private void drawEmpty(OriginDeck d, float lw) {
 		float cx = M + lw / 2, cy = LIST_Y + 96;
 		d.icon("waypoints", cx - 20, cy - 52, 40, MUTE);
-		d.textCenter("No waypoints yet", cx, cy + 4, 15, true, 0, DIM);
+		// Out of a world there is no list to show and Create is greyed out: say where waypoints
+		// live instead of "No waypoints yet", which read as "my waypoints are gone" (MAP-5).
+		boolean world = inWorld();
+		d.textCenter(world ? "No waypoints yet" : "Waypoints belong to a world", cx, cy + 4, 15, true, 0, DIM);
 		if (editing == null) {
-			d.textCenter("Create one and it is placed where you are standing.", cx, cy + 30, 13, false, 0, MUTE);
+			d.textCenter(world ? "Create one and it is placed where you are standing."
+					: "Join a world or server to see and add its waypoints.", cx, cy + 30, 13, false, 0, MUTE);
 		}
 	}
 

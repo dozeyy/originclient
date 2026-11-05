@@ -29,6 +29,7 @@ on:
       - "tools/keycodes-tests/**"
       - "tools/qol-tests/**"
       - "tools/ingame-guard-tests/**"
+      - "tools/waypoint-scope-check/**"
       - "tools/hud-layout-tests/**"
       - "tools/locraw-tests/**"
       - "tools/glyph-coverage-tests/**"
@@ -60,6 +61,7 @@ on:
       - "tools/keycodes-tests/**"
       - "tools/qol-tests/**"
       - "tools/ingame-guard-tests/**"
+      - "tools/waypoint-scope-check/**"
       - "tools/hud-layout-tests/**"
       - "tools/locraw-tests/**"
       - "tools/glyph-coverage-tests/**"
@@ -153,6 +155,14 @@ jobs:
       # is known by address or brand; every live module carries the same helper copies.
       - name: Test in-game guards
         run: python3 tools/ingame-guard-tests/run.py
+      # Per-world waypoint lists (waypoints/WaypointScope, pure Java): a new world that reuses a
+      # deleted world's folder name starts empty, a Realm keeps its list when its address moves,
+      # and every older key's list is copied in once (MAP-2, MAP-7).
+      - name: Test waypoint keys
+        run: |
+          out="$RUNNER_TEMP/waypoint-scope-check"
+          javac -d "$out" src/mods/shared/src/client/java/com/origin/client/client/waypoints/WaypointScope.java tools/waypoint-scope-check/WaypointScopeCheck.java
+          java -cp "$out" WaypointScopeCheck
       # The default HUD layout (hud/HudLayout, pure Java): with every HUD piece on, no two default spots
       # overlap each other, the chat or the hotbar at 1366x768 / 1920x1080 and bigger GUI sizes; a player's
       # own spot is kept and an untouched old default moves; every live module carries the same table.

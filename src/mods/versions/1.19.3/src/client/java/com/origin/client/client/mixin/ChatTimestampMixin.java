@@ -42,6 +42,9 @@ public abstract class ChatTimestampMixin {
 	// Wrapped lines on screen, newest first; Stack Spam takes the previous copy's lines
 	// off this list directly instead of re-wrapping the whole chat (which jumps the scroll).
 	@Shadow @Final private List<GuiMessage.Line> trimmedMessages;
+	// How far the player has scrolled up (0 = at the newest line): Smooth Chat holds still
+	// while they read back (MEDIA-3).
+	@Shadow private int chatScrollbarPos;
 
 	@Shadow
 	public abstract void scrollChat(int amount);
@@ -109,6 +112,9 @@ public abstract class ChatTimestampMixin {
 	private Component originclient$transform(Component message) {
 		originclient$lastMessageMs = Util.getMillis();
 		if (!Mods.on("chat")) {
+			// Stacking skipped: the line remembered for Stack Spam is no longer the newest one,
+			// so a repeat after turning Chat back on must not remove whatever line is (MEDIA-4).
+			originclient$lastBase = null;
 			return message;
 		}
 		Component result = message;
@@ -139,6 +145,8 @@ public abstract class ChatTimestampMixin {
 				originclient$lastBase = base;
 				originclient$lastCount = 1;
 			}
+		} else {
+			originclient$lastBase = null;   // Stack Spam off: same as above (MEDIA-4)
 		}
 
 		if (Mods.bool("chat", "timestamps")) {
@@ -179,7 +187,9 @@ public abstract class ChatTimestampMixin {
 			return;
 		}
 		long since = Util.getMillis() - originclient$lastMessageMs;
-		if (since < 0 || since >= SLIDE_MS) {
+		// Scrolled up to read back: vanilla keeps that view still as lines arrive, so the
+		// stack must not slide under the player's eyes on every message (MEDIA-3).
+		if (since < 0 || since >= SLIDE_MS || chatScrollbarPos > 0) {
 			return;
 		}
 		// Ease-out cubic: fast off the mark, settles softly — the house motion feel.

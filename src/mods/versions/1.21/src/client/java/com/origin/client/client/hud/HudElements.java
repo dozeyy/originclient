@@ -1099,16 +1099,17 @@ public final class HudElements {
 		if (FrameWatch.idle()) {
 			return;   // window minimised: skip Origin's HUD, nobody can see it
 		}
-		if (debugScreenOpen(mc)) {
-			return;   // F3 is open: its text sits where the HUD's default spots are
-		}
+		// F3 is open: its text sits where the HUD's default spots are, so the anchored
+		// elements step aside. The world-projected overlays after the loop (waypoint labels,
+		// party pings) still draw: walking to a waypoint with F3 open is when you want both (MAP-1).
+		boolean debugOpen = debugScreenOpen(mc);
 		if (mc.player == null || mc.options.hideGui || mc.screen instanceof HudEditorScreen) {
 			return;
 		}
 		passes++;
 		int sw = g.guiWidth(), sh = g.guiHeight();
 		for (Element e : ALL) {
-			if (!Mods.on(e.modId())) {
+			if (debugOpen || !Mods.on(e.modId())) {
 				continue;
 			}
 			HudPos pos = e.pos();

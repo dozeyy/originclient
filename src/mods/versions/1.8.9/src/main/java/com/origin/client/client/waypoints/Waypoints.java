@@ -68,6 +68,9 @@ public final class Waypoints {
 	private static String loadedKey = null;
 	// The Hypixel place (util/HypixelLocraw) the current key was made with; null = none.
 	private static String loadedPlace = null;
+	// The address key of the Realm the current key names (its list before Realms were keyed
+	// by name, MAP-7); null when not on a Realm. Set by currentKey, read by switchTo.
+	private static String realmAddressKey = null;
 	private static boolean initialized = false;
 	// Hot-path guard: the world is re-resolved only when the client level object changes
 	// (weak, so a left world can still be collected). A dimension change replaces the
@@ -111,14 +114,15 @@ public final class Waypoints {
 		switchTo(key);
 	}
 
-	/** "sp:<save folder>" / "mp:<address>" / "lan:<host>" for the world the player is in. */
+	/** "sp:<version>#<seed>:<save folder>" / "realm:<name>" / "mp:<address>" / "lan:<host>" for the world the player is in. */
 	private static String currentKey(Minecraft mc) {
+		realmAddressKey = null;
 		try {
 			IntegratedServer sp = mc.getIntegratedServer();
 			if (sp != null) {
 				// 1.8.9: the save's folder name (MinecraftServer.getFolderName) -- the same
 				// name the other versions take from the world path's last segment.
-				return WaypointScope.singleplayer(sp.getFolderName(), mcVersion());
+				return singleplayerKey(sp.getFolderName(), sp);
 			}
 			ServerData sd = mc.getCurrentServerData();
 			if (sd != null && sd.serverIP != null) {
@@ -134,6 +138,15 @@ public final class Waypoints {
 			// fall through to the shared bucket
 		}
 		return "other:unknown";
+	}
+
+	/** A world's key with its seed (MAP-2); the folder key if the seed can't be read. */
+	private static String singleplayerKey(String folder, IntegratedServer sp) {
+		try {
+			return WaypointScope.singleplayer(folder, mcVersion(), sp.worldServerForDimension(0).getSeed());
+		} catch (Throwable t) {
+			return WaypointScope.singleplayer(folder, mcVersion());
+		}
 	}
 
 	/** This game's Minecraft version (this module only ever runs 1.8.9). */
@@ -154,15 +167,9 @@ public final class Waypoints {
 		if (key != null) {
 			Path f = fileFor(key);
 			try {
-				// singleplayer keys gained the version: start from the world's old list
-				String previous = WaypointScope.unversioned(key, mcVersion());
-				if (previous == null) {
-					// a Hypixel SkyBlock place starts from the old all-of-Hypixel list
-					previous = WaypointScope.hypixelPrevious(key);
-				}
-				if (previous != null) {
-					WaypointScope.adoptPrevious(fileFor(previous), f);
-				}
+				// start from the list this world/server had under an older key (version, seed,
+				// Realm name, Hypixel place): copied once, the old file stays as the backup
+				WaypointScope.adoptEarlier(configDir(), key, mcVersion(), realmAddressKey);
 			} catch (Exception e) {
 				com.origin.client.OriginClient.LOGGER.warn("Could not copy this world's earlier Origin waypoints", e);
 			}
@@ -231,6 +238,7 @@ public final class Waypoints {
 		w.z = z;
 		w.dimension = dim;
 		w.color = color;
+		w.iconColor = color;   // the marker (diamond, gem, map dot) wears the beam's colour (MAP-4)
 		ALL.add(w);
 		save();
 		return w;
@@ -293,6 +301,9 @@ public final class Waypoints {
 		ALL.removeIf(old -> old.death || (old.color == DEATH_COLOR && isDeathName(old.name)));
 		Waypoint w = create("Death", x, y, z, dim, DEATH_COLOR);
 		w.death = true;
+		// one red marker everywhere: diamond, Locator Bar gem, map dot and label (MAP-4)
+		w.iconColor = DEATH_COLOR;
+		w.textColor = DEATH_COLOR;
 		w.showBeam = true;
 		w.showText = true;
 		save();

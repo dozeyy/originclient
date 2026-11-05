@@ -517,7 +517,8 @@ final class MinimapRenderer {
 				alpha = 170;
 			}
 			diamond(b, m, sx, sy, r + 1, alpha << 24);
-			diamond(b, m, sx, sy, r, withAlpha(wp.color, alpha));
+			// the marker colour, as on the in-world diamond and the Locator Bar gem (MAP-4)
+			diamond(b, m, sx, sy, r, withAlpha(wp.iconColor, alpha));
 			any = true;
 		}
 		if (any) {
