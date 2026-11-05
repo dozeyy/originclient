@@ -186,7 +186,7 @@ public partial class SettingsPage : UserControl
         finally { _isLoading = wasLoading; }
     }
 
-    private static string FormatRam(int ramMb) => $"{ramMb / 1024d:0.##} GB";
+    private static string FormatRam(int ramMb) => Core.GbText.FromMb(ramMb, "0.##");
 
     /// <summary>Shows or clears a field's problem: the Danger edge on the boxes and the sentence under them. True when there is one.</summary>
     private static bool ShowFieldProblem(TextBlock message, string? problem, params TextBox[] boxes)

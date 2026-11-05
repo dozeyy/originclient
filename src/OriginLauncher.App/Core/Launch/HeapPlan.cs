@@ -38,7 +38,7 @@ public sealed record HeapPlan(int MaxMb, int StartMb, bool Auto, string? Warning
             // What Settings shows (RamAdvice.ManualMb): never above this PC's maximum, whatever number is stored.
             manualMb = RamAdvice.ManualMb(manualMb, totalPhysicalMb);
             var warn = legacy && manualMb > LegacyWarnAboveMb
-                ? $"{manualMb / 1024d:0.#} GB is a lot for this version - 4 GB is plenty for most setups and runs smoother."
+                ? $"{GbText.FromMb(manualMb)} is a lot for this version - 4 GB is plenty for most setups and runs smoother."
                 : null;
             return new HeapPlan(manualMb, manualMb, false, warn);
         }
