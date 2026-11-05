@@ -6,5 +6,8 @@
   "culprits": [
     "somemod"
   ],
-  "fix": "None"
+  "fix": "DisableMods",
+  "fixJars": [
+    "somemod-1.0.0.jar"
+  ]
 }
