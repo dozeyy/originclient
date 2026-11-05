@@ -133,6 +133,11 @@ public final class Hypixel {
 			return;
 		}
 		HypixelApi.optionKey = Mods.text(MOD, "apiKey").trim();
+		// Waypoints are kept per Hypixel game and map (JG-8): ask Hypixel where we are a
+		// moment after each server switch (a new world object), only while Waypoints is on.
+		if (HypixelLocation.tick(System.identityHashCode(mc.theWorld), Mods.on("waypoints"), System.currentTimeMillis())) {
+			command(mc, "locraw");
+		}
 		if (!was) {
 			nextTipAt = System.currentTimeMillis() + 30_000L;   // first tip shortly after joining
 		}
@@ -180,6 +185,7 @@ public final class Hypixel {
 			PARTY.clear();
 		}
 		HypixelApi.clear();
+		HypixelLocation.clear();
 	}
 
 	// 1.8.9: display slots are ints (0 list, 1 sidebar, 2 below name) and an
@@ -234,6 +240,10 @@ public final class Hypixel {
 		List<String> lines = lines(plain);
 		for (String line : lines) {
 			trackParty(line);   // Team View reads the roster even with the Hypixel mod off
+		}
+		// The /locraw reply Origin asked for (waypoints per game and map) never reaches chat.
+		if (HypixelLocation.take(plain, System.currentTimeMillis())) {
+			return false;
 		}
 		if (!Mods.on(MOD)) {
 			return true;

@@ -68,6 +68,8 @@ public final class Waypoints {
 	private static List<Waypoint> ALL = new ArrayList<>();
 	// Scope key of ALL (null = not in a world: nothing is shown and nothing is saved).
 	private static String loadedKey = null;
+	// The Hypixel place (HypixelLocation) the current key was made with; null = none.
+	private static String loadedPlace = null;
 	private static boolean initialized = false;
 	// Hot-path guard: the world is re-resolved only when the client level object changes
 	// (weak, so a left world can still be collected). A dimension change replaces the
@@ -94,10 +96,15 @@ public final class Waypoints {
 	public static synchronized void ensureLoaded() {
 		Minecraft mc = Minecraft.getInstance();
 		Object level = mc.level;
-		if (initialized && levelRef.get() == level) {
+		// On Hypixel the place (game + map, from /locraw) arrives a moment after the world
+		// and picks the list, so a new place re-resolves too (JG-8). One compare per call.
+		String place = level == null ? null
+				: com.origin.client.client.mods.HypixelLocation.place(System.identityHashCode(level));
+		if (initialized && levelRef.get() == level && java.util.Objects.equals(place, loadedPlace)) {
 			return;
 		}
 		initialized = true;
+		loadedPlace = place;
 		levelRef = new WeakReference<>(level);
 		String key = level == null ? null : currentKey(mc);
 		if (key == null ? loadedKey == null : key.equals(loadedKey)) {
@@ -116,7 +123,13 @@ public final class Waypoints {
 			}
 			ServerData sd = mc.getCurrentServer();
 			if (sd != null && sd.ip != null) {
-				return WaypointScope.server(sd.ip);   // Realms are keyed by their address too
+				String server = WaypointScope.server(sd.ip);   // Realms are keyed by their address too
+				// Hypixel: one list per game and map, not one for the whole network (JG-8).
+				// A known place also means Hypixel when it was joined by a numeric IP.
+				if (loadedPlace != null || com.origin.client.client.mods.HypixelDetect.isHypixelHost(sd.ip)) {
+					return WaypointScope.hypixel(server, loadedPlace, currentDim());
+				}
+				return server;
 			}
 		} catch (Throwable ignored) {
 			// fall through to the shared bucket
@@ -149,6 +162,10 @@ public final class Waypoints {
 			try {
 				// singleplayer keys gained the version: start from the world's old list
 				String previous = WaypointScope.unversioned(key, mcVersion());
+				if (previous == null) {
+					// a Hypixel SkyBlock place starts from the old all-of-Hypixel list
+					previous = WaypointScope.hypixelPrevious(key);
+				}
 				if (previous != null) {
 					WaypointScope.adoptPrevious(fileFor(previous), f);
 				}
