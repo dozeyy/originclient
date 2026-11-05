@@ -156,9 +156,12 @@ public static class CrashRules
                 ? $"{Pretty(owner.ModId)} was built for a newer Java than this Minecraft version uses (Java {f.JavaMajor?.ToString() ?? "?"})."
                 : $"A file was built for a newer Java than this Minecraft version uses (Java {f.JavaMajor?.ToString() ?? "?"}).",
             owner is { IsExternal: true }
-                ? "Get the version of that mod made for this Minecraft version, or turn it off on the Mods tab."
+                ? "Turn it off now, then get the version of that mod made for this Minecraft version."
                 : "Update Origin, then press Play.",
-            null, Lines(f.ClassVersionLine));
+            // Origin runs each version on the Java Mojang ships for it (no Java picker to point at), and a newer Java
+            // under an older Minecraft breaks other mods, so the safe fix is turning off the one mod that asked for
+            // it: the same button the damaged-jar rule gives. Origin's own file or an unknown class gets no button.
+            DisableFix(culprits, null), Lines(f.ClassVersionLine));
     }
 
     private static CrashFinding? DamagedFile(CrashFacts f)

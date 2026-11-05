@@ -196,6 +196,17 @@ public class CrashEngineTests
         Assert.Equal("java-version", v.Finding.Rule);
         Assert.Equal(CrashConfidence.Confirmed, v.Finding.Confidence);
         Assert.Equal("somemod", Assert.Single(v.Finding.Culprits).ModId);
+        // The player's own mod gets the turn-off button, not just a sentence pointing at the Mods tab.
+        Assert.Equal(CrashFixKind.DisableMods, v.SafeFix?.Kind);
+        Assert.Equal(["somemod-1.0.0.jar"], v.SafeFix!.Jars);
+    }
+
+    [Fact]
+    public void Java_version_mismatch_in_an_unknown_class_offers_no_turn_off_button()
+    {
+        var v = V("java.lang.UnsupportedClassVersionError: org/unknown/Thing has been compiled by a more recent version of the Java Runtime (class file version 65.0)");
+        Assert.Equal("java-version", v.Finding.Rule);
+        Assert.NotEqual(CrashFixKind.DisableMods, v.SafeFix?.Kind);
     }
 
     [Fact]
