@@ -52,6 +52,30 @@ public static class ConfigOverlay
         Begin(configDir, overlayRoot, active, targetId, marker);
     }
 
+    /// <summary>
+    /// Puts the shipped set's files back in <paramref name="gameDir"/>/config when an older configuration's were left
+    /// there (MULTI-3). Only the launcher's game-exit handler switched back, so closing the launcher (or an update's
+    /// restart) while a profile on an older Sodium played left that Sodium's sodium-options.json / iris.properties in
+    /// place for the next plain Play, and Settings Sync carried them to every other version. Called before a launch of
+    /// this folder and before Settings Sync reads it, only for a folder whose game is not running. The leftover
+    /// configuration's files are saved under its own id first (Switch), so nothing the player changed in it is lost.
+    /// One File.Exists when nothing was left. True when something was switched back. Never throws.
+    /// </summary>
+    public static bool RestoreLeftover(string gameDir, string overlayRoot)
+    {
+        try
+        {
+            var marker = Path.Combine(overlayRoot, MarkerName);
+            if (!File.Exists(marker)) return false;
+            Switch(Path.Combine(gameDir, "config"), overlayRoot, ConfigurationCatalog.DefaultId);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return false; // the next launch or the next sync tries again
+        }
+    }
+
     /// <summary>What the marker says now ("default", an id, or "pending:&lt;id&gt;"), for the tests and the log.</summary>
     public static string Active(string overlayRoot)
     {

@@ -626,6 +626,10 @@ public partial class HomePage : UserControl
             SetStatus("Select a version to play", StatusTone.Neutral);
         else if (UpdateService.UpdateRequired)
             SetStatus(UpdateRequiredText, StatusTone.Warning);
+        // An idle account keeps its last line (a refusal, a failed launch, "Couldn't turn off ...") for the version it
+        // was about, so another tab or account and back still shows it (MULTI-2; Linux's LaunchController.IdleNote).
+        else if (key != null && _launches.IdleNoteOf(key, _selectedVersion) is { } idle)
+            SetStatus(idle.Text, ToneOf(idle.Tone));
         else if (_selectedAccount != null)
             SetStatus("Ready to play", StatusTone.Success);
         else if (key != null)
@@ -666,9 +670,11 @@ public partial class HomePage : UserControl
 
     // A status line for one account: remembered for it (switching back shows
     // it again) and shown now when that account is the selected one.
-    private void Note(string key, string text, LaunchTone tone)
+    // version: the version the line is about (a game's own; the selected one by default), so it only comes back while
+    // that version is selected (AccountLaunchBook.IdleNoteOf).
+    private void Note(string key, string text, LaunchTone tone, string? version = null)
     {
-        _launches.SetNote(key, new LaunchNote(text, tone));
+        _launches.SetNote(key, new LaunchNote(text, tone, version ?? _selectedVersion));
         if (SelectedKey() == key)
             SetStatus(text, ToneOf(tone));
     }
@@ -1052,6 +1058,9 @@ public partial class HomePage : UserControl
             // other versions, then write it into this one. After provisioning
             // (which seeds/sanitizes config files) and before the game reads
             // them. Never throws — a sync problem just means an unsynced launch.
+            // An older configuration's Sodium/Iris files left behind by a game that ended with no launcher listening go back
+            // to the shipped set's before anything reads them (MULTI-3); this launch's own configuration goes in later.
+            await Task.Run(() => ConfigOverlay.RestoreLeftover(gameDir, OriginPaths.ConfigOverlays(version, key)));
             if (freshSettings.SyncSettingsAcrossVersions)
             {
                 Stage("Syncing settings");
@@ -1109,8 +1118,7 @@ public partial class HomePage : UserControl
                 : $"Running - {session.Username}";
             // It started without the player's mods: say so, and which of them to check first (one of them caused the
             // crash), instead of a plain "Running" that leaves the next Play to crash the same way.
-            if (playingOffline) runningMessage = MinecraftSessionBroker.OfflinePlayLine;
-            if (withoutModsLine != null) runningMessage = withoutModsLine;
+            runningMessage = global::OriginLauncher.App.Core.Auth.Sessions.MinecraftSessions.PlayingLine(runningMessage, playingOffline, withoutModsLine);
             if (seedNotice != null) runningMessage = $"{runningMessage}. {seedNotice}";
             runningMessage = Core.GameFolders.LaunchedMods.WithNotices(runningMessage, Core.GameFolders.LaunchedMods.NoticesFor(gameDir));
             _ = WatchBootAsync(game, runningMessage);
@@ -1249,18 +1257,18 @@ public partial class HomePage : UserControl
                     ReleaseScene(game, gameLoading: false);
                     if (game.StoppedByPlayer)
                     {
-                        Note(game.Key, "Cancelled", LaunchTone.Neutral);
+                        Note(game.Key, "Cancelled", LaunchTone.Neutral, game.Version);
                         return;
                     }
                     if (exitCode == 0)
                     {
-                        Note(game.Key, "Ready", LaunchTone.Neutral);
+                        Note(game.Key, "Ready", LaunchTone.Neutral, game.Version);
                         return;
                     }
                     // Crash or not is decided from the evidence first (ShowCrashReportAsync): a killed or
                     // closed boot is not a crash and gets no window. Neutral until then.
                     // The exit code is in this launch's log (StartWithLifecycleCapture), not on the status line.
-                    Note(game.Key, "Minecraft closed while starting.", LaunchTone.Neutral);
+                    Note(game.Key, "Minecraft closed while starting.", LaunchTone.Neutral, game.Version);
                     // Queued (not awaited) so this watch finishes (button
                     // restored) first — the crash window's "retry" path
                     // launches the account again.
@@ -1286,7 +1294,7 @@ public partial class HomePage : UserControl
             // rather than reporting a failure that didn't happen.
             ReleaseScene(game, gameLoading: false);
             if (_launches.WindowShown(game.Key, game))
-                Note(game.Key, runningMessage, LaunchTone.Success);
+                Note(game.Key, runningMessage, LaunchTone.Success, game.Version);
         }
         finally
         {
@@ -1316,14 +1324,14 @@ public partial class HomePage : UserControl
             if (view.Stage == HandoffStage.Opening && ReferenceEquals(_sceneGame, game))
                 LoadingOverlay.ReportStage("Loading Minecraft");
             if (view.Stage is HandoffStage.Opening or HandoffStage.Loading && !view.GameReady)
-                Note(game.Key, $"Loading {game.Version}", LaunchTone.Neutral);
+                Note(game.Key, $"Loading {game.Version}", LaunchTone.Neutral, game.Version);
         }
         if (view.ReleaseScene)
             ReleaseScene(game, gameLoading: view.Stage >= HandoffStage.Loading);
         if (view.GameReady) CrashRetries.Clear(game.Key, game.Version); // it booted: the next crash starts a fresh chain
         if (!view.GameReady || runningMessage == null) return false;
         if (_launches.WindowShown(game.Key, game))
-            Note(game.Key, runningMessage, LaunchTone.Success);
+            Note(game.Key, runningMessage, LaunchTone.Success, game.Version);
         return true;
     }
 
@@ -1482,7 +1490,7 @@ public partial class HomePage : UserControl
                     if (!SettingsStore.TryUpdate(s => CrashMemory.ApplyRaise(s, game.Version, ram), quiet: true))
                     {
                         // A busy settings.json: relaunching on the same heap would only run out again.
-                        Note(game.Key, SettingsStore.BusyLine, LaunchTone.Error);
+                        Note(game.Key, SettingsStore.BusyLine, LaunchTone.Error, game.Version);
                         return;
                     }
                     CrashMemory.ApplyRaise(_settings, game.Version, ram);
@@ -1501,7 +1509,7 @@ public partial class HomePage : UserControl
                     }
                     if (failed.Count > 0)
                     {
-                        Note(game.Key, Core.Compat.CrashRepair.FailureLine(game.Version, failed), LaunchTone.Error);
+                        Note(game.Key, Core.Compat.CrashRepair.FailureLine(game.Version, failed), LaunchTone.Error, game.Version);
                         return; // relaunching with the cause still in place would only crash again
                     }
                     break;
@@ -1516,7 +1524,7 @@ public partial class HomePage : UserControl
                         SettingsStore.Update);
                     if (!reset.AllOk)
                     {
-                        Note(game.Key, reset.Failed.First().Error ?? "Couldn't reset the Java arguments.", LaunchTone.Error);
+                        Note(game.Key, reset.Failed.First().Error ?? "Couldn't reset the Java arguments.", LaunchTone.Error, game.Version);
                         return;
                     }
                     break;
@@ -1715,7 +1723,7 @@ public partial class HomePage : UserControl
         {
             // Neutral whatever the exit code: only the crash verdict below may turn it red (GameExitStatus).
             var line = GameExitStatus.OnExit();
-            Note(game.Key, line.Text, line.Tone);
+            Note(game.Key, line.Text, line.Tone, game.Version);
         }
         SyncSocialMirror();
         RefreshPlayButton();

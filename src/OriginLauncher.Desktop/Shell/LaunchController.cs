@@ -312,6 +312,9 @@ public sealed class LaunchController
             GpuPreference.PreferHighPerformanceGpu(process.StartInfo.FileName);
             GpuPreference.ApplyOffload(process.StartInfo); // a hybrid laptop's discrete GPU (GpuPreference.Linux.cs)
             ShaderCache.Apply(process.StartInfo, freshSettings.ShaderCacheNvidia, freshSettings.ShaderCacheAmd);
+            // An older configuration's Sodium/Iris files left behind by a game that ended with no launcher listening go back
+            // to the shipped set's before anything reads them (MULTI-3); this launch's own configuration goes in later.
+            await Task.Run(() => ConfigOverlay.RestoreLeftover(gameDir, OriginPaths.ConfigOverlays(version, key)));
             if (freshSettings.SyncSettingsAcrossVersions)
             {
                 Stage("Syncing settings");
@@ -350,8 +353,7 @@ public sealed class LaunchController
                 : $"Running - {session.Username}";
             // It started without the player's mods: say so, and which of them to check first (one of them caused the
             // crash), instead of a plain "Running" that leaves the next Play to crash the same way.
-            if (playingOffline) runningMessage = MinecraftSessionBroker.OfflinePlayLine;
-            if (withoutModsLine != null) runningMessage = withoutModsLine;
+            runningMessage = global::OriginLauncher.App.Core.Auth.Sessions.MinecraftSessions.PlayingLine(runningMessage, playingOffline, withoutModsLine);
             if (seedNotice != null) runningMessage = $"{runningMessage}. {seedNotice}";
             runningMessage = LaunchedMods.WithNotices(runningMessage, LaunchedMods.NoticesFor(gameDir));
             _ = WatchBootAsync(game, runningMessage);

@@ -129,6 +129,11 @@ public static class SettingsSync
                 running?.Add(version);
                 continue;
             }
+            // A profile on an older Sodium whose game ended with no launcher listening left that Sodium's files here:
+            // the shipped set's come back first, so they are never harvested into the other versions (MULTI-3).
+            // Only when running folders were left out above: a running game's files are never swapped under it.
+            if (skipRunning && Components.ConfigOverlay.RestoreLeftover(directory, OriginPaths.ConfigOverlays(version, account)))
+                Log($"{account} {version}: put the shipped Sodium/Iris settings back (an older configuration's were left)");
             instances.Add(new SyncInstance(version, directory));
         }
         return instances;
