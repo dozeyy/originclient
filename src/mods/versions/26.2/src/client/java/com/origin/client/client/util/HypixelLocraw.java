@@ -33,8 +33,10 @@ public final class HypixelLocraw {
 
 	/** Hypixel needs a moment after the world loads before /locraw answers with the new server. */
 	static final long ASK_DELAY_MS = 2_000;
-	/** A reply this soon after Origin's ask is that ask's answer, hidden from chat. */
-	static final long REPLY_WINDOW_MS = 10_000;
+	/** Only the FIRST reply this soon after Origin's ask is that ask's answer, hidden from chat. Hypixel
+	 *  answers within a second; kept short so a /locraw the player types after an ask Hypixel never
+	 *  answered (or another mod's reply) is not mistaken for Origin's and hidden. */
+	static final long REPLY_WINDOW_MS = 3_000;
 
 	private static final Pattern FIELD = Pattern.compile("\"(server|gametype|mode)\"\\s*:\\s*\"([^\"]*)\"");
 	private static final Pattern ANY_FIELD = Pattern.compile("\"(\\w+)\"\\s*:\\s*\"([^\"]*)\"");
@@ -97,10 +99,9 @@ public final class HypixelLocraw {
 		if (p != null) {
 			place = p;
 		}
+		// Any reply ends Origin's ask: only the first one inside the window is hidden, never a second.
 		boolean ours = askedAt != 0 && now - askedAt <= REPLY_WINDOW_MS;
-		if (ours) {
-			askedAt = 0;
-		}
+		askedAt = 0;
 		return !ours;
 	}
 
