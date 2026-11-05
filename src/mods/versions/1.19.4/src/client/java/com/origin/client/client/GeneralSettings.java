@@ -11,7 +11,8 @@ import org.lwjgl.glfw.GLFWVidMode;
 // window every tick: Borderless Fullscreen (GLFW window mode). Acts on a toggle
 // change, then keeps an applied borderless window covering its monitor. Fully
 // fail-soft — any GLFW hiccup is swallowed so a bad window state can never
-// crash the game. Raw mouse input is NOT Origin's here: Minecraft's own Mouse
+// crash the game. Also remembers the window's size and maximised state between
+// launches (WindowMemory). Raw mouse input is NOT Origin's here: Minecraft's own Mouse
 // Settings option rules it on every version but 1.8.9 (Will, 2026-11-03).
 public final class GeneralSettings {
 	// Borderless enters/leaves only on a real change of the toggle. In between,
@@ -29,8 +30,65 @@ public final class GeneralSettings {
 	}
 
 	static void tick(Minecraft mc) {
+		rememberWindow(mc);   // first: it reads the launch size before Borderless resizes the window
 		applyBorderless(mc);
 		applyTransparentMenus();
+	}
+
+	// ---- Window memory (JG-10): size + maximised, per version and account (WindowMemory) ----
+	private static boolean windowStarted;
+	private static long windowCheckAt;
+
+	// First tick: restore the remembered window (not under Borderless or F11, which own the window).
+	// After that, once a second: a plain window's size and maximised state are remembered.
+	private static void rememberWindow(Minecraft mc) {
+		try {
+			long win = mc.getWindow().getWindow();
+			if (!windowStarted) {
+				windowStarted = true;
+				if (mc.options.fullscreen().get() || GLFW.glfwGetWindowMonitor(win) != 0L) {
+					return;   // F11 at launch: the size now is the monitor's, not the launch size
+				}
+				int[] w = new int[1], h = new int[1];
+				GLFW.glfwGetWindowSize(win, w, h);
+				int[] restore = WindowMemory.start(net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().toFile(), w[0], h[0]);
+				if (restore != null && !Mods.bool(Mods.GENERAL_ID, "borderlessFullscreen")) {
+					restoreWindow(win, restore);
+				}
+				return;
+			}
+			long now = System.currentTimeMillis();
+			if (now < windowCheckAt) {
+				return;
+			}
+			windowCheckAt = now + 1000;
+			if (borderlessApplied || mc.options.fullscreen().get() || GLFW.glfwGetWindowMonitor(win) != 0L
+					|| GLFW.glfwGetWindowAttrib(win, GLFW.GLFW_ICONIFIED) == GLFW.GLFW_TRUE) {
+				return;
+			}
+			int[] w = new int[1], h = new int[1];
+			GLFW.glfwGetWindowSize(win, w, h);
+			WindowMemory.seen(w[0], h[0], GLFW.glfwGetWindowAttrib(win, GLFW.GLFW_MAXIMIZED) == GLFW.GLFW_TRUE);
+		} catch (Throwable t) {
+			// fail-soft: the window just isn't remembered
+		}
+	}
+
+	private static void restoreWindow(long win, int[] remembered) {
+		int[] x = new int[1], y = new int[1], w = new int[1], h = new int[1];
+		GLFW.glfwGetWindowPos(win, x, y);
+		GLFW.glfwGetWindowSize(win, w, h);
+		int[] monitor = monitorFor(x[0], y[0], w[0], h[0]);
+		if (monitor == null) {
+			return;
+		}
+		int[] at = WindowMemory.placeOn(monitor, remembered[0], remembered[1]);
+		GLFW.glfwSetWindowSize(win, at[2], at[3]);
+		GLFW.glfwSetWindowPos(win, at[0], at[1]);
+		if (remembered[2] == 1) {
+			GLFW.glfwMaximizeWindow(win);   // un-maximising returns to the size set just above
+		}
+		OriginClient.LOGGER.info("Origin: window restored to {}x{}{}", at[2], at[3], remembered[2] == 1 ? ", maximised" : "");
 	}
 
 	// Transparent Menus (Settings > General). The vanilla backdrops are cleared by MenuBlur

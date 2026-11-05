@@ -6,7 +6,8 @@ BorderlessFit is pure Java 8 (no Minecraft, no GLFW), so it compiles and runs he
 with any JDK 8+. Every copy (shared/ and each module's own) must be byte-identical
 to the shared one -- the pre-1.20 modules are .no-shared-sync, so sync.py --check
 doesn't see theirs -- and every live GLFW/SDL module (all but 1.8.9, whose LWJGL 2
-borderless works differently) must have one. CI: build-check.
+borderless works differently) must have one. Also WindowMemory (the window's size and
+maximised state between launches), in every live module. CI: build-check.
 """
 import glob
 import json
@@ -18,6 +19,7 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.dirname(os.path.abspath(__file__))
 REL = "com/origin/client/client/BorderlessFit.java"
+MEM_REL = "com/origin/client/client/WindowMemory.java"
 SHARED = os.path.join(ROOT, "src/mods/shared/src/client/java", REL)
 NOT_SHIPPED_ON = {"1.8.9"}
 
@@ -40,6 +42,20 @@ def main():
     if r.returncode:
         sys.exit("compile failed")
     rc = subprocess.run(["java", "-cp", out, "BorderlessFitTests"]).returncode
+
+    # WindowMemory (the window's size + maximised state between launches, JG-10): every live
+    # module carries the shared copy, 1.8.9 included (its LWJGL 2 glue remembers the size).
+    mem = os.path.join(ROOT, "src/mods/shared/src/client/java", MEM_REL)
+    mem_want = open(mem, "rb").read()
+    for m in live:
+        copies = glob.glob(os.path.join(ROOT, "src/mods/versions", m, "src/*/java", MEM_REL))
+        if len(copies) != 1 or open(copies[0], "rb").read() != mem_want:
+            print(f"  WindowMemory missing or differs from shared in live module: {m}")
+            missing.append(m)
+    r = subprocess.run(["javac", "--release", "8", "-d", out, mem, os.path.join(HERE, "WindowMemoryTests.java")])
+    if r.returncode:
+        sys.exit("compile failed (WindowMemory)")
+    rc |= subprocess.run(["java", "-cp", out, "WindowMemoryTests"]).returncode
     sys.exit(1 if bad or missing or rc else 0)
 
 
