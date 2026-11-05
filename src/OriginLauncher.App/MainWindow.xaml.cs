@@ -134,6 +134,7 @@ public partial class MainWindow : Window
         });
         _homePage.UpdateRequiredRefused += () => _ = AskToUpdateAsync();
         _homePage.SignInAgainRequested += name => _ = AskToSignInAgainAsync(name);
+        _homePage.SignInRequested += () => { if (!_signInPanelOpen && !UpdatePrompt.IsVisible) OpenSignInPanel(); };
         // A click whose setting couldn't be saved (settings.json busy): one plain toast, never the crash window.
         Core.SettingsStore.SaveRefused += () => Dispatcher.BeginInvoke(() =>
             Toasts.Show(new SocialToast(SocialToastKind.Notice, "Settings", Core.SettingsStore.BusyLine)));

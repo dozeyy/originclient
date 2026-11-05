@@ -150,6 +150,10 @@ public sealed partial class HomePage
     /// once, and "Sign in again" opens the sign-in card.</summary>
     public event Action<string>? SignInAgainRequested;
 
+    /// <summary>Play was pressed with nobody signed in: the window opens the sign-in card (JL-7), the same card the
+    /// account pill opens. Never a grey Play that does nothing.</summary>
+    public event Action? SignInRequested;
+
     public string? CurrentVersion => _selectedVersion;
 
     public bool HasLaunchCover => LoadingOverlay.IsVisible;
@@ -267,7 +271,7 @@ public sealed partial class HomePage
     {
         var key = SelectedKey();
         var phase = key != null ? _launches.PhaseOf(key) : GamePhase.Idle;
-        ApplyPlayButton(AccountLaunchBook.ButtonFor(phase, canPlay: key != null, hasVersion: _selectedVersion != null));
+        ApplyPlayButton(AccountLaunchBook.ButtonFor(phase, hasVersion: _selectedVersion != null));
         if (ImportRunState.IsApplying || _fixRunning) PlayButton.IsEnabled = false;
     }
 
@@ -400,7 +404,7 @@ public sealed partial class HomePage
         else
         {
             account = _selectedAccount;
-            if (account == null && !offlineTest) return;
+            if (AccountLaunchBook.SignedOutPlayOpensSignIn(account != null, offlineTest)) { SignInRequested?.Invoke(); return; }
             key = InstanceLayout.KeyFor(account?.Id);
         }
         if ((target?.Version ?? _selectedVersion) is not { } version) return;
@@ -1021,13 +1025,13 @@ public sealed partial class HomePage
     // ---- Render shots only (UI/Shots/AreaAShots.cs): the same states, no game, no settings touched ----
     internal void TourShowRunning(string playerName, IReadOnlyList<string>? notices = null)
     {
-        ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Running, canPlay: true, hasVersion: true));
+        ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Running, hasVersion: true));
         SetStatus(LaunchedMods.WithNotices($"Running - {playerName}", notices ?? []), StatusTone.Success);
     }
 
     internal void TourShowReady()
     {
-        ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Idle, canPlay: true, hasVersion: true));
+        ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Idle, hasVersion: true));
         SetStatus("Ready to play", StatusTone.Success);
     }
 

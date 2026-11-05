@@ -230,13 +230,20 @@ public sealed class AccountLaunchBook
         _ => PlayAction.None,
     };
 
-    /// <param name="phase">The selected account's phase.</param>
-    /// <param name="canPlay">An account is selected, or offline test mode is on.</param>
+    /// <param name="phase">The selected account's phase (Idle when nobody is signed in).</param>
     /// <param name="hasVersion">A version is selected.</param>
-    public static PlayButtonView ButtonFor(GamePhase phase, bool canPlay, bool hasVersion) => phase switch
+    /// <remarks>Signed out, Play stays clickable and opens the sign-in card (<see cref="SignedOutPlayOpensSignIn"/>):
+    /// a grey Play that did nothing left a first-time player hunting for the small top-right pill (bug run 5, JL-7).</remarks>
+    public static PlayButtonView ButtonFor(GamePhase phase, bool hasVersion) => phase switch
     {
         GamePhase.Running => new PlayButtonView(true, false, true),
         GamePhase.Preparing or GamePhase.Starting => new PlayButtonView(false, true, false),
-        _ => new PlayButtonView(canPlay && hasVersion, false, false),
+        _ => new PlayButtonView(hasVersion, false, false),
     };
+
+    /// <summary>
+    /// What Play does with nobody to play as: true = open the sign-in card (the same one the account pill opens),
+    /// instead of silently doing nothing. Offline test mode (dev builds) plays without an account.
+    /// </summary>
+    public static bool SignedOutPlayOpensSignIn(bool hasAccount, bool offlineTest) => !hasAccount && !offlineTest;
 }

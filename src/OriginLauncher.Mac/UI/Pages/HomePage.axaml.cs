@@ -51,7 +51,7 @@ public sealed partial class HomePage : UserControl
     public void SetReady(bool ready, string status)
     {
         ApplyPlayButton(global::OriginLauncher.App.Core.GameFolders.AccountLaunchBook.ButtonFor(global::OriginLauncher.App.Core.GameFolders.GamePhase.Idle,
-            canPlay: ready, hasVersion: true));
+            hasVersion: true)); // signed out too: Play opens sign-in (JL-7)
         SetStatus(status, ready ? StatusTone.Success : StatusTone.Neutral);
     }
 

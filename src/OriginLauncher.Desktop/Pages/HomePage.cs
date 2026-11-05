@@ -206,7 +206,7 @@ public sealed class HomePage : Panel, IPage
     {
         var key = SelectedKey();
         var phase = key != null ? Launches.Book.PhaseOf(key) : GamePhase.Idle;
-        var view = AccountLaunchBook.ButtonFor(phase, canPlay: key != null, hasVersion: true);
+        var view = AccountLaunchBook.ButtonFor(phase, hasVersion: true);
         var blocked = Launches.Blocked || FixCompatibility.Running || ImportRunState.IsApplying;
         if (blocked) view = view with { Enabled = false };
         _play.IsEnabled = view.Enabled;
