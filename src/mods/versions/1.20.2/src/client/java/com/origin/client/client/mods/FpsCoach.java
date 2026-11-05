@@ -541,6 +541,9 @@ public final class FpsCoach {
 	/** The open-coach key's name, or null when it is unbound. */
 	public static String keyName() {
 		int code = Mods.keyCode(ID, "key");
+		if (com.origin.client.client.util.KeyCodes.isMouse(code)) {
+			return com.origin.client.client.util.KeyCodes.mouseLabel(code);
+		}
 		if (code < 0) {
 			return null;
 		}

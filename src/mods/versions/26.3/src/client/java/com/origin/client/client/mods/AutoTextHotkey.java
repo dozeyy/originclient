@@ -62,7 +62,7 @@ public final class AutoTextHotkey {
 	// are held as Sprint/Sneak (util/HotkeyChord has the rule and the plain-G vs Ctrl + G split).
 	private static boolean pressed(int i) {
 		int key = Mods.keyCode(ID, "key" + i);
-		if (key <= 0 || !OriginClientMod.isRawKeyDown(key)) {
+		if ((key <= 0 && !com.origin.client.client.util.KeyCodes.isMouse(key)) || !OriginClientMod.isRawKeyDown(key)) {
 			return false;
 		}
 		boolean ctrl = held(InputConstants.KEY_LCONTROL, InputConstants.KEY_RCONTROL);

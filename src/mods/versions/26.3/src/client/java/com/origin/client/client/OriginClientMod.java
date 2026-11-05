@@ -536,7 +536,23 @@ public class OriginClientMod implements ClientModInitializer {
 
 	/** Raw key state for the mod-menu's rebindable keys. 26.3: an SDL scancode, which is
 	 *  what Mods.keyCode hands out (util/KeyCodes converts from the file's GLFW codes). */
+	/** Mouse button b (0 = left, 3 = Mouse 4) held right now, read raw like the keys.
+	 *  26.3 runs on SDL3: SDL numbers buttons 1 = left, 2 = middle, 3 = right, 4/5 = the
+	 *  side buttons, and SDL_GetMouseState's mask has bit (n - 1) for button n. */
+	private static boolean isMouseButtonDown(int button) {
+		try {
+			int sdl = button == 1 ? 3 : button == 2 ? 2 : button + 1;
+			int mask = org.lwjgl.sdl.SDLMouse.SDL_GetMouseState((java.nio.FloatBuffer) null, (java.nio.FloatBuffer) null);
+			return (mask & (1 << (sdl - 1))) != 0;
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
 	public static boolean isRawKeyDown(int glfwKey) {
+		if (com.origin.client.client.util.KeyCodes.isMouse(glfwKey)) {
+			return isMouseButtonDown(com.origin.client.client.util.KeyCodes.mouseButton(glfwKey));   // an Origin key on a mouse button (JG-4)
+		}
 		if (glfwKey <= 0) {
 			return false;
 		}
