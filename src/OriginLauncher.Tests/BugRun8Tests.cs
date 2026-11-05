@@ -227,7 +227,7 @@ public sealed class BugRun8Tests : IDisposable
         Assert.Equal(stage.TrimEnd('\\'), psi.Environment[WindowsApplyScript.StageVariable]);
         Assert.Equal(app.TrimEnd('\\'), psi.Environment[WindowsApplyScript.AppVariable]);
         Assert.Equal(exe, psi.Environment[WindowsApplyScript.ExeVariable]);
-        Assert.Equal("/d /c " + WindowsApplyScript.FileName, psi.Arguments);
+        Assert.Equal("/d /c .\\" + WindowsApplyScript.FileName, psi.Arguments);
         Assert.Equal(updates, psi.WorkingDirectory);
         Assert.False(psi.UseShellExecute);
         Assert.True(psi.CreateNoWindow);

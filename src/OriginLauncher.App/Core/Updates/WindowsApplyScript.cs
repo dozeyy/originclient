@@ -27,9 +27,10 @@ public static class WindowsApplyScript
     // robocopy instead of xcopy: copies new + changed files including ones that appeared in this release, and its
     // success exit codes (0-7) don't abort the script. ping, not timeout: timeout refuses to run without an
     // interactive console. The paths are only used outside the if block, so a ")" in one can't end the block.
+    // DisableDelayedExpansion: a registry default of DelayedExpansion=1 would strip a "!" from a user folder name.
     public const string Text =
         "@echo off\r\n" +
-        "setlocal\r\n" +
+        "setlocal DisableDelayedExpansion\r\n" +
         ":wait\r\n" +
         "tasklist /FI \"PID eq %" + PidVariable + "%\" 2>nul | find \"%" + PidVariable + "%\" >nul\r\n" +
         "if not errorlevel 1 (\r\n" +
@@ -56,8 +57,9 @@ public static class WindowsApplyScript
         var psi = new ProcessStartInfo
         {
             FileName = string.IsNullOrEmpty(cmd) ? Path.Combine(Environment.SystemDirectory, "cmd.exe") : cmd,
-            // /d: no AutoRun commands from the registry. The bare name resolves in the working directory.
-            Arguments = "/d /c " + FileName,
+            // /d: no AutoRun commands from the registry. ".\\" because cmd skips the working directory for bare names
+            // when NoDefaultCurrentDirectoryInExePath is set (locked-down PCs); the launcher has already quit by then.
+            Arguments = "/d /c .\\" + FileName,
             WorkingDirectory = updatesRoot,
             UseShellExecute = false,
             CreateNoWindow = true,
