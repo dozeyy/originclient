@@ -9,6 +9,17 @@ namespace OriginLauncher.App.Core.Compat;
 /// </summary>
 public sealed class ModAddQueue
 {
+    /// <summary>
+    /// Whether the page's unanswered "Replace?" rows (and the status line that explains them) stay when it is shown
+    /// again: yes when it still shows the same version and profile (a look at another tab and back), so those jars are
+    /// never silently dropped; no when the version or profile changed (an answer would then land in the wrong folder)
+    /// or the page was showing render-shot rows. Bug run 11 PROF-8.
+    /// </summary>
+    public static bool KeepsAnswers(string? shownVersion, string? shownProfileId, string? version, string? profileId, bool wasDemo) =>
+        !wasDemo && shownVersion != null
+        && string.Equals(shownVersion, version, StringComparison.Ordinal)
+        && string.Equals(shownProfileId, profileId, StringComparison.Ordinal);
+
     /// <summary>One import: jars to add (Files), or one confirmed replace (Replace).</summary>
     public sealed record Work(IReadOnlyList<string>? Files, ReplaceOffer? Replace);
 

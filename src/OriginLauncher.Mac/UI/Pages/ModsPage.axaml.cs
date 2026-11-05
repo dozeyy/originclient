@@ -71,18 +71,21 @@ public sealed partial class ModsPage : UserControl
     /// <summary>Point the page at a version and rebuild. Null = nothing selectable.</summary>
     public void ShowVersion(string? version)
     {
+        var (shownVersion, shownProfile, wasDemo) = (_version, _profile?.Id, _demo != null);
         _version = version;
         _pendingRemove = null;
-        _pendingReplace.Clear();
         _demo = null;
         _demoUpdates = null;
         ResolveProfile();
+        // Back from another tab on the same version and profile: unanswered "Replace?" rows stay (ModAddQueue.KeepsAnswers).
+        var keep = ModAddQueue.KeepsAnswers(shownVersion, shownProfile, version, _profile?.Id, wasDemo) && _pendingReplace.Count > 0;
+        if (!keep) _pendingReplace.Clear();
         VersionChipText.Text = version ?? "No version";
         VersionChip.IsVisible = version != null;
         DropZone.IsEnabled = version != null;
         DropZone.Opacity = version != null ? 1.0 : 0.5;
         SyncYourModsSwitch();
-        HideStatus();
+        if (!keep) HideStatus();
         SetZone(over: false, hover: false, count: 0);
         Refresh();
     }

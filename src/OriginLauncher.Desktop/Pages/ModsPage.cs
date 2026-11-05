@@ -171,7 +171,15 @@ public sealed class ModsPage : Panel, IPage
         if (version != _version || _demo != null) ShowVersion(version);
         else
         {
+            // Same version: unanswered "Replace?" rows stay, unless another profile now owns the list (an answer would
+            // then land in the wrong folder; ModAddQueue.KeepsAnswers, as the Windows and Mac pages).
+            var shownProfile = _profile?.Id;
             ResolveProfile();
+            if (!ModAddQueue.KeepsAnswers(_version, shownProfile, version, _profile?.Id, wasDemo: false) && _pendingReplace.Count > 0)
+            {
+                _pendingReplace.Clear();
+                _status.Hide();
+            }
             SyncMyMods();
             Refresh();
         }
