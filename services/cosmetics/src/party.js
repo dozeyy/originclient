@@ -9,7 +9,7 @@
 import { json, fail, normUuid } from './common.js';
 import {
   L, MSG, randomHex, cleanText, normServer, normVersion, normDim, coord,
-  allow, areFriends, addChat, partyOut, MEMBER_COLUMNS,
+  allow, areFriends, addChat, markRead, partyOut, MEMBER_COLUMNS,
 } from './social-shared.js';
 
 const PARTY_ID_RE = /^[0-9a-f]{8,64}$/;
@@ -53,11 +53,18 @@ async function createParty(env, uuid, now) {
 export async function leaveParty(env, uuid) {
   const m = await env.DB.prepare('SELECT party_id FROM party_members WHERE uuid = ?').bind(uuid).first();
   if (!m) return false;
-  await env.DB.batch([
-    env.DB.prepare('DELETE FROM party_members WHERE uuid = ?').bind(uuid),
-    ...afterLeaving(env, m.party_id, uuid),
-  ]);
+  await env.DB.batch(leaveStatements(env, m.party_id, uuid));
   return true;
+}
+
+// `uuid` leaves `partyId`, as statements for a caller's batch (a block splitting
+// a shared party, social.js). Does nothing if they are no longer in that party
+// when the batch runs.
+export function leaveStatements(env, partyId, uuid) {
+  return [
+    env.DB.prepare('DELETE FROM party_members WHERE uuid = ? AND party_id = ?').bind(uuid, partyId),
+    ...afterLeaving(env, partyId, uuid),
+  ];
 }
 
 // The upkeep after `uuid` stops being a member of `partyId`, as statements for
@@ -194,6 +201,8 @@ async function chat(env, me, body, now) {
   if (!text) return fail(400, MSG.textLength);
   if (!(await allow(env, me.uuid, 'party', now))) return fail(429, MSG.slowDown);
   const row = await addChat(env, { partyId: m.party_id, from: me.uuid, text }, now);
+  // Writing in the party chat reads it, as answering a DM does (social.js sendMessage).
+  await markRead(env, me.uuid, 'party', row.id, now).run();
   return json({ ok: true, message: { id: row.id, from: me.uuid, name: me.name, text, at: row.at } });
 }
 

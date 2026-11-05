@@ -206,6 +206,11 @@ the live ones. With a LIVE key the list does nothing: everyone can buy.
    Settings Read). Give Claude the Worker's address;
    it goes in `website/cosmetics/service.json` (`"api"`), which switches the
    in-game side on with no mod release. Empty `"api"` = cosmetics off.
+   When the game can't fetch that file (originclient.org blocked or down) it
+   keeps the address that worked last, else the built-in Worker address (the
+   launcher's own constant), and looks at the file again on a backoff (2026-11-05).
+   The store and the Stripe webhook share the account's free-plan request quota
+   with Friends; Friends polling slows itself first (docs/SOCIAL.md "Store reserve").
 
 Service API (all JSON, CORS open): `GET /v1/players/<uuid>` → owned +
 equipped; `POST /v1/players/equipped {uuids}` → who wears what (≤100);

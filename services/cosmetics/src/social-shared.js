@@ -27,11 +27,29 @@ export const L = {
   PARTY_IDLE_MS: HOUR,             // a member seen nowhere for an hour drops out (cron)
   FRIENDS_MAX: 200,
   OUTGOING_MAX: 50,                // pending friend requests you sent
-  DM_HISTORY: 100,                 // first sync (since = 0): the newest 100 DMs...
+  // First sync (since = 0): the newest 50 DMs of EACH conversation (so a quiet
+  // friend's chat isn't pushed out by a busy one), at most 2,000 in all, the most
+  // recently active conversations first; older lines come from /v1/messages/history.
+  DM_HISTORY_PER: 50,
+  DM_HISTORY_MAX: 2000,
   PARTY_HISTORY: 50,               // ...and the newest 50 party lines since you joined
+  HISTORY_PAGE: 50,                // /v1/messages/history: older DMs of one conversation per call
   DM_PAGE: 200,                    // later syncs: at most this many per call; the
   PARTY_PAGE: 200,                 // cursor then stops at the last one returned
   RATE_KEEP_MS: HOUR,
+  // Store reserve (docs/SOCIAL.md "Store reserve"). Cloudflare's free plan allows
+  // 100,000 Worker requests a day for the whole ACCOUNT (every Worker on it), so a
+  // second Worker for the store would share the same quota. Instead Friends polling
+  // is kept inside SOCIAL_DAY_BUDGET and the rest stays free for checkout, code
+  // redeems, the Stripe webhook and cosmetics lookups: the cron estimates the day's
+  // social requests from the players online (SOCIAL_PER_PLAYER_MIN each a minute at
+  // the normal cadence, an overestimate: ~2.2 measured) and, when today's remainder
+  // would run out before UTC midnight, tells clients to poll `slow` times slower
+  // (at most SLOW_MAX). Clients that predate `slow` simply ignore it.
+  SOCIAL_DAY_BUDGET: 80_000,
+  SOCIAL_PER_PLAYER_MIN: 3,
+  SLOW_MAX: 8,
+  BUDGET_EVERY_MIN: 5,             // the cron re-estimates every 5th minute (one meta write)
   // Held sync (`wait`): the service keeps a quiet sync open up to HOLD_MAX_MS,
   // checking every HOLD_CHECK_MS for chat (one indexed query, ~3 rows), and
   // answers as soon as a line arrives. 20 s / 3 s = at most 8 checks, well under
@@ -134,6 +152,17 @@ export function addChat(env, { partyId = null, from, to = null, text }, now) {
   return env.DB.prepare(`INSERT INTO chat (party_id, from_uuid, to_uuid, text, at)
       SELECT ?1, ?2, ?3, ?4, MAX(?5, COALESCE((SELECT MAX(at) FROM chat), 0)) RETURNING id, at`)
     .bind(partyId, from, to, text, now).first();
+}
+
+// Read marker (migrations/0008_reads.sql chat_read): `uuid` has read conversation
+// `peer` (a friend's uuid, or 'party') up to chat id `upTo`. Only ever moves
+// forward, so a late or repeated call writes nothing. `at` rises strictly per
+// account, so a sync's `readsSince` cursor never skips or repeats a marker.
+export function markRead(env, uuid, peer, upTo, now) {
+  return env.DB.prepare(`INSERT INTO chat_read (uuid, peer, upto, at)
+      VALUES (?1, ?2, ?3, MAX(?4, COALESCE((SELECT MAX(at) FROM chat_read WHERE uuid = ?1), 0) + 1))
+      ON CONFLICT (uuid, peer) DO UPDATE SET upto = excluded.upto, at = excluded.at
+      WHERE excluded.upto > chat_read.upto`).bind(uuid, peer, upTo, now);
 }
 
 // One party member as clients see them. `state` only when the caller is on

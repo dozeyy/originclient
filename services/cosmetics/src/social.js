@@ -15,9 +15,9 @@ import { json, fail, normUuid, NAME_RE } from './common.js';
 import { verifyIdentity } from './mojang.js';
 import {
   L, MSG, CLIENTS, ACTIVITIES, randomHex, sha256Hex, cleanText, normServer, normVersion, normDim, coord, num,
-  allow, areFriends, addChat, partyOut, MEMBER_COLUMNS, bumpRev, bumpFriendsOf, friendsEtagOf,
+  allow, areFriends, addChat, markRead, partyOut, MEMBER_COLUMNS, bumpRev, bumpFriendsOf, friendsEtagOf,
 } from './social-shared.js';
-import { PARTY_ROUTES, leaveParty } from './party.js';
+import { PARTY_ROUTES, leaveParty, leaveStatements } from './party.js';
 
 // ------------------------------------------------------------------ sign-in
 // Identity v2 (mojang.js checks Mojang's signatures offline). The token is
@@ -79,6 +79,49 @@ export async function onlineCount(env, now = Date.now()) {
   return c;
 }
 
+// ------------------------------------------------------------- store reserve
+// Friends polling may use L.SOCIAL_DAY_BUDGET of the account's 100,000 free daily
+// Worker requests; the rest stays for the store and the Stripe webhook (KS-6,
+// docs/SOCIAL.md "Store reserve"). Run by the cron every L.BUDGET_EVERY_MIN
+// minutes: adds the requests the players online made since the last run
+// (estimated at the cadence they were told to use) to today's total and works
+// out `slow`, how many times slower clients must poll so the rest of today's
+// share lasts until UTC midnight. One read of presence, one meta write.
+const DAY_MS = 24 * 3600_000;
+export async function socialBudget(env, now = Date.now()) {
+  let b = null;
+  try { b = JSON.parse(await env.DB.prepare("SELECT v FROM meta WHERE k = 'social_budget'").first('v')); } catch { b = null; }
+  const day = Math.floor(now / DAY_MS);
+  if (!b || b.day !== day) b = { day, used: 0, slow: 1, at: day * DAY_MS };
+  const online = Number(await env.DB.prepare('SELECT COUNT(DISTINCT uuid) AS n FROM presence WHERE at > ?')
+    .bind(now - L.STATS_WINDOW_MS).first('n')) || 0;
+  // A missed cron run is not counted as hours of traffic: at most two runs' worth.
+  const minutes = Math.min(Math.max(0, now - b.at), 2 * L.BUDGET_EVERY_MIN * 60_000) / 60_000;
+  const perMinute = online * L.SOCIAL_PER_PLAYER_MIN;
+  const used = b.used + perMinute / Math.max(1, b.slow) * minutes;
+  const minutesLeft = Math.max(1, ((day + 1) * DAY_MS - now) / 60_000);
+  const allowed = Math.max(0, L.SOCIAL_DAY_BUDGET - used) / minutesLeft;
+  const slow = perMinute <= allowed ? 1 : allowed <= 0 ? L.SLOW_MAX : Math.min(L.SLOW_MAX, Math.ceil(perMinute / allowed));
+  const next = { day, used: Math.round(used), slow, online, at: now };
+  await env.DB.prepare("INSERT OR REPLACE INTO meta (k, v) VALUES ('social_budget', ?)").bind(JSON.stringify(next)).run();
+  return next;
+}
+
+// The current `slow` for sync answers: the cron's figure, re-read at most once a
+// minute per Worker machine (one meta row). 1 when there is none for today.
+const slowMemo = new WeakMap();   // keyed by the DB binding
+async function currentSlow(env, now) {
+  const m = slowMemo.get(env.DB);
+  if (m && now - m.read < L.STATS_CACHE_MS && now >= m.read) return m.slow;
+  let slow = 1;
+  try {
+    const b = JSON.parse(await env.DB.prepare("SELECT v FROM meta WHERE k = 'social_budget'").first('v'));
+    if (b && b.day === Math.floor(now / DAY_MS)) slow = Math.min(L.SLOW_MAX, Math.max(1, Math.floor(Number(b.slow)) || 1));
+  } catch { slow = 1; }
+  slowMemo.set(env.DB, { slow, read: now });
+  return slow;
+}
+
 // --------------------------------------------------------------------- sync
 function readPresence(raw, fallbackClient) {
   if (!raw || typeof raw !== 'object') return null;
@@ -103,8 +146,8 @@ function readPartyState(raw) {
   return Object.values(s).some(v => v === null) ? null : s;
 }
 
-// DMs to or from `uuid` with id > since: oldest first (dir ASC) for a normal
-// sync, newest first (dir DESC, reversed later) for the first one. Two index
+// DMs to or from `uuid` with id > since, oldest first (dir ASC): every sync after
+// the first (the first one uses dmHistoryQuery below). Two index
 // ranges (chat_to, chat_from) instead of one OR, so it reads only what it returns.
 // `limit` is one of our constants, written into the SQL as an integer.
 function dmQuery(env, uuid, since, dir, limit) {
@@ -112,6 +155,20 @@ function dmQuery(env, uuid, since, dir, limit) {
       WHERE ${col} = ?1 AND party_id IS NULL AND id > ?2 ORDER BY id ${dir} LIMIT ${limit | 0})`;
   return env.DB.prepare(`SELECT * FROM (${branch('to_uuid')} UNION ALL ${branch('from_uuid')}) ORDER BY id ${dir} LIMIT ${limit | 0}`)
     .bind(uuid, since);
+}
+
+// First sync: the newest L.DM_HISTORY_PER DMs of each conversation, at most
+// L.DM_HISTORY_MAX in all (most recently active conversations first), newest
+// first (reversed later, like dmQuery DESC). Reads every DM of the account kept
+// (30 days) once per client start, through the chat_to / chat_from indexes.
+function dmHistoryQuery(env, uuid) {
+  return env.DB.prepare(`SELECT id, from_uuid, to_uuid, text, at FROM (
+      SELECT c.*, ROW_NUMBER() OVER (PARTITION BY c.peer ORDER BY c.id DESC) AS rn,
+             MAX(c.id) OVER (PARTITION BY c.peer) AS newest
+      FROM (SELECT id, from_uuid, to_uuid, text, at, to_uuid AS peer FROM chat WHERE from_uuid = ?1 AND party_id IS NULL
+            UNION ALL
+            SELECT id, from_uuid, to_uuid, text, at, from_uuid AS peer FROM chat WHERE to_uuid = ?1 AND party_id IS NULL) c)
+    WHERE rn <= ${L.DM_HISTORY_PER | 0} ORDER BY newest DESC, id DESC LIMIT ${L.DM_HISTORY_MAX | 0}`).bind(uuid);
 }
 
 function partyChatQuery(env, uuid, since, dir, limit) {
@@ -181,8 +238,9 @@ function newsQuery(env, uuid, since) {
 }
 
 async function sync(env, me, body, now) {
+  const slow = await currentSlow(env, now);
   const waitRaw = Number(body.wait);
-  if (!(waitRaw > 0)) return json(await syncAnswer(env, me, body, now, true));
+  if (!(waitRaw > 0)) return json({ ...(await syncAnswer(env, me, body, now, true)), slow });
   const wait = Math.min(L.HOLD_MAX_MS, Math.floor(waitRaw));
   const sinceRaw = Number(body.since);
   const since = Number.isSafeInteger(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
@@ -213,7 +271,7 @@ async function sync(env, me, body, now) {
     if (mine.stopped) return json({ held, stopped: true });
     if (held > 0) now = holdClock.now();   // answer as of now (reads only: nothing is written again)
   }
-  return json({ ...(await syncAnswer(env, me, body, now, false)), held });
+  return json({ ...(await syncAnswer(env, me, body, now, false)), held, slow });
 }
 
 // The writes a sync carries (presence heartbeat / change, party position):
@@ -325,7 +383,16 @@ async function syncAnswer(env, me, body, now, writes) {
     add('blocked', env.DB.prepare(`SELECT b.blocked AS uuid, n.name FROM blocks b
         LEFT JOIN names n ON n.uuid = b.blocked WHERE b.blocker = ${listKey} ORDER BY b.at`).bind(...listsArgs));
   }
-  add('dms', dmQuery(env, me.uuid, since, first ? 'DESC' : 'ASC', first ? L.DM_HISTORY : L.DM_PAGE + 1));
+  add('dms', first ? dmHistoryQuery(env, me.uuid) : dmQuery(env, me.uuid, since, 'ASC', L.DM_PAGE + 1));
+  // Read markers (KS-1/KS-4): only for clients that ask (`readsSince`), and only
+  // the ones changed since the last answer (chat_read_at index: usually 0 rows).
+  const readsRaw = Number(body.readsSince);
+  const readsSince = body.readsSince !== undefined && body.readsSince !== null
+    && Number.isSafeInteger(readsRaw) && readsRaw >= 0 ? readsRaw : null;
+  if (readsSince !== null) {
+    add('reads', env.DB.prepare('SELECT peer, upto, at FROM chat_read WHERE uuid = ? AND at > ? ORDER BY at')
+      .bind(me.uuid, readsSince));
+  }
   add('party', env.DB.prepare(`SELECT p.id, p.leader FROM party_members me JOIN parties p ON p.id = me.party_id
       WHERE me.uuid = ?`).bind(me.uuid));
   add('members', env.DB.prepare(`SELECT ${MEMBER_COLUMNS},
@@ -396,8 +463,15 @@ async function syncAnswer(env, me, body, now, writes) {
     requests: { incoming: res.incoming, outgoing: res.outgoing },
     blocked: res.blocked,
   } : {};
+  // Read markers as { "<friend uuid>" | "party": newest chat id read }, and the
+  // value to send back as `readsSince`.
+  const readsOut = res.reads ? {
+    reads: Object.fromEntries(res.reads.map(r => [r.peer, r.upto])),
+    readsAt: res.reads.length ? Math.max(...res.reads.map(r => r.at)) : readsSince,
+  } : {};
   return {
     cursor,
+    ...readsOut,
     me: { uuid: me.uuid, name: me.name, appearOffline: !!res.settings[0]?.appear_offline },
     friendsEtag,
     ...lists,
@@ -528,11 +602,18 @@ async function friendRemove(env, me, body) {
   return json({ ok: true });
 }
 
-// Blocking also ends the friendship, requests and party invites between you.
+// Blocking also ends the friendship, requests and party invites between you,
+// and splits a party you share (KS-8): the blocked player is taken out of it,
+// or, when they lead it, you leave it (a block never hands you their party).
 async function friendBlock(env, me, body, now) {
   const them = normUuid(body.uuid);
   if (!them || them === me.uuid) return fail(400, 'Pick a player to block.');
+  const shared = await env.DB.prepare(`SELECT a.party_id, p.leader FROM party_members a
+      JOIN party_members b ON b.party_id = a.party_id AND b.uuid = ?2
+      JOIN parties p ON p.id = a.party_id WHERE a.uuid = ?1`).bind(me.uuid, them).first();
+  const leaver = shared ? (shared.leader === them ? me.uuid : them) : null;
   await env.DB.batch([
+    ...(leaver ? leaveStatements(env, shared.party_id, leaver) : []),
     env.DB.prepare('INSERT OR IGNORE INTO blocks (blocker, blocked, at) VALUES (?, ?, ?)').bind(me.uuid, them, now),
     env.DB.prepare('DELETE FROM friends WHERE (a = ?1 AND b = ?2) OR (a = ?2 AND b = ?1)').bind(me.uuid, them),
     env.DB.prepare('DELETE FROM friend_requests WHERE (from_uuid = ?1 AND to_uuid = ?2) OR (from_uuid = ?2 AND to_uuid = ?1)').bind(me.uuid, them),
@@ -561,7 +642,44 @@ async function sendMessage(env, me, body, now) {
   if (!(await areFriends(env, me.uuid, to))) return fail(403, 'You can only message your friends.');
   if (!(await allow(env, me.uuid, 'dm', now))) return fail(429, MSG.slowDown);
   const row = await addChat(env, { from: me.uuid, to, text }, now);
+  // Answering a chat reads it (KS-4): the other Origin client stops counting it as unread.
+  await markRead(env, me.uuid, to, row.id, now).run();
   return json({ ok: true, message: { id: row.id, from: me.uuid, to, text, at: row.at } });
+}
+
+// ------------------------------------------------------------- read markers
+// POST /v1/messages/read { with: <friend uuid> | "party", upTo: <chat id> }: the
+// player read that conversation up to that line, in the launcher or the game; the
+// other one hears it through sync `reads`. upTo is capped at the newest chat id.
+async function readMessages(env, me, body, now) {
+  const peer = body.with === 'party' ? 'party' : normUuid(body.with);
+  const upTo = Number(body.upTo);
+  if (!peer || peer === me.uuid || !Number.isSafeInteger(upTo) || upTo < 1) return fail(400, 'That chat is not valid.');
+  const newest = Number(await env.DB.prepare('SELECT COALESCE(MAX(id), 0) AS id FROM chat').first('id')) || 0;
+  if (newest > 0) await markRead(env, me.uuid, peer, Math.min(upTo, newest), now).run();
+  return json({ ok: true });
+}
+
+// POST /v1/messages/history { with: <friend uuid>, before?: <chat id> }: up to
+// L.HISTORY_PAGE DMs of that one conversation older than `before` (the newest
+// when absent), oldest first, and whether older ones remain (`more`). Only your
+// own conversations, so no friendship check: a removed friend's old lines are
+// yours too, as in the first sync. Index chat_pair (0008).
+async function history(env, me, body) {
+  const peer = normUuid(body.with);
+  const beforeRaw = Number(body.before);
+  const before = Number.isSafeInteger(beforeRaw) && beforeRaw > 0 ? beforeRaw : Number.MAX_SAFE_INTEGER;
+  if (!peer || peer === me.uuid) return fail(400, 'Pick a friend.');
+  const n = L.HISTORY_PAGE | 0;
+  const branch = (to, from) => `SELECT * FROM (SELECT id, from_uuid, to_uuid, text, at FROM chat
+      WHERE to_uuid = ${to} AND from_uuid = ${from} AND party_id IS NULL AND id < ?3 ORDER BY id DESC LIMIT ${n + 1})`;
+  const found = (await env.DB.prepare(`SELECT * FROM (${branch('?1', '?2')} UNION ALL ${branch('?2', '?1')})
+      ORDER BY id DESC LIMIT ${n + 1}`).bind(me.uuid, peer, before).all()).results;
+  const page = found.slice(0, n).reverse();
+  return json({
+    messages: page.map(m => ({ id: m.id, from: m.from_uuid, to: m.to_uuid, text: m.text, at: m.at })),
+    more: found.length > n,
+  });
 }
 
 // ------------------------------------------------------------------ routing
@@ -574,6 +692,8 @@ const ROUTES = {
   '/v1/friends/block': friendBlock,
   '/v1/friends/unblock': friendUnblock,
   '/v1/messages/send': sendMessage,
+  '/v1/messages/read': readMessages,
+  '/v1/messages/history': history,
   ...PARTY_ROUTES,
 };
 
@@ -619,6 +739,9 @@ export async function socialCleanup(env, now = Date.now()) {
     env.DB.prepare('DELETE FROM warps WHERE at <= ?').bind(now - L.WARP_TTL_MS),
     env.DB.prepare('DELETE FROM party_invites WHERE at <= ?').bind(now - L.INVITE_TTL_MS),
     env.DB.prepare('DELETE FROM rate WHERE at < ?').bind(now - L.RATE_KEEP_MS),
+    // A marker untouched for 30 days only covers lines the chat prune above already
+    // removed (a line is read after it was sent), so dropping it changes nothing.
+    env.DB.prepare('DELETE FROM chat_read WHERE at < ?').bind(now - L.CHAT_KEEP_MS),
     // Used sign-in proofs are only remembered long enough to refuse a replay.
     env.DB.prepare('DELETE FROM joins WHERE at < ?').bind(now - L.TOKEN_TTL_MS),
   ]);
