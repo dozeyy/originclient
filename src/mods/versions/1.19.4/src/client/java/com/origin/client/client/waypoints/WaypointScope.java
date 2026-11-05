@@ -120,7 +120,7 @@ public final class WaypointScope {
 	/**
 	 * Scope key on Hypixel (JG-8): one address is every lobby, minigame map and SkyBlock
 	 * island, so the list is kept per place: "mp:mc.hypixel.net/bedwars/lighthouse" (the
-	 * place from /locraw, mods/HypixelLocation). Until the place is known, server plus
+	 * place from /locraw, util/HypixelLocraw). Until the place is known, server plus
 	 * dimension ("mp:mc.hypixel.net/minecraft:overworld"; a place never holds a ':').
 	 */
 	public static String hypixel(String serverKey, String place, String dimension) {

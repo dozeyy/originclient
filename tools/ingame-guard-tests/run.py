@@ -5,8 +5,7 @@
 1. Every live module carries the pure helpers byte-identical to shared/ (the pre-1.20
    and 1.8.9 modules are .no-shared-sync, so sync.py --check doesn't see theirs):
    worldedit/CuiNumbers (a server can't freeze the game over WorldEdit CUI),
-   ConfigFiles (a damaged config is kept as .corrupt), mods/HypixelDetect,
-   mods/HypixelLocation (waypoints per Hypixel game and map).
+   ConfigFiles (a damaged config is kept as .corrupt), mods/HypixelDetect.
 2. IngameGuardTests: those helpers + WaypointScope's per-version key (Portal Calc's).
 3. ModsConfigTests: the shared ModsConfig itself, one JVM per scenario (damaged file,
    wrong-shape entries, profiles keep the Hypixel API key). Needs a Gson jar: found on
@@ -30,7 +29,6 @@ HELPERS = [
     "com/origin/client/client/worldedit/CuiNumbers.java",
     "com/origin/client/client/ConfigFiles.java",
     "com/origin/client/client/mods/HypixelDetect.java",
-    "com/origin/client/client/mods/HypixelLocation.java",
 ]
 GSON_URL = "https://repo1.maven.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar"
 

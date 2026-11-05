@@ -66,7 +66,7 @@ public final class Waypoints {
 	private static List<Waypoint> ALL = new ArrayList<>();
 	// Scope key of ALL (null = not in a world: nothing is shown and nothing is saved).
 	private static String loadedKey = null;
-	// The Hypixel place (HypixelLocation) the current key was made with; null = none.
+	// The Hypixel place (util/HypixelLocraw) the current key was made with; null = none.
 	private static String loadedPlace = null;
 	private static boolean initialized = false;
 	// Hot-path guard: the world is re-resolved only when the client level object changes
@@ -97,7 +97,7 @@ public final class Waypoints {
 		// On Hypixel the place (game + map, from /locraw) arrives a moment after the world
 		// and picks the list, so a new place re-resolves too (JG-8). One compare per call.
 		String place = level == null ? null
-				: com.origin.client.client.mods.HypixelLocation.place(System.identityHashCode(level));
+				: com.origin.client.client.util.HypixelLocraw.placeIn(level);
 		if (initialized && levelRef.get() == level && java.util.Objects.equals(place, loadedPlace)) {
 			return;
 		}
