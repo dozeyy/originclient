@@ -11,6 +11,14 @@ package com.origin.client.client.util;
  * raw keys. Only presses made while no screen is open count: a letter typed into chat or a
  * sign must never toggle anything, even when Enter closes the screen before the next tick.
  *
+ * <p>Mouse buttons count the same way (INPUT-4): an Origin key bound to Mouse 4 / 5 (JG-4) is
+ * read raw like the keys, so a quick side-button click missed the tick too. Their presses come
+ * in through {@link #onMouse} and are stored under the Origin mouse code (util/KeyCodes,
+ * -100 + button), so {@link #consume} takes whatever Mods.keyCode returned.
+ *
+ * <p>A press is only good for {@link #MAX_AGE_NANOS}: a feature that skipped its key for a while
+ * (switched off, or a menu opened right after the press) must never act on an old press later.
+ *
  * <p>2. F3 combos (BMOD-1). F3+B (hitboxes), F3+G (chunk borders), F3+C ... are vanilla's
  * debug combos; vanilla keeps them away from its own key bindings, and Origin's raw-key
  * features (Snaplook, Freelook, Zoom, Quickplay, the map, the toggles) must ignore them too.
@@ -28,7 +36,13 @@ package com.origin.client.client.util;
 public final class KeyTaps {
 	// GLFW key codes run 32..348 (GLFW_KEY_LAST); anything outside is ignored.
 	private static final int SIZE = 512;
-	private static final boolean[] PRESSED = new boolean[SIZE];
+	// Mouse buttons 0..7 (util/KeyCodes: Origin code -100 + button) sit after the keys.
+	private static final int MOUSE_OFFSET = -100;
+	private static final int MOUSE_BUTTONS = 8;
+	/** How long a press waits for its feature's tick: a second covers the slowest real frame. */
+	static final long MAX_AGE_NANOS = 1_000_000_000L;
+	private static final boolean[] PRESSED = new boolean[SIZE + MOUSE_BUTTONS];
+	private static final long[] PRESSED_AT = new long[SIZE + MOUSE_BUTTONS];
 	private static final boolean[] F3_COMBO = new boolean[SIZE];
 
 	private KeyTaps() {
@@ -45,17 +59,52 @@ public final class KeyTaps {
 		}
 		F3_COMBO[key] = f3Held;
 		if (!f3Held && !screenOpen) {
-			PRESSED[key] = true;
+			press(key, System.nanoTime());
 		}
 	}
 
-	/** True when {@code key} was pressed since the last call for that key; clears it. */
+	/**
+	 * A mouse-button event: {@code button} 0 = left, 1 = right, 2 = middle, 3.. side buttons (the
+	 * util/KeyCodes numbering), {@code action} press (1) / release (0). Clicks made with a screen open
+	 * are clicks on that screen, never an Origin key.
+	 */
+	public static void onMouse(int button, int action, boolean screenOpen) {
+		if (action != 1 || button < 0 || button >= MOUSE_BUTTONS || screenOpen) {
+			return;
+		}
+		press(SIZE + button, System.nanoTime());
+	}
+
+	private static void press(int slot, long now) {
+		PRESSED[slot] = true;
+		PRESSED_AT[slot] = now;
+	}
+
+	// key code or Origin mouse code -> array slot, or -1 when it is neither
+	private static int slot(int code) {
+		if (code > 0 && code < SIZE) {
+			return code;
+		}
+		if (code >= MOUSE_OFFSET && code < MOUSE_OFFSET + MOUSE_BUTTONS) {
+			return SIZE + (code - MOUSE_OFFSET);
+		}
+		return -1;
+	}
+
+	/** True when {@code key} (a key code or an Origin mouse code) was pressed since the last call for
+	 *  it, within the last second; clears it. */
 	public static boolean consume(int key) {
-		if (key <= 0 || key >= SIZE) {
+		return consume(key, System.nanoTime());
+	}
+
+	/** {@link #consume(int)} at a given System.nanoTime() (tools/qol-tests checks the age limit). */
+	public static boolean consume(int key, long now) {
+		int s = slot(key);
+		if (s < 0) {
 			return false;
 		}
-		boolean pressed = PRESSED[key];
-		PRESSED[key] = false;
+		boolean pressed = PRESSED[s] && now - PRESSED_AT[s] <= MAX_AGE_NANOS;
+		PRESSED[s] = false;
 		return pressed;
 	}
 

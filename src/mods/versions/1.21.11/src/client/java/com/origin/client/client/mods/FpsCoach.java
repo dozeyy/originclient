@@ -237,7 +237,7 @@ public final class FpsCoach {
 	}
 
 	private static void handleKey(Minecraft mc) {
-		boolean down = Mods.on(ID) && mc.screen == null && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "key"));
+		boolean down = Mods.on(ID) && mc.screen == null && OriginClientMod.keyDownOrTapped(Mods.keyCode(ID, "key"));
 		if (down && !keyWasDown) {
 			mc.setScreen(new FpsCoachScreen(null));
 		}

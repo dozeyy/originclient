@@ -348,7 +348,8 @@ public final class HudElements {
 		// ---- Sprint/Sneak state ----
 		add("sprintstate", "togglesprint", "Sprint state", new HudPos(6, 6, -6, 1.0), mc -> text("Sprint (Toggled)"),
 				(g, mc, w, h) -> {
-					if (!Mods.bool("togglesprint", "hud")) {
+					// not while typing: the chat input bar covers this bottom-left line
+					if (!Mods.bool("togglesprint", "hud") || chatOpen(mc)) {
 						return;
 					}
 					var f = OriginClientMod.FEATURES;
@@ -392,7 +393,9 @@ public final class HudElements {
 		if (mc.player != null) {
 			boolean excludePerm = Mods.bool("potionhud", "excludePermanent");
 			for (MobEffectInstance e : mc.player.getActiveEffects()) {
-				if (excludePerm && e.isInfiniteDuration()) {
+				// beacon and conduit buffs are ambient: a short duration refreshed for as long as
+				// you stay in range, never infinite, so they need their own check (the tip's own example)
+				if (excludePerm && (e.isInfiniteDuration() || e.isAmbient())) {
 					continue;
 				}
 				rows.add(new PotionRow(e.getEffect(), e.getDuration(), e.isInfiniteDuration()));

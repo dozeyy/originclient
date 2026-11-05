@@ -13,6 +13,8 @@ public final class HudPos {
 	public double scale = 1.0;
 	// per-module backing opacity (0 = none), drawn as a rounded panel
 	public double bg = 0.0;
+	// the piece this is the spot of (null for a bare spot): HudLayout places a few pieces by their own rule
+	private String id;
 
 	public HudPos(int anchor, double dx, double dy, double scale) {
 		this.anchor = anchor;
@@ -27,7 +29,7 @@ public final class HudPos {
 	 *  Only the read is clamped; the saved offset stays as the player set it. The
 	 *  anchor maths lives in HudLayout, which the layout test runs without the game. */
 	public double x(int screenW, double w) {
-		return HudLayout.left(anchor, dx, screenW, w);
+		return HudLayout.left(id, anchor, dx, screenW, w);
 	}
 
 	public double y(int screenH, double h) {
@@ -41,7 +43,7 @@ public final class HudPos {
 		int col = cx < screenW / 3.0 ? 0 : cx < screenW * 2 / 3.0 ? 1 : 2;
 		int row = cy < screenH / 3.0 ? 0 : cy < screenH * 2 / 3.0 ? 1 : 2;
 		anchor = row * 3 + col;
-		double baseX = col == 0 ? 0 : col == 1 ? (screenW - w) / 2.0 : screenW - w;
+		double baseX = HudLayout.baseX(id, col, screenW, w);
 		double baseY = row == 0 ? 0 : row == 1 ? (screenH - h) / 2.0 : screenH - h;
 		dx = absX - baseX;
 		dy = absY - baseY;
@@ -50,7 +52,9 @@ public final class HudPos {
 	/** The piece's default spot from HudLayout (THE default layout, the same on every version). */
 	public static HudPos ofDefault(String elementId) {
 		double[] d = HudLayout.spot(elementId);
-		return new HudPos((int) d[0], d[1], d[2], d[3]);
+		HudPos p = new HudPos((int) d[0], d[1], d[2], d[3]);
+		p.id = elementId;
+		return p;
 	}
 
 	/** Where the piece is now: the player's stored spot, else `def` (callers pass {@link #ofDefault}). A stored
@@ -60,6 +64,7 @@ public final class HudPos {
 				new double[]{def.anchor, def.dx, def.dy, def.scale});
 		HudPos p = new HudPos((int) v[0], v[1], v[2], v[3]);
 		p.bg = v[4];
+		p.id = elementId;
 		return p;
 	}
 

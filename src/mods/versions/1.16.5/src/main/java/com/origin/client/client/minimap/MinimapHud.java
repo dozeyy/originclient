@@ -74,8 +74,8 @@ public final class MinimapHud {
 			return;
 		}
 		boolean free = mc.screen == null;
-		boolean in = free && OriginClientMod.isRawKeyDown(Mods.keyCode(MOD, "zoomInKey"));
-		boolean out = free && OriginClientMod.isRawKeyDown(Mods.keyCode(MOD, "zoomOutKey"));
+		boolean in = free && OriginClientMod.keyDownOrTapped(Mods.keyCode(MOD, "zoomInKey"));
+		boolean out = free && OriginClientMod.keyDownOrTapped(Mods.keyCode(MOD, "zoomOutKey"));
 		// Tracked even while a screen is open: the full map closes on this same key, and
 		// the still-held key must not reopen it on the next tick.
 		boolean map = OriginClientMod.isRawKeyDown(Mods.keyCode(MOD, "openMapKey"));

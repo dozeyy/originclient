@@ -393,7 +393,10 @@ public final class Mods {
 		o.add(ModOption.slider("scale", "Scale", 0.1, 2.0, 0.1, 1.0, "%.1fx").tip("Global size multiplier for every particle."));
 		o.add(ModOption.slider("multiplier", "Multiplier", 0.1, 2.0, 0.1, 1.0, "%.1fx"));
 		o.add(ModOption.header("Particle Types"));
-		for (String[] p : PARTICLE_TYPES) {
+		// the running game's own particles (ParticleFilter.vanillaTypes); PARTICLE_TYPES is only
+		// the fallback if the registry can't be read
+		String[][] types = ParticleFilter.vanillaTypes();
+		for (String[] p : types != null ? types : PARTICLE_TYPES) {
 			String id = p[0];
 			o.add(ModOption.toggle("p_" + id, p[1], true));
 			o.add(ModOption.toggle("p_" + id + "_players", "Show on Players", true).under("p_" + id));

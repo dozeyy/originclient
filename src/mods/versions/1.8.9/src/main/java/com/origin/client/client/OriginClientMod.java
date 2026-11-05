@@ -286,6 +286,25 @@ public class OriginClientMod {
 	}
 
 	/**
+	 * Mouse-button presses into util/KeyTaps (INPUT-4), like onKeyInput for keys: an Origin key
+	 * bound to Mouse 4 / 5 is read raw at the tick's end, after runTick has drained LWJGL2's
+	 * Mouse queue, so a quick click was already "up". Codes are LWJGL2's buttons (0 left,
+	 * 1 right, 2 middle, 3.. side), the same numbering as Origin's -100 + button codes.
+	 */
+	@SubscribeEvent
+	public void onMouseInput(net.minecraftforge.fml.common.gameevent.InputEvent.MouseInputEvent event) {
+		try {
+			int button = org.lwjgl.input.Mouse.getEventButton();
+			if (button >= 0 && org.lwjgl.input.Mouse.getEventButtonState()) {
+				com.origin.client.client.util.KeyTaps.onMouse(button, 1,
+						Minecraft.getMinecraft().currentScreen != null);
+			}
+		} catch (Throwable ignored) {
+			// the tick's own button read still works
+		}
+	}
+
+	/**
 	 * A press of an Origin toggle key since the last tick, outside screens (util/KeyTaps,
 	 * G121-7): a tap that went down and up between two ticks is never "down" when the tick
 	 * reads the key, so the toggles also ask this. Call it every tick, first in the
@@ -293,6 +312,40 @@ public class OriginClientMod {
 	 */
 	private static boolean tapped(Minecraft client, int lwjglKey) {
 		return com.origin.client.client.util.KeyTaps.consume(lwjglKey) && client.currentScreen == null;
+	}
+
+	/** The Open Mod Menu key from Controls (Right Shift by default) as a keyboard key code, or 0 when it is
+	 *  unbound or a mouse button. The Origin menu and Edit HUD close on the same key that opens them: they
+	 *  used to close on Right Shift only, so a player who moved the menu to another key couldn't close it
+	 *  with that key, and Right Shift still closed it. */
+	public static int modMenuKey() {
+		try {
+			int code = OriginKeyBindings.openModMenu.getKeyCode();   // LWJGL 2 key; mouse binds are negative
+			return code > 0 ? code : 0;
+		} catch (Throwable t) {
+			return org.lwjgl.input.Keyboard.KEY_RSHIFT;   // fail soft: the default key
+		}
+	}
+
+	/** True when keyCode (this version's key code, as the screen got it) is the Open Mod Menu key. */
+	public static boolean isModMenuKey(int keyCode) {
+		int k = modMenuKey();
+		return k > 0 && keyCode == k;
+	}
+
+	/** True while the Open Mod Menu key is held (keyboard only, see modMenuKey). */
+	public static boolean modMenuKeyDown() {
+		int k = modMenuKey();
+		return k > 0 && isRawKeyDown(k);
+	}
+
+	/** Down now, or pressed and already let go since the last read (util/KeyTaps: a tap shorter than a
+	 *  tick, keyboard or mouse). For Origin's edge-triggered keys ("down now, up last tick"), so a quick
+	 *  tap is never missed (INPUT-4). Spends the tap: one read per key per tick. Keys that act while
+	 *  held keep isRawKeyDown, where a tap must not count as a one-tick hold. */
+	public static boolean keyDownOrTapped(int code) {
+		boolean tap = com.origin.client.client.util.KeyTaps.consume(code);
+		return isRawKeyDown(code) || tap;
 	}
 
 	/** Raw key state for the mod-menu's rebindable keys. 1.8.9: an LWJGL2 code
@@ -455,7 +508,12 @@ public class OriginClientMod {
 		// Scoreboard hide toggle keybind (+ optional action-bar message)
 		boolean sbDown = client.currentScreen == null && isRawKeyDown(Mods.keyCode("scoreboard", "toggleKey"));
 		if (tapped(client, Mods.keyCode("scoreboard", "toggleKey")) || (sbDown && !scoreboardKeyWasDown)) {
-			boolean hidden = !Mods.bool("scoreboard", "hideScoreboard");
+			// The hide is only honoured with the Scoreboard mod on: with it off the key used to say
+			// "Scoreboard hidden" and change nothing. Now it switches the mod on and hides (like Full Bright).
+			boolean hidden = !Mods.on("scoreboard") || !Mods.bool("scoreboard", "hideScoreboard");
+			if (hidden && !Mods.on("scoreboard")) {
+				Mods.setOn("scoreboard", true);
+			}
 			Mods.set("scoreboard", "hideScoreboard", hidden);
 			if (Mods.bool("scoreboard", "displayToggleMessage")) {
 				actionBar(client, hidden ? "Scoreboard hidden" : "Scoreboard shown");
@@ -481,7 +539,11 @@ public class OriginClientMod {
 		// nametag; Toggle Players hides only other players'.
 		boolean naDown = client.currentScreen == null && isRawKeyDown(Mods.keyCode("nametags", "toggleAll"));
 		if (tapped(client, Mods.keyCode("nametags", "toggleAll")) || (naDown && !nametagAllKeyWasDown)) {
-			nametagsHidden = !nametagsHidden;
+			// only honoured with the Nametags mod on: with it off, switch it on and hide (like Full Bright)
+			nametagsHidden = !Mods.on("nametags") || !nametagsHidden;
+			if (nametagsHidden && !Mods.on("nametags")) {
+				Mods.setOn("nametags", true);
+			}
 			if (Mods.bool("nametags", "displayToggleMessage")) {
 				actionBar(client, nametagsHidden ? "Nametags hidden" : "Nametags shown");
 			}
@@ -490,7 +552,10 @@ public class OriginClientMod {
 
 		boolean npDown = client.currentScreen == null && isRawKeyDown(Mods.keyCode("nametags", "togglePlayers"));
 		if (tapped(client, Mods.keyCode("nametags", "togglePlayers")) || (npDown && !nametagPlayerKeyWasDown)) {
-			playerNametagsHidden = !playerNametagsHidden;
+			playerNametagsHidden = !Mods.on("nametags") || !playerNametagsHidden;
+			if (playerNametagsHidden && !Mods.on("nametags")) {
+				Mods.setOn("nametags", true);
+			}
 			if (Mods.bool("nametags", "displayToggleMessage")) {
 				actionBar(client, playerNametagsHidden ? "Player nametags hidden" : "Player nametags shown");
 			}
@@ -911,8 +976,8 @@ public class OriginClientMod {
 			base = ((now.get(java.util.Calendar.HOUR_OF_DAY) * 1000.0
 					+ now.get(java.util.Calendar.MINUTE) * 1000.0 / 60.0) - 6000 + 24000) % 24000;
 		}
-		boolean inc = client.currentScreen == null && isRawKeyDown(Mods.keyCode("timechanger", "increaseKey"));
-		boolean dec = client.currentScreen == null && isRawKeyDown(Mods.keyCode("timechanger", "decreaseKey"));
+		boolean inc = client.currentScreen == null && keyDownOrTapped(Mods.keyCode("timechanger", "increaseKey"));
+		boolean dec = client.currentScreen == null && keyDownOrTapped(Mods.keyCode("timechanger", "decreaseKey"));
 		if (((inc && !timeIncWasDown) || (dec && !timeDecWasDown)) && Mods.bool("timechanger", "useRealTime")) {
 			// [ / ] with Use Real Time on: the real clock rewrote the time every tick, so the
 			// keys did nothing. Switch it off (saved) and step from the time shown right now.

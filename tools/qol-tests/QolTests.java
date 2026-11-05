@@ -84,6 +84,26 @@ public class QolTests {
 		eq(KeyTaps.consume(70), true, "own key");
 		KeyTaps.onKey(71, 1, false, true);          // typed into a screen
 		eq(KeyTaps.consume(71), false, "press inside a screen is typing, not a tap");
+		// mouse buttons (INPUT-4): stored under the Origin mouse code -100 + button
+		KeyTaps.onMouse(3, 1, false);               // Mouse 4 clicked and let go between ticks
+		eq(KeyTaps.consume(-97), true, "mouse 4 tap is seen");
+		eq(KeyTaps.consume(-97), false, "mouse tap counts once");
+		KeyTaps.onMouse(4, 0, false);               // a release is not a press
+		eq(KeyTaps.consume(-96), false, "mouse release ignored");
+		KeyTaps.onMouse(4, 1, true);                // a click on a screen
+		eq(KeyTaps.consume(-96), false, "click inside a screen is not a tap");
+		KeyTaps.onMouse(8, 1, false);
+		KeyTaps.onMouse(-1, 1, false);              // out of range: ignored, never throws
+		eq(KeyTaps.consume(-92), false, "mouse code past the last button");
+		KeyTaps.onMouse(0, 1, false);
+		eq(KeyTaps.consume(67), false, "a mouse tap is not a key tap");
+		eq(KeyTaps.consume(-100), true, "left button tap");
+		// a press only waits a second for its feature's tick
+		KeyTaps.onKey(72, 1, false, false);
+		eq(KeyTaps.consume(72, System.nanoTime() + 2_000_000_000L), false, "a press two seconds old is dropped");
+		eq(KeyTaps.consume(72), false, "and cleared");
+		KeyTaps.onKey(72, 1, false, false);
+		eq(KeyTaps.consume(72, System.nanoTime() + 500_000_000L), true, "half a second old still counts");
 
 		// util/KeyTaps F3 combos (BMOD-1): F3+B must not fire Snaplook on B
 		int b = 66;

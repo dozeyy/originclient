@@ -134,6 +134,45 @@ public final class ParticleFilter {
 		return v > 0 ? v : def;
 	}
 
+	/**
+	 * The running game's own particle types as Particle Changer rows {registry path, name},
+	 * vanilla namespace only, in registry order. Read from the registry so every version lists
+	 * exactly the particles it has (Sweep Attack, Totem of Undying, the mace's Dust Pillar, a
+	 * newer version's additions) and none it doesn't. Null when the registry can't be read:
+	 * Mods then keeps its fixed list (fail soft). Saved p_<id> keys of a particle this version
+	 * lacks stay in the config untouched (Settings Sync carries them to the versions that have it).
+	 */
+	public static String[][] vanillaTypes() {
+		try {
+			java.util.List<String[]> out = new java.util.ArrayList<>();
+			for (ParticleType<?> type : BuiltInRegistries.PARTICLE_TYPE) {
+				var key = BuiltInRegistries.PARTICLE_TYPE.getKey(type);
+				if (key != null && "minecraft".equals(key.getNamespace())) {
+					out.add(new String[] {key.getPath(), displayName(key.getPath())});
+				}
+			}
+			return out.isEmpty() ? null : out.toArray(new String[0][]);
+		} catch (RuntimeException | LinkageError e) {
+			return null;
+		}
+	}
+
+	/** "totem_of_undying" -> "Totem of Undying": the row label for a registry path. */
+	static String displayName(String path) {
+		StringBuilder sb = new StringBuilder();
+		for (String word : path.split("_")) {
+			if (word.isEmpty()) {
+				continue;
+			}
+			if (sb.length() > 0) {
+				sb.append(' ');
+			}
+			boolean small = sb.length() > 0 && (word.equals("of") || word.equals("and"));
+			sb.append(small ? word : Character.toUpperCase(word.charAt(0)) + word.substring(1));
+		}
+		return sb.toString();
+	}
+
 	/** Registry path of a particle type ("crit", "block", ...), or null if unregistered. */
 	public static String typePath(ParticleOptions options) {
 		var key = BuiltInRegistries.PARTICLE_TYPE.getKey(options.getType());

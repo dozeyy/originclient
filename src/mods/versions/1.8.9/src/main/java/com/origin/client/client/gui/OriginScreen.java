@@ -328,15 +328,30 @@ public abstract class OriginScreen extends GuiScreen {
 		return isPauseScreen();
 	}
 
+	private static final boolean WINDOWS = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("windows");
+
+	/**
+	 * One wheel event's LWJGL 2 delta in notches. On Windows LWJGL 2 passes WM_MOUSEWHEEL's delta
+	 * through: 120 per mouse notch, and a precision touchpad sends many small parts of 120 while
+	 * two fingers glide. Each part is its fraction of a notch there (every Origin list scrolls by
+	 * notches x 48 px, so a fraction never rounds away); counting each as a whole notch made a
+	 * gentle swipe fly through the lists. Elsewhere (macOS, Linux) the units differ by driver, so
+	 * a delta under one notch still counts as one: a real scroll never rounds to zero.
+	 */
+	public static double wheelNotches(int wheel) {
+		if (WINDOWS || Math.abs(wheel) >= 120) {
+			return wheel / 120.0;
+		}
+		return Math.signum(wheel);
+	}
+
 	@Override
 	public void handleMouseInput() throws IOException {
 		// vanilla dispatches press / release / move-while-down to the int handlers below
 		super.handleMouseInput();
 		int wheel = Mouse.getEventDWheel();
 		if (wheel != 0) {
-			// LWJGL2 reports 120 per notch on most systems, but some drivers send
-			// smaller steps: never round a real scroll to zero.
-			double notches = Math.abs(wheel) >= 120 ? wheel / 120.0 : Math.signum(wheel);
+			double notches = wheelNotches(wheel);
 			wheelEvents++;
 			try {
 				mouseScrolled(eventX(), eventY(), notches);

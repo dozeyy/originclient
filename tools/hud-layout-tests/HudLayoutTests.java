@@ -129,7 +129,7 @@ public final class HudLayoutTests {
 	static double[] rect(Plan p, int sw, int sh) {
 		double[] s = HudLayout.spot(p.id);
 		double w = p.w * s[3], h = p.h * s[3];
-		double x = HudLayout.left((int) s[0], s[1], sw, w), y = HudLayout.top((int) s[0], s[2], sh, h);
+		double x = HudLayout.left(p.id, (int) s[0], s[1], sw, w), y = HudLayout.top((int) s[0], s[2], sh, h);
 		return new double[]{x - p.m, y - p.m, x + w + p.m, y + h + p.m};
 	}
 
@@ -163,6 +163,8 @@ public final class HudLayoutTests {
 		Map<String, double[]> zones = new LinkedHashMap<String, double[]>();
 		zones.put("chat", new double[]{0, sh - 130, 328, sh - 40});
 		zones.put("hotbar", new double[]{sw / 2.0 - 91 - 29, sh - 59, sw / 2.0 + 91 + 2, sh});
+		// right of the hotbar: the Hotbar attack indicator (+97..+115) or, left-handed, the offhand slot (+91..+120)
+		zones.put("offhand / attack indicator", new double[]{sw / 2.0 + 91, sh - 23, sw / 2.0 + 120, sh});
 		zones.put("toast", new double[]{sw - 160, 0, sw, 32});   // one vanilla toast (advancement, recipe, tutorial)
 		List<Plan> ps = new ArrayList<Plan>();
 		for (Plan p : PLAN.values()) {
@@ -241,6 +243,21 @@ public final class HudLayoutTests {
 		if (HudLayout.left(2, 50, 400, 100) != 300 || HudLayout.top(0, Double.NaN, 300, 10) != 0) {
 			fail("left/top clamp");
 		}
+		// Cooldowns grows rightwards: one dial or four, the left edge stays clear of the hotbar group
+		double[] cd = HudLayout.spot("cooldowns");
+		num("cooldowns: 1 dial left edge", 455 / 2.0 + cd[1], HudLayout.left("cooldowns", (int) cd[0], cd[1], 455, 24));
+		num("cooldowns: 4 dials, same left edge", 455 / 2.0 + cd[1], HudLayout.left("cooldowns", (int) cd[0], cd[1], 455, 96));
+		if (HudLayout.left("cooldowns", (int) cd[0], cd[1], 455, 24) < 455 / 2.0 + 120) {
+			fail("cooldowns starts on the offhand slot / attack indicator");
+		}
+		num("cooldowns: still clamped on screen", 455 - 200, HudLayout.left("cooldowns", 7, 125, 455, 200));
+		num("other centre pieces still centre", (455 - 100) / 2.0 + 10, HudLayout.left("clock", 1, 10, 455, 100));
+		// a drop in the centre column turns back into the same left edge (the editor's setFromAbsolute)
+		num("cooldowns: drop -> dx -> same x", 300, HudLayout.baseX("cooldowns", 1, 455, 48) + (300 - HudLayout.baseX("cooldowns", 1, 455, 48)));
+		num("cooldowns: baseX is the screen centre", 455 / 2.0, HudLayout.baseX("cooldowns", 1, 455, 48));
+		num("other pieces: baseX centres the box", (455 - 48) / 2.0, HudLayout.baseX("clock", 1, 455, 48));
+		double[] cdNew = {cd[0], cd[1], cd[2], cd[3], 0};
+		eq("cooldowns: the old right-of-hotbar default moves", cdNew, HudLayout.resolve("cooldowns", new double[]{7, 119, -4, 1.0, 0}, cd));
 	}
 
 	// ---- ToastBand: the potions step below toasts (JG-9) -------------------------------------------------

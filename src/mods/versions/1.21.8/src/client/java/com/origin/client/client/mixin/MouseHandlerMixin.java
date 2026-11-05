@@ -6,7 +6,9 @@ import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
 import org.spongepowered.asm.mixin.Mixin;
+import net.minecraft.util.SmoothDouble;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -26,6 +28,19 @@ public abstract class MouseHandlerMixin {
 	@Shadow private double accumulatedDY;
 
 	@Shadow public abstract boolean isMouseGrabbed();
+
+	// Freelook's own copy of vanilla's cinematic-camera filter. turnPlayer is cancelled while
+	// freelook is held, so vanilla's smoothTurnX/Y never see the freelook deltas: without this
+	// pair "Smooth Camera Movement" (which only sets options.smoothCamera) changed nothing.
+	// Reset each time freelook starts so a glide never carries over from the last hold.
+	@Unique
+	private final SmoothDouble originclient$smoothX = new SmoothDouble();
+	@Unique
+	private final SmoothDouble originclient$smoothY = new SmoothDouble();
+	@Unique
+	private boolean originclient$freelookWasActive;
+	@Unique
+	private double originclient$lastTurnTime;
 
 	// Scroll to Zoom: while actively zoomed, the wheel changes zoom depth (a
 	// transient multiplier applied in GameRendererMixin) instead of scrolling
@@ -55,15 +70,36 @@ public abstract class MouseHandlerMixin {
 	@Inject(method = "turnPlayer", at = @At("HEAD"), cancellable = true)
 	private void originclient$freelookTurn(CallbackInfo ci) {
 		if (!OriginFreelookState.active) {
+			this.originclient$freelookWasActive = false;
 			return;
+		}
+		// Seconds, like vanilla's movement time (the filter's step size). Our own clock: the
+		// turnPlayer argument differs between versions (none before 1.20.5, a double after).
+		double now = System.nanoTime() / 1.0e9;
+		double movementTime = now - this.originclient$lastTurnTime;
+		this.originclient$lastTurnTime = now;
+		if (!this.originclient$freelookWasActive) {
+			this.originclient$freelookWasActive = true;
+			this.originclient$smoothX.reset();
+			this.originclient$smoothY.reset();
+			movementTime = 0.0;
 		}
 		Minecraft mc = Minecraft.getInstance();
 		if (this.isMouseGrabbed() && mc.isWindowActive()) {
-			// vanilla's exact sensitivity curve (non-smooth path)
+			// vanilla's exact sensitivity curve
 			double d = mc.options.sensitivity().get() * 0.6 + 0.2;
 			double f = d * d * d * 8.0;
-			double dx = this.accumulatedDX * f;
-			double dy = this.accumulatedDY * f;
+			double dx;
+			double dy;
+			if (mc.options.smoothCamera) {
+				// Smooth Camera Movement (or the player's own Cinematic Camera): vanilla's
+				// smooth path, same filter and same arguments as MouseHandler.turnPlayer
+				dx = this.originclient$smoothX.getNewDeltaValue(this.accumulatedDX * f, movementTime * f);
+				dy = this.originclient$smoothY.getNewDeltaValue(this.accumulatedDY * f, movementTime * f);
+			} else {
+				dx = this.accumulatedDX * f;
+				dy = this.accumulatedDY * f;
+			}
 			int inv = mc.options.invertYMouse().get() ? -1 : 1;
 			double yawSign = Mods.bool("freelook", "invertYaw") ? -1 : 1;
 			double pitchSign = Mods.bool("freelook", "invertPitch") ? -1 : 1;
