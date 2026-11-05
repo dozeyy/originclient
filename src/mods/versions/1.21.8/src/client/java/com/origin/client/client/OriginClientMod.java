@@ -132,24 +132,24 @@ public class OriginClientMod implements ClientModInitializer {
 		// whole shader flow lives where Sodium/Iris users already look — no tab
 		// in the mod menu. Detected by class name (no compile dep on Iris),
 		// added via Fabric's screen API (no Iris mixin to break on updates).
+		// IrisScreenHook also points Iris 1.8+'s own big "Download Shaders" row
+		// (a link to modrinth.com) at the same browser, shows the corner button
+		// only while that row doesn't, and hides it under Iris's Hide GUI.
 		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
 			if (screen.getClass().getName().contains("ShaderPackScreen")) {
-				var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen);
-				// Iris re-inits its screen on resize and every time we return from
-				// the browser — guard so our button is added exactly once and never
-				// stacks. This is the ONLY shader-download entry point (Iris ships
-				// no Modrinth/download button of its own).
-				net.minecraft.network.chat.Component label =
-						net.minecraft.network.chat.Component.literal("Download Shaders");
-				boolean present = buttons.stream().anyMatch(w ->
-						w instanceof net.minecraft.client.gui.components.Button b
-								&& label.equals(b.getMessage()));
-				if (!present) {
-					buttons.add(new com.origin.client.client.shaders.OriginShaderButton(6, 6, 120, 20, label,
-							b -> client.setScreen(new com.origin.client.client.shaders.ShaderBrowserScreen(screen))));
-				}
+				net.minecraft.network.chat.Component label = net.minecraft.network.chat.Component.literal("Download Shaders");
+				Runnable openBrowser = () -> client.setScreen(
+						new com.origin.client.client.shaders.ShaderBrowserScreen(screen));
+				com.origin.client.client.shaders.IrisScreenHook.attach(screen,
+						net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen), label,
+						() -> new com.origin.client.client.shaders.OriginShaderButton(6, 6, 120, 20, label,
+								b -> openBrowser.run()),
+						openBrowser);
 			}
 		});
+		// Shader Performance Mode changes from any path (toggle, reset arrow,
+		// Profiles, FPS Coach, Settings Sync) rebuild an active pack's pipeline.
+		com.origin.client.client.shaders.IrisBridge.watchShaderPerformanceMode();
 		// Waypoints, party pings, WorldEdit CUI and Chunk Borders stay above an Iris
 		// pack's clouds / fog: banked at LAST, drawn after the pack's composite
 		// (render/AfterShadersPass). Shaders off: unchanged.

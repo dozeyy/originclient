@@ -152,6 +152,10 @@ public class ShaderBrowserScreen extends OriginWindow {
 
 	@Override
 	protected String subheading() {
+		String notice = ShaderDownloader.removeNotice();
+		if (notice != null) {
+			return notice;
+		}
 		return "Popular shader packs for Minecraft " + gameVersion();
 	}
 

@@ -44,21 +44,45 @@ public final class ShaderDownloader {
 	 * Deletes an installed pack's file from shaderpacks/ and resets it to IDLE
 	 * (so the row shows Download again). No-op unless the pack is DONE — its
 	 * State.message() holds the downloaded filename.
+	 *
+	 * SHADER-2: when it is the pack Iris has selected, shaders are switched off first,
+	 * so the world stops rendering a pack that is gone, Iris's config stops naming it,
+	 * and Iris lets go of the file. If the file still can't be deleted the row stays
+	 * Installed (the truth) and removeNotice() tells the player what to do.
 	 */
 	public static void remove(String slug) {
 		State s = state(slug);
 		if (s.status() != Status.DONE) {
 			return;
 		}
+		String fileName;
 		try {
 			// message() is the filename; strip any path parts defensively
-			String fileName = Path.of(s.message()).getFileName().toString();
+			fileName = Path.of(s.message()).getFileName().toString();
+		} catch (Throwable t) {
+			return;
+		}
+		if (fileName.equals(IrisBridge.selectedPack())) {
+			IrisBridge.apply(null);
+		}
+		try {
 			Files.deleteIfExists(IrisBridge.shaderpacksDir().resolve(fileName));
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Shader remove failed for {}", slug, t);
+			removeNotice = "Couldn't remove " + fileName
+					+ ": close the game and delete it from the shaderpacks folder";
+			return;
 		}
+		removeNotice = null;
 		STATES.remove(slug);
 		writeIndex(slug);
+	}
+
+	// Why the last Remove left a pack installed (shown in the browser's header); null = nothing to say.
+	private static volatile String removeNotice;
+
+	public static String removeNotice() {
+		return removeNotice;
 	}
 
 	/**
@@ -68,6 +92,7 @@ public final class ShaderDownloader {
 	 * the browser screen (re)opens.
 	 */
 	public static void syncWithDisk() {
+		removeNotice = null;
 		Path dir = IrisBridge.shaderpacksDir();
 		// Packs installed in an earlier session: the index remembers which file each
 		// download wrote, so a row whose file is still there shows Installed again.
@@ -195,6 +220,8 @@ public final class ShaderDownloader {
 			if (IrisBridge.installed() && !IrisBridge.apply(name)) {
 				com.origin.client.OriginClient.LOGGER.warn("Origin: couldn't switch on the downloaded shader pack {}", name);
 			}
+			// SHADER-4: Iris's screen, if open, would write its old state back on Done.
+			IrisBridge.refreshIrisScreen();
 		});
 	}
 

@@ -33,6 +33,7 @@ on:
       - "tools/locraw-tests/**"
       - "tools/glyph-coverage-tests/**"
       - "tools/compat-gates/**"
+      - "tools/shader-hook-tests/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
       - "tools/ci/**"
@@ -64,6 +65,7 @@ on:
       - "tools/locraw-tests/**"
       - "tools/glyph-coverage-tests/**"
       - "tools/compat-gates/**"
+      - "tools/shader-hook-tests/**"
       - "tools/boot-smoke/**"
       - "tools/bench/**"
       - "tools/ci/**"
@@ -181,6 +183,13 @@ jobs:
         run: |
           python3 tools/compat-gates/check.py --selftest
           python3 tools/compat-gates/check.py
+
+      # Bug run 11 shader fixes: Iris 1.8+'s own "Download Shaders" row opens Origin's browser and
+      # the corner button shows only while that row doesn't (IrisScreenHook, same copy in every Fabric
+      # module, tested against Iris's screen shape); Shader Performance Mode reloads Iris from one
+      # watch; Remove switches the selected pack off first; 1.8.9's browser warning is read off-thread.
+      - name: Test shader hooks
+        run: python3 tools/shader-hook-tests/run.py
 
       # The 1.8.9 benchmark's own tests: summarizer maths (known CSV -> known numbers, corrupt CSV -> loud
       # failure), the production-like launcher's pure logic, and bench-189.ps1 -DryRun against fixtures.
