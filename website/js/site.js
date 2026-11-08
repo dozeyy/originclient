@@ -1,6 +1,6 @@
-// Origin website: hero -> versions -> why Origin -> download, over the island in
-// the sky (world.js). Scrolling blends the camera from one scene's pose to the
-// next; the island is always drawn with its shader lighting.
+// Origin website, told as one film of the island in the sky (world.js): hero -> the
+// launcher -> versions -> in game -> download. Each chapter is a camera shot; scrolling
+// blends the camera from one shot to the next, and the shade layers keep text legible.
 
 // ---------------------------------------------------------------------------
 // THE ONE SWITCH: flip `live` to true on release day.
@@ -34,10 +34,6 @@ const ON_CHROMEOS = !ON_PHONE && (/CrOS/.test(UA) || /chrome ?os/i.test(UA_PLATF
 const ON_LINUX = !ON_PHONE && (ON_CHROMEOS || /linux/i.test(UA_PLATFORM || UA));
 const ON_MAC = DOWNLOAD.mac.live && !ON_PHONE && /mac/i.test(UA_PLATFORM);
 
-// Player screenshots for the "Straight from the game" section. The section
-// stays hidden while this is empty. Put images in website/assets/screens/.
-// e.g. { src: 'assets/screens/title-1.21.1.png', caption: 'Title screen · 1.21.1' }
-const SCREENSHOTS = [];
 // ---------------------------------------------------------------------------
 
 // Every live Minecraft version, grouped exactly like the launcher's picker
@@ -55,11 +51,18 @@ const VERSION_GROUPS = [
   { title: '1.8.9', tag: 'The Bountiful Update', versions: ['1.8.9'] },
 ];
 
-// Scenes top to bottom: [section id, world pose, how much to darken the island].
-// "why" darkens the island so the cards read over it.
-const SCENES = [['top', 'hero', 0], ['versions', 'versions', 0.9], ['why', 'why', 0.92], ['get', 'get', 0.2]];
-// From this shade on so little of the island shows that it is frozen instead of drawn
-// (the last frame stays on screen): phones scroll the glass cards over a still picture.
+// Shots top to bottom (DOM order): [section id, world pose, shade left, shade right, shade all].
+// Text sits on the darkened side and the island fills the other; "why" (in game) is the cut
+// inside: the whole frame goes dark and the real in-game stills take over.
+const SCENES = [
+  ['top', 'hero', 0, 0, 0],
+  ['launcher', 'launcher', 0, 0.9, 0.12],
+  ['versions', 'versions', 0.9, 0, 0.1],
+  ['why', 'why', 0, 0, 0.94],
+  ['get', 'get', 0.86, 0, 0.06],
+];
+// From this "shade all" on so little of the island shows that it is frozen instead of drawn
+// (the last frame stays on screen).
 const COVERED = 0.85;
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -128,6 +131,15 @@ function allDownloads() {
 // For each kind of visitor: the file the big button is (`file`, an allDownloads id), what it
 // says, and the lines around it. The Windows installer is small and fetches the rest itself,
 // so no size is quoted (one would drift with every release).
+// The hero's line under its button, per visitor (the button itself says what GET_COPY says).
+const HERO_SUB = {
+  win: 'Free · Windows 10 & 11 · also for <a href="#get">Mac (Beta) and Linux</a>',
+  mac: 'Free · Mac Beta, macOS 15 or newer · <a href="#get">first-open steps and other systems</a>',
+  macIntel: 'Free · Mac Beta, macOS 15 or newer · <a href="#get">first-open steps and other systems</a>',
+  linux: 'Free · AppImage for any 64-bit distro · <a href="#get">.deb, .rpm and the rest</a>',
+  chromeos: 'Free · for Chromebooks with Linux turned on · <a href="#get">all downloads</a>',
+  phone: 'Free for Windows, Mac (Beta) and Linux computers.',
+};
 const MAC_NOTE = 'Free for Mac as a beta, on macOS 15 or newer. The first open takes one extra step, shown below, and Origin keeps itself up to date.';
 const GET_COPY = {
   win: {
@@ -163,6 +175,11 @@ function initGet(kind) {
   // the download section instead, because the first open needs the Open Anyway steps there,
   // and so does a phone, which has nothing to download.
   for (const a of $$('[data-download]')) if (!a.closest('#get')) a.href = main && !mac ? main.href : '#get';
+  const hero = $('[data-hero-main]');
+  if (hero) {
+    hero.innerHTML = (main ? copy.button : 'Get it on your computer') + (main ? badge(main) : '');
+    $('[data-hero-sub]').innerHTML = HERO_SUB[kind];
+  }
   const big = $('[data-get-main]');
   big.innerHTML = copy.button + (main ? badge(main) : '');
   if (main) big.href = main.href;
@@ -180,8 +197,9 @@ function initGet(kind) {
   if (main) {
     const others = all.filter(d => d !== main && d.os === main.os).concat(all.filter(d => d.os !== main.os));
     const row = $('[data-other-downloads]');
-    row.innerHTML = others.map(d => `<a href="${d.href}"><span>${d.label}</span>${badge(d)}<small>${d.note}</small></a>`).join('');
+    row.innerHTML = others.map(d => `<a href="${d.href}"><span>${d.label}${badge(d)}</span><small>${d.note}</small></a>`).join('');
     row.hidden = false;
+    $('[data-others-title]').hidden = false;
   }
 
   if (!DOWNLOAD.mac.live) return;
@@ -238,22 +256,53 @@ async function pinMissingDownloads() {
   }
 }
 
+// The versions chapter: one spec-sheet row per family (range, update name, every release in it).
 function initVersions() {
-  $('[data-vgrid]').innerHTML = VERSION_GROUPS.map((g, i) => `<article class="vcard${g.versions.length > 6 ? ' vcard--wide' : ''}" data-reveal style="--i:${i % 4}">`
-    + `<header><h3>${g.title}</h3><span class="tag">${g.tag}</span></header>`
-    + `<ul>${g.versions.map(v => `<li>${v}</li>`).join('')}</ul></article>`).join('');
+  // A one-release family is its own range, so it shows no list (it would repeat the range).
+  $('[data-vlist]').innerHTML = VERSION_GROUPS.map(g => `<li class="vrow${g.versions.length === 1 ? ' vrow--one' : ''}"><span class="vrow__range">${g.title}</span>`
+    + `<span class="vrow__name">${g.tag}</span>`
+    + (g.versions.length > 1 ? `<ul class="vrow__list" aria-label="${g.tag}: ${g.versions.join(', ')}">${g.versions.map(v => `<li>${v}</li>`).join('')}</ul>` : '') + '</li>').join('');
   const count = VERSION_GROUPS.reduce((n, g) => n + g.versions.length, 0);
   for (const el of $$('[data-version-count]')) el.textContent = count;
-  if (SCREENSHOTS.length) {
-    $('[data-shots]').hidden = false;
-    $('[data-shots-grid]').innerHTML = SCREENSHOTS.map(s => `<figure data-reveal><img src="${s.src}" alt="${s.caption}" loading="lazy"><figcaption>${s.caption}</figcaption></figure>`).join('');
-  }
 }
 
-// The cards' loops only run while their card is on screen.
-function initBento() {
-  const io = new IntersectionObserver(es => es.forEach(e => e.target.classList.toggle('is-off', !e.isIntersecting)), { rootMargin: '80px' });
-  $$('.bcard').forEach(c => { c.classList.add('is-off'); io.observe(c); });
+// In game: the last caption whose heading has passed the middle of the screen picks the still in
+// the sticky frame, so the caption you are reading is level with the frame showing it. Measured on
+// the scroll frame (not an IntersectionObserver band, which a jump or Page Down can skip over).
+// Phones show each still inline under its caption instead; the frame is hidden there.
+let beatHeads = [], beatStills = [], beatOn = -1;
+function initBeats() {
+  beatHeads = $$('[data-beat] h3');
+  beatStills = $$('[data-still]');
+}
+function updateBeats(H) {
+  if (!beatHeads.length) return;
+  let on = 0;
+  beatHeads.forEach((h, i) => { if (h.getBoundingClientRect().top < H * 0.56) on = i; });
+  if (on === beatOn) return;
+  beatOn = on;
+  beatHeads.forEach((h, i) => h.parentElement.classList.toggle('is-on', i === on));
+  beatStills.forEach((s, i) => s.classList.toggle('is-on', i === on));
+}
+
+// The phone menu: a full-screen sheet. Esc, Close or picking a link closes it; focus goes in
+// and comes back to the Menu button.
+function initMenu() {
+  const btn = $('[data-menu]'), top = $('[data-top]'), nav = $('[data-nav]');
+  if (!btn) return;
+  const set = open => {
+    top.classList.toggle('is-open', open);
+    document.body.classList.toggle('menu-open', open);
+    // the page behind the sheet can't be tabbed into while it is open
+    for (const el of $$('main, .foot')) el.inert = open;
+    btn.setAttribute('aria-expanded', String(open));
+    if (open) nav.querySelector('a')?.focus();
+  };
+  btn.addEventListener('click', () => set(btn.getAttribute('aria-expanded') !== 'true'));
+  nav.addEventListener('click', e => { if (e.target.closest('a') && top.classList.contains('is-open')) set(false); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && top.classList.contains('is-open')) { set(false); btn.focus(); } });
+  // the sheet only exists on phones: widening the window closes it
+  matchMedia('(min-width: 901px)').addEventListener('change', m => { if (m.matches) set(false); });
 }
 
 // ---------------------------------------------------------------- scroll
@@ -263,20 +312,25 @@ function frame() {
   // each scene blends into the next as it scrolls up into view, finished by
   // the time its top is halfway up the screen, so the shade is already dark
   // behind the heading before anyone reads it (phones: the island sits there)
-  let pose = ['hero', 'hero', 0], shade = 0;
+  let pose = ['hero', 'hero', 0], shade = [0, 0, 0];
   for (let i = 1; i < SCENES.length; i++) {
     const top = document.getElementById(SCENES[i][0]).getBoundingClientRect().top;
     if (top >= H) break;
-    const t = smooth(clamp((H - top) / (H * 0.5))), [, pa, sa] = SCENES[i - 1], [, pb, sb] = SCENES[i];
-    pose = [pa, pb, t]; shade = sa + (sb - sa) * t;
+    const t = smooth(clamp((H - top) / (H * 0.5))), a = SCENES[i - 1], b = SCENES[i];
+    pose = [a[1], b[1], t];
+    shade = [2, 3, 4].map(k => a[k] + (b[k] - a[k]) * t);
   }
   world?.setPose(...pose);
-  world?.setCovered(shade >= COVERED);
-  root.style.setProperty('--shade', shade.toFixed(3));
+  world?.setCovered(shade[2] >= COVERED);
+  root.style.setProperty('--sl', shade[0].toFixed(3));
+  root.style.setProperty('--sr', shade[1].toFixed(3));
+  root.style.setProperty('--sf', shade[2].toFixed(3));
+  updateBeats(H);
 
   // header: solid once scrolled; hides on scroll down, returns on scroll up
   const top = $('[data-top]');
   top.classList.toggle('is-solid', y > 40);
+  if (top.classList.contains('is-open')) { lastY = y; return; }
   if (y > lastY + 1 && y > H) top.classList.add('is-hidden');
   else if (y < lastY - 1 || y <= H) top.classList.remove('is-hidden');
   lastY = y;
@@ -302,12 +356,16 @@ function requestFrame() {
 function heroZone() {
   const hero = $('.hero'), copy = $('.hero__copy'), head = $('.top'), act = $('.top__action');
   if (!hero || !copy) return null;
-  const vw = document.documentElement.clientWidth, pad = parseFloat(getComputedStyle(hero).paddingLeft) || 0;
+  const vw = document.documentElement.clientWidth, vh = innerHeight, pad = parseFloat(getComputedStyle(hero).paddingLeft) || 0;
   const c = copy.getBoundingClientRect(), top = c.top + scrollY;
-  const l = c.right + Math.max(16, vw * 0.01);
-  const r = act ? act.getBoundingClientRect().right : vw - pad;   // the header's right edge: the island lines up with the nav
+  const l = c.right + Math.max(24, vw * 0.02);
+  const ar = act ? act.getBoundingClientRect().right : 0;
+  const r = ar > 0 ? ar : vw - pad;   // the header's right edge: the island lines up with the nav
+  // The opening shot: the island big in the free area beside the copy, centred a touch below the
+  // middle of the screen (the copy sits low), never so big that it reaches the header.
   return {
-    cx: (l + r) / 2, cy: top + c.height / 2, w: Math.max(0, r - l), bandW: vw - 2 * pad,
+    // The island's visible shape is about half its bounding sphere, hence the generous sizes.
+    cx: (l + r) / 2, cy: vh * 0.52, w: Math.max(0, r - l), maxH: 0.42, kMin: 0.35, grow: 1.35, drop: 6, bandW: vw - 2 * pad,
     // (the header may be slid away when resized mid-page, hence the floor)
     top: Math.max(head ? head.getBoundingClientRect().bottom : 0, 62) + 4, bottom: top - 14,
   };
@@ -324,14 +382,11 @@ function syncHeroZone() {
 async function boot() {
   initDownload();
   initVersions();
-  initBento();
+  initBeats();
+  initMenu();
   frame();
   addEventListener('scroll', requestFrame, { passive: true });
   addEventListener('resize', requestFrame);
-
-  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } }), { threshold: 0.15 });
-  $$('.section__head, .get > *').forEach(el => { el.dataset.reveal = ''; });
-  $$('[data-reveal]').forEach(el => io.observe(el));
 
   // the 3D world (fails soft to the flat sky backdrop)
   try {

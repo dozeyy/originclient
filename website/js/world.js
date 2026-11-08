@@ -46,10 +46,14 @@ const POSES = {
   hero:     { pos: [42, 19, 53], target: [0.5, -4, 0.5], fov: 42, shiftX: 0.2, shiftY: 0.02, orbit: 1 },
   heroMobile: { pos: [96, 41, 120], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.28, orbit: 1 },   // above the headline, small enough that it clears the header and the title
   heroTablet: { pos: [52, 22, 65], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.21, orbit: 1 },    // same, for the bigger open space a tablet has above the headline
-  versions: { pos: [-36, 18, 46], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.24, shiftY: 0, orbit: 1 },
+  // The film's other shots (site.js SCENES). Each chapter's text sits on one side, so the island
+  // is framed on the other: launcher = low angle from the far side, island left; versions = a high
+  // shot over the top, island right; why = the cut inside (covered, it rests); get = the wide
+  // closing shot, island right of the download copy.
+  launcher: { pos: [-44, -2, 30], target: [0.5, -5, 0.5], fov: 40, shiftX: -0.27, shiftY: 0.02, orbit: 0.8 },
+  versions: { pos: [26, 40, 44], target: [0.5, -3, 0.5], fov: 42, shiftX: 0.25, shiftY: 0.02, orbit: 1 },
   why:      { pos: [-34, 13, 43], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.2, shiftY: 0.03, orbit: 0.6 },
-  // centred under "Ready when you are", whole island in frame below the text
-  get:      { pos: [0, 17, 100], target: [0.5, -4, 0.5], fov: 42, shiftX: 0, shiftY: -0.21, orbit: 1 },
+  get:      { pos: [26, 9, 62], target: [0.5, -4, 0.5], fov: 40, shiftX: 0.25, shiftY: 0.04, orbit: 1 },
 };
 
 function rng(seed) {
@@ -414,7 +418,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   const dustUniforms = { uTime: uniforms.uTime, uScale: { value: 400 } };
   const dustMat = new THREE.ShaderMaterial({
     uniforms: dustUniforms, vertexShader: DUST_VERT,
-    fragmentShader: 'void main() { float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; gl_FragColor = vec4(vec3(0.88), 0.45 * (1.0 - d * 2.0)); }',
+    fragmentShader: 'void main() { float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; gl_FragColor = vec4(0.96, 0.86, 0.7, 0.42 * (1.0 - d * 2.0)); }',
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   });
   const dust = new THREE.Points(dustGeo, dustMat);
@@ -468,9 +472,11 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     const bandH = zone.bottom - zone.top;
     let half, cx, cy, kMin = 0.7;
     if (mobile && bandH >= MIN_BAND_H && zone.bandW >= MIN_ZONE_W) {   // stacked: centred in the band above the copy
-      half = Math.min(zone.bandW / 2, bandH / 2); cx = W / 2; cy = (zone.top + zone.bottom) / 2; kMin = 0.55;
+      // (grow > 1 lets the island's bounding sphere spill past the band: its visible shape is much
+      // narrower than the sphere, so the picture still clears the copy)
+      half = Math.min(zone.bandW / 2, bandH / 2) * (zone.grow || 1); cx = W / 2; cy = (zone.top + zone.bottom) / 2 + (zone.drop || 0); kMin = 0.45;
     } else if (zone.w >= MIN_ZONE_W) {                                 // beside the copy (desktop, or a phone with no band)
-      half = Math.min(zone.w / 2, H * 0.47); cx = zone.cx; cy = mobile ? H / 2 : zone.cy; kMin = 0.7;
+      half = Math.min(zone.w / 2, H * (zone.maxH || 0.47)); cx = zone.cx; cy = mobile ? H / 2 : zone.cy; kMin = zone.kMin || 0.7;
     } else {   // nowhere to fit: a small island parked in the top-right corner, under the header
       half = Math.min(Math.max(Math.min(W, H) * 0.1, 40), 90); cx = W - half - 12; cy = Math.max(zone.top, 66) + half + 4;
     }
@@ -497,7 +503,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     out[3] = q.target[0]; out[4] = q.target[1]; out[5] = q.target[2];
     out[6] = q.fov; out[7] = sx;
     // phones: sink the island under the content chapters so it never sits behind the text
-    out[8] = phone && (name === 'versions' || name === 'why') ? sy - 0.24 : sy;
+    out[8] = phone && name !== 'hero' ? sy - 0.24 : sy;
     out[9] = q.orbit;
     return out;
   };

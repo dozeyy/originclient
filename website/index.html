@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a0a0b">
+  <meta name="theme-color" content="#0e1110">
   <meta name="color-scheme" content="dark">
   <title>Origin Client</title>
   <meta name="description" content="Origin is a free Minecraft launcher and in-game client for Windows and Linux, with a Mac beta. Pick one of 26 versions, from 1.8.9 to 26.3, and Origin installs the right loader, shaders and its own menus, HUD and mods for it, in one click.">
@@ -20,18 +20,17 @@
   <link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="assets/favicon-192.png" type="image/png" sizes="192x192">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="preload" href="assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="assets/fonts/inter-700.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/instrument-serif-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/hanken-grotesk-var.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/site.css">
-  <!-- Without JavaScript nothing reveals itself on scroll: show every card as it is. -->
-  <noscript><style>[data-reveal] { opacity: 1; translate: 0; }</style></noscript>
   <script src="js/nav.js"></script>
   <script type="module" src="js/site.js"></script>
 </head>
-<body>
+<body class="page-home">
   <a class="skip" href="#main">Skip to content</a>
 
-  <!-- The world: a floating island in the sky, built from Minecraft's own block textures. -->
+  <!-- The world: a floating island in a dusk sky, built from Minecraft's own block textures.
+       The page is a film of it: each chapter is a new camera shot (site.js SCENES, world.js POSES). -->
   <div class="backdrop" aria-hidden="true"></div>
   <canvas id="world" aria-hidden="true"></canvas>
   <div class="world-shade" aria-hidden="true"></div>
@@ -41,214 +40,158 @@
       <img class="brand__mark" src="assets/origin-logo-64.png" srcset="assets/origin-logo-32.png 1x, assets/origin-logo-64.png 2x, assets/origin-logo-128.png 3x" width="32" height="32" alt="Origin" decoding="async">
       <img class="brand__word" src="assets/origin-wordmark-256.png" srcset="assets/origin-wordmark-128.png 1x, assets/origin-wordmark-256.png 2x, assets/origin-wordmark.png 3x" width="107" height="22" alt="" decoding="async">
     </a>
-    <nav class="top__nav" aria-label="Sections">
+    <nav class="top__nav" id="site-nav" aria-label="Sections" data-nav>
+      <a href="#launcher">Launcher</a>
       <a href="#versions">Versions</a>
-      <a href="#why">Why Origin</a>
+      <a href="#why">In game</a>
       <a href="store" class="nav-store">Store</a>
+      <a class="btn btn--primary top__sheet-dl" data-download href="#get">Download</a>
     </nav>
     <a class="btn btn--primary btn--sm top__action" data-download href="#get">Download</a>
+    <button class="top__menu" type="button" aria-expanded="false" aria-controls="site-nav" data-menu><span class="top__menu-open">Menu</span><span class="top__menu-close">Close</span></button>
   </header>
 
   <main id="main">
 
-    <!-- ===================== HERO ===================== -->
+    <!-- ===================== HERO: the opening shot ===================== -->
     <section class="hero" id="top" data-scene="hero">
       <div class="hero__copy">
-        <p class="eyebrow eyebrow--accent">Minecraft: Java Edition · Windows<span data-mac hidden> · Mac Beta</span> · Linux</p>
-        <!-- The name in Y2K chrome with a passing lens glint (site.css .logo-title).
-             data-text feeds the chrome face layer (CSS ::after); keep it equal to the text. -->
-        <h1 class="logo-title"><span class="logo-title__main" data-text="Origin">Origin</span> <span class="logo-title__sub" data-text="Client">Client</span></h1>
-        <p class="hero__lede">The free Minecraft client. Shaders built in.</p>
-        <div class="hero__actions">
-          <a class="btn btn--primary btn--lg" data-download href="#get">Download</a>
-          <a class="btn btn--ghost btn--lg" href="#versions"><span>See the versions</span><span class="scroll-cue" aria-hidden="true"></span></a>
+        <h1 class="hero__title"><span class="line"><span>Pick a version.</span></span> <span class="line"><span>Press <em>Play</em>.</span></span></h1>
+        <p class="hero__lede">Origin is a free Minecraft: Java Edition launcher and in-game client. Choose one of <span data-version-count>26</span> versions and it sets up the mods, shaders and menus for it.</p>
+        <div class="hero__cta">
+          <a class="btn btn--primary btn--lg" data-download data-hero-main href="#get">Download for Windows</a>
+          <p class="hero__sub" data-hero-sub>Free · Windows 10 &amp; 11 · also for <a href="#get">Mac (Beta) and Linux</a></p>
         </div>
-        <ul class="facts" aria-label="At a glance">
-          <li><b data-version-count>26</b><span>versions</span></li>
-          <li><b>1</b><span>click to play</span></li>
-          <li><b>Free</b><span>to use</span></li>
+      </div>
+      <p class="hero__credit" aria-hidden="true"><span>Minecraft: Java Edition</span> <span>1.8.9 – 26.3</span></p>
+      <span class="hero__cue" aria-hidden="true"></span>
+    </section>
+
+    <!-- ===================== THE LAUNCHER ===================== -->
+    <section class="chapter launcher" id="launcher" data-scene="launcher">
+      <div class="chapter__text">
+        <h2>You choose the version. Origin does the setup.</h2>
+        <p class="lede">Press Play and the launcher installs what that version needs: the right loader, Sodium and Iris for shaders, and Origin's own menus, HUD and mods. Then it keeps all of it up to date.</p>
+      </div>
+      <figure class="still still--launcher">
+        <img src="assets/shots/launcher-home-1044.webp" srcset="assets/shots/launcher-home-720.webp 720w, assets/shots/launcher-home-1044.webp 1044w" sizes="(max-width: 900px) calc(100vw - 32px), 56vw" width="1044" height="740" alt="The Origin Launcher home screen: 26.3 is selected and the green Play button sits bottom right." loading="lazy" decoding="async">
+        <figcaption>The launcher's Home. Pick a version at the bottom left, then Play.</figcaption>
+      </figure>
+      <ul class="facts">
+        <li><b>Several accounts at once.</b> One game window each, side by side.</li>
+        <li><b>Your own mods stay.</b> Drop them in next to Origin's. If one does the same job, Origin's steps aside.</li>
+        <li><b>Settings travel.</b> Keybinds, mod settings and servers come with you between versions.</li>
+      </ul>
+    </section>
+
+    <!-- ===================== VERSIONS ===================== -->
+    <section class="chapter versions" id="versions" data-scene="versions">
+      <div class="chapter__text">
+        <h2>From 1.8.9 to 26.3.</h2>
+        <p class="lede"><span data-version-count>26</span> versions, each its own build made for that version's code, with the same Origin look on all of them.</p>
+      </div>
+      <!-- site.js fills this from VERSION_GROUPS (the one list of live versions). -->
+      <ul class="vlist" data-vlist aria-label="Supported versions"></ul>
+      <noscript><p class="lede">The full list, from 1.8.9 to 26.3, shows here with JavaScript turned on.</p></noscript>
+    </section>
+
+    <!-- ===================== IN GAME: the cut inside ===================== -->
+    <!-- The island is covered here (site.js SCENES shade .92), so it rests; real in-game stills
+         from Origin's own CI screenshots take over. Each caption swaps the big frame. -->
+    <section class="chapter ingame" id="why" data-scene="why">
+      <div class="ingame__head">
+        <h2>Inside the game.</h2>
+        <p class="lede">What you see once you press Play. These are real screens from Origin on 1.21.1.</p>
+      </div>
+      <div class="ingame__body">
+        <div class="ingame__frame" aria-hidden="true" data-frame>
+          <img data-still="0" class="is-on" src="assets/shots/game-title-1600.webp" srcset="assets/shots/game-title-960.webp 960w, assets/shots/game-title-1600.webp 1600w" sizes="60vw" width="1600" height="900" alt="" loading="lazy" decoding="async">
+          <img data-still="1" src="assets/shots/game-modmenu-1280.webp" srcset="assets/shots/game-modmenu-800.webp 800w, assets/shots/game-modmenu-1280.webp 1280w" sizes="60vw" width="1280" height="720" alt="" loading="lazy" decoding="async">
+          <img data-still="2" src="assets/shots/game-shaders-1120.webp" srcset="assets/shots/game-shaders-800.webp 800w, assets/shots/game-shaders-1120.webp 1120w" sizes="60vw" width="1120" height="630" alt="" loading="lazy" decoding="async">
+          <img data-still="3" src="assets/shots/game-hud-1600.webp" srcset="assets/shots/game-hud-960.webp 960w, assets/shots/game-hud-1600.webp 1600w" sizes="60vw" width="1600" height="900" alt="" loading="lazy" decoding="async">
+          <img data-still="4" src="assets/shots/game-fpscoach-1120.webp" srcset="assets/shots/game-fpscoach-800.webp 800w, assets/shots/game-fpscoach-1120.webp 1120w" sizes="60vw" width="1120" height="630" alt="" loading="lazy" decoding="async">
+        </div>
+        <ul class="beats" data-beats>
+          <li class="beat" data-beat="0">
+            <img class="beat__still" src="assets/shots/game-title-960.webp" width="960" height="540" alt="Origin's title screen on 1.21.1: the Origin logo over a landscape, with dark Minecraft buttons." loading="lazy" decoding="async">
+            <h3>The title screen</h3>
+            <p>Origin's own title and loading screens, with Minecraft's dark buttons and font.</p>
+          </li>
+          <li class="beat" data-beat="1">
+            <img class="beat__still" src="assets/shots/game-modmenu-800.webp" width="800" height="450" alt="The Origin mod menu open over a world, showing mods such as Armor Status, Boss Bar and Chunk Borders with on and off switches." loading="lazy" decoding="async">
+            <h3>One mod menu</h3>
+            <p>Every built-in mod in one place. Turn each on or off and set it up, without leaving the world.</p>
+          </li>
+          <li class="beat" data-beat="2">
+            <img class="beat__still" src="assets/shots/game-shaders-800.webp" width="800" height="450" alt="Origin's shader browser listing packs such as Complementary Reimagined, BSL and Photon, each with a Download button." loading="lazy" decoding="async">
+            <h3>Shaders, built in</h3>
+            <p>Iris and Sodium come installed. Pick a shader pack from the list and it downloads right there.</p>
+          </li>
+          <li class="beat" data-beat="3">
+            <img class="beat__still" src="assets/shots/game-hud-960.webp" width="960" height="540" alt="A Minecraft world with Origin's HUD: FPS, coordinates, armour durability, keystrokes, a compass and potion timers." loading="lazy" decoding="async">
+            <h3>A HUD you arrange</h3>
+            <p>FPS, coordinates, armour, keystrokes, compass and more. Drag each one where you want it.</p>
+          </li>
+          <li class="beat" data-beat="4">
+            <img class="beat__still" src="assets/shots/game-fpscoach-800.webp" width="800" height="450" alt="FPS Coach: average and 1% low frame rates, and suggestions such as setting clouds to Fast, each with Try it and Hide buttons." loading="lazy" decoding="async">
+            <h3>FPS Coach</h3>
+            <p>It measures your frames, names the settings that cost the most, and tries a change for you.</p>
+          </li>
         </ul>
       </div>
     </section>
 
-    <!-- ===================== VERSIONS ===================== -->
-    <section class="section versions" id="versions" data-scene="versions">
-      <div class="section__head">
-        <p class="eyebrow eyebrow--accent">Versions</p>
-        <h2><span data-version-count>26</span> versions.<br><span>One look.</span></h2>
-        <p class="lede">Each version is its own build, made for that version's code, never a one-size-fits-all port. The menus, HUD and mods look the same on all of them.</p>
+    <!-- ===================== GET: the last shot ===================== -->
+    <section class="chapter get" id="get" data-scene="get">
+      <div class="get__copy">
+        <h2>Download Origin.</h2>
+        <p class="lede" data-get-note>Free for Windows 10 and 11, Linux, and Mac as a beta. Origin keeps itself up to date.</p>
+        <!-- site.js turns the big button into the visitor's own system (Windows, Mac or Linux)
+             and lists every other download under it. Without JavaScript it stays the
+             Windows installer and the <noscript> list below carries the rest. -->
+        <a class="btn btn--primary btn--xl" data-download data-get-main href="https://github.com/dozeyy/originclient/releases/latest/download/OriginLauncher-Setup.exe">Download for Windows</a>
+        <p class="get__sub" data-get-sub hidden></p>
+        <h3 class="get__others-title" data-others-title hidden>Other downloads</h3>
+        <nav class="others" data-other-downloads hidden aria-label="Other downloads"></nav>
+        <noscript>
+          <nav class="others" aria-label="Other downloads">
+            <a href="https://github.com/dozeyy/originclient/releases/latest/download/Origin-Mac-AppleSilicon.dmg"><span>Mac <span class="badge">Beta</span></span><small>Apple Silicon</small></a>
+            <a href="https://github.com/dozeyy/originclient/releases/latest/download/Origin-Mac-Intel.dmg"><span>Mac <span class="badge">Beta</span></span><small>Intel</small></a>
+            <a href="https://github.com/dozeyy/originclient/releases/latest/download/OriginLauncher-linux-x86_64.AppImage"><span>Linux AppImage</span><small>any distro</small></a>
+            <a href="https://github.com/dozeyy/originclient/releases/latest/download/origin-launcher_amd64.deb"><span>Linux .deb</span><small>Ubuntu, Debian, Mint</small></a>
+            <a href="https://github.com/dozeyy/originclient/releases/latest/download/origin-launcher.x86_64.rpm"><span>Linux .rpm</span><small>Fedora, openSUSE, Alma</small></a>
+            <a href="https://github.com/dozeyy/originclient/releases/latest/download/OriginLauncher-linux-x64.tar.gz"><span>Linux .tar.gz</span><small>unpack and run</small></a>
+          </nav>
+        </noscript>
+        <details class="get__steps" data-mac hidden>
+          <summary>Opening it on a Mac for the first time</summary>
+          <p>The Mac version is new, so macOS doesn't know it yet and asks once before it opens.</p>
+          <ol>
+            <li>Open the download and drag <b>Origin</b> into <b>Applications</b>.</li>
+            <li>Open Origin from Applications. macOS says it can't check it: click <b>Done</b>.</li>
+            <li>Open <b>System Settings</b>, then <b>Privacy &amp; Security</b>, scroll down and click <b>Open Anyway</b> next to Origin.</li>
+            <li>Click <b>Open Anyway</b> again and type your Mac password. From then on it opens like any other app.</li>
+          </ol>
+          <p>Older Minecraft versions (1.8.9 to 1.18.2) run through Rosetta on Apple Silicon. Origin offers to install it the first time you need it.</p>
+        </details>
+        <ul class="specs"><li>Free</li><li>Windows 10 &amp; 11</li><li data-mac hidden>Mac Beta (macOS 15+)</li><li>Linux (64-bit)</li><li>Updates itself</li></ul>
       </div>
-      <div class="vgrid" data-vgrid></div>
-      <noscript><p class="lede">The full list, from 1.8.9 to 26.3, shows here with JavaScript turned on.</p></noscript>
-    </section>
 
-    <!-- ===================== WHY ORIGIN ===================== -->
-    <!-- Five cards, one small looping picture and one line each. No other client is
-         named on purpose, and every line describes something the launcher really does.
-         The pictures are decorative (aria-hidden); the headings and lines are the content. -->
-    <section class="section why" id="why" data-scene="why">
-      <div class="section__head">
-        <p class="eyebrow eyebrow--accent">Why Origin</p>
-        <h2>Five reasons.<br><span>Built in.</span></h2>
-      </div>
-      <ul class="bento" data-bento>
-
-        <li class="bcard bcard--a" data-reveal style="--i:0">
-          <div class="viz" aria-hidden="true">
-            <div class="shade">
-              <svg viewBox="0 0 400 300" class="shade__flat">
-                <path d="M0 190C50 150 90 138 140 162S230 118 280 138 360 150 400 124V300H0Z" fill="#232327" stroke="rgba(255,255,255,.14)"/>
-                <path d="M0 226C60 190 120 200 170 215S260 168 320 190 380 200 400 184V300H0Z" fill="#1b1b1e" stroke="rgba(255,255,255,.12)"/>
-                <path d="M0 264C70 240 130 250 200 256S320 236 400 250V300H0Z" fill="#141416" stroke="rgba(255,255,255,.1)"/>
-              </svg>
-              <svg viewBox="0 0 400 300" class="shade__lit">
-                <defs>
-                  <radialGradient id="sun"><stop offset="0" stop-color="#fff"/><stop offset=".3" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-                  <linearGradient id="ridge-a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9d9de"/><stop offset=".55" stop-color="#4a4a50"/><stop offset="1" stop-color="#1e1e22"/></linearGradient>
-                  <linearGradient id="ridge-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9a9b0"/><stop offset=".6" stop-color="#36363b"/><stop offset="1" stop-color="#18181b"/></linearGradient>
-                  <linearGradient id="ridge-c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6e6e75"/><stop offset=".7" stop-color="#24242a"/><stop offset="1" stop-color="#121214"/></linearGradient>
-                </defs>
-                <g class="shade__sun"><circle cx="318" cy="70" r="62" fill="url(#sun)"/><circle cx="318" cy="70" r="13" fill="#fff"/></g>
-                <path d="M0 190C50 150 90 138 140 162S230 118 280 138 360 150 400 124V300H0Z" fill="url(#ridge-a)" stroke="rgba(255,255,255,.75)" stroke-width="1.4"/>
-                <path d="M0 226C60 190 120 200 170 215S260 168 320 190 380 200 400 184V300H0Z" fill="url(#ridge-b)" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>
-                <path d="M0 264C70 240 130 250 200 256S320 236 400 250V300H0Z" fill="url(#ridge-c)" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
-              </svg>
-              <span class="shade__line"></span>
-            </div>
-          </div>
-          <h3>Shaders, built in</h3>
-          <p>Installed and tuned for you. Nothing to hunt down.</p>
-        </li>
-
-        <li class="bcard bcard--b" data-reveal style="--i:1">
-          <div class="viz" aria-hidden="true">
-            <svg viewBox="0 0 400 210" preserveAspectRatio="xMidYMid meet">
-              <g class="win" style="--d:0">
-                <rect x="14" y="14" width="186" height="104" rx="14" fill="#161619" stroke="rgba(255,255,255,.2)"/>
-                <circle cx="32" cy="32" r="4" fill="rgba(255,255,255,.35)"/><circle cx="46" cy="32" r="4" fill="rgba(255,255,255,.2)"/><circle cx="60" cy="32" r="4" fill="rgba(255,255,255,.2)"/>
-                <rect x="30" y="52" width="40" height="40" rx="10" fill="rgba(255,255,255,.14)"/><rect x="34" y="56" width="32" height="14" rx="6" fill="rgba(255,255,255,.3)"/>
-                <rect x="82" y="58" width="90" height="8" rx="4" fill="rgba(255,255,255,.4)"/><rect x="82" y="76" width="60" height="8" rx="4" fill="rgba(255,255,255,.18)"/>
-              </g>
-              <g class="win" style="--d:.4">
-                <rect x="108" y="54" width="186" height="104" rx="14" fill="#1b1b1f" stroke="rgba(255,255,255,.24)"/>
-                <circle cx="126" cy="72" r="4" fill="rgba(255,255,255,.35)"/><circle cx="140" cy="72" r="4" fill="rgba(255,255,255,.2)"/><circle cx="154" cy="72" r="4" fill="rgba(255,255,255,.2)"/>
-                <rect x="124" y="92" width="40" height="40" rx="10" fill="rgba(255,255,255,.18)"/><rect x="128" y="96" width="32" height="14" rx="6" fill="rgba(255,255,255,.4)"/>
-                <rect x="176" y="98" width="90" height="8" rx="4" fill="rgba(255,255,255,.5)"/><rect x="176" y="116" width="52" height="8" rx="4" fill="rgba(255,255,255,.2)"/>
-              </g>
-              <g class="win" style="--d:.8">
-                <rect x="200" y="92" width="186" height="104" rx="14" fill="#202024" stroke="rgba(255,255,255,.34)"/>
-                <circle cx="218" cy="110" r="4" fill="#fff" class="win__dot"/><circle cx="232" cy="110" r="4" fill="rgba(255,255,255,.2)"/><circle cx="246" cy="110" r="4" fill="rgba(255,255,255,.2)"/>
-                <rect x="216" y="130" width="40" height="40" rx="10" fill="rgba(255,255,255,.22)"/><rect x="220" y="134" width="32" height="14" rx="6" fill="rgba(255,255,255,.5)"/>
-                <rect x="268" y="136" width="90" height="8" rx="4" fill="rgba(255,255,255,.6)"/><rect x="268" y="154" width="64" height="8" rx="4" fill="rgba(255,255,255,.22)"/>
-              </g>
-            </svg>
-          </div>
-          <h3>Several accounts</h3>
-          <p>Run them all at once, one window each.</p>
-        </li>
-
-        <li class="bcard bcard--c" data-reveal style="--i:2">
-          <div class="viz" aria-hidden="true">
-            <svg viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
-              <g>
-                <rect x="30" y="39" width="72" height="72" rx="18" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.22)"/>
-                <rect x="112" y="39" width="72" height="72" rx="18" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.22)"/>
-                <rect x="194" y="39" width="72" height="72" rx="18" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.22)"/>
-                <image class="tm" href="assets/origin-logo-128.png" x="42" y="51" width="48" height="48"/>
-                <image class="tm" href="assets/origin-logo-128.png" x="124" y="51" width="48" height="48"/>
-                <image class="tm" href="assets/origin-logo-128.png" x="206" y="51" width="48" height="48"/>
-              </g>
-              <rect x="276" y="39" width="72" height="72" rx="18" fill="none" stroke="rgba(255,255,255,.3)" stroke-dasharray="5 6"/>
-              <rect class="mod--ring" x="276" y="39" width="72" height="72" rx="18" fill="none" stroke="#fff" stroke-width="2"/>
-              <g class="mod--yours">
-                <rect x="276" y="39" width="72" height="72" rx="18" fill="#e0e0e0"/>
-                <path d="M312 63v24M300 75h24" stroke="#0a0a0b" stroke-width="5" stroke-linecap="round" fill="none"/>
-              </g>
-            </svg>
-          </div>
-          <h3>Your own mods</h3>
-          <p>Drop them in right next to Origin's.</p>
-        </li>
-
-        <li class="bcard bcard--d" data-reveal style="--i:3">
-          <div class="viz" aria-hidden="true">
-            <svg viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
-              <rect x="22" y="52" width="104" height="46" rx="23" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.22)"/>
-              <text x="74" y="81" text-anchor="middle" font-size="17">1.21.1</text>
-              <rect class="chip-in" x="274" y="52" width="104" height="46" rx="23" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.22)" stroke-width="1.5"/>
-              <text x="326" y="81" text-anchor="middle" font-size="17">1.20</text>
-              <path d="M134 75H266" stroke="rgba(255,255,255,.25)" stroke-dasharray="3 7" stroke-linecap="round" fill="none"/>
-              <g class="hop" style="--d:0"><rect x="136" y="66" width="18" height="18" rx="5" fill="#fff"/><rect x="141" y="72" width="8" height="6" rx="2" fill="#0a0a0b"/></g>
-              <g class="hop" style="--d:.35"><rect x="136" y="66" width="18" height="18" rx="5" fill="#e0e0e0"/><circle cx="145" cy="75" r="4" fill="none" stroke="#0a0a0b" stroke-width="2"/></g>
-              <g class="hop" style="--d:.7"><rect x="136" y="66" width="18" height="18" rx="5" fill="#c4c4c8"/><path d="M141 71h8M141 75h8M141 79h8" stroke="#0a0a0b" stroke-width="1.8" stroke-linecap="round"/></g>
-            </svg>
-          </div>
-          <h3>Switch versions</h3>
-          <p>Keybinds, mod settings and servers come with you.</p>
-        </li>
-
-        <li class="bcard bcard--e" data-reveal style="--i:4">
-          <div class="viz" aria-hidden="true">
-            <svg viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
-              <path d="M16 40H384M16 75H384M16 110H384" stroke="rgba(255,255,255,.07)" fill="none"/>
-              <path class="trace" pathLength="1" d="M16 52L52 48L88 55L124 46L160 51L184 56L204 112L224 58L256 48L292 53L328 46L364 50L384 48" fill="none" stroke="#e8e8e8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle class="found found--ring" cx="204" cy="112" r="8" fill="none" stroke="#fff" stroke-width="2"/>
-              <circle class="found" cx="204" cy="112" r="6" fill="#fff"/>
-              <g class="found"><rect x="222" y="98" width="88" height="30" rx="15" fill="#e0e0e0"/><text x="266" y="118" text-anchor="middle" font-size="14" style="fill:#0a0a0b">Found it</text></g>
-            </svg>
-          </div>
-          <h3>FPS Coach</h3>
-          <p>Finds what's causing your lag.</p>
-        </li>
-      </ul>
-    </section>
-
-    <!-- Player screenshots: hidden until site.js lists some (SCREENSHOTS). -->
-    <section class="section shots" id="screens" hidden data-shots>
-      <div class="section__head"><p class="eyebrow eyebrow--accent">In game</p><h2>Straight from the game.</h2></div>
-      <div class="shots__grid" data-shots-grid></div>
-    </section>
-
-    <!-- ===================== GET ===================== -->
-    <section class="section get" id="get" data-scene="get">
-      <p class="eyebrow eyebrow--accent">Origin Launcher</p>
-      <h2>Ready when you are.</h2>
-      <p class="lede" data-get-note>Free for Windows 10 and 11, Linux, and Mac as a beta. Origin keeps itself up to date.</p>
-      <!-- site.js turns the big button into the visitor's own system (Windows, Mac or Linux)
-           and lists every other download under it as capsules. Without JavaScript it stays the
-           Windows installer and the <noscript> list below carries the rest. -->
-      <a class="btn btn--primary btn--xl" data-download data-get-main href="https://github.com/dozeyy/originclient/releases/latest/download/OriginLauncher-Setup.exe">Download for Windows</a>
-      <p class="get__sub" data-get-sub hidden></p>
-      <nav class="others" data-other-downloads hidden aria-label="Other downloads"></nav>
-      <noscript>
-        <nav class="others" aria-label="Other downloads">
-          <a href="https://github.com/dozeyy/originclient/releases/latest/download/Origin-Mac-AppleSilicon.dmg"><span>Mac</span> <span class="badge">Beta</span><small>Apple Silicon</small></a>
-          <a href="https://github.com/dozeyy/originclient/releases/latest/download/Origin-Mac-Intel.dmg"><span>Mac</span> <span class="badge">Beta</span><small>Intel</small></a>
-          <a href="https://github.com/dozeyy/originclient/releases/latest/download/OriginLauncher-linux-x86_64.AppImage"><span>Linux AppImage</span><small>any distro</small></a>
-          <a href="https://github.com/dozeyy/originclient/releases/latest/download/origin-launcher_amd64.deb"><span>Linux .deb</span><small>Ubuntu, Debian, Mint</small></a>
-          <a href="https://github.com/dozeyy/originclient/releases/latest/download/origin-launcher.x86_64.rpm"><span>Linux .rpm</span><small>Fedora, openSUSE, Alma</small></a>
-          <a href="https://github.com/dozeyy/originclient/releases/latest/download/OriginLauncher-linux-x64.tar.gz"><span>Linux .tar.gz</span><small>unpack and run</small></a>
-        </nav>
-      </noscript>
-      <details class="get__steps" data-mac hidden>
-        <summary>Opening it on a Mac for the first time</summary>
-        <p>The Mac version is new, so macOS doesn't know it yet and asks once before it opens.</p>
-        <ol>
-          <li>Open the download and drag <b>Origin</b> into <b>Applications</b>.</li>
-          <li>Open Origin from Applications. macOS says it can't check it: click <b>Done</b>.</li>
-          <li>Open <b>System Settings</b>, then <b>Privacy &amp; Security</b>, scroll down and click <b>Open Anyway</b> next to Origin.</li>
-          <li>Click <b>Open Anyway</b> again and type your Mac password. From then on it opens like any other app.</li>
-        </ol>
-        <p>Older Minecraft versions (1.8.9 to 1.18.2) run through Rosetta on Apple Silicon. Origin offers to install it the first time you need it.</p>
-      </details>
-      <ul class="specs"><li>Free</li><li>Windows 10 &amp; 11</li><li data-mac hidden>Mac Beta (macOS 15+)</li><li>Linux (64-bit)</li><li>Updates itself</li></ul>
+      <aside class="teaser" aria-labelledby="teaser-title">
+        <img class="teaser__capes" src="assets/shots/store-capes.webp" width="1100" height="256" alt="Six capes from the Origin Store: Origin, Aurora, Golden Hour, Inferno, Frost and Void." loading="lazy" decoding="async">
+        <div class="teaser__text">
+          <h2 class="teaser__title" id="teaser-title">Capes, wings and hats.</h2>
+          <p>Cosmetic perks in the Origin Store, never a gameplay advantage. Try them on before you buy.</p>
+          <a class="teaser__link" href="store">Open the Store</a>
+        </div>
+      </aside>
     </section>
   </main>
 
   <footer class="foot">
     <a class="brand" href="#top" aria-label="Origin, back to top"><img class="brand__mark" src="assets/origin-logo-64.png" srcset="assets/origin-logo-32.png 1x, assets/origin-logo-64.png 2x, assets/origin-logo-128.png 3x" width="32" height="32" alt="Origin" decoding="async"><img class="brand__word" loading="lazy" src="assets/origin-wordmark-256.png" srcset="assets/origin-wordmark-128.png 1x, assets/origin-wordmark-256.png 2x, assets/origin-wordmark.png 3x" width="107" height="22" alt="" decoding="async"></a>
     <p>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft. Minecraft block textures © Mojang AB.</p>
-    <nav><a href="store">Store</a><a href="terms">Terms</a><a href="privacy">Privacy</a><span>© 2026 Origin Client</span></nav>
+    <nav aria-label="Pages"><a href="store">Store</a><a href="terms">Terms</a><a href="privacy">Privacy</a><span>© 2026 Origin Client</span></nav>
   </footer>
 
 </body>
