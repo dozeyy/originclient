@@ -1,0 +1,8 @@
+{
+  "crash": true,
+  "cause": "GraphicsDriver",
+  "confidence": "possible",
+  "rule": "graphics-driver",
+  "culprits": [],
+  "fix": "None"
+}

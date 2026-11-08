@@ -53,6 +53,12 @@ public sealed record PlayFailure(string Title, string Message)
                 + "Install it once, then press Play.")
             { OffersRosettaInstall = true };
 
+        // A system program the version needs is missing (Linux 1.8.9 without xrandr): Retry can't help until it is
+        // installed, so the message is the one install command for this distro.
+        if (error is SystemPieceMissingException missingPiece)
+            return new PlayFailure($"Minecraft {version} needs {missingPiece.Piece.Name}",
+                $"Install it once, then press Play: {missingPiece.InstallCommand}");
+
         // A user folder Java can't read (LOC-2): Retry alone can't help, so no Retry line; never "damaged files".
         if (error is JavaPathUnreadableException)
             return new PlayFailure($"Minecraft {version} can't start here", error.Message);

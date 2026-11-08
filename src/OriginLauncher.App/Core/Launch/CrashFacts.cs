@@ -93,6 +93,11 @@ public sealed record CrashFacts
     /// <summary>The damaged file is part of the game install (libraries, versions, the main class), not a mod.</summary>
     public bool DamagedGameFiles { get; init; }
     public string? GraphicsLine { get; init; }
+    /// <summary>
+    /// LWJGL 2 (1.8.9) died listing screen modes because the `xrandr` program is missing: its stack frame in
+    /// org.lwjgl.opengl.LinuxDisplay.getAvailableDisplayModes / XRandR next to an ArrayIndexOutOfBoundsException.
+    /// </summary>
+    public string? XrandrMissingLine { get; init; }
     /// <summary>hs_err "Problematic frame" native module, e.g. "nvoglv64.dll".</summary>
     public string? ProblematicModule { get; init; }
     public string? ProblematicFrameLine { get; init; }
@@ -150,6 +155,7 @@ public static class CrashFactsParser
     private static readonly Regex ClassVersion = Rx(@"UnsupportedClassVersionError: (?<cls>[\w/$.]+) has been compiled by a more recent version of the Java Runtime[^\r\n]*|compiled by a more recent version of the Java Runtime[^\r\n]*");
     private static readonly Regex Damaged = Rx(@"Invalid or corrupt jarfile[^\r\n]*|Error analyzing [^\r\n]*|zip END header not found|java\.util\.zip\.Zip(?:Exception|Error)[^\r\n]*|Error opening zip file[^\r\n]*|Invalid CEN header[^\r\n]*|Unable to access jarfile[^\r\n]*|Could not find or load main class[^\r\n]*|is not a ZIP archive|Archive is not a ZIP archive[^\r\n]*|ZipException[^\r\n]*");
     private static readonly Regex JarName = Rx(@"(?<path>[^\s'""\[\]<>|:*?,]*[\\/])?(?<name>[^\\/\s'""\[\]<>|:*?,]+\.jar)\b", RegexOptions.IgnoreCase);
+    private static readonly Regex XrandrFrame = Rx(@"at org\.lwjgl\.opengl\.(?:LinuxDisplay\.getAvailableDisplayModes|XRandR\.)[^\r\n]*");
     private static readonly Regex Graphics = Rx(@"GLFW error[^\r\n]*|WGL: [^\r\n]*|GLX: [^\r\n]*|Pixel format not accelerated|Couldn't set pixel format|Failed to create (?:the )?(?:window|OpenGL)[^\r\n]*|GL_OUT_OF_MEMORY|OpenGL [34]\.\d required[^\r\n]*", RegexOptions.IgnoreCase);
     private static readonly Regex Frame = Rx(@"# Problematic frame:\s*\r?\n#\s*(?<line>\w+\s+\[(?<module>[^+\]\r\n]+)[^\r\n]*)");
     private static readonly Regex JavaVer = Rx(@"Java Version:\s*(?<v>[^\r\n]+)|# JRE version:[^(\r\n]*\((?<v>[^)\r\n]+)\)|# JRE version:\s*(?<v>[^\r\n]+)");
@@ -238,6 +244,8 @@ public static class CrashFactsParser
             DamagedJar = damagedJar,
             DamagedGameFiles = damagedGame,
             GraphicsLine = Line(Graphics.Match(all), all),
+            XrandrMissingLine = all.Contains("ArrayIndexOutOfBoundsException", StringComparison.Ordinal)
+                ? Line(XrandrFrame.Match(all), all) : null,
             ProblematicModule = frame.Success ? frame.Groups["module"].Value.Trim() : null,
             ProblematicFrameLine = frame.Success ? frame.Groups["line"].Value.Trim() : null,
             JavaVersion = javaVer.Success ? javaVer.Groups["v"].Value.Trim() : null,

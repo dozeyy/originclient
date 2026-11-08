@@ -24,6 +24,7 @@ public static class CrashRules
         new("jvm-start", JvmStart),
         new("out-of-memory", OutOfMemory),
         new("java-version", JavaVersion),
+        new("linux-xrandr", LinuxXrandr),
         new("damaged-file", DamagedFile),
         new("fabric-dependency", FabricDependency),
         new("duplicate-mod", DuplicateMod),
@@ -387,6 +388,22 @@ public static class CrashRules
         // macOS: Apple's OpenGL over Metal, the GL engine, and the Intel / AMD GL drivers of Intel Macs.
         "applemetalopenglrenderer", "glengine", "libglprogrammability", "appleintel", "amdradeonx",
     ];
+
+    // 1.8.9's LWJGL 2 runs the `xrandr` program to list screen modes; without it LinuxDisplay indexes an empty list and
+    // the game dies before its window. PlatformLaunch.Linux refuses Play when xrandr is missing; this names it when a
+    // game got past that check anyway (xrandr removed while the launcher ran, or a PATH the game doesn't share). The
+    // stack frame itself is the structured evidence, so Confirmed; no fix button (installing needs the player's sudo).
+    private static CrashFinding? LinuxXrandr(CrashFacts f)
+    {
+        if (f.XrandrMissingLine == null) return null;
+        var install = LinuxPackages.InstallCommand(LinuxPackages.Xrandr, LinuxPackages.ThisComputer);
+        return new("linux-xrandr", CrashCause.GraphicsDriver, CrashConfidence.Confirmed, [],
+            "XRANDR MISSING", "Minecraft needs the xrandr program",
+            "The game stopped before its window opened: it couldn't list your screen's display modes.",
+            "This version's graphics library (LWJGL 2) runs the xrandr program for that, and it isn't installed.",
+            $"Install it once, then press Play: {install}",
+            null, Lines(f.XrandrMissingLine));
+    }
 
     private static CrashFinding? GraphicsDriver(CrashFacts f)
     {

@@ -1,0 +1,8 @@
+{
+  "crash": true,
+  "cause": "GraphicsDriver",
+  "confidence": "confirmed",
+  "rule": "linux-xrandr",
+  "culprits": [],
+  "fix": "None"
+}

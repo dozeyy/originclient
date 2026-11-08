@@ -1,0 +1,14 @@
+[12:00:00] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[12:00:01] [main/INFO] [FML]: Forge Mod Loader version 11.15.1.2318 for Minecraft 1.8.9 loading
+[12:00:03] [Client thread/INFO]: Setting user: <player>
+[12:00:04] [Client thread/INFO]: LWJGL Version: 2.9.4
+Exception in thread "Client thread" java.lang.ExceptionInInitializerError
+	at net.minecraft.client.Minecraft.setInitialDisplayMode(Minecraft.java:567)
+	at net.minecraft.client.Minecraft.startGame(Minecraft.java:415)
+	at net.minecraft.client.Minecraft.run(Minecraft.java:356)
+	at net.minecraft.client.main.Main.main(Main.java:113)
+Caused by: java.lang.ArrayIndexOutOfBoundsException: 0
+	at org.lwjgl.opengl.LinuxDisplay.getAvailableDisplayModes(LinuxDisplay.java:951)
+	at org.lwjgl.opengl.LinuxDisplay.init(LinuxDisplay.java:738)
+	at org.lwjgl.opengl.Display.<clinit>(Display.java:138)
+	... 4 more
