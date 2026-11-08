@@ -104,7 +104,7 @@ internal static class LaunchPlan
     /// (CGWindowListCopyWindowInfo, <see cref="MacWindows"/>). Minecraft's main class logging is not enough: it logs
     /// before any window exists, and v1.0.97's check passed 1.8.9 while that game died (exit 255) before its window.
     /// When the game stops first, its last lines and any crash report are printed, so the cause is in the CI log.
-    /// Exit 0 = a game window opened.
+    /// Exit 0 = a game window opened; 4 = it stopped at its OpenGL window because the Mac offered no OpenGL (see NoOpenGl).
     /// </summary>
     private static int StartGame(Process process, string version, string root)
     {
@@ -169,11 +169,42 @@ internal static class LaunchPlan
             Console.WriteLine($"PASS  {version}: the game started and its window opened");
             return 0;
         }
-        PrintWhyItStopped(lines.ToArray(), root);
+        var log = lines.ToArray();
+        PrintWhyItStopped(log, root);
+        // The game got as far as making its OpenGL window and the Mac gave it no OpenGL: the pixel format was refused
+        // (LWJGL 2: "Could not create pixel format"; GLFW: "NSGL: Failed to find a suitable pixel format"), or it never
+        // came back from the window call (the last game line is the one logged right before it). Exit 4 says so, and
+        // CI (mac-launcher.yml) accepts it only on a runner its OpenGL probe (tools/mac/gl_probe.m) shows can't give ANY
+        // program an accelerated OpenGL window; anywhere else it is a failure like any other.
+        var noGl = mainClass.IsSet ? NoOpenGl(log) ?? (exited ? null : StoppedAtWindowCall(log)) : null;
+        if (noGl != null)
+        {
+            Console.WriteLine($"NO-GL {version}: the game stopped at its OpenGL window: {noGl}");
+            return 4;
+        }
         Console.WriteLine(!mainClass.IsSet
             ? $"FAIL  {version}: Minecraft's main class never ran ({(exited ? "java exited " + process.ExitCode : "timed out")})"
             : $"FAIL  {version}: no game window opened ({(exited ? "java exited " + process.ExitCode : "timed out")})");
         return 1;
+    }
+
+    private static readonly string[] NoOpenGlSignatures =
+        ["Could not create pixel format", "Pixel format not accelerated", "NSGL: Failed to find a suitable pixel format",
+         "NSGL: Failed to create OpenGL context"];
+
+    private static string? NoOpenGl(IEnumerable<string> log) =>
+        log.FirstOrDefault(l => NoOpenGlSignatures.Any(s => l.Contains(s, StringComparison.Ordinal)))?.Trim();
+
+    // The last meaningful game line is the one each version logs right before creating its window ("Backend library:"
+    // for LWJGL 3 / 1.21.1, "LWJGL Version:" for LWJGL 2 / 1.8.9), and nothing came after it.
+    private static string? StoppedAtWindowCall(string[] log)
+    {
+        var last = log.LastOrDefault(l => l.Contains("Backend library:", StringComparison.Ordinal) || l.Contains("LWJGL Version:", StringComparison.Ordinal)
+                                          || l.Contains("Created: ", StringComparison.Ordinal) || l.Contains("Sound engine started", StringComparison.Ordinal)
+                                          || l.Contains("Reloading ResourceManager", StringComparison.Ordinal));
+        return last != null && (last.Contains("Backend library:", StringComparison.Ordinal) || last.Contains("LWJGL Version:", StringComparison.Ordinal))
+            ? last.Trim()
+            : null;
     }
 
     // The game's last lines, then the newest crash report and JVM crash file it left (redacted), so a failed start

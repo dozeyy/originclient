@@ -377,19 +377,39 @@ jobs:
           PY
           ls "$RUNNER_TEMP/publish/Bundled/OriginClient"
 
+      # What this runner can draw with, independent of Minecraft and Origin (tools/mac/gl_probe.m): an accelerated
+      # OpenGL pixel format, the software renderer, and whether a plain window from a process reaches the screen. A
+      # game stopped at its OpenGL window (--start-game exit 4) passes as UNPROVEN only when this says the runner gives
+      # no program an accelerated OpenGL window; with one, the same stop is a failure.
+      - name: OpenGL on this runner
+        if: matrix.shard == 0
+        run: |
+          clang -fobjc-arc -framework Cocoa -framework OpenGL -o "$RUNNER_TEMP/gl_probe" tools/mac/gl_probe.m
+          perl -e 'alarm 60; exec @ARGV' "$RUNNER_TEMP/gl_probe" | tee "$RUNNER_TEMP/gl_probe.txt"
+          { echo "OpenGL probe (${{ matrix.rid }}):"; sed 's/^/    /' "$RUNNER_TEMP/gl_probe.txt"; } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Game starts (window opens)
         if: matrix.shard == 0
         run: |
           set -o pipefail
           app="$RUNNER_TEMP/publish/OriginLauncher"
+          gl_ok=no
+          grep -qE "^accelerated GL +yes" "$RUNNER_TEMP/gl_probe.txt" && grep -qE "^window +yes" "$RUNNER_TEMP/gl_probe.txt" && gl_ok=yes
           failed=""
           for v in 1.21.1 1.8.9; do
             echo "::group::start $v"
             root="$RUNNER_TEMP/start-$v"
-            if "$app" --launch-plan "$v" --root "$root" --start-game | tee "$RUNNER_TEMP/start-$v.txt"; then
+            set +e
+            "$app" --launch-plan "$v" --root "$root" --start-game | tee "$RUNNER_TEMP/start-$v.txt"
+            code=${PIPESTATUS[0]}
+            set -e
+            if [ "$code" = 0 ]; then
               echo "| $v | game window opened: pass |" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "$code" = 4 ] && [ "$gl_ok" = no ]; then
+              echo "::warning title=$v window unproven::this runner has no accelerated OpenGL window for any program (OpenGL probe); the game stopped there too"
+              echo "| $v | game window: UNPROVEN on this runner (no accelerated OpenGL) |" >> "$GITHUB_STEP_SUMMARY"
             else
-              failed="$failed $v"; echo "| $v | game window opened: FAIL |" >> "$GITHUB_STEP_SUMMARY"
+              failed="$failed $v"; echo "| $v | game window opened: FAIL (exit $code) |" >> "$GITHUB_STEP_SUMMARY"
             fi
             grep -E "^  (game|title)" "$RUNNER_TEMP/start-$v.txt" | sed "s/^/    $v /" >> "$GITHUB_STEP_SUMMARY" || true
             rm -rf "$root"
