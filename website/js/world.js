@@ -48,12 +48,12 @@ const POSES = {
   heroTablet: { pos: [52, 22, 65], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.21, orbit: 1 },    // same, for the bigger open space a tablet has above the headline
   // The film's other shots (site.js SCENES). Each chapter's text sits on one side, so the island
   // is framed on the other: launcher = low angle from the far side, island left; versions = a high
-  // shot over the top, island right; why = the cut inside (covered, it rests); get = the wide
-  // closing shot, island right of the download copy.
-  launcher: { pos: [-44, -2, 30], target: [0.5, -5, 0.5], fov: 40, shiftX: -0.27, shiftY: 0.02, orbit: 0.8 },
+  // shot over the top, island right; why = the cut inside (covered, it rests); get = a low
+  // closing shot against the sunset, island right of the download copy.
+  launcher: { pos: [-62, -4, 42], target: [0.5, -5, 0.5], fov: 40, shiftX: -0.29, shiftY: 0.02, orbit: 0.8 },
   versions: { pos: [26, 40, 44], target: [0.5, -3, 0.5], fov: 42, shiftX: 0.25, shiftY: 0.02, orbit: 1 },
   why:      { pos: [-34, 13, 43], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.2, shiftY: 0.03, orbit: 0.6 },
-  get:      { pos: [26, 9, 62], target: [0.5, -4, 0.5], fov: 40, shiftX: 0.25, shiftY: 0.04, orbit: 1 },
+  get:      { pos: [44, -9, 52], target: [0.5, -2, 0.5], fov: 40, shiftX: 0.25, shiftY: 0.06, orbit: 1 },
 };
 
 function rng(seed) {

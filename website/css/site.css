@@ -124,13 +124,13 @@ p { text-wrap: pretty; }
 .hero__title { font-size: clamp(54px, 6.6vw, 96px); line-height: .94; letter-spacing: -.018em; margin: 0 0 28px; }
 .hero__title .line { display: block; overflow: hidden; padding-bottom: .1em; margin-bottom: -.1em; }
 .hero__title .line > span { display: block; }
-.hero__title em { font-style: italic; letter-spacing: -.01em; padding-right: .04em; }
+.hero__title em { font-style: italic; letter-spacing: -.01em; }
 .hero__lede { margin: 0 0 32px; max-width: 30em; color: var(--dim); font-size: clamp(17px, 1.3vw, 19px); line-height: 1.55; }
 .hero__lede, .hero__title { text-shadow: 0 1px 24px rgb(var(--shade-ink) / .55); }
 .hero__cta { display: grid; justify-items: start; gap: 14px; }
-.hero__sub { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
-.hero__sub a { color: var(--dim); }
-.hero__sub a:hover { color: var(--text); }
+.hero__sub { margin: 0; color: var(--dim); font-size: 14px; line-height: 1.5; }
+.hero__sub a { color: var(--text); }
+.hero__sub a:hover { text-decoration-thickness: 2px; }
 .hero__credit { position: absolute; right: var(--pad); bottom: 28px; margin: 0; display: flex; gap: 14px; color: var(--muted); font: 500 12px/1.4 var(--sans); letter-spacing: .02em; }
 .hero__credit span + span::before { content: ""; display: inline-block; width: 18px; height: 1px; margin: 0 12px .28em 0; background: currentColor; vertical-align: middle; opacity: .6; }
 .hero__cue { display: none; }
