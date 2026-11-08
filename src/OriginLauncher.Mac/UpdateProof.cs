@@ -52,6 +52,24 @@ internal static class UpdateProof
         return _failures == 0 ? 0 : 1;
     }
 
+    /// <summary>
+    /// `--update-asset` (CI): the release zip this copy's self-update takes, with the process and machine CPUs. The
+    /// Intel build run under Rosetta on an Apple Silicon runner must answer the Apple Silicon zip (MAC-4). Exit 0 when
+    /// the zip matches the machine.
+    /// </summary>
+    public static int PrintAsset()
+    {
+        var process = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture;
+        var machine = OriginLauncher.App.Core.Launch.PlatformLaunch.HostArch;
+        var translated = SystemInfo.SysctlInt64("sysctl.proc_translated") == 1;
+        var want = MacReleaseAssets.ZipNameFor(machine);
+        Console.WriteLine($"update asset     {UpdateService.ReleaseAssetName} (process {process}, machine {machine}, Rosetta {(translated ? "yes" : "no")})");
+        Console.WriteLine($"native notice    {(MacReleaseAssets.NativeBuildNotice(process, machine) is { } n ? n.Title : "none")}");
+        var ok = string.Equals(UpdateService.ReleaseAssetName, want, StringComparison.Ordinal);
+        Console.WriteLine(ok ? $"PASS  updates to {want}" : $"FAIL  updates to {UpdateService.ReleaseAssetName}, the machine needs {want}");
+        return ok ? 0 : 1;
+    }
+
     private static async Task RunAsync(string expect)
     {
         await UpdateService.CheckAsync();
