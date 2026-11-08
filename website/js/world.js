@@ -48,7 +48,11 @@ const POSES = {
   heroTablet: { pos: [52, 22, 65], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.21, orbit: 1 },    // same, for the bigger open space a tablet has above the headline
   // versions: a low shot from the island's far side, framed on the right beside the spec sheet
   // (the reverse of the hero's angle, so the world comes back mid-page as a new shot)
-  versions: { pos: [-54, -3.5, 36], target: [0.5, -5, 0.5], fov: 40, shiftX: 0.27, shiftY: 0.02, orbit: 0.8 },
+  versions: { pos: [-54, -3.5, 36], target: [0.5, -5, 0.5], fov: 40, shiftX: 0.27, shiftY: 0.05, orbit: 0.8 },
+  // the same shot drifting up and away (smaller, higher, further right) while the cosmetics shot covers it
+  cosmetics: { pos: [-76, -5, 50], target: [0.5, -5, 0.5], fov: 40, shiftX: 0.33, shiftY: 0.24, orbit: 0.8 },
+  // phones only: the island alone in the text-free band between the launcher and the versions
+  band:     { pos: [-108, -7, 72], target: [0.5, -5, 0.5], fov: 40, shiftX: 0, shiftY: 0, orbit: 0.8 },
   why:      { pos: [-34, 13, 43], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.2, shiftY: 0.03, orbit: 0.6 },
   // the download moment: desktop, the island floats large in the right half beside the download
   // panel; phones (shiftYPhone) lift it into the band above the panel
@@ -335,7 +339,7 @@ const DUST_VERT = /* glsl */`
 
 // `mobile` is only the load-time budget (pixel-ratio cap, dust count): cheap to leave as it
 // was at load. The hero POSE follows the live window width instead (isMobile below).
-export async function createWorld(canvas, { mobile = false, reducedMotion = false, heroZone = null } = {}) {
+export async function createWorld(canvas, { mobile = false, reducedMotion = false, pointer: pointerOn = true, heroZone = null } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
   renderer.setClearColor(0x000000, 0);
@@ -526,8 +530,10 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   // A scrollbar appearing or going away changes the width the canvas has without any window
   // resize event; the observer catches it (fires only on a change, nothing per frame).
   if (window.ResizeObserver) new ResizeObserver(() => { if (document.documentElement.clientWidth !== W) { resize(); wake(); } }).observe(document.documentElement);
+  // The island leans toward a mouse (a fine pointer only, and not with reduced motion: site.js
+  // passes pointer: false then); its own glide, float and sway never depend on it.
   window.addEventListener('pointermove', e => {
-    if (e.pointerType === 'touch') return;
+    if (!pointerOn || e.pointerType !== 'mouse') return;
     pointer.x = e.clientX / W * 2 - 1;
     pointer.y = e.clientY / H * 2 - 1;
   }, { passive: true });
@@ -585,7 +591,8 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     if (!reducedMotion) {
       const bob = Math.sin(now * TAU / 9) * 0.42 + Math.sin(now * TAU / 5.3 + 1) * 0.12;
       pivot.position.y = bounds.center.y + bob;
-      pivot.rotation.set(Math.sin(now * TAU / 17) * 0.012, Math.sin(now * TAU / 31) * 0.045, Math.sin(now * TAU / 13 + 0.6) * 0.012);
+      // (+ a lean of up to ~2 degrees toward the pointer, on its own soft spring)
+      pivot.rotation.set(Math.sin(now * TAU / 17) * 0.012 + pointerSpring.x[1] * 0.035, Math.sin(now * TAU / 31) * 0.045 + pointerSpring.x[0] * 0.05, Math.sin(now * TAU / 13 + 0.6) * 0.012 - pointerSpring.x[0] * 0.03);
     }
     lights.forEach((l, i) => {
       const ang = (reducedMotion ? 0 : l.dir * now * TAU / (l.period * 0.4)) + l.phase;

@@ -54,19 +54,24 @@ const VERSION_GROUPS = [
 // Scenes top to bottom, one per section (DOM order). The island opens the page (hero), comes
 // back beside the versions sheet (a low shot from the far side, island on the right) and closes
 // it (get); the launcher chapter and the cosmetics shot sit on the page's own colour, so the
-// island rests under them.
+// island rests under them. Phones get the island mid-page in a text-free band of its own.
 //   cover: how much of the page colour lies over the whole island (from COVERED on it is frozen);
 //   left:  a shade from the left edge only, so text there reads while the island stays clear on
-//          the right (desktop). A phone has no side to spare and any island there would sit under
-//          the sheet's text, so `phone` replaces the cover (the island rests under the versions);
-//   start: delays the blend until the section's top is that far down the screen (default 1 = as
-//          soon as it appears). Get waits until it is well up, so the island never fades back in
-//          under the cosmetics shot.
+//          the right (desktop; phones have no side to spare);
+//   start: the blend begins when the section's top is that far down the screen (default 1 = as
+//          soon as it appears) and takes `span` screen heights (default .5);
+//   phone: values that replace the above on a phone (<= 900 px); phoneOnly: the scene's element
+//          only exists there (the band is display: none on wider screens).
+// Versions holds its island until the cosmetics shot is about half way up, then the island
+// drifts up and away as that shot covers it. On a phone the island shows only while the band
+// is the only thing around it on screen, so no text ever crosses it: it fades in once the band's
+// top is above the island and out before the versions heading reaches it.
 const SCENES = [
   { id: 'top', pose: 'hero', cover: 0 },
   { id: 'why', pose: 'why', cover: 1 },
-  { id: 'versions', pose: 'versions', cover: 0.1, left: 0.94, phone: 1 },
-  { id: 'cosmetics', pose: 'versions', cover: 1 },
+  { id: 'band', pose: 'band', cover: 0, start: 0.44, span: 0.14, phoneOnly: true },
+  { id: 'versions', pose: 'versions', cover: 0.1, left: 0.94, phone: { cover: 1, start: 0.72, span: 0.1 } },
+  { id: 'cosmetics', pose: 'cosmetics', cover: 1, left: 0.94, start: 0.55 },
   { id: 'get', pose: 'get', cover: 0.08, start: 0.7 },
 ];
 // From this cover on so little of the island shows that it is frozen instead of drawn
@@ -302,18 +307,18 @@ function initMenu() {
 let queued = false;
 function frame() {
   const H = innerHeight, y = scrollY, phone = innerWidth <= 900;   // the CSS phone/tablet line
-  const cover = s => (phone && s.phone !== undefined ? s.phone : s.cover), left = s => (phone ? 0 : s.left || 0);
-  // each scene blends into the next as it scrolls up into view, finished by
-  // the time its top is halfway up the screen, so the shade is already dark
-  // behind the heading before anyone reads it (phones: the island sits there)
+  const scenes = SCENES.filter(sc => phone || !sc.phoneOnly).map(sc => (phone && sc.phone ? { ...sc, ...sc.phone } : sc));
+  const left = sc => (phone ? 0 : sc.left || 0);
+  // each scene blends into the next as it scrolls up into view (by default finished by the time
+  // its top is halfway up the screen, so the shade is already dark behind the heading)
   let pose = ['hero', 'hero', 0], shade = 0, side = 0;
-  for (let i = 1; i < SCENES.length; i++) {
-    const a = SCENES[i - 1], b = SCENES[i], start = H * (b.start ?? 1);
+  for (let i = 1; i < scenes.length; i++) {
+    const a = scenes[i - 1], b = scenes[i], start = H * (b.start ?? 1);
     const top = document.getElementById(b.id).getBoundingClientRect().top;
     if (top >= start) break;
-    const t = smooth(clamp((start - top) / (H * 0.5)));
+    const t = smooth(clamp((start - top) / (H * (b.span ?? 0.5))));
     pose = [a.pose, b.pose, t];
-    shade = cover(a) + (cover(b) - cover(a)) * t;
+    shade = a.cover + (b.cover - a.cover) * t;
     side = left(a) + (left(b) - left(a)) * t;
   }
   world?.setPose(...pose);
@@ -384,7 +389,7 @@ async function boot() {
     // The island always glides, floats and sways, whatever the OS reduced-motion setting says: with it on, the
     // camera snapped from pose to pose while scrolling down the island and nothing floated (Will, 2026-11-05:
     // "looks dumb, revert it"). Other page animations still respect reduced motion.
-    world = await createWorld($('#world'), { mobile: innerWidth <= 900, reducedMotion: false, heroZone: heroZone() });   // same 900px line as the CSS phone/tablet layout
+    world = await createWorld($('#world'), { mobile: innerWidth <= 900, reducedMotion: false, pointer: !reducedMotion, heroZone: heroZone() });   // same 900px line as the CSS phone/tablet layout
     addEventListener('resize', syncHeroZone);
     // a scrollbar coming or going shifts the layout without a resize event
     if (window.ResizeObserver) { let cw = document.documentElement.clientWidth; new ResizeObserver(() => { const w = document.documentElement.clientWidth; if (w !== cw) { cw = w; syncHeroZone(); } }).observe(document.documentElement); }

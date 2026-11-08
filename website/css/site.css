@@ -187,7 +187,7 @@ body.menu-open .top { background: var(--panel); box-shadow: none; transform: non
 
 /* ---------- chapters ---------- */
 .chapter { position: relative; padding: clamp(96px, 11vw, 150px) 0; }
-.chapter + .chapter:not(.get) { padding-top: clamp(48px, 5vw, 72px); }
+.chapter + .chapter:not(.get), .island-band + .chapter { padding-top: clamp(48px, 5vw, 72px); }
 .chapter__head { max-width: 760px; margin-bottom: clamp(40px, 5vw, 60px); }
 .chapter__head--sub { margin-top: clamp(96px, 11vw, 150px); }
 
@@ -202,21 +202,17 @@ figure { margin: 0; }
 figcaption { margin-top: 14px; color: var(--text); font-size: 15px; font-weight: 560; }
 figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sans); }
 
-/* the launcher, with three captions pointing up at what they describe */
-.product { position: relative; }
-.callouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 0; font-weight: 400; }
-.callout { position: relative; margin: 0; padding-top: 34px; color: var(--dim); font-size: 15.5px; line-height: 1.5; max-width: 22em; }
-.callout b { display: block; color: var(--text); font-weight: 620; margin-bottom: 2px; }
-.callout::before { content: ""; position: absolute; top: 0; width: 1px; height: 24px; background: var(--stroke); }
-.callout::after { content: ""; position: absolute; top: -3px; width: 7px; height: 7px; margin-left: -3px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 0 4px rgba(95, 208, 155, .16); }
-/* x positions match the screenshot: picker bottom-left, the numeral in the middle, Play bottom-right */
-.callout--l::before, .callout--l::after { left: 5.5%; }
-.callout--l { padding-left: 0; }
-.callout--c { justify-self: center; text-align: center; }
-.callout--c::before, .callout--c::after { left: 50%; }
-.callout--r { justify-self: end; text-align: right; }
-.callout--r::before, .callout--r::after { left: auto; right: 7%; }
-.callout--r::after { margin: 0 -3px 0 0; }
+/* the launcher: the screenshot (at most 960 px, its own pixels on a 2x screen) with three numbered
+   marks on it, and the matching numbered list beside it */
+.product { display: grid; grid-template-columns: minmax(0, 960px) minmax(0, 1fr); gap: clamp(28px, 3.2vw, 48px); align-items: end; }
+.mark {
+  position: absolute; left: var(--x); top: var(--y); display: grid; place-items: center; width: 26px; height: 26px; margin: -13px 0 0 -13px;
+  border-radius: 50%; background: var(--acc); color: var(--on-acc); font: 700 13px/1 var(--sans); box-shadow: 0 0 0 4px rgba(95, 208, 155, .22), 0 2px 8px rgba(0, 0, 0, .5);
+}
+.callouts { list-style: none; counter-reset: c; margin: 0; padding: 0; border-top: 1px solid var(--stroke); }
+.callouts li { counter-increment: c; position: relative; padding: 16px 0 18px 40px; border-bottom: 1px solid var(--soft); color: var(--dim); font-size: 15.5px; line-height: 1.5; }
+.callouts li::before { content: counter(c); position: absolute; left: 0; top: 17px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--acc-soft); box-shadow: inset 0 0 0 1px var(--acc-border); color: var(--acc-h); font: 700 12.5px/1 var(--sans); }
+.callouts b { display: block; color: var(--text); font-weight: 620; margin-bottom: 2px; }
 
 /* the launcher frame settles into place as it scrolls into view (one authored motion moment) */
 @supports (animation-timeline: view()) {
@@ -227,15 +223,17 @@ figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sa
 @keyframes settle { from { transform: perspective(1800px) rotateX(14deg) scale(.93) translateY(30px); opacity: .55; } to { transform: none; opacity: 1; } }
 
 /* in game: one large shot, two stacked */
-.ingame__grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 28px; align-items: end; }
+/* columns in the ratio of the two pictures' widths at equal height (16:9 and 944:604), so both frames
+   are exactly as tall and their captions sit on one line */
+.ingame__grid { display: grid; grid-template-columns: minmax(0, 1.778fr) minmax(0, 1.563fr); gap: 28px; align-items: start; }
 
 /* "Also built in": a spec list, two columns of hairline rows (like the versions sheet). The first
    two rows are what other launchers can't say, so they lead, one step larger. */
 .also { margin: clamp(88px, 10vw, 132px) 0 0; }
 .also__title { margin: 0 0 16px; font-size: 18px; font-weight: 640; letter-spacing: -.012em; }
 .feats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: clamp(32px, 4vw, 56px); border-top: 1px solid var(--stroke); }
-.feats li { display: grid; grid-template-columns: minmax(0, 11em) minmax(0, 1fr); column-gap: 24px; align-items: baseline; padding: 18px 0 20px; border-bottom: 1px solid var(--soft); }
-.feats h3 { font-size: 16.5px; font-weight: 620; }
+.feats li { display: grid; grid-template-columns: 13.5em minmax(0, 1fr); column-gap: 24px; align-items: baseline; padding: 18px 0 20px; border-bottom: 1px solid var(--soft); }
+.feats h3 { font-size: 16.5px; font-weight: 620; white-space: nowrap; }
 .feats p { margin: 0; color: var(--dim); font-size: 15.5px; line-height: 1.55; }
 .feats .is-lead { grid-template-columns: minmax(0, 1fr); padding: 26px 0 28px; }
 .feats .is-lead h3 { font-size: 24px; font-weight: 650; letter-spacing: -.022em; line-height: 1.2; }
@@ -243,6 +241,11 @@ figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sa
 
 /* ---------- versions spec sheet ---------- */
 .versions__main { width: min(100%, 700px); }
+/* the versions sheet runs straight into the cosmetics shot (the island hands over between them) */
+.chapter.versions { padding-bottom: clamp(32px, 4vw, 56px); }
+.chapter.versions + .chapter.teaser { padding-top: clamp(32px, 4vw, 56px); }
+/* phones only: the island's own stretch between the launcher chapter and the versions */
+.island-band { display: none; }
 .spec { width: 100%; border-collapse: collapse; }
 .spec thead th { padding: 0 16px 12px 0; border-bottom: 1px solid var(--stroke); color: var(--dim); font: 500 14px/1 var(--sans); text-align: left; }
 .spec tbody th, .spec td { padding: 20px 16px 20px 0; border-bottom: 1px solid var(--soft); vertical-align: top; text-align: left; }
@@ -331,6 +334,7 @@ figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sa
 /* ---------- tablets and phones ---------- */
 @media (max-width: 1100px) {
   .feats li { grid-template-columns: minmax(0, 1fr); }
+  .feats h3 { white-space: normal; }
   .feats p { margin-top: 4px; }
 }
 @media (max-width: 900px) {
@@ -350,10 +354,10 @@ figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sa
   .hero__title { font-size: clamp(40px, 11vw, 64px); }
   .hero__lede { margin-top: 18px; }
   .hero__actions { margin-top: 26px; }
-  .callouts { grid-template-columns: minmax(0, 1fr); gap: 0; margin-top: 18px; }
-  .callout, .callout--c, .callout--r { justify-self: stretch; text-align: left; max-width: none; padding: 14px 0 14px 22px; border-top: 1px solid var(--soft); }
-  .callout::before { display: none; }
-  .callout::after, .callout--c::after, .callout--r::after { left: 2px; right: auto; top: 23px; margin: 0; }
+  .product { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .mark { width: 20px; height: 20px; margin: -10px 0 0 -10px; font-size: 11px; box-shadow: 0 0 0 3px rgba(95, 208, 155, .22), 0 2px 6px rgba(0, 0, 0, .5); }
+  .island-band { display: block; height: 80svh; }
+  .island-band + .chapter { padding-top: 8px; }
   .ingame__grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .shot--big { grid-row: auto; }
   .teaser__grid { grid-template-columns: minmax(0, 1fr); }

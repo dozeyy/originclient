@@ -92,14 +92,20 @@
           <p class="lede">Pick a Minecraft version and press Play. Origin installs what that version needs (the game, its loader, Origin's own client and the shader and performance mods) and then starts it.</p>
         </header>
 
+        <!-- Shown at no more than 960 px: the screenshot is a 1920 px render, so a 2x screen gets it pixel for pixel. -->
         <figure class="product">
           <div class="frame frame--launcher" data-settle>
-            <img src="assets/shots/launcher-home-1280.webp" srcset="assets/shots/launcher-home-800.webp 800w, assets/shots/launcher-home-1280.webp 1280w, assets/shots/launcher-home-1920.webp 1920w" sizes="(min-width: 1300px) 1240px, calc(100vw - 32px)" width="1920" height="1080" alt="The Origin Launcher's Home screen: the version 1.21.1 in large type over its update's artwork, the version picker bottom left and a green Play button bottom right." loading="lazy" decoding="async">
+            <img src="assets/shots/launcher-home-1280.webp" srcset="assets/shots/launcher-home-800.webp 800w, assets/shots/launcher-home-1280.webp 1280w, assets/shots/launcher-home-1920.webp 1920w" sizes="(min-width: 1300px) 960px, (min-width: 901px) 72vw, calc(100vw - 32px)" width="1920" height="1080" alt="The Origin Launcher's Home screen: the version 1.21.1 in large type over its update's artwork, the version picker bottom left and a green Play button bottom right." loading="lazy" decoding="async">
+            <span class="mark" style="--x: 11.5%; --y: 86.5%" aria-hidden="true">1</span>
+            <span class="mark" style="--x: 21.5%; --y: 32%" aria-hidden="true">2</span>
+            <span class="mark" style="--x: 87.5%; --y: 89%" aria-hidden="true">3</span>
           </div>
-          <figcaption class="callouts">
-            <p class="callout callout--l"><b>Version picker</b> Every supported version in one list, grouped by update.</p>
-            <p class="callout callout--c"><b>The version you're on</b> Shown big, over that update's own artwork.</p>
-            <p class="callout callout--r"><b>Play</b> Installs anything missing, checks it, starts the game.</p>
+          <figcaption>
+            <ol class="callouts">
+              <li><b>Version picker</b> Every supported version in one list, grouped by update.</li>
+              <li><b>The version you're on</b> Shown big, over that update's own artwork.</li>
+              <li><b>Play</b> Installs anything missing, checks it, then starts the game.</li>
+            </ol>
           </figcaption>
         </figure>
 
@@ -133,6 +139,9 @@
         </div>
       </div>
     </section>
+
+    <!-- Phones only: a text-free stretch where the island passes between the chapters (site.js SCENES 'band'). -->
+    <div class="island-band" id="band" aria-hidden="true"></div>
 
     <!-- ===================== VERSIONS ===================== -->
     <section class="chapter versions" id="versions" data-scene="versions">
