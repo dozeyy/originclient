@@ -204,7 +204,7 @@ figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sa
 
 /* the launcher: the screenshot (at most 960 px, its own pixels on a 2x screen) with three numbered
    marks on it, and the matching numbered list beside it */
-.product { display: grid; grid-template-columns: minmax(0, 960px) minmax(0, 1fr); gap: clamp(28px, 3.2vw, 48px); align-items: end; }
+.product { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 1fr); gap: clamp(28px, 3.2vw, 48px); align-items: end; }
 .mark {
   position: absolute; left: var(--x); top: var(--y); display: grid; place-items: center; width: 26px; height: 26px; margin: -13px 0 0 -13px;
   border-radius: 50%; background: var(--acc); color: var(--on-acc); font: 700 13px/1 var(--sans); box-shadow: 0 0 0 4px rgba(95, 208, 155, .22), 0 2px 8px rgba(0, 0, 0, .5);
@@ -332,6 +332,12 @@ figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sa
 .legal__body code { overflow-wrap: anywhere; }
 
 /* ---------- tablets and phones ---------- */
+/* narrower desktops: the list goes under the screenshot, in three columns */
+@media (max-width: 1180px) {
+  .product { grid-template-columns: minmax(0, 1fr); }
+  .frame--launcher { max-width: 960px; }
+  .callouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 28px; }
+}
 @media (max-width: 1100px) {
   .feats li { grid-template-columns: minmax(0, 1fr); }
   .feats h3 { white-space: normal; }
@@ -355,6 +361,7 @@ figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sa
   .hero__lede { margin-top: 18px; }
   .hero__actions { margin-top: 26px; }
   .product { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .callouts { display: block; }
   .mark { width: 20px; height: 20px; margin: -10px 0 0 -10px; font-size: 11px; box-shadow: 0 0 0 3px rgba(95, 208, 155, .22), 0 2px 6px rgba(0, 0, 0, .5); }
   .island-band { display: block; height: 80svh; }
   .island-band + .chapter { padding-top: 8px; }
