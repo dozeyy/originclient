@@ -424,3 +424,28 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Shaders: IrisScreenHook points Iris's own Download Shaders row at Origin's browser (corner button only when that row is absent; re-checked each tick for Hide GUI); Remove switches off the active pack first; IrisBridge.watchShaderPerformanceMode reloads on any change; refreshIrisScreen after a download; 1.8.9 storeConfig + off-thread warning; IrisBlurOptionMixin (Options.getMenuBackgroundBlurriness while Iris's screen is open: 0 in a world, Origin's strength with Menu Blur on; Hide GUI = no blur, no darkening) on the 10 modules with vanilla menu blur. tools/shader-hook-tests in build-check.
 - Launcher: Bring over names what stayed behind (BulkRules.NoneCanComeOver); Profiles SelectionChanged -> Home RefreshProfile (Win/Mac); ImportContext.OriginWillInstall before first Play; Mods rows show jar name+version; Modrinth version_types ["release"] (field confirmed in labrinth source); ModAddQueue.KeepsAnswers; TurnOn by bytes for a switched-off twin; Mac lsof probe (3 s) for Prism/MultiMC; Mac profile TryUpdate results checked; Home says settings wait for first Play. Open: 26.1.x DataVersions still missing (read world_version from each client jar).
 - Proof on 1cbb6de6: build-check (1.16.5 rerun after Maven outage), Mac, Linux, launcher-shots, ref-189, boot-smoke 20/20 in-world (0 mixin failures), dev-shots world rel097bw (23-25 PNGs); earlier combined pass on 18a1533b incl. design rel097. Review: fix-required -> 3 fixed (+ Iris blur from the main session).
+
+## 2026-11-08 - v1.0.98: cross-platform pass (Mac crash, Mac + Linux audits, three-way parity) (cloud session)
+- Mac crash (v1.0.92 report, Play signed out): Avalonia 12.1.5 TransformAnimator casts the animation target to Visual for any
+  Transform-owned property; MotionFx ran ScaleX/ScaleY/X/Y animations on the Transform object, so every one threw (sign-in card,
+  Accounts + Friends drawers, PopupMenu, Mods page). MotionFx.Run(owner, transform, property, ...) now runs on the wearing control,
+  refuses a transform target, newer run replaces older (per object+property CTS). `--motion-check` (Mac 55 checks, Linux 28,
+  motion ON, real click paths; fresh child folder, never deletes --root) runs in Mac/Linux CI; proven to FAIL with the old bug.
+- Mac lane: Store + website buttons, account removal, Edit menu bridging Cmd+V/C/X/A + Esc to the sign-in web view, Settings…
+  (Cmd+,) + Enter Full Screen, WindowFit, Retina re-fit, full-screen inset, Windows motion curves, page entrance, Reduce motion,
+  TipPlacement shared with Windows, "N playing Origin", Import spinner via style animation, theme parity 420/420. Kept: passkeys
+  only via the code path (WebKit needs Apple's entitlement), Edit menu Mac-only (how macOS routes Cmd+V).
+- Linux lane: Kit/Tween transitions with WPF Motion tokens (drawers, dialogs, sign-in card, pages, toasts, bar), WindowFit,
+  device-code sign-in fallback (no paste-a-blank-page), keyring calls off the UI thread, single-instance socket (listens once the
+  window has opened), crash log + desktop dialog before the window, X11 class org.originclient.Launcher, GNOME/KDE reduce
+  motion, Switch to Minecraft via libX11, full update scene, tooltips, MinecraftSessionBroker.Remove, presence version. Kept: X11
+  (XWayland) because the sign-in web view embeds only through GDK X11.
+- Platform lane: bundled OpenSSL 3 (SHA-pinned, system copy wins) for Fedora 45 and other OpenSSL-4-only distros; 1.8.9 refuses
+  without xrandr (+ crash rule); read-only AppImage says how to update; AMD APU (VRAM < 8 GB) / old NVIDIA GPU rules; Intel build
+  on Apple Silicon offers + updates to arm64; tools/mac/gl_probe.m + "Game starts" proves a real window or reports UNPROVEN on
+  runners without accelerated OpenGL (GitHub's Macs: none); Linux/Mac shots published to dev-shots (linux-launcher/, mac-launcher/).
+- Windows + Mac: a failed "Update and play" retry still plays afterwards (Linux parity).
+- Proof on 175b780b: Mac launcher green (both CPUs: motion 55/55, self-test, Core tests, 8 launch-plan shards, update proofs,
+  shots published); Linux + build-check green after reruns through a GitHub/Gradle 504 outage; local builds of all three
+  launchers + Linux/Mac test subsets. Review: fix-required -> 5 fixed. UNPROVEN: a Minecraft window on a real Mac (no GPU in CI),
+  Cmd+V into Microsoft's page, X11 focus / keyring prompts / second-start on a real Linux desktop.
