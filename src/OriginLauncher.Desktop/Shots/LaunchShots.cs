@@ -103,7 +103,7 @@ public static class LaunchShots
 
     // ---- Picker ----
 
-    private static VersionPicker Picker(MainWindow w, InstalledVersions installs)
+    internal static VersionPicker Picker(MainWindow w, InstalledVersions installs)
     {
         if (ReferenceEquals(installs, InstalledVersions.Shared)) installs.RefreshAllAsync().GetAwaiter().GetResult();
         var picker = w.Home.OpenPicker(installs);
@@ -113,7 +113,7 @@ public static class LaunchShots
 
     // Three multi-release families with a mix of every state, plus single-release families showing their own state
     // (the Windows SelectorShots set), off the production disk check over made-up install folders.
-    private static InstalledVersions Fake()
+    internal static InstalledVersions Fake()
     {
         var states = new Dictionary<string, InstallState>
         {
