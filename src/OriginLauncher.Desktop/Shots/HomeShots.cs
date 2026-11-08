@@ -26,5 +26,11 @@ public static class HomeShots
         yield return new Shot("15d-topbar-no-update", _ => { }, Seed: () => { Demo.SignIn(); Demo.NoUpdate(); });
         yield return new Shot("29-min-home", _ => { }, 960, 600, Seed: () => { Demo.SignIn(); Demo.Profiles(); });
         yield return new Shot("99-dpi-home-1920x1080", _ => { }, 1920, 1080, Seed: () => Demo.SignIn());
+        // The DPI matrix's Home scene (signed out, like the Windows matrix) and Play refused for a mandatory update: the
+        // prompt it opens, with the same words (UpdateRequiredWords). ShotRunner draws each at 3 sizes x 3 scales.
+        yield return new Shot("dpi-home-1180x740-100pct", _ => { });
+        yield return new Shot("dpi-update-required-1180x740-100pct", w => _ = Kit.Confirm.AskAsync(w,
+            App.Core.Updates.UpdateRequiredWords.PromptTitle, App.Core.Updates.UpdateRequiredWords.PromptText,
+            App.Core.Updates.UpdateRequiredWords.UpdateButton, App.Core.Updates.UpdateRequiredWords.LaterButton));
     }
 }

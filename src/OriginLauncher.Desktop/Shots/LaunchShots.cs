@@ -41,6 +41,10 @@ public static class LaunchShots
 
         // ---- The version picker ----
         yield return new Shot("10-versions-grid", w => Picker(w, InstalledVersions.Shared), Seed: Signed("1.21.1"));
+        // DPI matrix scenes (ShotRunner draws each at 3 sizes x 3 scales, named like the Windows set).
+        yield return new Shot("dpi-versions-grid-1180x740-100pct", w => Picker(w, InstalledVersions.Shared), Seed: Signed("1.21.1"));
+        yield return new Shot("dpi-launch-failed-1180x740-100pct", w => Cover(w, "1.8.9").ShowFailure(
+            PlayFailure.From(new OfflineInstallException("1.8.9", new HttpRequestException("no route")), "1.8.9")), Seed: Signed("1.8.9"));
         yield return new Shot("11-versions-detail", w => Picker(w, InstalledVersions.Shared).OpenFamily("1.21"), Seed: Signed("1.21.1"));
         yield return new Shot("21-min-versions-grid", w => Picker(w, InstalledVersions.Shared), 980, 600, Seed: Signed("1.21.1"));
         yield return new Shot("22-min-versions-detail", w => Picker(w, InstalledVersions.Shared).OpenFamily("1.21"), 980, 600, Seed: Signed("1.21.1"));

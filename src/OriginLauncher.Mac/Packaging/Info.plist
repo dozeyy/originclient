@@ -12,6 +12,15 @@
   - Avalonia: macOS 14 Sonoma is the oldest version listed (Tier 2)
     https://docs.avaloniaui.net/docs/supported-platforms
   Raise it when either floor moves up.
+
+  No NSSupportsAutomaticGraphicsSwitching (MAC-10, a kept Mac difference): on a dual-GPU Intel MacBook Pro the
+  launcher keeps the discrete GPU on while it is open, and no Info.plist key can change that with Avalonia 12.1.5.
+  Its Metal renderer (the default) takes MTLCreateSystemDefaultDevice() (native/Avalonia.Native/src/OSX/metal.mm),
+  which on those Macs IS the switch to the discrete GPU, and its OpenGL renderer's pixel format (cgl.mm) has no
+  kCGLPFAAllowOfflineRenderers, which forces the discrete GPU too. The only renderer that stays on the integrated
+  GPU is Avalonia's software one, which can't hold the launcher's 60 fps animations on a Retina window, so it is
+  not used. Apple Silicon Macs and single-GPU Intel Macs are not affected. Revisit when Avalonia picks a
+  low-power MTLDevice (MTLCopyAllDevices + isLowPower) or allows offline renderers.
 -->
 <plist version="1.0">
 <dict>

@@ -185,6 +185,62 @@ jobs:
         continue-on-error: true
         run: python3 tools/mac/check_theme_parity.py --markdown | tee -a "$GITHUB_STEP_SUMMARY"
 
+  # The Mac launcher's screens on the claude/dev-shots branch, folder mac-launcher/ (SOURCE.txt names the commit), next to
+  # launcher-shots' Windows `launcher/` folder, so a session can open them (_sheet.jpg first) without the artifact API.
+  # Publish only: it checks nothing out and runs no repo code; it is the only job with contents: write, and it pushes
+  # the PNGs the shots step uploaded. Same race-safe push as launcher-shots.yml's publish (one sparse clone, then
+  # fetch-reset-recommit on a lost race). Never on pull requests (their token can't write).
+  publish-shots:
+    name: Publish Mac shots to dev-shots
+    needs: mac
+    if: ${{ always() && github.event_name != 'pull_request' }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: mac-launcher-shots
+          path: ${{ runner.temp }}/pub
+
+      - name: Publish to the claude/dev-shots branch
+        run: |
+          folder="mac-launcher"
+          n=$(find "$RUNNER_TEMP/pub" -name '*.png' | wc -l)
+          echo "PNGs to publish: $n"
+          [ "$n" -gt 0 ] || { echo "::error::no PNGs in the mac-launcher-shots artifact"; exit 1; }
+          url="https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
+          max=15
+          pause() { local d=$(( 2 + RANDOM % 7 + $1 )); [ "$d" -gt 20 ] && d=20; echo "waiting ${d}s"; sleep "$d"; }
+          site="$RUNNER_TEMP/site"
+          for try in 1 2 3 4 5 6; do
+            rc=0
+            git ls-remote --exit-code --heads "$url" claude/dev-shots >/dev/null 2>&1 || rc=$?
+            rm -rf "$site"
+            if [ "$rc" = 0 ] && timeout 300 git clone -q --depth 1 --filter=blob:none --no-checkout --branch claude/dev-shots "$url" "$site" \
+               && git -C "$site" sparse-checkout set --no-cone "/$folder/" && timeout 300 git -C "$site" checkout -q claude/dev-shots; then break; fi
+            if [ "$rc" = 2 ]; then
+              mkdir -p "$site" && git -C "$site" init -q && git -C "$site" checkout -q -b claude/dev-shots && break
+            fi
+            echo "could not get claude/dev-shots (ls-remote exit $rc, try $try/6)"; pause "$try"
+          done
+          [ -d "$site/.git" ] || { echo "::error::could not clone claude/dev-shots"; exit 1; }
+          cd "$site"
+          git config user.name "origin-dev-shots"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in $(seq 1 "$max"); do
+            rm -rf "$folder"; cp -r "$RUNNER_TEMP/pub" "$folder"
+            printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$folder/SOURCE.txt"
+            git add -A
+            git commit -qm "Mac launcher shots for ${GITHUB_SHA::7}" || true
+            if git push -q "$url" HEAD:refs/heads/claude/dev-shots; then echo "published on attempt $attempt"; exit 0; fi
+            echo "push lost the race (attempt $attempt/$max)"
+            pause "$attempt"
+            git fetch -q --depth 1 --filter=blob:none "$url" claude/dev-shots && git reset -q --hard FETCH_HEAD || echo "fetch of the new tip failed; will retry"
+          done
+          echo "::error::could not publish to claude/dev-shots after $max attempts"
+          exit 1
+
   # The self-update, end to end, on both Mac CPUs, against a FAKE release served from this runner (127.0.0.1; no
   # GitHub release is read or written): a build stamped 1.0.50 (so the update really gates Play, like a player's
   # copy) is put in an Origin.app and offered launcher-v99.0.0. It must refuse a release with no SHA-256 and a zip
@@ -217,6 +273,21 @@ jobs:
 
       - name: Self-update against a fake release
         run: bash tools/mac/update_proof.sh ${{ matrix.rid }} "$RUNNER_TEMP/publish-stamped" 1.0.50
+
+      # The Intel build on an Apple Silicon Mac (Rosetta): its self-update must take the Apple Silicon zip, so the
+      # next update replaces it with the native app (MacReleaseAssets.ZipPrefixForUpdate), and it offers the Apple
+      # Silicon download. The native build on the same runner keeps its own zip. No window, no network.
+      - name: Intel build under Rosetta updates to Apple Silicon
+        if: matrix.rid == 'osx-arm64'
+        run: |
+          if ! /usr/bin/arch -x86_64 /usr/bin/true; then sudo softwareupdate --install-rosetta --agree-to-license; fi
+          dotnet publish src/OriginLauncher.Mac/OriginLauncher.Mac.csproj -c Release -r osx-x64 --self-contained true -o "$RUNNER_TEMP/publish-x64" -v:q
+          /usr/bin/arch -x86_64 "$RUNNER_TEMP/publish-x64/OriginLauncher" --update-asset | tee "$RUNNER_TEMP/asset-x64.txt"
+          grep -q "Rosetta yes" "$RUNNER_TEMP/asset-x64.txt"
+          grep -q "OriginLauncher-osx-arm64.zip" "$RUNNER_TEMP/asset-x64.txt"
+          grep -q "Get Origin for Apple Silicon" "$RUNNER_TEMP/asset-x64.txt"
+          "$RUNNER_TEMP/publish-stamped/OriginLauncher" --update-asset | tee "$RUNNER_TEMP/asset-arm64.txt"
+          grep -q "native notice    none" "$RUNNER_TEMP/asset-arm64.txt"
 
   # --launch-plan for every version the picker offers, on both Mac CPUs: the launcher's own launch
   # path in a scratch folder (Fabric/Forge, Origin's mods, Mojang's libraries, natives, assets and
@@ -281,23 +352,38 @@ jobs:
           echo "passed: $passed, failed:${failed:- none}"
           test -z "$failed"
 
-      # --start-game: the built process really started, the way Play starts it, until Minecraft's own main class
-      # logs ("Setting user:"), then stopped. Reading the line can only predict that java finds the main class
-      # (v1.0.84 shipped a line whose main class java read as "Minecraft"); this proves it. One Fabric (LWJGL 3,
+      # --start-game: the built process really started, the way Play starts it, and passes only when the macOS window
+      # server shows an on-screen window owned by the game's process (LaunchPlan.StartGame, MacWindows). The main class
+      # logging alone ("Setting user:") was the old bar: v1.0.97 passed 1.8.9 that way while the game exited 255 before
+      # any window. A failed start prints the game's last lines and its crash report. The latest release's Origin
+      # Client jars are put where a shipped app keeps them (Bundled/OriginClient), so the launch is the player's one
+      # (Origin's mod included) and the log also says whether Origin's title screen came up. One Fabric (LWJGL 3,
       # native on Apple Silicon) and the Forge version (LWJGL 2, Rosetta on Apple Silicon), on both CPUs.
-      - name: Game starts
+      - name: Origin Client jars of the latest release
+        if: matrix.shard == 0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo "$GITHUB_REPOSITORY" --pattern OriginLauncher-win-x64.zip --dir "$RUNNER_TEMP/rel"
+          mkdir -p "$RUNNER_TEMP/publish/Bundled/OriginClient"
+          unzip -q -j "$RUNNER_TEMP/rel/OriginLauncher-win-x64.zip" 'Bundled/OriginClient/*' -d "$RUNNER_TEMP/publish/Bundled/OriginClient"
+          ls "$RUNNER_TEMP/publish/Bundled/OriginClient" | wc -l
+
+      - name: Game starts (window opens)
         if: matrix.shard == 0
         run: |
+          set -o pipefail
           app="$RUNNER_TEMP/publish/OriginLauncher"
           failed=""
           for v in 1.21.1 1.8.9; do
             echo "::group::start $v"
             root="$RUNNER_TEMP/start-$v"
-            if "$app" --launch-plan "$v" --root "$root" --start-game; then
-              echo "| $v | game started: pass |" >> "$GITHUB_STEP_SUMMARY"
+            if "$app" --launch-plan "$v" --root "$root" --start-game | tee "$RUNNER_TEMP/start-$v.txt"; then
+              echo "| $v | game window opened: pass |" >> "$GITHUB_STEP_SUMMARY"
             else
-              failed="$failed $v"; echo "| $v | game started: FAIL |" >> "$GITHUB_STEP_SUMMARY"
+              failed="$failed $v"; echo "| $v | game window opened: FAIL |" >> "$GITHUB_STEP_SUMMARY"
             fi
+            grep -E "^  (game|title)" "$RUNNER_TEMP/start-$v.txt" | sed "s/^/    $v /" >> "$GITHUB_STEP_SUMMARY" || true
             rm -rf "$root"
             echo "::endgroup::"
           done

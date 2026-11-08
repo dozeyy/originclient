@@ -249,6 +249,7 @@ public sealed class MainWindow : Window
     }
 
     public bool DialogOpen => _dialogLayer.IsVisible;
+    public Control? DialogContent => _dialogLayer.IsVisible ? _dialog.Child : null;
 
     public void CloseDialog()
     {
