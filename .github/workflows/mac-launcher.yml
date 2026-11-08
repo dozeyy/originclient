@@ -199,6 +199,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8
+        continue-on-error: true   # no artifact when the shots job stopped early: nothing to publish (below)
         with:
           name: mac-launcher-shots
           path: ${{ runner.temp }}/pub
@@ -208,7 +209,7 @@ jobs:
           folder="mac-launcher"
           n=$(find "$RUNNER_TEMP/pub" -name '*.png' | wc -l)
           echo "PNGs to publish: $n"
-          [ "$n" -gt 0 ] || { echo "::error::no PNGs in the mac-launcher-shots artifact"; exit 1; }
+          [ "$n" -gt 0 ] || { echo "::warning::nothing published: no PNGs in the mac-launcher-shots artifact (the shots step did not run)"; exit 0; }
           url="https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
           max=15
           pause() { local d=$(( 2 + RANDOM % 7 + $1 )); [ "$d" -gt 20 ] && d=20; echo "waiting ${d}s"; sleep "$d"; }
