@@ -22,11 +22,13 @@ public sealed partial class MainWindow
 
     private EditAction _lastEdit;
     private DateTime _lastEditAt;
+    private bool _lastEditFromMenu;
 
     private void HookMenus()
     {
         // The same Cmd keys, should one reach Avalonia instead of the menu while the sign-in page has focus (the native
-        // view passes up what it does not handle): one path for both, run once (RunEdit drops a repeat within 150 ms).
+        // view passes up what it does not handle): one path for both, and a keystroke both paths saw runs once (RunEdit
+        // drops the other path's copy within 150 ms; a held key's own repeats all run).
         AddHandler(KeyDownEvent, SignInEditKeys_KeyDown, RoutingStrategies.Tunnel);
         PropertyChanged += (_, e) =>
         {
@@ -48,7 +50,7 @@ public sealed partial class MainWindow
             _ => null,
         };
         if (action is not { } a) return;
-        RunEdit(a);
+        RunEdit(a, fromMenu: false);
         e.Handled = true;
     }
 
@@ -59,12 +61,13 @@ public sealed partial class MainWindow
     private void Paste_Click(object? sender, EventArgs e) => RunEdit(EditAction.Paste);
     private void SelectAll_Click(object? sender, EventArgs e) => RunEdit(EditAction.SelectAll);
 
-    private void RunEdit(EditAction action)
+    private void RunEdit(EditAction action, bool fromMenu = true)
     {
         var now = DateTime.UtcNow;
-        if (action == _lastEdit && (now - _lastEditAt).TotalMilliseconds < 150) return;
+        if (action == _lastEdit && fromMenu != _lastEditFromMenu && (now - _lastEditAt).TotalMilliseconds < 150) return;
         _lastEdit = action;
         _lastEditAt = now;
+        _lastEditFromMenu = fromMenu;
         EditRoutedTo = Route(action);
     }
 
