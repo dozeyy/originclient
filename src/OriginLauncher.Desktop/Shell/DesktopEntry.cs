@@ -44,6 +44,14 @@ public static class DesktopEntry
     public static AppBuilder Builder() => AppBuilder.Configure<DesktopApp>().With(Fonts);
 
     private static FileStream? _instanceLock;
+    private static string? _socketPath;
+
+    /// <summary>Starts answering a second start ("come to the front"); called once the main window has opened.</summary>
+    internal static void ListenForSecondStart()
+    {
+        if (Interlocked.Exchange(ref _socketPath, null) is { } path)
+            SingleInstance.Listen(path, () => MainWindow.Current?.BringForward());
+    }
 
     private const string StartFailedTitle = "Origin Launcher couldn't start";
 
@@ -116,7 +124,10 @@ public static class DesktopEntry
                 : "Origin is already open.");
             return 0;
         }
-        SingleInstance.Listen(socketPath, () => MainWindow.Current?.BringForward());
+        // Listened on only once the window is open (MainWindow.Opened -> ListenForSecondStart): the listener thread posts to
+        // the UI dispatcher, which must not be touched before Avalonia has started on this thread. A second start in
+        // between finds no socket and just reports "already open".
+        _socketPath = socketPath;
 
         // Linux's "animations off" (GNOME-family gsettings, KDE's instant animation speed), the twin of Windows'
         // "Show animations" check in the WPF App: every Motion duration becomes 0 before any view is built.

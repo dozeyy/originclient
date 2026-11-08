@@ -77,7 +77,9 @@ public static partial class HardwareProbe
     private static (string? Name, long? VramMb, bool? Integrated) Describe(DrmCard card, IReadOnlyList<DrmCard> all)
     {
         var info = Describe(card);
-        if (card.Vendor == Amd && info.Integrated == false && card.BootVga
+        // Only with carve-out sized memory (under 8 GB): a desktop whose display card is a big discrete Radeon keeps it
+        // even with a spare or compute GPU beside it.
+        if (card.Vendor == Amd && info.Integrated == false && card.BootVga && info.VramMb is < 8192
             && all.Any(o => !o.BootVga && Describe(o).Integrated == false))
             return ("AMD Radeon Graphics", info.VramMb, true);
         return info;

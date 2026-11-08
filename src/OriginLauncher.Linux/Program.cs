@@ -38,28 +38,8 @@ internal static class Program
 
     // A message for a launcher that can't open its window: the terminal, then the desktop's own dialog tool (best
     // effort: zenity on GNOME-style desktops, kdialog on KDE, else a notification). Nothing here needs OpenSSL.
-    private static void TellPlayer(string message)
-    {
-        Console.Error.WriteLine(message);
-        foreach (var (tool, toolArgs) in new (string, string[])[]
-                 {
-                     ("zenity", ["--error", "--title=Origin", "--text=" + message]),
-                     ("kdialog", ["--title", "Origin", "--error", message]),
-                     ("notify-send", ["Origin", message]),
-                 })
-        {
-            if (!OriginLauncher.App.Core.Launch.LinuxPackages.OnPath(tool)) continue;
-            try
-            {
-                var info = new System.Diagnostics.ProcessStartInfo(tool) { UseShellExecute = false };
-                foreach (var a in toolArgs) info.ArgumentList.Add(a);
-                using var p = System.Diagnostics.Process.Start(info);
-                p?.WaitForExit(120_000);
-                return;
-            }
-            catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { }
-        }
-    }
+    private static void TellPlayer(string message) =>
+        OriginLauncher.App.Core.Desktop.LinuxDesktop.ShowError("Origin", message); // the one dialog path (no OpenSSL needed)
 
     // The argument after `flag`, or null when the flag is absent or last.
     private static string? Value(string[] args, string flag)

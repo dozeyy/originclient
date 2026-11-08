@@ -35,9 +35,29 @@ public static class LinuxDesktop
     {
         Console.Error.WriteLine(title + ": " + text);
         var wait = TimeSpan.FromMinutes(10);
-        if (TryRun("zenity", ["--error", "--title", title, "--text", text, "--no-markup", "--width", "420"], wait)) return;
-        if (TryRun("kdialog", ["--title", title, "--error", text], wait)) return;
+        // A dialog tool that STARTED has shown the box: its exit code only says how the player closed it (zenity exits 1
+        // on Esc or the window's close button), so a closed box never brings the same text up a second time.
+        if (TryStart("zenity", ["--error", "--title", title, "--text", text, "--no-markup", "--width", "420"], wait)) return;
+        if (TryStart("kdialog", ["--title", title, "--error", text], wait)) return;
         TryRun("notify-send", ["--urgency=critical", "--app-name=Origin Launcher", title, text], TimeSpan.FromSeconds(5));
+    }
+
+    // True once the program started (whatever it exits with); false when it isn't installed or can't start.
+    private static bool TryStart(string file, string[] args, TimeSpan limit)
+    {
+        try
+        {
+            var info = new System.Diagnostics.ProcessStartInfo(file) { UseShellExecute = false };
+            foreach (var a in args) info.ArgumentList.Add(a);
+            using var p = System.Diagnostics.Process.Start(info);
+            if (p == null) return false;
+            if (!p.WaitForExit(limit)) try { p.Kill(); } catch (InvalidOperationException) { }
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     private static bool TryRun(string file, string[] args, TimeSpan limit)

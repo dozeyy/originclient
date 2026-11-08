@@ -27,8 +27,10 @@ internal static class MotionCheck
 
     public static int Run(string? root)
     {
-        root = Path.GetFullPath(root ?? Path.Combine(Path.GetTempPath(), "origin-motion-check"));
-        if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        // Always a fresh folder of its own INSIDE the given one: the given path is never deleted or reused, so a typo'd
+        // --root (the home folder, the real data folder) can't lose anything (this code ships in the player build).
+        root = Path.Combine(Path.GetFullPath(root ?? Path.GetTempPath()), "origin-motion-check-" + Guid.NewGuid().ToString("N")[..12]);
+        Directory.CreateDirectory(root);
         OriginPaths.UseScratchRoot(root);
         // A player with no account who is not in the developer offline mode: Play opens the sign-in card (JL-7).
         SettingsStore.Update(s =>

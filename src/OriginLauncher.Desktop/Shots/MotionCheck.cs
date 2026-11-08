@@ -29,8 +29,10 @@ public static class MotionCheck
 
     public static int Run(string? root)
     {
-        root = Path.GetFullPath(root ?? Path.Combine(Path.GetTempPath(), "origin-motion-check"));
-        if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        // Always a fresh folder of its own INSIDE the given one: the given path is never deleted or reused, so a typo'd
+        // --root (the home folder, the real data folder) can't lose anything (this code ships in the player build).
+        root = Path.Combine(Path.GetFullPath(root ?? Path.GetTempPath()), "origin-motion-check-" + Guid.NewGuid().ToString("N")[..12]);
+        Directory.CreateDirectory(root);
         Directory.CreateDirectory(root);
         foreach (var v in new[] { "XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME" })
             Environment.SetEnvironmentVariable(v, Path.Combine(root, v.ToLowerInvariant()));
