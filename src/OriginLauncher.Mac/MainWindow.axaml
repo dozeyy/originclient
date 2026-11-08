@@ -14,9 +14,26 @@
     <!-- The Mac twin of the WPF MainWindow: the same chromeless Origin window, except that macOS keeps its own
          traffic lights at the top left (the bar's brand starts after them, Margin.TopBarBrand) and the WPF corner
          controls (Minimize / Close) are not drawn. Cmd+M and Cmd+W live in the Window menu below; Cmd+Q is the app
-         menu's own Quit. -->
+         menu's own Quit. Edit is every Mac app's Edit menu (MainWindow.Menus.cs routes each item to the focused text box
+         or to Microsoft's sign-in page); View holds Enter Full Screen. -->
     <NativeMenu.Menu>
         <NativeMenu>
+            <NativeMenuItem Header="Edit">
+                <NativeMenu>
+                    <NativeMenuItem Header="Undo" Gesture="Meta+Z" Click="Undo_Click"/>
+                    <NativeMenuItem Header="Redo" Gesture="Meta+Shift+Z" Click="Redo_Click"/>
+                    <NativeMenuItemSeparator/>
+                    <NativeMenuItem Header="Cut" Gesture="Meta+X" Click="Cut_Click"/>
+                    <NativeMenuItem Header="Copy" Gesture="Meta+C" Click="Copy_Click"/>
+                    <NativeMenuItem Header="Paste" Gesture="Meta+V" Click="Paste_Click"/>
+                    <NativeMenuItem Header="Select All" Gesture="Meta+A" Click="SelectAll_Click"/>
+                </NativeMenu>
+            </NativeMenuItem>
+            <NativeMenuItem Header="View">
+                <NativeMenu>
+                    <NativeMenuItem Header="Enter Full Screen" Gesture="Ctrl+Meta+F" Click="FullScreen_Click"/>
+                </NativeMenu>
+            </NativeMenuItem>
             <NativeMenuItem Header="Window">
                 <NativeMenu>
                     <NativeMenuItem Header="Minimize" Gesture="Meta+M" Click="Minimize_Click"/>

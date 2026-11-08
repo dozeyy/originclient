@@ -302,6 +302,9 @@ public sealed partial class VersionSelectOverlay : UserControl
             item.SetState(_installs.StateOf(item.Version));
     }
 
+    /// <summary>Moved to a screen of another scale (the WPF OnDpiChanged): the edges' device-pixel width changed, the size may not have.</summary>
+    internal void RefitForScale() => SizeCards();
+
     // ---- sizing (the WPF SizeCards, the same numbers) ----
 
     // The sheet's fixed sizes (px): its own top + bottom margin (8 + 16), padding (24 + 24) and 1 px edges; step 1's

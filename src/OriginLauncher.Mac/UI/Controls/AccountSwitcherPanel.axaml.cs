@@ -4,7 +4,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Automation;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.Models;
 using Accounts = OriginLauncher.App.Core.Accounts;
@@ -13,9 +15,10 @@ namespace OriginLauncher.Mac.UI.Controls;
 
 /// <summary>
 /// Twin of the WPF UI/Controls/AccountSwitcherPanel.xaml.cs, the same Core calls: the list comes from
-/// <see cref="Accounts.AccountStore"/>, a click selects through <c>AccountStore.Update</c>, and a finished sign-in is
-/// stored ONLY through <see cref="MinecraftSessionBroker.AddSignedIn"/> (tokens never pass through this control
-/// otherwise; nothing here logs or shows one).
+/// <see cref="Accounts.AccountStore"/>, a click selects through <c>AccountStore.Update</c>, a finished sign-in is
+/// stored ONLY through <see cref="MinecraftSessionBroker.AddSignedIn"/>, and Remove goes ONLY through
+/// <see cref="MinecraftSessionBroker.Remove"/> (the account, its tokens and its cached session together). Tokens never
+/// pass through this control otherwise; nothing here logs or shows one.
 /// </summary>
 public sealed partial class AccountSwitcherPanel : UserControl
 {
@@ -100,7 +103,7 @@ public sealed partial class AccountSwitcherPanel : UserControl
             CornerRadius = Res.Radius("Radius.Xs"),
             Margin = new Thickness(0, 0, 12, 0),
         };
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
         grid.Children.Add(head);
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
@@ -110,6 +113,24 @@ public sealed partial class AccountSwitcherPanel : UserControl
             Grid.SetColumn(active, 2);
             grid.Children.Add(active);
         }
+        // Remove (the same trash button as a Mods page row): asks first, then deletes this account's sign-in from the
+        // launcher; its worlds and settings stay on this Mac.
+        var remove = new Button
+        {
+            Theme = Res.Theme("Social.Icon"),
+            Margin = new Thickness(8, 0, 4, 0),
+            Content = new IconPath
+            {
+                Data = Res.Get<Geometry>("Icon.Trash"),
+                Theme = Res.Theme("Icon.Small"),
+            },
+        };
+        ((IconPath)remove.Content).Bind(IconPath.StrokeProperty, remove.GetObservable(ForegroundProperty));
+        ToolTip.SetTip(remove, "Remove account");
+        AutomationProperties.SetName(remove, account.RemoveLabel);
+        remove.Click += (_, _) => _ = RemoveAsync(account);
+        Grid.SetColumn(remove, 3);
+        grid.Children.Add(remove);
 
         var row = new Border
         {
@@ -120,7 +141,12 @@ public sealed partial class AccountSwitcherPanel : UserControl
             Child = grid,
         };
         if (account.IsSelected) row.BorderBrush = Res.Brush("Brush.Accent");
-        row.Tapped += (_, _) => RowClicked(account);
+        // The trash is a sibling of the choose area, never part of it: a click on it never also switches accounts.
+        row.Tapped += (_, e) =>
+        {
+            if (e.Source is Visual v && v.GetSelfAndVisualAncestors().Contains(remove)) return;
+            RowClicked(account);
+        };
         return row;
     }
 
@@ -143,6 +169,13 @@ public sealed partial class AccountSwitcherPanel : UserControl
             FinishPendingSignIn(account.Id);
             return;
         }
+        // Already the active account: nothing changes, so just close. Raising AccountsChanged here would sign Friends in
+        // again (closing an open chat) and refresh Mods for no reason (the WPF AccountRow_Click).
+        if (account.IsSelected)
+        {
+            AccountSelected?.Invoke(this, EventArgs.Empty);
+            return;
+        }
         try
         {
             _accounts = Accounts.AccountStore.Update(accounts =>
@@ -159,6 +192,54 @@ public sealed partial class AccountSwitcherPanel : UserControl
             ShowSignInError("Couldn't switch accounts.");
         }
     }
+
+    // The trash button: asks first (Cancel holds the focus), then deletes the account and the tokens stored with it
+    // (MinecraftSessionBroker.Remove, which also drops its cached Minecraft session). Its worlds and settings stay on
+    // this Mac, which the question says, so adding it again later finds them. The drawer stays open on the shorter list
+    // with a "removed" note. The WPF RemoveButton_Click, the same words.
+    private async Task RemoveAsync(MinecraftAccount account)
+    {
+        if (_pictureOnly || !AccountList.IsEnabled) return;
+        var name = account.DisplayName;
+        if (!await AskRemove(name)) return;
+
+        var selectedBefore = Accounts.AccountStore.GetSelected(_accounts)?.Id;
+        try
+        {
+            _accounts = MinecraftSessionBroker.Remove(account.Id);
+        }
+        catch (Exception)
+        {
+            ShowSignInError("Couldn't remove this account. Please try again.");
+            return;
+        }
+        RefreshList();
+        ShowSignInNote($"{name} was removed.");
+        // Only a change of active account matters to Home, the top bar and Friends.
+        if (Accounts.AccountStore.GetSelected(_accounts)?.Id != selectedBefore)
+            AccountsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private Task<bool> AskRemove(string name) => Confirm.ShowAsync($"Remove {name}?",
+        "Its sign-in is deleted from this launcher. Its worlds and settings stay on this computer, " +
+        "and you can add it again later.",
+        "Remove", "Cancel", destructive: true);
+
+    /// <summary>Render shots: the Remove question as a player sees it; nothing is removed.</summary>
+    internal void TourAskRemove(string name) => _ = AskRemove(name);
+
+    /// <summary>Esc while the drawer is open: closes the Remove question first. False = nothing open, close the drawer.</summary>
+    public bool HandleEscape()
+    {
+        if (!Confirm.IsVisible) return false;
+        Confirm.Dismiss();
+        return true;
+    }
+
+    /// <summary>The drawer closed: an unanswered Remove question counts as Cancel.</summary>
+    public void DismissConfirm() => Confirm.Dismiss();
+
+    internal bool RemoveQuestionShown => Confirm.IsVisible;
 
     /// <summary>What the sign-in card shows after Microsoft's page (null = done, close it).</summary>
     public sealed record SignInOutcome(string Title, string Message);

@@ -181,5 +181,7 @@
          whole window so the page tabs stay centred on the window, as they are on Windows. -->
     <Thickness x:Key="Margin.TopBarBrand">72,0,0,0</Thickness>
     <Thickness x:Key="Margin.TopBarActions">0,0,16,0</Thickness>
+    <!-- Full screen: macOS hides the traffic lights, so the brand starts where the WPF bar's does (its 18 px inset). -->
+    <Thickness x:Key="Margin.TopBarBrand.FullScreen">18,0,0,0</Thickness>
 
 </ResourceDictionary>

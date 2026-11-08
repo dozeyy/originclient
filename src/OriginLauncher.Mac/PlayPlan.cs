@@ -40,6 +40,8 @@ internal static class PlayPlan
         });
 
         Motion.Off = true;
+        // A plan never goes online for Home's "N playing Origin" count.
+        OriginLauncher.App.Core.Social.Launcher.SocialHub.PlayersOnlineOff = true;
         AppBuilder.Configure<App>()
             .UseSkia()
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })

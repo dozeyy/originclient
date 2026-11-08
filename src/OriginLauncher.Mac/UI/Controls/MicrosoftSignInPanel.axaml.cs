@@ -89,6 +89,7 @@ public sealed partial class MicrosoftSignInPanel : UserControl, IDisposable
             _web.AdapterCreated += (_, _) => _adapter.TrySetResult();
             _web.NavigationStarted += OnNavigationStarted;
             _web.NavigationCompleted += OnNavigationCompleted;
+            _web.WebMessageReceived += OnWebMessage;
             WebHost.Content = _web;
         }
         catch (Exception)
@@ -199,9 +200,43 @@ public sealed partial class MicrosoftSignInPanel : UserControl, IDisposable
             return;
         }
         if (_holdOverlay) return;
-        if (e.IsSuccess) ShowPage(true);
+        if (e.IsSuccess)
+        {
+            ShowPage(true);
+            HookPageEscape();
+        }
         else if (!_pageShown) OfferCode();
     }
+
+    // Esc inside Microsoft's page closes the card, as it does everywhere else in the launcher: the page is a native view
+    // that keeps the key to itself, so a listener in the page hands it back through the web view's message bridge
+    // (Avalonia's invokeCSharpAction). Added once per page load; the message carries no page data.
+    private const string EscapeMessage = "origin:escape";
+
+    private const string EscapeScript =
+        "if(!window.__originEsc){window.__originEsc=true;document.addEventListener('keydown',function(e){" +
+        "if(e.key==='Escape'&&typeof invokeCSharpAction==='function'){invokeCSharpAction('" + EscapeMessage + "');}},true);}";
+
+    private void HookPageEscape()
+    {
+        if (_web == null) return;
+        try
+        {
+            _ = _web.InvokeScript(EscapeScript).ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+        }
+        catch (Exception)
+        {
+            // No script bridge on this page (it never fails the sign-in): Esc then stays the page's own key.
+        }
+    }
+
+    private void OnWebMessage(object? sender, WebMessageReceivedEventArgs e)
+    {
+        if (e.Body?.Trim('"') == EscapeMessage) Dispatcher.UIThread.Post(Cancel);
+    }
+
+    /// <summary>The sign-in probe: what the page's Esc listener sends, delivered as the page would.</summary>
+    internal void ProbePageEscape() => OnWebMessage(this, new WebMessageReceivedEventArgs { Body = EscapeMessage });
 
     // ---- Sign in with a code ----
 
@@ -213,6 +248,7 @@ public sealed partial class MicrosoftSignInPanel : UserControl, IDisposable
         ShowPage(false);
         UseCodeButton.Theme = Res.Theme("Button.Primary.Medium");
         UseCodeButton.Margin = new Thickness(16, 0, 16, 16);
+        PasskeyHint.IsVisible = false; // the code is the way in now, passkey or not
         CodeOffered = true;
     }
 

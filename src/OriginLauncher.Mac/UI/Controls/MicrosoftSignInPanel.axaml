@@ -72,11 +72,20 @@
             </Border>
         </Panel>
 
-        <!-- The fallback, small under the page; it turns into the main button when the page can't open here. -->
+        <!-- The fallback, small under the page; it turns into the main button when the page can't open here. It also
+             names passkeys: a passkey or security key can't work inside this embedded page on a Mac (WebKit lets only
+             an app signed with Apple's web-browser passkey entitlement use them, which needs an Apple Developer
+             account the launcher doesn't have, DECISIONS 2026-11-02), but it works on Microsoft's page in the
+             browser, which the code opens. Windows' embedded page (WebView2) uses Windows Hello directly. -->
         <Button x:Name="UseCodeButton" Grid.Row="2" Theme="{StaticResource Button.Ghost}" HorizontalAlignment="Center"
-                Margin="16,-8,16,12" AutomationProperties.Name="Sign in with a code instead">
-            <TextBlock Text="Sign in with a code instead" Theme="{StaticResource Text.Caption}"
-                       Foreground="{Binding $parent[Button].Foreground}" VerticalAlignment="Center"/>
+                Margin="16,-8,16,12" AutomationProperties.Name="Sign in with a code instead. Use this for a passkey or security key.">
+            <StackPanel>
+                <TextBlock Text="Sign in with a code instead" Theme="{StaticResource Text.Caption}" HorizontalAlignment="Center"
+                           Foreground="{Binding $parent[Button].Foreground}"/>
+                <TextBlock x:Name="PasskeyHint" Text="Use this for a passkey or security key: it opens in your browser"
+                           Theme="{StaticResource Text.CaptionDim}" HorizontalAlignment="Center" TextAlignment="Center"
+                           TextWrapping="Wrap" Margin="0,2,0,0"/>
+            </StackPanel>
         </Button>
     </Grid>
 </UserControl>

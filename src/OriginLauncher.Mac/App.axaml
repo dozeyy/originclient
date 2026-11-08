@@ -33,10 +33,13 @@
     </Application.Styles>
 
     <!-- The app menu (the bold "Origin Launcher" menu). macOS adds Services, Hide, Hide Others, Show All and
-         Quit (Cmd+Q) after these items on its own; this replaces the framework's default "About Avalonia". -->
+         Quit (Cmd+Q) after these items on its own; this replaces the framework's default "About Avalonia".
+         Settings... (Cmd+,) is where every Mac app keeps its settings; it opens the Settings page. -->
     <NativeMenu.Menu>
         <NativeMenu>
             <NativeMenuItem Header="About Origin Launcher" Click="About_Click"/>
+            <NativeMenuItemSeparator/>
+            <NativeMenuItem Header="Settings..." Gesture="Meta+OemComma" Click="Settings_Click"/>
         </NativeMenu>
     </NativeMenu.Menu>
 </Application>

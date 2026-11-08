@@ -43,12 +43,9 @@ public sealed partial class MainWindow : Window
         Root.Children.Add(Toasts);
         Root.Children.Add(Confirm);
         Home.HomeCard.SizeChanged += (_, _) => PlaceToasts();
-        // The launch screen owns the whole window: the bar fades out under it and takes no clicks (WPF SetTopBarHidden).
-        Home.LaunchSceneChanged += hidden =>
-        {
-            TopBar.IsHitTestVisible = !hidden;
-            TopBar.Opacity = hidden ? 0 : 1;
-        };
+        // The launch screen owns the whole window: the bar fades out under it and takes no clicks (MainWindow.Pages.cs).
+        Home.LaunchSceneChanged += SetTopBarHidden;
+        PageHost.RenderTransform = _pageShift;
         // The opening, over everything; it removes itself when done (none in render shots: motion is off).
         var intro = new StartupIntro();
         Root.Children.Add(intro);
@@ -66,12 +63,24 @@ public sealed partial class MainWindow : Window
         NavMods.Click += (_, _) => ShowPage(LauncherPage.Mods);
         NavProfiles.Click += (_, _) => ShowPage(LauncherPage.Profiles);
         NavSettings.Click += (_, _) => ShowPage(LauncherPage.Settings);
+        // The brand lockup opens originclient.org and Store the store, in the default browser (the WPF
+        // WebsiteButton_Click / StoreButton_Click; on a Mac ExternalLink's shell open is `open`).
+        WebsiteButton.Click += (_, _) => OpenLink(OriginLauncher.App.Core.Promos.OriginLinks.Website);
+        StoreButton.Click += (_, _) => OpenLink(OriginLauncher.App.Core.Promos.OriginLinks.Store);
         InitAccounts();
         HookImport(); // MainWindow.Import.cs: the Import page, its button, the first-run card, closing mid-import
         HookUpdates(); // MainWindow.Update.cs: the update chip, the poll loop and the focus re-check
         InitSocial(); // MainWindow.Social.cs: the Friends drawer and the social toasts' actions
         HookKeys(); // MainWindow.Keys.cs: Cmd+1-4 pages, Enter plays, Settings saves its typed boxes on close
+        HookMenus(); // MainWindow.Menus.cs: Edit (the sign-in page's paste), View > Enter Full Screen, Settings...
+        HookFit(); // MainWindow.Fit.cs: the window fits the screen it opens on; a move to another scale re-fits the art
     }
+
+    /// <summary>Opens a web link outside the launcher. --motion-check swaps it for a recorder to prove the bar's links are wired.</summary>
+    internal static Action<Uri?> OpenLink = OriginLauncher.App.Core.Promos.ExternalLink.Open;
+
+    internal Button TourWebsiteButton => WebsiteButton;
+    internal Button TourImportButton => ImportButton;
 
     // ---- Toasts and the confirm dialog ----
     internal SocialToastHost Toasts { get; } = new()

@@ -51,7 +51,8 @@
                     </StackPanel>
                 </Button>
 
-                <!-- The status line: an 8 px round dot (the accent while ready) and one line. -->
+                <!-- The status line: an 8 px round dot (the accent while ready) and one line. The players-online count
+                     joins it once it arrives, and only then (HomePage.axaml.cs, the WPF PlayersPill). -->
                 <StackPanel x:Name="StatusRow" Orientation="Horizontal" Margin="4,10,0,0">
                     <Ellipse x:Name="StatusDot" Width="{StaticResource Size.StatusDot}" Height="{StaticResource Size.StatusDot}"
                              Fill="{StaticResource Brush.TextDim}" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -59,6 +60,12 @@
                                Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"
                                LineHeight="{StaticResource Size.StatusLine}"
                                TextTrimming="CharacterEllipsis" MaxWidth="{StaticResource Size.StatusWidth}"/>
+                    <StackPanel x:Name="PlayersPill" Orientation="Horizontal" IsVisible="False" Margin="14,0,0,0">
+                        <TextBlock Text="/" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextMuted}"
+                                   Margin="0,0,14,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="PlayersText" Theme="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextDim}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
                 </StackPanel>
             </StackPanel>
 

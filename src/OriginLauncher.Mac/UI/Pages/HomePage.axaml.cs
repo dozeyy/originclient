@@ -2,6 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
+using OriginLauncher.App.Core.Social;
+using OriginLauncher.App.Core.Social.Launcher;
 using OriginLauncher.App.UI;
 using OriginLauncher.Mac.UI.Controls;
 
@@ -15,7 +18,51 @@ public sealed partial class HomePage : UserControl
         SizeChanged += (_, _) => { ReportStripTop(); FitStrip(); };
         HomeCard.SizeChanged += (_, _) => ReportStripTop();
         InitPlay();
+        AttachedToVisualTree += (_, _) => StartPlayersOnline();
     }
+
+    // ---- "N playing Origin" next to the status line (the WPF HomePage's PlayersPill, the same feed and interval) ----
+
+    private DispatcherTimer? _playersTimer;
+
+    private void StartPlayersOnline()
+    {
+        if (_playersTimer != null) return;
+        _playersTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = PlayersOnline.Refresh };
+        _playersTimer.Tick += async (_, _) => await RefreshPlayersOnlineAsync();
+        _playersTimer.Start();
+        Dispatcher.UIThread.Post(() => _ = RefreshPlayersOnlineAsync(), DispatcherPriority.ApplicationIdle);
+    }
+
+    // Network off the UI thread; any failure just hides the pill until the next try.
+    private async Task RefreshPlayersOnlineAsync()
+    {
+        int? count = null;
+        if (!SocialHub.PlayersOnlineOff)
+        {
+            try
+            {
+                count = await Task.Run(() =>
+                    PlayersOnline.FetchAsync(SocialHttp.SendAsync, SocialEndpoints.BaseUrl, CancellationToken.None));
+            }
+            catch
+            {
+                count = null;
+            }
+        }
+        ShowPlayersOnline(count);
+    }
+
+    private void ShowPlayersOnline(int? count)
+    {
+        if (count is { } n) PlayersText.Text = SocialText.PlayersOnline(n);
+        PlayersPill.IsVisible = count != null;
+    }
+
+    /// <summary>Render shots: the pill with a made-up count (null hides it); nothing is fetched.</summary>
+    internal void TourShowPlayersOnline(int? count) => ShowPlayersOnline(count);
+
+    internal string? TourPlayersText => PlayersPill.IsVisible ? PlayersText.Text : null;
 
     /// <summary>Where Home's strip starts (window coordinates); NaN before layout.</summary>
     internal double StripTop { get; private set; } = double.NaN;
@@ -62,6 +109,9 @@ public sealed partial class HomePage : UserControl
     }
 
     internal Button Play => PlayButton;
+
+    /// <summary>The window moved to a screen of another scale: the picker re-snaps its cards (MainWindow.Fit.cs).</summary>
+    internal void RefitForScale() => VersionOverlay.RefitForScale();
 
     private T? Find<T>(string key) where T : class => this.ThemeValue<T>(key);
 }

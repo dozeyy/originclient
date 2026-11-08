@@ -17,6 +17,7 @@ public sealed class App : Application
     {
         AvaloniaXamlLoader.Load(this);
         UI.Motion.ApplyTo(this);
+        UI.ToolTipRules.Apply(); // hover labels: the Windows launcher's timing and placement
         // The two logo files are the only logos (DECISIONS, Look): loaded once as bitmaps, used by key, like the WPF
         // Theme/Brand.xaml.
         Resources["Brand.Logo"] = LoadBitmap("avares://OriginLauncher/Assets/Brand/origin_logo.png");
@@ -89,6 +90,13 @@ public sealed class App : Application
         };
         _about.Closed += (_, _) => _about = null;
         _about.Show();
+    }
+
+    // App menu > Settings... (Cmd+,): the Settings page, the way its tab opens it.
+    private void Settings_Click(object? sender, EventArgs e)
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: MainWindow window })
+            window.OpenSettingsFromMenu();
     }
 
     private T? Find<T>(string key) where T : class => TryGetResource(key, null, out var v) ? v as T : null;

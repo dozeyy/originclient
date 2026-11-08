@@ -4,7 +4,8 @@
              x:Class="OriginLauncher.Mac.UI.Controls.AccountSwitcherPanel">
 
     <!-- Twin of the WPF UI/Controls/AccountSwitcherPanel.xaml: the Accounts drawer. Rows are built in code (one per
-         stored account, newest first); the active one is framed in the accent, a half-added one carries PENDING. -->
+         stored account, newest first); the active one is framed in the accent, a half-added one carries PENDING, and
+         each has a trash button that asks before removing the account. -->
     <Grid RowDefinitions="Auto,*,Auto,Auto">
         <Grid Grid.Row="0" Theme="{StaticResource Drawer.Header}" ColumnDefinitions="*,Auto">
             <StackPanel>
@@ -64,5 +65,8 @@
         <!-- A failed switch or sign-in (danger), or a note such as "already added" (info). -->
         <TextBlock Grid.Row="2" x:Name="ErrorText" Theme="{StaticResource Text.Body}" Foreground="{StaticResource Brush.Danger}"
                    TextWrapping="Wrap" Margin="16,12,16,16" IsVisible="False"/>
+
+        <!-- Remove's "are you sure" (the Friends drawer's confirm, over this drawer only). -->
+        <c:ConfirmOverlay x:Name="Confirm" Grid.RowSpan="4"/>
     </Grid>
 </UserControl>

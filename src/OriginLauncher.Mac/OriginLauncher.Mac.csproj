@@ -46,6 +46,10 @@
     <Compile Include="..\OriginLauncher.App\UI\SelectorFakeInstalls.cs" Link="Shared\SelectorFakeInstalls.cs" />
     <!-- The player head's whole-pixel fit (unit-tested with the WPF control). -->
     <Compile Include="..\OriginLauncher.App\UI\Controls\HeadFit.cs" Link="Shared\HeadFit.cs" />
+    <!-- Where the window opens: the designed size shrunk to the screen's visible area (unit-tested; MainWindow.Fit.cs). -->
+    <Compile Include="..\OriginLauncher.App\UI\WindowFit.cs" Link="Shared\WindowFit.cs" />
+    <!-- Where a hover label goes (unit-tested, the WPF ToolTipDefaults' numbers; UI/ToolTipRules applies it). -->
+    <Compile Include="..\OriginLauncher.App\UI\TipPlacement.cs" Link="Shared\TipPlacement.cs" />
     <!-- The self-test's skin: the same independently encoded PNG the Core tests decode. -->
     <None Include="..\OriginLauncher.Tests\Fixtures\skin-all-filters.png" Link="skin-all-filters.png"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

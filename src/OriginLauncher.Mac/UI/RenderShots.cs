@@ -68,6 +68,10 @@ internal static class RenderShots
         Snap(window, "01-home");
         window.Home.SetReady(true, "Ready to play");
         Snap(window, "01b-home-ready");
+        // The players-online count beside the status line (made up: a shot run never fetches it).
+        window.Home.TourShowPlayersOnline(1284);
+        Snap(window, "01b2-home-players-online");
+        window.Home.TourShowPlayersOnline(null);
         var play = window.Home.Play;
         var centre = play.TranslatePoint(new Point(play.Bounds.Width / 2, play.Bounds.Height / 2), window) ?? default;
         window.MouseMove(centre);

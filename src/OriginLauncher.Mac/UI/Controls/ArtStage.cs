@@ -109,9 +109,21 @@ public sealed class ArtStage : Panel
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
         base.OnSizeChanged(e);
+        RefitForScale();
+    }
+
+    /// <summary>
+    /// The window moved to a screen of another scale (MainWindow's ScalingChanged), or resized: the art tier follows the
+    /// width in device pixels, so a launcher dragged from a 1x monitor to a Retina screen sharpens at once.
+    /// </summary>
+    public void RefitForScale()
+    {
         var tier = CurrentTier();
         if (tier != 0 && tier != _tier) LoadArt();
     }
+
+    /// <summary>--motion-check: the art tier on screen now (0 before the first load).</summary>
+    internal int ShownTier => _tier;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {

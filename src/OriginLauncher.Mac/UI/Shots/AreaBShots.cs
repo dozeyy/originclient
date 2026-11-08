@@ -397,6 +397,11 @@ internal static class AreaBShots
             new MinecraftAccount { Id = SocialDemo.Kai, Gamertag = Widest, LastUsedUtc = DateTimeOffset.UtcNow.AddDays(-30) },
         ]);
         Shot(window, "16j-drawer-accounts");
+        // The trash button's question (Cancel holds the focus; nothing is removed in a render).
+        window.TourAskRemoveAccount("Alex", true);
+        RenderShots.Pump();
+        Shot(window, "16j2-drawer-remove-confirm");
+        window.TourAskRemoveAccount("Alex", false);
         window.TourSetAccountOpen(false);
         RenderShots.Pump();
 

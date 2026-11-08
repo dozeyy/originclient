@@ -65,7 +65,12 @@ public sealed partial class MainWindow
         {
             if (e.Key != Key.Escape) return;
             if (_signInPanelOpen) { CloseSignInPanel(); e.Handled = true; }
-            else if (_accountPanelOpen) { SetAccountPanelOpen(false); e.Handled = true; }
+            else if (_accountPanelOpen)
+            {
+                // An open Remove question closes first; the drawer on the next Esc.
+                if (!_accountPanel.HandleEscape()) SetAccountPanelOpen(false);
+                e.Handled = true;
+            }
         }, RoutingStrategies.Tunnel);
 
         RefreshAccountChip();
@@ -104,10 +109,12 @@ public sealed partial class MainWindow
             Scrim.IsVisible = true;
             AccountPanel.IsVisible = true;
         }
+        else _accountPanel.DismissConfirm(); // closing the drawer answers an open Remove question with Cancel
         AccountPanel.IsHitTestVisible = open;
         Scrim.IsHitTestVisible = open;
-        MotionFx.Run(Scrim, OpacityProperty, Scrim.Opacity, open ? 0.5 : 0, ms);
-        MotionFx.Run(AccountPanel, _accountPanelShift, TranslateTransform.XProperty, _accountPanelShift.X, open ? 0 : UI.Res.D("Size.Drawer"), ms)
+        // WPF SetAccountPanelOpen: the scrim fades with no easing, the drawer slides cubic ease-out.
+        MotionFx.Run(Scrim, OpacityProperty, Scrim.Opacity, open ? 0.5 : 0, ms, MotionFx.Linear);
+        MotionFx.Run(AccountPanel, _accountPanelShift, TranslateTransform.XProperty, _accountPanelShift.X, open ? 0 : UI.Res.D("Size.Drawer"), ms, MotionFx.Cubic)
             .ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 if (_accountPanelOpen) return;
@@ -182,9 +189,10 @@ public sealed partial class MainWindow
             Scrim.IsVisible = true;
         }
         SignInPanel.IsHitTestVisible = open;
-        MotionFx.Run(SignInPanel, _signInScale, ScaleTransform.ScaleXProperty, _signInScale.ScaleX, open ? 1 : 0.97, ms);
-        MotionFx.Run(SignInPanel, _signInScale, ScaleTransform.ScaleYProperty, _signInScale.ScaleY, open ? 1 : 0.97, ms);
-        MotionFx.Run(SignInPanel, OpacityProperty, SignInPanel.Opacity, open ? 1 : 0, ms)
+        // WPF SetSignInPanelOpen: the scale eases out (cubic), the fade has no easing.
+        MotionFx.Run(SignInPanel, _signInScale, ScaleTransform.ScaleXProperty, _signInScale.ScaleX, open ? 1 : 0.97, ms, MotionFx.Cubic);
+        MotionFx.Run(SignInPanel, _signInScale, ScaleTransform.ScaleYProperty, _signInScale.ScaleY, open ? 1 : 0.97, ms, MotionFx.Cubic);
+        MotionFx.Run(SignInPanel, OpacityProperty, SignInPanel.Opacity, open ? 1 : 0, ms, MotionFx.Linear)
             .ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 if (_signInPanelOpen) return;
@@ -213,6 +221,14 @@ public sealed partial class MainWindow
         _accountPanel.TourShowRows(rows);
     }
 
+    /// <summary>Render shots: the trash button's question for <paramref name="name"/> (show) or closed again; nothing is removed.</summary>
+    internal void TourAskRemoveAccount(string name, bool show)
+    {
+        if (!OriginPaths.IsScratchRoot) return;
+        if (show) _accountPanel.TourAskRemove(name);
+        else _accountPanel.DismissConfirm();
+    }
+
     // The card as a player sees it while Microsoft's page loads, with an outcome, or showing a (made-up) code. The
     // card skips its web view in a scratch-root run, so nothing loads and nothing goes online.
     internal void TourShowSignIn(string? title, string? message, string? demoCode = null)
@@ -232,6 +248,7 @@ public sealed partial class MainWindow
     internal (bool Visible, double ShiftX) MotionAccountPanel => (AccountPanel.IsVisible, _accountPanelShift.X);
     internal (bool Visible, double ShiftX) MotionFriendsDrawer => (FriendsDrawer.IsVisible, _friendsShift.X);
     internal double MotionScrimOpacity => Scrim.Opacity;
+    internal bool MotionRemoveQuestionShown => _accountPanel.RemoveQuestionShown;
     internal Avalonia.Controls.Panel MotionPopupHost => Root;
 
     internal Avalonia.Controls.Button TourAccountButton => AccountButton;
