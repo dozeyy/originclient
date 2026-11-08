@@ -151,6 +151,25 @@ if 256 not in sizes:
 print("icons from origin.ico:", sorted(sizes))
 PY
 
+# --- OpenSSL 3 for the AppImage and the tar.gz (pins.sh LIBSSL3_*) ------------------------------
+# .NET aborts at the first HTTPS call when the distro has no OpenSSL it accepts (Fedora 45: OpenSSL 4 only).
+# LinuxOpenSsl.Linux.cs loads these two only then; a system OpenSSL 3 (or 1.1) always wins. Not in the .deb/.rpm,
+# which depend on the distro's OpenSSL 3 instead. The licence file travels with the libraries.
+ssl_deb="$work/libssl3.deb"
+ssl_sha="$(eval "echo \${LIBSSL3_SHA_${uname_arch}}")"
+for url in $(eval "echo \${LIBSSL3_URLS_${uname_arch}}"); do
+  if curl -fsSL --retry 3 --retry-delay 5 -o "$ssl_deb" "$url" && echo "$ssl_sha  $ssl_deb" | sha256sum -c --quiet -; then
+    break
+  fi
+  rm -f "$ssl_deb"
+done
+[ -s "$ssl_deb" ] || { echo "::error::no libssl3 download matched its pinned SHA-256" >&2; exit 1; }
+dpkg-deb -x "$ssl_deb" "$work/libssl3"
+mkdir -p "$app/openssl"
+cp -L "$work"/libssl3/usr/lib/*-linux-gnu/libssl.so.3 "$work"/libssl3/usr/lib/*-linux-gnu/libcrypto.so.3 "$app/openssl/"
+cp "$work/libssl3/usr/share/doc/libssl3/copyright" "$app/openssl/COPYRIGHT"
+echo "bundled OpenSSL: $(ls "$app/openssl" | tr '\n' ' ')"
+
 # --- tar.gz: one top folder, executable bits kept -----------------------------------------------
 tar -C "$work" -czf "$out/$TAR" OriginLauncher
 
@@ -178,6 +197,7 @@ chmod 0755 "$out/$APPIMAGE"
 # --- deb + rpm (nfpm, one config) -----------------------------------------------------------------
 pkgroot="$work/pkgroot"
 cp -a "$app" "$pkgroot"
+rm -r -f "$pkgroot/openssl" # the packages depend on the distro's OpenSSL 3 (nfpm.yaml)
 # Tells UpdateService.Linux.cs this is a package install: updates go to the per-user copy.
 printf 'Installed by the origin-launcher package. Self-updates go to ~/.local/share/OriginLauncher/app;\n/usr/bin/origin-launcher starts that copy while it is newer than this one.\n' > "$pkgroot/package-install"
 export NFPM_ARCH="$nfpm_arch" NFPM_VERSION="$pkg_version" PKG_APP="$pkgroot" PKG_FILES="$FILES" PKG_ICONS="$icons" \
