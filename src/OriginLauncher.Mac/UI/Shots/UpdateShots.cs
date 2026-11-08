@@ -140,6 +140,16 @@ internal static class UpdateShots
         else RenderShots.Fail("15u-update-scene (Home refused the update scene)");
         RenderShots.Pump();
 
+        // Update clicked while a game is open: the scene waits for Minecraft to close (WPF RenderShots 06e).
+        if (window.Home.BeginUpdateScene("1.0.80"))
+        {
+            window.Home.ReportUpdate(new UpdateService.UpdateProgress(UpdateService.UpdateStage.WaitingForGame, 0, null));
+            Shot(window, "06e-update-waiting-for-game");
+            window.Home.EndUpdateScene();
+        }
+        else RenderShots.Fail("15u-update-scene (Home refused the update scene)");
+        RenderShots.Pump();
+
         File.WriteAllText(Path.Combine(outDir, "update-fit.txt"), fit.ToString());
     }
 

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using CmlLib.Core.Auth;
@@ -86,20 +87,24 @@ internal static class LaunchPlan
         return planned == 0 && startGame ? StartGame(process, version, root) : planned;
     }
 
-    // Lines the game logs, in order, while it starts. "Setting user:" is net.minecraft.client.main.Main itself
-    // (every version; Fabric's Knot and Forge's launchwrapper both hand over to it): java found the real main
-    // class and the loader got the game running. The rest only say how far it got on a GPU-less runner.
-    private static readonly (string Marker, string Meaning)[] StartMarkers =
-    [
-        ("Setting user:", "Minecraft's main class is running"),
-        ("Backend library:", "LWJGL loaded its native library"),
-        ("Sound engine started", "the game finished starting"),
-    ];
+    // Lines the game logs while it starts. "Setting user:" is net.minecraft.client.main.Main itself (every version;
+    // Fabric's Knot and Forge's launchwrapper both hand over to it): java found the real main class and the loader got
+    // the game running. "Created: ... -atlas" is a texture atlas uploaded to the GPU, which needs a GL context, so the
+    // window exists and draws (1.8.9: "Created: 512x512 textures-atlas"; 1.21.1: "Created: 1024x512x4
+    // minecraft:textures/atlas/blocks.png-atlas"). The title line is Origin's own boot-smoke marker (ORIGIN_SMOKE=1,
+    // the one boot-smoke and the Linux boot job wait for), logged when the Origin Client jar is in the launch.
+    private const string MainClassMarker = "Setting user:";
+    private const string TitleMarker = "[origin-smoke] title screen reached";
+    private static readonly System.Text.RegularExpressions.Regex AtlasMarker =
+        new(@"Created: \d+x\d+\S* \S*-atlas", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>
-    /// `--start-game` (CI only): starts the process the plan built, the way Play does, and passes once Minecraft's
-    /// own main class logs (StartMarkers[0]); then it is stopped. That is the proof the argument line really
-    /// starts the game, which reading the line (CheckArguments) can only predict. Exit 0 = the game started.
+    /// `--start-game` (CI only): starts the process the plan built, the way Play does, and passes only once a game
+    /// WINDOW is on screen: the macOS window server lists an on-screen window owned by the game's process
+    /// (CGWindowListCopyWindowInfo, <see cref="MacWindows"/>). Minecraft's main class logging is not enough: it logs
+    /// before any window exists, and v1.0.97's check passed 1.8.9 while that game died (exit 255) before its window.
+    /// When the game stops first, its last lines and any crash report are printed, so the cause is in the CI log.
+    /// Exit 0 = a game window opened.
     /// </summary>
     private static int StartGame(Process process, string version, string root)
     {
@@ -107,14 +112,19 @@ internal static class LaunchPlan
         info.UseShellExecute = false;
         info.RedirectStandardOutput = true;
         info.RedirectStandardError = true;
+        info.Environment["ORIGIN_SMOKE"] = "1";
         var lines = new System.Collections.Concurrent.ConcurrentQueue<string>();
-        var started = new ManualResetEventSlim();
+        var mainClass = new ManualResetEventSlim();
+        var atlas = false;
+        var title = false;
         void OnLine(object? sender, DataReceivedEventArgs e)
         {
             if (e.Data == null) return;
             lines.Enqueue(e.Data);
-            while (lines.Count > 400) lines.TryDequeue(out _);
-            if (e.Data.Contains(StartMarkers[0].Marker, StringComparison.Ordinal)) started.Set();
+            while (lines.Count > 600) lines.TryDequeue(out _);
+            if (e.Data.Contains(MainClassMarker, StringComparison.Ordinal)) mainClass.Set();
+            if (AtlasMarker.IsMatch(e.Data)) atlas = true;
+            if (e.Data.Contains(TitleMarker, StringComparison.Ordinal)) title = true;
         }
         process.OutputDataReceived += OnLine;
         process.ErrorDataReceived += OnLine;
@@ -124,29 +134,67 @@ internal static class LaunchPlan
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
         // Fabric + Origin's mods load before Main runs; a cold CI runner needs well under 4 minutes.
-        while (!started.IsSet && !process.HasExited && watch.Elapsed < TimeSpan.FromMinutes(4)) started.Wait(500);
-        // A little longer, so the log shows how far a GPU-less runner gets (informational only).
-        if (started.IsSet) process.WaitForExit(20_000);
+        while (!mainClass.IsSet && !process.HasExited && watch.Elapsed < TimeSpan.FromMinutes(4)) mainClass.Wait(500);
+
+        // Then the window, polled once a second for up to 4 minutes (a cold 1.21.1 with Sodium and Iris on a runner
+        // takes a minute or two to its first frame). Once it is up, a little longer for the title screen (informational).
+        MacWindows.GameWindow? window = null;
+        var windowAt = TimeSpan.Zero;
+        var windowWatch = Stopwatch.StartNew();
+        while (mainClass.IsSet && window == null && !process.HasExited && windowWatch.Elapsed < TimeSpan.FromMinutes(4))
+        {
+            window = MacWindows.FindOnScreen(process.Id);
+            if (window == null) Thread.Sleep(1000);
+            else windowAt = watch.Elapsed;
+        }
+        var titleWatch = Stopwatch.StartNew();
+        while (window != null && !title && !process.HasExited && titleWatch.Elapsed < TimeSpan.FromSeconds(90)) Thread.Sleep(1000);
+
         var exited = process.HasExited;
         if (!exited)
         {
             try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
-            process.WaitForExit(10_000);
         }
+        process.WaitForExit(15_000); // also drains the redirected output, so the last lines are in
 
-        var log = lines.ToArray();
-        foreach (var (marker, meaning) in StartMarkers)
-            Console.WriteLine($"  game start       {(log.Any(l => l.Contains(marker, StringComparison.Ordinal)) ? "yes" : "no ")}  {meaning}");
-        Console.WriteLine($"  game ran         {watch.Elapsed.TotalSeconds:0} s, {(exited ? "exited " + process.ExitCode : "stopped by the plan")}");
-        if (started.IsSet)
+        Console.WriteLine($"  game start       {(mainClass.IsSet ? "yes" : "no ")}  Minecraft's main class is running");
+        Console.WriteLine(window is { } w
+            ? $"  game window      yes  on screen after {windowAt.TotalSeconds:0} s, {w.Width}x{w.Height} pt"
+            : "  game window      no   the game's process never had a window on screen");
+        Console.WriteLine($"  game draws       {(atlas ? "yes" : "no ")}  a texture atlas was uploaded to the GPU");
+        Console.WriteLine($"  title screen     {(title ? "yes" : "no ")}  Origin's title screen marker (needs the Origin Client jar in the launch)");
+        Console.WriteLine($"  game ran         {watch.Elapsed.TotalSeconds:0} s, {(exited ? "exited " + process.ExitCode + " on its own" : "stopped by the plan")}");
+        if (window != null)
         {
-            Console.WriteLine($"PASS  {version}: the game started");
+            Console.WriteLine($"PASS  {version}: the game started and its window opened");
             return 0;
         }
-        Console.WriteLine("  last game output:");
-        foreach (var l in log.TakeLast(40)) Console.WriteLine("    " + Redact(l, root));
-        Console.WriteLine($"FAIL  {version}: Minecraft's main class never ran ({(exited ? "java exited " + process.ExitCode : "timed out")})");
+        PrintWhyItStopped(lines.ToArray(), root);
+        Console.WriteLine(!mainClass.IsSet
+            ? $"FAIL  {version}: Minecraft's main class never ran ({(exited ? "java exited " + process.ExitCode : "timed out")})"
+            : $"FAIL  {version}: no game window opened ({(exited ? "java exited " + process.ExitCode : "timed out")})");
         return 1;
+    }
+
+    // The game's last lines, then the newest crash report and JVM crash file it left (redacted), so a failed start
+    // says why in the CI log instead of only an exit code.
+    private static void PrintWhyItStopped(string[] log, string root)
+    {
+        Console.WriteLine("  last game output:");
+        foreach (var l in log.TakeLast(80)) Console.WriteLine("    " + Redact(l, root));
+        foreach (var pattern in new[] { "crash-*.txt", "hs_err_pid*.log" })
+        {
+            string? newest;
+            try
+            {
+                newest = Directory.EnumerateFiles(root, pattern, SearchOption.AllDirectories)
+                    .OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
+            }
+            catch (IOException) { continue; }
+            if (newest == null) continue;
+            Console.WriteLine($"  {Redact(newest, root)} (first 60 lines):");
+            foreach (var l in File.ReadLines(newest).Take(60)) Console.WriteLine("    " + Redact(l, root));
+        }
     }
 
     /// <summary>
@@ -447,4 +495,93 @@ internal static class MachO
         7 => "i386",
         _ => $"cpu{type:x}",
     };
+}
+
+/// <summary>
+/// The macOS window server's list of on-screen windows (CoreGraphics CGWindowListCopyWindowInfo): which belong to a
+/// process. Owner pid, layer and bounds need no permission (only window titles need Screen Recording). Used by
+/// `--start-game` to prove the game's window really opened.
+/// </summary>
+internal static class MacWindows
+{
+    private const string CoreGraphics = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
+    private const string CoreFoundation = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
+    private const uint OnScreenOnly = 1 << 0;
+    private const uint ExcludeDesktopElements = 1 << 4;
+    private const long CFNumberSInt64Type = 4;
+    private const uint CFStringEncodingUtf8 = 0x08000100;
+
+    internal readonly record struct GameWindow(int Width, int Height);
+
+    [DllImport(CoreGraphics)]
+    private static extern IntPtr CGWindowListCopyWindowInfo(uint option, uint relativeToWindow);
+
+    [DllImport(CoreGraphics)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern bool CGRectMakeWithDictionaryRepresentation(IntPtr dict, out CGRect rect);
+
+    [DllImport(CoreFoundation)]
+    private static extern long CFArrayGetCount(IntPtr array);
+
+    [DllImport(CoreFoundation)]
+    private static extern IntPtr CFArrayGetValueAtIndex(IntPtr array, long index);
+
+    [DllImport(CoreFoundation)]
+    private static extern IntPtr CFDictionaryGetValue(IntPtr dict, IntPtr key);
+
+    [DllImport(CoreFoundation)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern bool CFNumberGetValue(IntPtr number, long type, out long value);
+
+    [DllImport(CoreFoundation, CharSet = CharSet.Ansi)]
+    private static extern IntPtr CFStringCreateWithCString(IntPtr allocator, string text, uint encoding);
+
+    [DllImport(CoreFoundation)]
+    private static extern void CFRelease(IntPtr cf);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CGRect
+    {
+        public double X, Y, Width, Height;
+    }
+
+    /// <summary>The largest normal-layer (0) on-screen window of <paramref name="pid"/> at least 100x100 pt, or null.</summary>
+    public static GameWindow? FindOnScreen(int pid)
+    {
+        var list = CGWindowListCopyWindowInfo(OnScreenOnly | ExcludeDesktopElements, 0);
+        if (list == IntPtr.Zero) return null;
+        var ownerKey = CFStringCreateWithCString(IntPtr.Zero, "kCGWindowOwnerPID", CFStringEncodingUtf8);
+        var layerKey = CFStringCreateWithCString(IntPtr.Zero, "kCGWindowLayer", CFStringEncodingUtf8);
+        var boundsKey = CFStringCreateWithCString(IntPtr.Zero, "kCGWindowBounds", CFStringEncodingUtf8);
+        try
+        {
+            GameWindow? best = null;
+            for (long i = 0, n = CFArrayGetCount(list); i < n; i++)
+            {
+                var window = CFArrayGetValueAtIndex(list, i);
+                if (!Number(window, ownerKey, out var owner) || owner != pid) continue;
+                if (!Number(window, layerKey, out var layer) || layer != 0) continue;
+                var bounds = CFDictionaryGetValue(window, boundsKey);
+                if (bounds == IntPtr.Zero || !CGRectMakeWithDictionaryRepresentation(bounds, out var rect)) continue;
+                if (rect.Width < 100 || rect.Height < 100) continue;
+                if (best is not { } b || rect.Width * rect.Height > (double)b.Width * b.Height)
+                    best = new GameWindow((int)rect.Width, (int)rect.Height);
+            }
+            return best;
+        }
+        finally
+        {
+            CFRelease(boundsKey);
+            CFRelease(layerKey);
+            CFRelease(ownerKey);
+            CFRelease(list);
+        }
+    }
+
+    private static bool Number(IntPtr dict, IntPtr key, out long value)
+    {
+        value = 0;
+        var number = CFDictionaryGetValue(dict, key);
+        return number != IntPtr.Zero && CFNumberGetValue(number, CFNumberSInt64Type, out value);
+    }
 }

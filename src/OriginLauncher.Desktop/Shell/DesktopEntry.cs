@@ -8,6 +8,7 @@ namespace OriginLauncher.Desktop.Shell;
 
 // The launcher UI's entry point, called by the host's Main (src/OriginLauncher.Linux/Program.cs).
 //   (no args)                  the launcher window
+//   --motion-check [--root d]  CI: animations with motion on, real click paths, headless (Shots/MotionCheck.cs)
 //   --render-shots <dir>       every screen and state as PNGs, headless (no window, no display server),
 //                              made-up data in a temp scratch root, no network, exits by itself
 public static class DesktopEntry
@@ -23,6 +24,13 @@ public static class DesktopEntry
                 return 2;
             }
             return ShotRunner.Run(Path.GetFullPath(args[render + 1]), args);
+        }
+        // CI only: the animations with motion on and the real click paths, headless (Shots/MotionCheck.cs).
+        var motion = Array.IndexOf(args, "--motion-check");
+        if (motion >= 0)
+        {
+            var root = Array.IndexOf(args, "--root") is var r and >= 0 && r + 1 < args.Length ? args[r + 1] : null;
+            return MotionCheck.Run(root);
         }
         return RunWindow(args);
     }

@@ -88,11 +88,32 @@ public static class ShotRunner
 
     /// <summary>Every [ShotSet] method's shots, in name order (names start with a number, like the Windows set).</summary>
     private static IEnumerable<Shot> Discover() =>
-        typeof(ShotRunner).Assembly.GetTypes()
+        WithDpiMatrix(typeof(ShotRunner).Assembly.GetTypes()
             .SelectMany(t => t.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
             .Where(m => m.GetCustomAttribute<ShotSetAttribute>() != null)
-            .SelectMany(m => (IEnumerable<Shot>)m.Invoke(null, null)!)
+            .SelectMany(m => (IEnumerable<Shot>)m.Invoke(null, null)!))
             .OrderBy(s => s.Name, StringComparer.Ordinal);
+
+    private static readonly System.Text.RegularExpressions.Regex DpiScene = new(@"^dpi-(?<scene>.+)-1180x740-100pct$");
+
+    /// <summary>
+    /// The Windows set's DPI matrix (WPF RenderShots.DpiMatrix): every `dpi-scene-1180x740-100pct` shot also at the
+    /// launcher's minimum (980x600) and at 1920x1080, each at 100, 150 and 200 % display scale, named
+    /// `dpi-scene-WxH-PCTpct` like the Windows files, so HiDPI and narrow-window regressions on Linux show up in the
+    /// sheet and in the "Windows shots with no Linux twin" list instead of shipping unseen (PAR3-8).
+    /// </summary>
+    private static IEnumerable<Shot> WithDpiMatrix(IEnumerable<Shot> shots)
+    {
+        foreach (var shot in shots)
+        {
+            yield return shot;
+            if (DpiScene.Match(shot.Name) is not { Success: true } m) continue;
+            foreach (var percent in new[] { 100, 150, 200 })
+                foreach (var (w, h) in new[] { (980, 600), (1180, 740), (1920, 1080) })
+                    if (percent != 100 || w != 1180)
+                        yield return shot with { Name = $"dpi-{m.Groups["scene"].Value}-{w}x{h}-{percent}pct", Width = w, Height = h, Scale = percent / 100.0 };
+        }
+    }
 
     private static void Render(Shot shot, string path)
     {
@@ -102,6 +123,7 @@ public static class ShotRunner
         var window = new MainWindow { Width = shot.Width, Height = shot.Height };
         try
         {
+            if (shot.Scale != 1) window.SetRenderScaling(shot.Scale);
             window.Show();
             Pump();
             shot.Setup(window);

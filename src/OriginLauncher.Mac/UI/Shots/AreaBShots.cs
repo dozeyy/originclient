@@ -229,6 +229,18 @@ internal static class AreaBShots
         mods.TourShowUpdate("litematica-fabric-1.21.1-0.19.50.jar", "0.21.0");
         Shot(window, $"{prefix}d2-mods-update");
 
+        // A dropped jar that is the same mod as an installed one asks Replace / Keep old (WPF CompatShots 30, 30b), then
+        // a long name and long versions to prove the row wraps instead of clipping.
+        window.TourShowModsDemo(DemoMods, 0);
+        mods.TourShowReplace(new OriginLauncher.App.Core.Compat.ReplaceOffer("/Users/player/Downloads/litematica-fabric-1.21.1-0.21.0.jar",
+            "litematica-fabric-1.21.1-0.21.0.jar", "Litematica", "0.21.0", "litematica-fabric-1.21.1-0.19.50.jar", "0.19.50"));
+        Shot(window, "30-compat-mods-replace-row");
+        mods.TourShowReplace(new OriginLauncher.App.Core.Compat.ReplaceOffer("/Users/player/Downloads/x.jar", "x.jar",
+            "Xaero's World Map (Fabric edition)", "1.39.2+build.14-fabric-1.21.1",
+            "XaerosWorldMap_1.39.2_Fabric_1.21.jar", "1.38.0+build.9-fabric-1.21.1"));
+        Shot(window, "30b-compat-mods-replace-row-long");
+        mods.TourShowReplace(null);
+
         mods.TourNoVersion();
         Shot(window, $"{prefix}e-mods-no-version");
 

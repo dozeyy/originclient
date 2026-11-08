@@ -347,6 +347,7 @@ public sealed class MainWindow : Window
     }
 
     public bool DialogOpen => _dialogOpen;
+    public Control? DialogContent => _dialogOpen ? _dialog.Child : null;
 
     public void CloseDialog()
     {

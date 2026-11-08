@@ -103,6 +103,13 @@ internal static class AreaAShots
                 () => SocialShots.HideHomeFriendsToasts(window)),
             ("versions-grid", () => window.TourNavigate(0), OpenPicker, home.TourHideVersions),
             ("settings", () => window.TourNavigate(3), null, () => window.TourNavigate(0)),
+            // Play refused for a mandatory update: the prompt it opens, with the words every launcher uses.
+            ("update-required", () =>
+            {
+                window.TourNavigate(0);
+                _ = window.Confirm.ShowAsync(OriginLauncher.App.Core.Updates.UpdateRequiredWords.PromptTitle, OriginLauncher.App.Core.Updates.UpdateRequiredWords.PromptText,
+                    OriginLauncher.App.Core.Updates.UpdateRequiredWords.UpdateButton, OriginLauncher.App.Core.Updates.UpdateRequiredWords.LaterButton);
+            }, null, () => window.Confirm.Dismiss()),
             ("launch-failed", () =>
             {
                 window.TourNavigate(0);

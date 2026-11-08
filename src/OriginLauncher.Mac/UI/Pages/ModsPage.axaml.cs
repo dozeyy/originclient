@@ -877,6 +877,17 @@ public sealed partial class ModsPage : UserControl
         Refresh();
     }
 
+    // A dropped jar that is the same mod as an installed one: the Replace / Keep old row (the WPF CompatShots twin).
+    internal void TourShowReplace(OriginLauncher.App.Core.Compat.ReplaceOffer? offer)
+    {
+        if (!OriginPaths.IsScratchRoot) return;
+        _pendingRemove = null;
+        _pendingReplace.Clear();
+        if (offer != null) _pendingReplace.Add(offer);
+        _builtKey = null;
+        Refresh();
+    }
+
     internal void TourConfirmRemove(string fileName)
     {
         if (!OriginPaths.IsScratchRoot) return;

@@ -54,6 +54,7 @@ on:
 
 permissions:
   contents: read
+  actions: read   # the shots job downloads the latest Windows launcher-shots artifact to compare names
 
 concurrency:
   group: linux-launcher-${{ github.ref }}
@@ -111,13 +112,20 @@ jobs:
             "$RUNNER_TEMP/publish/OriginLauncher" --self-test --network --require-keyring
           '
 
+      # Every other headless run switches animations off and drives screens through tour helpers; this one runs them
+      # for real (Motion.Off = false, the startup intro included) and presses the real buttons: Play signed out (the
+      # sign-in card), the account pill, Friends, quick open/close toggles, every page, the version picker, a confirm
+      # and a toast. Fails on anything thrown or a layer that doesn't settle (Shots/MotionCheck.cs; Mac twin: --motion-check).
+      - name: Motion check
+        run: '"$RUNNER_TEMP/publish/OriginLauncher" --motion-check --root "$RUNNER_TEMP/motion-check"'
+
       # The Core tests that mean something on Linux: the Linux seams, the managed skin decoder,
       # the library rules (1.8.9 LWJGL 2.9.4 and LWJGL 3 natives-linux on Linux), where the import looks
       # (~/.minecraft, XDG data, Flatpak), the running-game process probe and the Game folder rule.
       - name: Core tests (Linux mode)
         run: >
           dotnet test src/OriginLauncher.Tests -p:OriginPlatform=Linux
-          --filter "FullyQualifiedName~LinuxSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~LinuxImportRootsTests|FullyQualifiedName~GameRunningProbeTests|FullyQualifiedName~FieldRulesTests"
+          --filter "FullyQualifiedName~LinuxSeamTests|FullyQualifiedName~SkinPngTests|FullyQualifiedName~LibraryRulesTests|FullyQualifiedName~LinuxImportRootsTests|FullyQualifiedName~GameRunningProbeTests|FullyQualifiedName~FieldRulesTests|FullyQualifiedName~LinuxPlatformWordsTests|FullyQualifiedName~CrashCorpusTests"
 
       # The mod jars the packages bundle: the latest release's (Bundled/OriginClient in its Windows
       # zip), so branch CI needs no Gradle build. The release workflow passes its own fresh jars.
@@ -163,6 +171,19 @@ jobs:
               *) grep -qE "install kind +folder" "$d/out.txt" ;;
             esac
           done
+
+      # An AppImage kept in a folder this user can't write (LINUX-7): it can't replace itself, so it is never offered an
+      # update, and the player is told to move it to a folder they own instead of staying old without a word.
+      - name: A read-only AppImage says how to update
+        if: ${{ matrix.rid == 'linux-x64' }}
+        run: |
+          ro="$RUNNER_TEMP/readonly"; mkdir -p "$ro"
+          cp "$RUNNER_TEMP"/dist/OriginLauncher-linux-*.AppImage "$ro/"
+          chmod +x "$ro"/*.AppImage; chmod a-w "$ro"
+          "$(ls "$ro"/*.AppImage)" --self-test | tee "$RUNNER_TEMP/ro.txt" || true
+          chmod u+w "$ro"
+          grep -E "install kind +appimage" "$RUNNER_TEMP/ro.txt"
+          grep -E "update blocked +Origin can't update itself from this folder. Move the AppImage" "$RUNNER_TEMP/ro.txt"
 
       - name: Upload the packages
         if: ${{ matrix.rid == 'linux-x64' }}
@@ -243,6 +264,82 @@ jobs:
           SCRIPT
           docker run --rm -v "$PWD/pkgs:/pkgs:ro" -v "$PWD/test.sh:/test.sh:ro" "${{ matrix.image }}" sh /test.sh
 
+  # The two portable downloads (AppImage, tar.gz) as a player on another distro runs them, in fresh containers with
+  # NOTHING installed for OpenSSL: Fedora 45 has only OpenSSL 4 (libssl.so.4), which .NET 10 can't use, so the
+  # launcher must load the OpenSSL 3 the downloads carry (LinuxOpenSsl.Linux.cs) and still go online (--network: TLS
+  # to Mojang, the Java 8 download); Arch has its own OpenSSL 3, which must win. The only package added is ICU: container
+  # base images strip it, every desktop install has it (GNOME and KDE depend on it), and .NET won't start without it.
+  portable:
+    name: portable (${{ matrix.image }})
+    needs: linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: "fedora:latest"
+            openssl: "bundled OpenSSL 3"
+          - image: "archlinux:latest"
+            openssl: "system libssl.so.3"
+    steps:
+      - name: Download the packages
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-packages-linux-x64
+          path: pkgs
+
+      - name: AppImage + tar.gz on ${{ matrix.image }}
+        run: |
+          cat > test.sh <<'SCRIPT'
+          set -eu
+          head -n 2 /etc/os-release
+          if command -v dnf >/dev/null; then dnf install -y -q libicu tar >/dev/null
+          else pacman -Sy --noconfirm --needed icu >/dev/null; fi
+          [ -s /etc/machine-id ] || cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id
+          echo "--- OpenSSL this distro has: $( (ldconfig -p || /sbin/ldconfig -p) 2>/dev/null | grep -oE 'libssl\.so\.[0-9.]+' | sort -u | tr '\n' ' ')"
+          mkdir -p /fresh/tar /fresh/appimage
+          tar -xzf /pkgs/OriginLauncher-linux-x64.tar.gz -C /fresh/tar
+          cp /pkgs/OriginLauncher-linux-x86_64.AppImage /fresh/appimage/ && chmod +x /fresh/appimage/*.AppImage
+          for exe in /fresh/tar/OriginLauncher/OriginLauncher "/fresh/appimage/OriginLauncher-linux-x86_64.AppImage --appimage-extract-and-run"; do
+            echo "--- $exe --self-test --network"
+            if ! $exe --self-test --network > /tmp/out.txt 2>&1; then cat /tmp/out.txt; exit 1; fi
+            cat /tmp/out.txt
+            grep -E "openssl +$OPENSSL" /tmp/out.txt
+          done
+          echo PASS
+          SCRIPT
+          docker run --rm -e OPENSSL="${{ matrix.openssl }}" -v "$PWD/pkgs:/pkgs:ro" -v "$PWD/test.sh:/test.sh:ro" "${{ matrix.image }}" sh /test.sh
+
+  # 1.8.9 on a PC without the xrandr program (LINUX-3): LWJGL 2 needs it and would die before its window, so Play must
+  # refuse up front with the one install command (PlatformLaunch.Linux EnsureCanRun) instead of starting a doomed game.
+  xrandr-refusal:
+    name: boot (1.8.9, no xrandr)
+    needs: linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download the packages
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-packages-linux-x64
+          path: ${{ runner.temp }}/pkgs
+
+      - name: Play 1.8.9 without xrandr
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q fuse3 >/dev/null
+          for p in $(which -a xrandr || true); do sudo mv "$p" "$p.hidden"; done
+          if command -v xrandr; then echo "xrandr is still on PATH"; exit 1; fi
+          app="$RUNNER_TEMP/pkgs/OriginLauncher-linux-x86_64.AppImage"; chmod +x "$app"
+          set +e
+          "$app" --boot-test 1.8.9 --root "$RUNNER_TEMP/origin-data" --timeout 120 | tee "$RUNNER_TEMP/out.txt"
+          code=${PIPESTATUS[0]}
+          set -e
+          test "$code" != 0
+          grep -F "launch screen: Minecraft 1.8.9 needs xrandr: Install it once, then press Play: sudo apt install x11-xserver-utils" "$RUNNER_TEMP/out.txt"
+          # Refused before anything was downloaded or started.
+          if grep -q "game started (pid" "$RUNNER_TEMP/out.txt"; then echo "the game was started anyway"; exit 1; fi
+
   # Real Minecraft through the Linux launcher: the AppImage installed fresh, then --boot-test makes
   # the launcher's own Core install the loader, the Origin Client jar and Java and start the game
   # (offline test account, temp data root) on Xvfb + Mesa llvmpipe. Pass = the title screen with zero
@@ -312,7 +409,7 @@ jobs:
   shots:
     name: shots (render every screen)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -346,3 +443,90 @@ jobs:
           name: linux-launcher-shots
           path: ${{ runner.temp }}/shots
           if-no-files-found: error
+
+      # The Linux twin of the Mac job's parity list: every Windows screen (launcher-shots, the latest green run) with no
+      # Linux shot of the same name, in the job summary. The Linux run draws the Friends drawer states in the same
+      # folder, so the Windows social/ names are compared with all of them. Informational, never fails the run.
+      - name: Windows shots with no Linux twin
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shots="$RUNNER_TEMP/shots"
+          run_id=$(gh run list -R "$GITHUB_REPOSITORY" --workflow launcher-shots.yml --status success --limit 1 --json databaseId -q '.[0].databaseId')
+          {
+            echo "## Linux screens vs Windows"
+            if [ -z "$run_id" ] || ! gh run download "$run_id" -R "$GITHUB_REPOSITORY" -n launcher-shots -D win-shots; then
+              echo "No Windows launcher-shots artifact to compare against (none recent, or expired)."
+            else
+              echo "Compared with Windows launcher-shots run $run_id."
+              ls win-shots/*.png | xargs -n1 basename | sort > win.txt
+              find "$shots" -name '*.png' | xargs -n1 basename | sort -u > linux.txt
+              echo ""
+              echo "Linux has $(comm -12 win.txt linux.txt | wc -l) of $(wc -l < win.txt) Windows screens. Not on Linux yet:"
+              echo ""
+              comm -23 win.txt linux.txt | sed 's/^/- /'
+              ls win-shots/social/*.png 2>/dev/null | xargs -n1 basename | sort > win-social.txt
+              echo ""
+              echo "Friends drawer (--social): Linux has $(comm -12 win-social.txt linux.txt | wc -l) of $(wc -l < win-social.txt). Not on Linux yet:"
+              echo ""
+              comm -23 win-social.txt linux.txt | sed 's/^/- /'
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # The Linux launcher's screens on the claude/dev-shots branch, folder linux-launcher/ (SOURCE.txt names the commit), next to
+  # launcher-shots' Windows `launcher/` folder, so a session can open them (_sheet.jpg first) without the artifact API.
+  # Publish only: it checks nothing out and runs no repo code; it is the only job with contents: write, and it pushes
+  # the PNGs the shots step uploaded. Same race-safe push as launcher-shots.yml's publish (one sparse clone, then
+  # fetch-reset-recommit on a lost race). Never on pull requests (their token can't write).
+  publish-shots:
+    name: Publish Linux shots to dev-shots
+    needs: shots
+    if: ${{ always() && github.event_name != 'pull_request' }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-launcher-shots
+          path: ${{ runner.temp }}/pub
+
+      - name: Publish to the claude/dev-shots branch
+        run: |
+          folder="linux-launcher"
+          n=$(find "$RUNNER_TEMP/pub" -name '*.png' | wc -l)
+          echo "PNGs to publish: $n"
+          [ "$n" -gt 0 ] || { echo "::error::no PNGs in the linux-launcher-shots artifact"; exit 1; }
+          url="https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
+          max=15
+          pause() { local d=$(( 2 + RANDOM % 7 + $1 )); [ "$d" -gt 20 ] && d=20; echo "waiting ${d}s"; sleep "$d"; }
+          site="$RUNNER_TEMP/site"
+          for try in 1 2 3 4 5 6; do
+            rc=0
+            git ls-remote --exit-code --heads "$url" claude/dev-shots >/dev/null 2>&1 || rc=$?
+            rm -rf "$site"
+            if [ "$rc" = 0 ] && timeout 300 git clone -q --depth 1 --filter=blob:none --no-checkout --branch claude/dev-shots "$url" "$site" \
+               && git -C "$site" sparse-checkout set --no-cone "/$folder/" && timeout 300 git -C "$site" checkout -q claude/dev-shots; then break; fi
+            if [ "$rc" = 2 ]; then
+              mkdir -p "$site" && git -C "$site" init -q && git -C "$site" checkout -q -b claude/dev-shots && break
+            fi
+            echo "could not get claude/dev-shots (ls-remote exit $rc, try $try/6)"; pause "$try"
+          done
+          [ -d "$site/.git" ] || { echo "::error::could not clone claude/dev-shots"; exit 1; }
+          cd "$site"
+          git config user.name "origin-dev-shots"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in $(seq 1 "$max"); do
+            rm -rf "$folder"; cp -r "$RUNNER_TEMP/pub" "$folder"
+            printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$folder/SOURCE.txt"
+            git add -A
+            git commit -qm "Linux launcher shots for ${GITHUB_SHA::7}" || true
+            if git push -q "$url" HEAD:refs/heads/claude/dev-shots; then echo "published on attempt $attempt"; exit 0; fi
+            echo "push lost the race (attempt $attempt/$max)"
+            pause "$attempt"
+            git fetch -q --depth 1 --filter=blob:none "$url" claude/dev-shots && git reset -q --hard FETCH_HEAD || echo "fetch of the new tip failed; will retry"
+          done
+          echo "::error::could not publish to claude/dev-shots after $max attempts"
+          exit 1
