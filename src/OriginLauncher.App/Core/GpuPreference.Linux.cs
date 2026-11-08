@@ -26,7 +26,9 @@ public static class GpuPreference
         {
             if (OffloadVariables.Any(name => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(name)))) return;
             var cards = HardwareProbe.ReadCards("/sys/class/drm");
-            foreach (var (name, value) in OffloadEnvironment(cards, Directory.Exists("/sys/module/nvidia")))
+            var nvidia = Directory.Exists("/sys/module/nvidia");
+            var nvidiaVersion = nvidia && File.Exists("/sys/module/nvidia/version") ? File.ReadAllText("/sys/module/nvidia/version").Trim() : null;
+            foreach (var (name, value) in OffloadEnvironment(cards, nvidia, nvidiaVersion))
                 start.Environment[name] = value;
         }
         catch (Exception)
@@ -38,16 +40,29 @@ public static class GpuPreference
     // Any of these already set means the player chose the GPU himself.
     private static readonly string[] OffloadVariables = ["DRI_PRIME", "__NV_PRIME_RENDER_OFFLOAD"];
 
-    /// <summary>The variables that move the game to the discrete GPU, or none (pure: sysfs cards in, variables out).</summary>
-    internal static IReadOnlyList<(string Name, string Value)> OffloadEnvironment(IReadOnlyList<HardwareProbe.DrmCard> cards, bool nvidiaDriverLoaded)
+    // NVIDIA's PRIME render offload exists from driver 435 on. The legacy 390/340 drivers (Fermi/Kepler Optimus
+    // laptops, no newer driver exists for them) can't offload: forcing GLX to NVIDIA there leaves the game without a GL
+    // context ("failed to create context"), so those machines keep the integrated GPU, which works (LINUX-11).
+    internal const int NvidiaOffloadMinimumDriver = 435;
+
+    /// <summary>
+    /// The variables that move the game to the discrete GPU, or none (pure: sysfs cards in, variables out).
+    /// <paramref name="nvidiaDriverVersion"/>: /sys/module/nvidia/version ("550.67"), null when unknown.
+    /// </summary>
+    internal static IReadOnlyList<(string Name, string Value)> OffloadEnvironment(IReadOnlyList<HardwareProbe.DrmCard> cards,
+        bool nvidiaDriverLoaded, string? nvidiaDriverVersion = null)
     {
         // Only a hybrid machine: a display card that is not discrete, and a discrete card that is not the display.
         var display = cards.FirstOrDefault(c => c.BootVga);
-        if (display == null || HardwareProbe.IsDiscrete(display)) return [];
-        var discrete = cards.FirstOrDefault(c => !c.BootVga && HardwareProbe.IsDiscrete(c));
+        if (display == null || HardwareProbe.IsDiscrete(display, cards)) return [];
+        var discrete = cards.FirstOrDefault(c => !c.BootVga && HardwareProbe.IsDiscrete(c, cards));
         if (discrete == null) return [];
         if (discrete.Vendor == HardwareProbe.NvidiaVendor && nvidiaDriverLoaded)
+        {
+            var major = nvidiaDriverVersion?.Split('.')[0];
+            if (int.TryParse(major, out var m) && m < NvidiaOffloadMinimumDriver) return [];
             return [("__NV_PRIME_RENDER_OFFLOAD", "1"), ("__GLX_VENDOR_LIBRARY_NAME", "nvidia"), ("__VK_LAYER_NV_optimus", "NVIDIA_only")];
+        }
         return [("DRI_PRIME", "1")];
     }
 }

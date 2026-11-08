@@ -56,7 +56,7 @@ public static partial class HardwareProbe
     /// <summary>The display card (boot_vga) when one is flagged, else the best by the Windows rule (discrete, then VRAM).</summary>
     internal static (string? Name, long? VramMb, bool? Integrated) PickGpu(IReadOnlyList<DrmCard> cards)
     {
-        var described = cards.Select(c => (Card: c, Info: Describe(c))).ToList();
+        var described = cards.Select(c => (Card: c, Info: Describe(c, cards))).ToList();
         if (described.Count == 0) return (null, null, null);
         var display = described.Where(d => d.Card.BootVga).ToList();
         var pool = display.Count > 0 ? display : described;
@@ -67,7 +67,21 @@ public static partial class HardwareProbe
     }
 
     /// <summary>A card known to be a discrete GPU (GpuPreference.Linux offloads the game to it on a hybrid laptop).</summary>
-    internal static bool IsDiscrete(DrmCard card) => Describe(card).Integrated == false;
+    internal static bool IsDiscrete(DrmCard card, IReadOnlyList<DrmCard> all) => Describe(card, all).Integrated == false;
+
+    // An AMD APU whose BIOS gives it 2 GB or more of system RAM (common on Ryzen laptops and handhelds, 4-8 GB) looks
+    // like a discrete Radeon by its VRAM alone, so a hybrid laptop's real discrete GPU was never used (LINUX-10). The
+    // layout tells them apart: on a hybrid machine the display card (boot_vga) is the integrated one and the discrete
+    // GPU sits beside it, not driving the display. So an AMD display card with a discrete card beside it is the APU,
+    // whatever its VRAM. A desktop whose display card is the discrete Radeon has no second discrete card beside it.
+    private static (string? Name, long? VramMb, bool? Integrated) Describe(DrmCard card, IReadOnlyList<DrmCard> all)
+    {
+        var info = Describe(card);
+        if (card.Vendor == Amd && info.Integrated == false && card.BootVga
+            && all.Any(o => !o.BootVga && Describe(o).Integrated == false))
+            return ("AMD Radeon Graphics", info.VramMb, true);
+        return info;
+    }
 
     internal const int NvidiaVendor = Nvidia;
 

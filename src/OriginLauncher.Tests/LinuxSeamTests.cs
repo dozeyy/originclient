@@ -326,6 +326,39 @@ public sealed class LinuxSeamTests : IDisposable
         Assert.Empty(GpuPreference.OffloadEnvironment([], nvidiaDriverLoaded: false));
     }
 
+    // LINUX-10: an APU given 4 GB of system RAM (BIOS UMA setting) next to a discrete GPU is still the integrated card,
+    // so the game moves to the discrete one; a desktop's discrete Radeon driving the screen alone stays discrete.
+    [Fact]
+    public void An_apu_with_a_big_carve_out_next_to_a_discrete_gpu_counts_as_integrated()
+    {
+        var apu4g = new HardwareProbe.DrmCard(0x1002, 0x1681, true, 4096L * 1024 * 1024, null);
+        var nvidia = new HardwareProbe.DrmCard(0x10de, 0x28a0, false, null, "NVIDIA GeForce RTX 4060 Laptop GPU");
+        var radeonM = new HardwareProbe.DrmCard(0x1002, 0x743f, false, 4096L * 1024 * 1024, null);
+        Assert.Equal(new[] { ("__NV_PRIME_RENDER_OFFLOAD", "1"), ("__GLX_VENDOR_LIBRARY_NAME", "nvidia"), ("__VK_LAYER_NV_optimus", "NVIDIA_only") },
+            GpuPreference.OffloadEnvironment([apu4g, nvidia], nvidiaDriverLoaded: true, "550.67"));
+        Assert.Equal(new[] { ("DRI_PRIME", "1") }, GpuPreference.OffloadEnvironment([apu4g, radeonM], nvidiaDriverLoaded: false));
+        Assert.Equal(("AMD Radeon Graphics", (long?)4096, (bool?)true), HardwareProbe.PickGpu([apu4g, nvidia]));
+
+        var desktopRadeon = new HardwareProbe.DrmCard(0x1002, 0x744c, true, 16368L * 1024 * 1024, null);
+        Assert.Equal(("AMD Radeon GPU", (long?)16368, (bool?)false), HardwareProbe.PickGpu([desktopRadeon]));
+        Assert.Empty(GpuPreference.OffloadEnvironment([desktopRadeon], nvidiaDriverLoaded: false));
+    }
+
+    // LINUX-11: NVIDIA's legacy 390/340 drivers have no PRIME render offload; forcing it would leave the game without a
+    // GL context, so those laptops keep the integrated GPU. 435+ (and an unreadable version) offload as before.
+    [Theory]
+    [InlineData("390.157", false)]
+    [InlineData("340.108", false)]
+    [InlineData("435.21", true)]
+    [InlineData("550.67", true)]
+    [InlineData(null, true)]
+    public void Prime_offload_needs_nvidia_driver_435_or_newer(string? version, bool offloads)
+    {
+        var intel = new HardwareProbe.DrmCard(0x8086, 0x0166, true, null, null);
+        var kepler = new HardwareProbe.DrmCard(0x10de, 0x0fd1, false, null, "GeForce GT 650M");
+        Assert.Equal(offloads, GpuPreference.OffloadEnvironment([intel, kepler], nvidiaDriverLoaded: true, version).Count > 0);
+    }
+
     [Fact]
     public void Mojang_platform_names_are_linux()
     {
