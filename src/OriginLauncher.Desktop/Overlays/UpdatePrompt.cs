@@ -24,6 +24,8 @@ public static class UpdatePrompt
     private static readonly TimeSpan PollEvery = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan ActivateThrottle = TimeSpan.FromSeconds(30);
     private static bool _started, _busy;
+    private static MainWindow? _window;
+    private static Version? _toldBlocked;
     private static DateTime _lastCheck = DateTime.MinValue;
 
     /// <summary>Starts the update check once the window is up (real runs only): now, every 2 minutes, and when the
@@ -32,6 +34,7 @@ public static class UpdatePrompt
     {
         if (Shots.ShotRunner.Active || _started) return;
         _started = true;
+        _window = window;
         // AvailableChanged may fire on a worker thread.
         UpdateService.AvailableChanged += (_, _) => Dispatcher.UIThread.Post(ShowChip);
         window.Activated += (_, _) =>
@@ -64,6 +67,14 @@ public static class UpdatePrompt
     {
         if (_busy) return;
         LauncherState.SetUpdate(UpdateService.Available is { } u ? Short(u.Version) : null);
+        // A newer release this copy can't install where it sits (UpdateService.Blocked: a read-only AppImage folder, a
+        // root-owned tar.gz folder): it is never offered and never gates Play, so say once per release how to get it
+        // (the twin of the Mac's "Move to Applications" chip). Without this the copy stayed old without a word.
+        if (UpdateService.Blocked is { } blocked && blocked.Version != _toldBlocked && _window != null)
+        {
+            _toldBlocked = blocked.Version;
+            _window.Toast(blocked.Reason, Tone.Warning, sticky: true);
+        }
     }
 
     private static string Short(Version v) => v.Build >= 0 ? v.ToString(3) : v.ToString();

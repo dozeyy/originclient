@@ -255,6 +255,25 @@ public sealed class SettingsPage : Panel, IPage
                 ? "Origin Launcher - dev build"
                 : "Origin Launcher " + UpdateService.CurrentVersion.ToString(3))
             .Align(HorizontalAlignment.Center).Margin(0, Space.S8, 0, Space.S2));
+        // What this computer lacks that Origin would use (LINUX-14: secret-tool, xdg-open, WebKitGTK, xrandr, libXxf86vm),
+        // with what each costs and one install command, under the build line where a bug report looks. File checks
+        // only, off the UI thread; render shots skip it so the pictures don't depend on the runner's packages.
+        if (!Shots.ShotRunner.Active)
+        {
+            var missingNote = Ui.Caption("").Align(HorizontalAlignment.Center);
+            missingNote.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
+            missingNote.TextAlignment = Avalonia.Media.TextAlignment.Center;
+            missingNote.IsVisible = false;
+            sections.Children.Add(missingNote);
+            _ = Task.Run(() => OriginLauncher.App.Core.Launch.LinuxOptionalPieces.Note(
+                    OriginLauncher.App.Core.Launch.LinuxOptionalPieces.MissingHere(), OriginLauncher.App.Core.Launch.LinuxPackages.ThisComputer))
+                .ContinueWith(t =>
+                {
+                    if (!t.IsCompletedSuccessfully || t.Result is not { } note) return;
+                    missingNote.Text = note;
+                    missingNote.IsVisible = true;
+                }, TaskScheduler.FromCurrentSynchronizationContext());
+        }
 
         AddRail("SETTINGS SYNC", Icons.Sync, Palette.HueSky, secSync);
         AddRail("PERFORMANCE", Icons.Settings, Palette.HueEmerald, secPerformance);

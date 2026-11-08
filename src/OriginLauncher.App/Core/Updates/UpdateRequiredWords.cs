@@ -16,3 +16,27 @@ public static class UpdateRequiredWords
     public const string UpdateButton = "Update and play";
     public const string LaterButton = "Not now";
 }
+
+/// <summary>
+/// What a Linux launcher says when a newer release exists but this copy can't replace itself where it sits
+/// (UpdateService.Linux FindNotUpdatableReason gives the reason code; UpdateService.Blocked carries the sentence). The
+/// Linux twin of the Mac's "Move to Applications": updates are mandatory, so the words always say how to get them.
+/// </summary>
+public static class LinuxUpdateWords
+{
+    public const string ReadOnlyAppImage = "the AppImage's folder is read-only";
+    public const string ReadOnlyFolder = "the install folder is read-only";
+    public const string FlatpakInstall = "Flatpak updates through Flatpak";
+
+    /// <summary>The sentence for a reason code, or null when the copy can update itself.</summary>
+    public static string? Blocked(string? reason, bool appImage) => reason switch
+    {
+        null => null,
+        ReadOnlyAppImage => "Origin can't update itself from this folder. Move the AppImage to a folder you own, like ~/Applications, and open it from there.",
+        ReadOnlyFolder => "Origin can't update itself in this folder. Move the OriginLauncher folder somewhere you own, like your home folder, and open it from there.",
+        FlatpakInstall => "This copy of Origin updates through Flatpak. Update it there to get the newest version.",
+        _ => appImage
+            ? "Origin can't update itself here. Download the newest AppImage from originclient.org."
+            : "Origin can't update itself here. Download the newest version from originclient.org.",
+    };
+}
