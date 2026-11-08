@@ -21,3 +21,13 @@ NFPM_URL_x86_64="https://github.com/goreleaser/nfpm/releases/download/v2.48.0/nf
 NFPM_SHA_x86_64="6d7f9a28b2f397934403950fcbba83f598b08d02edbe79a0815b3b4897341750"
 NFPM_URL_aarch64="https://github.com/goreleaser/nfpm/releases/download/v2.48.0/nfpm_2.48.0_Linux_arm64.tar.gz"
 NFPM_SHA_aarch64="a9a75213763783b7669719e505474c748c5ad7dc66591a195619deb50f85c2f4"
+
+# OpenSSL 3 for the AppImage and the tar.gz only (Core/Net/LinuxOpenSsl.Linux.cs loads it when the distro has no
+# OpenSSL 3, e.g. Fedora 45's default OpenSSL 4, which .NET 10 can't use). Ubuntu 22.04's libssl3 3.0.2-0ubuntu1.30
+# (glibc 2.34+; every distro without OpenSSL 3 is newer than that). Launchpad's librarian keeps every published file
+# forever; the archive pool copy is the same file (same SHA-256) while it is the current security update. The .deb
+# and .rpm don't carry it: they depend on the distro's OpenSSL 3 (nfpm.yaml). Hashes read 2026-11-08.
+LIBSSL3_URLS_x86_64="https://launchpad.net/ubuntu/+archive/primary/+files/libssl3_3.0.2-0ubuntu1.30_amd64.deb http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl3_3.0.2-0ubuntu1.30_amd64.deb"
+LIBSSL3_SHA_x86_64="d1b4636e32ac6d3b95d583ac05ac548b1aa248414bae1c51b14f54be0f8fd7bc"
+LIBSSL3_URLS_aarch64="https://launchpad.net/ubuntu/+archive/primary/+files/libssl3_3.0.2-0ubuntu1.30_arm64.deb http://ports.ubuntu.com/ubuntu-ports/pool/main/o/openssl/libssl3_3.0.2-0ubuntu1.30_arm64.deb"
+LIBSSL3_SHA_aarch64="1c4b8cc736eed8a0caafc385f854fa6852382221d84be4795f1d19a52b9fec53"
