@@ -68,7 +68,9 @@ code { font-family: var(--mono); font-size: .86em; color: var(--text); }
 /* The page's own colour slides over the island under the content chapters (--shade), and a shade
    from the left edge keeps text legible beside a clear island on the right (--side); site.js
    drives both from SCENES. */
-.world-shade { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: rgb(14 17 16 / var(--shade, 0)); }
+/* (the cover reaches fully opaque a little before --shade does, so a resting island never shows
+   through as a faint ghost while a covered chapter scrolls in) */
+.world-shade { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: rgb(14 17 16 / min(1, calc(var(--shade, 0) * 1.15))); }
 .world-shade::before { content: ""; position: absolute; inset: 0; opacity: var(--side, 0);
   background: linear-gradient(90deg, rgb(14 17 16 / .96) 0%, rgb(14 17 16 / .9) 44%, rgb(14 17 16 / .5) 60%, rgb(14 17 16 / 0) 76%); }
 body.no-webgl #world { display: none; }
@@ -201,8 +203,7 @@ figcaption { margin-top: 14px; color: var(--text); font-size: 15px; font-weight:
 figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sans); }
 
 /* the launcher, with three captions pointing up at what they describe */
-/* capped near the screenshot's own 1920 px so a 2x screen never shows it much upscaled */
-.product { position: relative; max-width: 1080px; }
+.product { position: relative; }
 .callouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 0; font-weight: 400; }
 .callout { position: relative; margin: 0; padding-top: 34px; color: var(--dim); font-size: 15.5px; line-height: 1.5; max-width: 22em; }
 .callout b { display: block; color: var(--text); font-weight: 620; margin-bottom: 2px; }
