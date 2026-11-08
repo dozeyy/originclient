@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Styling;
 
 namespace OriginLauncher.Desktop.Theme;
 
@@ -10,7 +11,7 @@ namespace OriginLauncher.Desktop.Theme;
 //
 // Colours are not typed here: they are read from the WPF launcher's own token file
 // (src/OriginLauncher.App/Theme/Colors.xaml, embedded by OriginLauncher.Desktop.props), so a colour
-// changed there changes on every OS. Sizes, type, radii and motion are the design system's numbers
+// changed there changes on every OS. Motion durations come from Spacing.xaml the same way (Motion below). Sizes, type and radii are the design system's numbers
 // (sections 3-9) and live only in this file; views never type a colour or a font size.
 public static partial class Palette
 {
@@ -222,17 +223,77 @@ public static class Sizes
     public const double SignInCard = 460, SignInPage = 564;
 }
 
-/// <summary>Motion (section 9). Reduced motion (and render runs) set Off: every duration is 0.</summary>
-public static class Motion
+/// <summary>
+/// Motion (section 9). The durations are NOT typed here: they are read from the WPF launcher's own token file
+/// (src/OriginLauncher.App/Theme/Spacing.xaml, the Motion.* Durations, embedded by OriginLauncher.Desktop.props), so the
+/// Linux launcher moves exactly as long as Windows does and a timing changed there changes on every OS. Reduced motion
+/// (the desktop's "animations off", DesktopEntry) and render runs set Off: every duration is 0.
+/// </summary>
+public static partial class Motion
 {
     public static bool Off { get; set; }
+
+    private static readonly Dictionary<string, double> Tokens = Load();
+
+    private static Dictionary<string, double> Load()
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Origin.Theme.Spacing.xaml")
+            ?? throw new InvalidOperationException("Spacing.xaml is not embedded (OriginLauncher.Desktop.props).");
+        using var reader = new StreamReader(stream);
+        var xaml = reader.ReadToEnd();
+        var map = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (Match m in DurationEntry().Matches(xaml))
+            map[m.Groups[1].Value] = TimeSpan.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture).TotalMilliseconds;
+        return map;
+    }
+
+    [GeneratedRegex("<Duration x:Key=\"Motion\\.([A-Za-z]+)\">\\s*([0-9:.]+)\\s*</Duration>")]
+    private static partial Regex DurationEntry();
+
+    /// <summary>A Motion.* token's length in ms ("Scene" = Motion.Scene); throws on a missing token, like Palette.Get.</summary>
+    public static double TokenMs(string key) =>
+        Tokens.TryGetValue(key, out var ms) ? ms : throw new KeyNotFoundException("No motion token Motion." + key);
+
     public static TimeSpan Ms(double ms) => Off ? TimeSpan.Zero : TimeSpan.FromMilliseconds(ms);
-    public static TimeSpan Press => Ms(80);
-    public static TimeSpan Hover => Ms(120);
-    public static TimeSpan Base => Ms(160);
-    public static TimeSpan Enter => Ms(220);
-    public static TimeSpan Exit => Ms(140);
-    public static TimeSpan Scene => Ms(260);
+    public static TimeSpan Press => Ms(TokenMs("Press"));
+    public static TimeSpan Release => Ms(TokenMs("Release"));
+    public static TimeSpan Hover => Ms(TokenMs("Hover"));
+    public static TimeSpan Base => Ms(TokenMs("Base"));
+    public static TimeSpan Enter => Ms(TokenMs("Enter"));
+    public static TimeSpan Exit => Ms(TokenMs("Exit"));
+    public static TimeSpan Scene => Ms(TokenMs("Scene"));
+
+    // The WPF launcher's easings (UI/Motion.cs): Out = quintic ease-out (README "Ease-Out" .22,1,.36,1); the drawers,
+    // the sign-in card and the launch scene use WPF's CubicEase EaseOut directly.
+    public static Avalonia.Animation.Easings.Easing Out => new Avalonia.Animation.Easings.QuinticEaseOut();
+    public static Avalonia.Animation.Easings.Easing CubicOut => new Avalonia.Animation.Easings.CubicEaseOut();
+}
+
+/// <summary>
+/// How every hover label behaves, the Windows launcher's rules (src/OriginLauncher.App/UI/ToolTipDefaults.cs): opens
+/// after 300 ms; for 700 ms after one closes the next opens at once (sliding along the bar's icons reads each label);
+/// below the control, centred on it, 8 apart, and kept inside the launcher window (the window is chromeless, so a label
+/// past its edge would hang in mid-air): Avalonia draws it in the window's own overlay layer, whose positioner flips it
+/// above or slides it sideways when there is no room. One app style on every control (DesktopApp): these are attached,
+/// non-inherited properties whose default belongs to Control itself, so a style is the one way to set them everywhere.
+/// Avalonia 12 has no "show duration": a label stays while the pointer rests (WPF closes it after 8 s).
+/// </summary>
+public static class ToolTips
+{
+    public const int OpenDelayMs = 300, BetweenShowMs = 700;
+    public const double Gap = 8;
+
+    public static Avalonia.Styling.Style Style() => new(x => x.Is<Avalonia.Controls.Control>())
+    {
+        Setters =
+        {
+            new Avalonia.Styling.Setter(Avalonia.Controls.ToolTip.ShowDelayProperty, OpenDelayMs),
+            new Avalonia.Styling.Setter(Avalonia.Controls.ToolTip.BetweenShowDelayProperty, BetweenShowMs),
+            new Avalonia.Styling.Setter(Avalonia.Controls.ToolTip.PlacementProperty, Avalonia.Controls.PlacementMode.Bottom),
+            new Avalonia.Styling.Setter(Avalonia.Controls.ToolTip.VerticalOffsetProperty, Gap),
+            new Avalonia.Styling.Setter(Avalonia.Controls.ToolTip.ShouldUseOverlayLayerProperty, true),
+        },
+    };
 }
 
 /// <summary>Number formatting that never follows the machine's culture (ASCII UI).</summary>

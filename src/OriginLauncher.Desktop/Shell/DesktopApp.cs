@@ -18,6 +18,7 @@ public sealed class DesktopApp : Application
     {
         RequestedThemeVariant = ThemeVariant.Dark;
         Styles.Add(new FluentTheme());
+        Styles.Add(ToolTips.Style()); // the Windows launcher's hover-label timing and placement (Theme/Tokens.cs)
         var r = Resources;
         // Fluent's own resource keys, pointed at the Workbench tokens (text boxes, scroll bars, tooltips, menus).
         r["ContentControlThemeFontFamily"] = Assets.Inter;

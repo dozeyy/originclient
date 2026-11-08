@@ -40,6 +40,8 @@ public sealed class MainWindow : Window
     private readonly Panel _sheet = new() { Margin = new Thickness(0, Sizes.Bar, 0, 0), IsVisible = false };
     private readonly Panel _cover = new() { IsVisible = false };
     private readonly Panel _drawerLayer = new() { IsVisible = false };
+    // The drawers' scrim: the Windows launcher's Scrim at 50 % (MainWindow.xaml.cs SetAccountPanelOpen / SetFriendsOpen).
+    private readonly Border _drawerScrim = new() { Background = Palette.Scrim, Opacity = 0 };
     private readonly Border _drawer = new()
     {
         Width = Sizes.Drawer, HorizontalAlignment = HorizontalAlignment.Right, Background = Palette.Panel,
@@ -61,6 +63,19 @@ public sealed class MainWindow : Window
     private bool _dialogDismissable = true;
     private Action? _onDrawerClosed, _onSheetClosed, _onDialogClosed;
 
+    // Enter/exit motion of each layer (Kit/Tween), the Windows launcher's timings and easings token for token:
+    //   drawer   slides in from the right over Motion.Scene, out over Motion.Exit, cubic ease-out; its scrim fades to 50 %
+    //   dialog   scrim and card fade, the card grows 0.97 -> 1 (the WPF sign-in card's open), Scene in / Exit out, cubic
+    //   cover    appears at once with its stage column rising (LaunchCover), fades out over Motion.Exit; the bar fades
+    //            away under it (200 ms) and back (320 ms), quintic out (WPF SetTopBarHidden)
+    //   page     opacity 0.85 -> 1 and 10 px from the clicked tab's side, Motion.Base, quintic out (WPF AnimatePageIn)
+    //   toast    fades in and rises 4 px over Motion.Enter (WPF SocialToastHost)
+    // The *Open flags are the logical state (true from the open call, false from the close call); a layer stays
+    // visible only until its exit motion ends, and a re-open during it simply turns the motion around.
+    private readonly Tween _drawerMotion, _drawerScrimMotion, _dialogLayerMotion, _dialogMotion, _coverMotion, _barMotion, _pageMotion;
+    private bool _drawerOpen, _dialogOpen, _coverOpen, _coverUnderBar;
+    private int _drawerGen, _dialogGen, _coverGen;
+
     public event Action<PageKey>? PageChanged;
 
     public MainWindow()
@@ -77,12 +92,24 @@ public sealed class MainWindow : Window
         FontFamily = Assets.Inter;
         Foreground = Palette.Text;
         if (Assets.Logo is { } logo) Icon = new WindowIcon(logo);
+        if (!Shots.ShotRunner.Active) FitToWorkArea();
 
         Bar = new TopBar(this) { VerticalAlignment = VerticalAlignment.Top };
 
-        _drawerLayer.Children.Add(new Border { Background = Brushes.Transparent }); // click-out closes (below)
+        _drawerLayer.Children.Add(_drawerScrim); // click-out closes (below)
         _drawerLayer.Children.Add(_drawer);
-        _drawerLayer.Children[0].PointerPressed += (_, e) => { CloseDrawer(); e.Handled = true; };
+        _drawerScrim.PointerPressed += (_, e) => { CloseDrawer(); e.Handled = true; };
+        _drawerMotion = new Tween(_drawer, opacity: false, transform: true, transformEasing: Motion.CubicOut);
+        _drawerMotion.Jump(transform: Offscreen(Sizes.Drawer));
+        _drawerScrimMotion = new Tween(_drawerScrim);
+        _dialogLayerMotion = new Tween(_dialogLayer);
+        _dialogLayerMotion.Jump(opacity: 0);
+        _dialog.RenderTransformOrigin = RelativePoint.Center;
+        _dialogMotion = new Tween(_dialog, opacity: false, transform: true, transformEasing: Motion.CubicOut);
+        _dialogMotion.Jump(transform: "scale(0.97)");
+        _coverMotion = new Tween(_cover);
+        _barMotion = new Tween(Bar, opacityEasing: Motion.Out);
+        _pageMotion = new Tween(_pageHost, transform: true, opacityEasing: Motion.Out, transformEasing: Motion.Out);
         _dialogLayer.Children.Add(_dialog);
         _dialogLayer.PointerPressed += (_, e) =>
         {
@@ -163,9 +190,12 @@ public sealed class MainWindow : Window
 
     public void Navigate(PageKey key)
     {
+        var from = Page;
         var page = GetPage(key);
         foreach (var (k, p) in _pages) p.IsVisible = k == key;
         Page = key;
+        if (_coverUnderBar) _cover.IsVisible = key == PageKey.Home; // the update scene belongs to Home, like WPF's
+        if (key != from) AnimatePageIn(key > from ? 1 : -1);
         Art.SetPage(key == PageKey.Home);
         Bar.Select(key);
         if (key != PageKey.Home) CloseSheet();
@@ -174,6 +204,25 @@ public sealed class MainWindow : Window
     }
 
     public HomePage Home => PageOf<HomePage>(PageKey.Home);
+
+    // The new page glides in from the clicked tab's side (tab order Home, Mods, Profiles, Settings; +1 = from the
+    // right). Short and front-loaded so it is readable on its first frames; a click during it restarts it.
+    private void AnimatePageIn(int direction)
+    {
+        if (Motion.Off) return;
+        _pageMotion.Jump(opacity: 0.85, transform: $"translateX({Fmt.N(direction * 10)}px)");
+        _pageMotion.To(Motion.Base, opacity: 1, transform: "none");
+    }
+
+    private static string Offscreen(double width) => $"translateX({Fmt.N(width)}px)";
+
+    // Runs `done` once the exit motion has had its time, unless the layer opened again meanwhile (its gen moved on).
+    private static void AfterExit(TimeSpan exit, Func<int> gen, Action done)
+    {
+        if (exit <= TimeSpan.Zero) { done(); return; }
+        var mine = gen();
+        Avalonia.Threading.DispatcherTimer.RunOnce(() => { if (gen() == mine) done(); }, exit);
+    }
 
     // ---- Layers ----
 
@@ -198,40 +247,84 @@ public sealed class MainWindow : Window
         cb?.Invoke();
     }
 
-    /// <summary>The cover layer (the launch screen): over the whole window, bar included.</summary>
-    public void OpenCover(Control content)
+    /// <summary>
+    /// The cover layer (the launch screen): over the whole window; the bar fades away under it like the WPF top bar
+    /// under the launch scene. underBar (the self-update scene): below the bar, which stays usable (minimise, close, the
+    /// other pages: WPF keeps its bar over the update scene), and shown only while Home is the page.
+    /// </summary>
+    public void OpenCover(Control content, bool underBar = false)
     {
+        _coverGen++;
+        _coverOpen = true;
+        _coverUnderBar = underBar;
         _cover.Children.Clear();
         _cover.Children.Add(content);
-        _cover.IsVisible = true;
+        _cover.Margin = new Thickness(0, underBar ? Sizes.Bar : 0, 0, 0);
+        _cover.IsHitTestVisible = true;
+        _coverMotion.Jump(opacity: 1); // the screen appears at once; its stage column rises (LaunchCover)
+        _cover.IsVisible = !underBar || Page == PageKey.Home;
         Art.SetLaunching(true);
+        SetBarHidden(!underBar);
     }
 
-    public bool CoverOpen => _cover.IsVisible;
+    public bool CoverOpen => _coverOpen;
 
+    /// <summary>The self-update scene is up: the bar stays usable over it and the other pages can open.</summary>
+    public bool CoverIsUpdateScene => _coverOpen && _coverUnderBar;
+
+    /// <summary>Fades the screen out over Motion.Exit; Home takes clicks from the moment it starts leaving.</summary>
     public void CloseCover()
     {
-        _cover.IsVisible = false;
-        _cover.Children.Clear();
+        if (!_coverOpen) return;
+        _coverOpen = false;
+        _coverUnderBar = false;
+        _cover.IsHitTestVisible = false;
         Art.SetLaunching(false);
+        SetBarHidden(false);
+        _coverMotion.To(Motion.Exit, opacity: 0);
+        AfterExit(Motion.Exit, () => _coverGen, () =>
+        {
+            _cover.IsVisible = false;
+            _cover.Children.Clear();
+        });
+    }
+
+    // Under the launch screen the bar fades away and stops taking clicks; it returns with the screen's exit.
+    private void SetBarHidden(bool hidden)
+    {
+        Bar.IsHitTestVisible = !hidden;
+        _barMotion.To(Motion.Ms(hidden ? 200 : 320), opacity: hidden ? 0 : 1);
     }
 
     /// <summary>The right drawer (account, friends): 380 wide, full height, click outside or Esc closes it.</summary>
     public void OpenDrawer(Control content, Action? onClosed = null)
     {
+        _drawerGen++;
         _drawer.Child = content;
+        _drawerOpen = true;
         _drawerLayer.IsVisible = true;
+        _drawerLayer.IsHitTestVisible = true;
         _onDrawerClosed = onClosed;
+        _drawerMotion.To(Motion.Scene, transform: "none");
+        _drawerScrimMotion.To(Motion.Scene, opacity: 0.5);
     }
 
-    public bool DrawerOpen => _drawerLayer.IsVisible;
-    public Control? DrawerContent => _drawerLayer.IsVisible ? _drawer.Child : null;
+    public bool DrawerOpen => _drawerOpen;
+    public Control? DrawerContent => _drawerOpen ? _drawer.Child : null;
 
     public void CloseDrawer()
     {
-        if (!_drawerLayer.IsVisible) return;
-        _drawerLayer.IsVisible = false;
-        _drawer.Child = null;
+        if (!_drawerOpen) return;
+        _drawerOpen = false;
+        // Clicks reach the page at once (the WPF drawer stops hit-testing as it starts leaving) while it slides out.
+        _drawerLayer.IsHitTestVisible = false;
+        _drawerMotion.To(Motion.Exit, transform: Offscreen(Sizes.Drawer));
+        _drawerScrimMotion.To(Motion.Exit, opacity: 0);
+        AfterExit(Motion.Exit, () => _drawerGen, () =>
+        {
+            _drawerLayer.IsVisible = false;
+            _drawer.Child = null;
+        });
         var cb = _onDrawerClosed;
         _onDrawerClosed = null;
         cb?.Invoke();
@@ -240,21 +333,33 @@ public sealed class MainWindow : Window
     /// <summary>A dialog (11.10) centred on the scrim. Not dismissable = only its own buttons close it.</summary>
     public void OpenDialog(Control content, bool dismissable = true, Action? onClosed = null, double? width = null)
     {
+        _dialogGen++;
         _dialog.Child = content;
         _dialog.MaxWidth = width ?? Sizes.Dialog;
         _dialog.Width = width ?? double.NaN;
         _dialogDismissable = dismissable;
+        _dialogOpen = true;
         _dialogLayer.IsVisible = true;
+        _dialogLayer.IsHitTestVisible = true;
         _onDialogClosed = onClosed;
+        _dialogLayerMotion.To(Motion.Scene, opacity: 1);
+        _dialogMotion.To(Motion.Scene, transform: "none");
     }
 
-    public bool DialogOpen => _dialogLayer.IsVisible;
+    public bool DialogOpen => _dialogOpen;
 
     public void CloseDialog()
     {
-        if (!_dialogLayer.IsVisible) return;
-        _dialogLayer.IsVisible = false;
-        _dialog.Child = null;
+        if (!_dialogOpen) return;
+        _dialogOpen = false;
+        _dialogLayer.IsHitTestVisible = false;
+        _dialogLayerMotion.To(Motion.Exit, opacity: 0);
+        _dialogMotion.To(Motion.Exit, transform: "scale(0.97)");
+        AfterExit(Motion.Exit, () => _dialogGen, () =>
+        {
+            _dialogLayer.IsVisible = false;
+            _dialog.Child = null;
+        });
         var cb = _onDialogClosed;
         _onDialogClosed = null;
         cb?.Invoke();
@@ -285,6 +390,7 @@ public sealed class MainWindow : Window
             CornerRadius = new CornerRadius(Radius.Md), BoxShadow = Palette.OverlayShadow, Child = row,
             HorizontalAlignment = HorizontalAlignment.Center,
         };
+        EnterToast(toast);
         _toasts.Children.Add(toast);
         while (_toasts.Children.Count > 3) _toasts.Children.RemoveAt(0);
         if (!sticky && !Motion.Off)
@@ -292,6 +398,59 @@ public sealed class MainWindow : Window
     }
 
     public void ClearToasts() => _toasts.Children.Clear();
+
+    /// <summary>A toast's entrance (WPF SocialToastHost): opacity 0 -> 1 and 4 px up over Motion.Enter, the rise cubic
+    /// ease-out. Call before the card is added; it leaves at once, as Windows' does.</summary>
+    public static void EnterToast(Control card)
+    {
+        if (Motion.Off) return;
+        var t = new Tween(card, transform: true, transformEasing: Motion.CubicOut);
+        t.Jump(opacity: 0, transform: "translateY(4px)");
+        card.AttachedToVisualTree += Enter;
+        void Enter(object? s, VisualTreeAttachmentEventArgs e)
+        {
+            card.AttachedToVisualTree -= Enter;
+            t.To(Motion.Enter, opacity: 1, transform: "none");
+        }
+    }
+
+    /// <summary>A second start of Origin asked for this window (Shell/SingleInstance): bring it back and to the front,
+    /// like the Windows launcher's FocusExistingInstance.</summary>
+    public void BringForward()
+    {
+        if (!IsVisible) Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+        App.Core.StartupTrace.Mark("activated by a second start");
+    }
+
+    // Where the window opens (UI/WindowFit, shared with Windows and tested there): the designed 1180 x 740 shrunk into
+    // the work area of the screen it opens on (the screen minus panels/docks) and centred. Avalonia never shrinks a
+    // requested size to the screen, so on a 1366 x 768 laptop with a panel, or 1920 x 1080 at 150 % (1280 x 720 logical),
+    // the Play strip opened under the panel and the bar (the only drag handle) could sit off-screen. The minimum size
+    // gives way too when the work area is smaller than it. Render runs size the window themselves.
+    private void FitToWorkArea()
+    {
+        try
+        {
+            if ((Screens.ScreenFromWindow(this) ?? Screens.Primary) is not { } screen) return;
+            var scale = screen.Scaling > 0 ? screen.Scaling : 1;
+            var wa = screen.WorkingArea;
+            var work = new App.UI.WindowFit.Box(wa.X / scale, wa.Y / scale, wa.Width / scale, wa.Height / scale);
+            if (App.UI.WindowFit.Centre(work, Width, Height, MinWidth, MinHeight) is not { } fit) return;
+            MinWidth = fit.MinWidth;
+            MinHeight = fit.MinHeight;
+            Width = fit.Window.Width;
+            Height = fit.Window.Height;
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Position = new PixelPoint((int)Math.Round(fit.Window.Left * scale), (int)Math.Round(fit.Window.Top * scale));
+        }
+        catch (Exception ex)
+        {
+            // Placement is cosmetic: on any failure Avalonia's own CenterScreen stands.
+            App.Core.StartupTrace.Mark("work-area fit skipped: " + ex.Message);
+        }
+    }
 
     // ---- Keys and window chrome ----
 
@@ -317,7 +476,7 @@ public sealed class MainWindow : Window
     private void PageKeys(KeyEventArgs e)
     {
         // A dialog or drawer owns the keyboard; the launch cover is modal within Home (no page switch, no second Play).
-        if (DialogOpen || DrawerOpen || CoverOpen) return;
+        if (DialogOpen || DrawerOpen || (CoverOpen && !CoverIsUpdateScene)) return;
         if (e.KeyModifiers == KeyModifiers.Control)
         {
             PageKey? target = e.Key switch

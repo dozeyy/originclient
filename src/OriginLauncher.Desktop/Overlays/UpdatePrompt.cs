@@ -11,7 +11,11 @@ namespace OriginLauncher.Desktop.Overlays;
 
 // The launcher's own update (port of WPF MainWindow: PollForUpdatesAsync + UpdateBadge_Click). Core does the work
 // (Core/Updates/UpdateService + the per-OS apply step, UpdateService.Linux.cs / .Mac.cs); this file only checks,
-// shows the top bar's Update chip (LauncherState.SetUpdate) and the progress.
+// shows the top bar's Update chip (LauncherState.SetUpdate) and the progress: on Home's full-window launch scene in
+// update mode (LaunchCover.ShowUpdate, under the bar, which stays usable), like Windows and the Mac; when a launch is
+// already on that scene, the chip's own "Updating..." carries it. A failure is said on the chip ("Update failed -
+// retry", in the warning colour), and the click that retries keeps an "Update and play" going: the refused Play
+// still starts after the restart.
 //
 // Rules it keeps:
 // - Updates are mandatory: the chip never hides while one is waiting, and a click downloads it at once (Windows does
@@ -25,6 +29,8 @@ public static class UpdatePrompt
     private static readonly TimeSpan ActivateThrottle = TimeSpan.FromSeconds(30);
     private static bool _started, _busy;
     private static DateTime _lastCheck = DateTime.MinValue;
+    // The refused Play an "Update and play" carries, kept across a failed attempt so the chip's retry still plays it.
+    private static PlayAfterUpdate? _pendingPlay;
 
     /// <summary>Starts the update check once the window is up (real runs only): now, every 2 minutes, and when the
     /// window comes back to the front (at most every 30 s).</summary>
@@ -80,7 +86,8 @@ public static class UpdatePrompt
             window.Toast("Origin is up to date", Tone.Success);
             return;
         }
-        _ = RunAsync(window, update, playAfter);
+        if (playAfter != null) _pendingPlay = playAfter;
+        _ = RunAsync(window, update, _pendingPlay);
     }
 
     /// <summary>Play was refused for a mandatory update: ask once (the WPF MainWindow's AskToUpdateAsync), and Update
@@ -94,43 +101,33 @@ public static class UpdatePrompt
             Open(window, play);
     }
 
-    private static async Task RunAsync(MainWindow window, UpdateService.AvailableUpdate update, PlayAfterUpdate? playAfter = null)
+    private static async Task RunAsync(MainWindow window, UpdateService.AvailableUpdate update, PlayAfterUpdate? playAfter)
     {
         _busy = true;
-        var status = Ui.Caption("Starting the download");
-        var rail = new Rail { Value = double.NaN, Margin = new Thickness(0, Space.S4, 0, Space.S2) };
-        // Only while the swap waits for Minecraft to close (that can last hours): never a dialog the player can't leave.
-        // Cancel stops the wait; the update stays downloaded and ready for the next click.
-        var stopWaiting = new CancellationTokenSource(); // no timer: nothing to dispose, and a late click stays harmless
-        var cancel = Ui.Button("Cancel", Look.Secondary);
-        cancel.MinWidth = 96;
-        cancel.IsVisible = false;
-        cancel.HorizontalAlignment = HorizontalAlignment.Right;
-        cancel.Margin = new Thickness(0, Space.S4, 0, 0);
-        cancel.Click += (_, _) =>
-        {
-            cancel.IsEnabled = false;
-            stopWaiting.Cancel();
-        };
-        var body = Ui.Column(0,
-            Ui.Wrap(Ui.Title("Updating Origin to " + Short(update.Version))),
-            Ui.Body("Origin closes, installs the update and opens again by itself.").Margin(0, 10, 0, 0),
-            rail,
-            status,
-            cancel);
-        window.OpenDialog(body, dismissable: false);
+        // An import running now (or started while this downloads) is waited for before the restart (Core's UpdateRunState).
+        window.Bar.SetUpdateEnabled(false);
+        window.Bar.SetUpdateNote(null);
+        // Home's full-window scene (a real percentage fill), unless a game launch is mid-flight there: then the chip's
+        // own "Updating..." carries it.
+        window.CloseDrawer();
+        window.Navigate(PageKey.Home);
+        var scene = BeginScene(window, Short(update.Version));
+        if (scene == null) window.Bar.SetUpdateNote("Updating...");
 
+        // Cancel on the scene's "waiting for Minecraft to close" (that can last hours: never a screen the player can't
+        // leave) stops the wait; the update stays downloaded and ready for the next click.
+        var stopWaiting = new CancellationTokenSource(); // no timer: nothing to dispose, and a late click stays harmless
+        if (scene != null) scene.UpdateWaitCancelRequested += () => stopWaiting.Cancel();
         var toldAboutImport = false;
         var progress = new Progress<UpdateService.UpdateProgress>(p =>
         {
-            status.Text = p.Describe();
-            rail.Value = p.Fraction ?? double.NaN;
-            cancel.IsVisible = p.Stage == UpdateService.UpdateStage.WaitingForGame;
             if (p.Stage == UpdateService.UpdateStage.FinishingImport && !toldAboutImport)
             {
                 toldAboutImport = true;
                 window.Toast("Finishing your import first...");
             }
+            if (scene != null) scene.ReportUpdate(p);
+            else if (p.Stage == UpdateService.UpdateStage.WaitingForGame) window.Bar.SetUpdateNote("Updates when Minecraft closes");
         });
 
         try
@@ -138,56 +135,61 @@ public static class UpdatePrompt
             // Downloads, verifies (SHA-256), stages the new build, then shuts this process down; the apply script
             // swaps the files and opens the updated launcher.
             await UpdateService.DownloadAndRestartAsync(progress, stopWaiting.Token, playAfter);
-            window.CloseDialog(); // only reached if the process was not shut down (nothing to restart into)
+            EndScene(window, scene); // only reached if the process was not shut down (nothing to restart into)
+            window.Bar.SetUpdateNote(null);
         }
         catch (OperationCanceledException) when (stopWaiting.IsCancellationRequested)
         {
             // Back to Home: the chip offers the same, already downloaded update again; Play stays as it was.
-            window.CloseDialog();
-            _busy = false;
-            ShowChip();
-            return;
+            EndScene(window, scene);
+            window.Bar.SetUpdateNote(null);
         }
         catch (Exception ex) when (ex is UpdateVerificationException || UpdateService.Available == null)
         {
             // Failed its integrity check, or failed twice in a row: Core discarded it and released the Play gate.
             // The player launches what they have; nothing blocking is shown, the chip goes away.
-            window.CloseDialog();
-            _busy = false;
-            ShowChip();
-            return;
+            EndScene(window, scene);
+            window.Bar.SetUpdateNote(null);
+            _pendingPlay = null;
         }
         catch (Exception)
         {
-            // Failed once (network, disk, antivirus): Play stays gated until the next failure, so offer the retry.
-            _busy = false;
-            ShowFailed(window, update);
-            return;
+            // Failed once (network, disk, antivirus): Play stays gated until the next failure. Visible, not a hover
+            // label: the chip says it failed and that a click retries (with the same "Update and play", if any).
+            EndScene(window, scene);
+            window.Bar.SetUpdateNote("Update failed - retry", Palette.Warning);
         }
-        _busy = false;
+        finally
+        {
+            stopWaiting.Dispose();
+            window.Bar.SetUpdateEnabled(true);
+            _busy = false;
+        }
         ShowChip();
     }
 
-    private static void ShowFailed(MainWindow window, UpdateService.AvailableUpdate update)
+    /// <summary>The update scene on Home, or null when the launch screen is already up for a game launch.</summary>
+    private static LaunchCover? BeginScene(MainWindow window, string newVersion)
     {
-        var close = Ui.Button("Close", Look.Secondary);
-        close.MinWidth = 96;
-        var retry = Ui.Button("Retry", Look.Primary);
-        retry.MinWidth = 96;
-        var footer = Ui.Row(Space.S2, close, retry);
-        footer.HorizontalAlignment = HorizontalAlignment.Right;
-        footer.Margin = new Thickness(0, Space.S6, 0, 0);
-        close.Click += (_, _) => window.CloseDialog();
-        retry.Click += (_, _) =>
-        {
-            window.CloseDialog();
-            if (UpdateService.Available is { } again) _ = RunAsync(window, again);
-            else ShowChip();
-        };
-        window.OpenDialog(Ui.Column(0,
-            Ui.Wrap(Ui.Title("Update failed")),
-            Ui.Body("Origin couldn't download " + Short(update.Version) + ". Check your connection and try again.").Margin(0, 10, 0, 0),
-            footer), dismissable: true);
-        Dispatcher.UIThread.Post(() => retry.Focus(), DispatcherPriority.Input);
+        if (window.CoverOpen) return null;
+        var scene = new LaunchCover();
+        window.OpenCover(scene, underBar: true);
+        scene.ShowUpdate(newVersion);
+        return scene;
+    }
+
+    private static void EndScene(MainWindow window, LaunchCover? scene)
+    {
+        if (scene != null && window.CoverIsUpdateScene) window.CloseCover();
+    }
+
+    /// <summary>Render runs: the update scene, optionally at "waiting for Minecraft to close".</summary>
+    public static LaunchCover TourScene(MainWindow window, string newVersion, bool waitingForGame)
+    {
+        var scene = BeginScene(window, newVersion)!;
+        if (waitingForGame)
+            scene.ReportUpdate(new UpdateService.UpdateProgress(UpdateService.UpdateStage.WaitingForGame, 0, null));
+        else scene.ReportUpdate(new UpdateService.UpdateProgress(UpdateService.UpdateStage.Downloading, 24_600_000, 41_000_000));
+        return scene;
     }
 }

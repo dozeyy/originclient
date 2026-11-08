@@ -97,7 +97,11 @@ internal sealed class SocialToasts : StackPanel
     private void Pump()
     {
         while (_cards.Children.Count < MaxVisible && _queue.TakeNext(DateTimeOffset.UtcNow) is { } next)
-            _cards.Children.Add(Card(next.Toast, next.Left));
+        {
+            var card = Card(next.Toast, next.Left);
+            MainWindow.EnterToast(card); // fades in and rises 4 px (WPF SocialToastHost); leaves at once, like Windows
+            _cards.Children.Add(card);
+        }
         var waiting = _queue.Count;
         _more.IsVisible = waiting > 0;
         _moreText.Text = $"+{waiting} more";

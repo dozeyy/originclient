@@ -8,4 +8,8 @@ Icon=org.originclient.Launcher
 Terminal=false
 Categories=Game;
 Keywords=Minecraft;Launcher;Origin;
-StartupNotify=true
+# No startup notification: Avalonia never completes it (no DESKTOP_STARTUP_ID), so the dock would show a busy
+# cursor until it times out. StartupWMClass = the window's X11 class (Shell/DesktopEntry.cs WmClass,
+# tools/release/check_consistency.py), so docks match the running window to this entry.
+StartupNotify=false
+StartupWMClass=org.originclient.Launcher

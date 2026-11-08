@@ -210,6 +210,7 @@ public sealed class LaunchController
             case PlayAction.FocusGame:
                 if (Book.VersionOf(key) is { } playing && playing != version)
                     Note(key, $"{accountName} is already playing {playing} - close it first to play {version}", LaunchTone.Warning, version);
+                FocusGame(key);
                 return;
             case PlayAction.None when Book.PhaseOf(key) == GamePhase.Starting:
                 return;
@@ -262,7 +263,9 @@ public sealed class LaunchController
             if (account != null)
             {
                 Stage("Signing in");
-                var signedIn = await MinecraftSessionBroker.ForPlayAsync(account.Id, ticket.Token);
+                // Off the UI thread: unsealing the saved session goes through the desktop keyring (Core LinuxKeyStore runs
+                // secret-tool, 15 s limit per run), which can sit on an unlock prompt; the launch screen keeps animating.
+                var signedIn = await Task.Run(() => MinecraftSessionBroker.ForPlayAsync(account.Id, ticket.Token), ticket.Token);
                 if (signedIn == null)
                 {
                     Note(key, SignInAgain.UnreadableLine, LaunchTone.Error, version);
@@ -467,11 +470,30 @@ public sealed class LaunchController
         if (_window.CoverOpen) _window.CloseCover();
     }
 
-    private void ReleaseScene(RunningGame game)
+    // The launch screen lowers. When it lowers because the game's own loading screen is up and the launcher is still the
+    // active window, the game's window is brought to the front once (WPF HomePage.ReleaseScene): no loop, and never
+    // when the player has moved on to something else.
+    private void ReleaseScene(RunningGame game, bool gameLoading = false)
     {
         if (!ReferenceEquals(_sceneGame, game)) return;
         _sceneGame = null;
         CloseCover();
+        if (gameLoading && _window.IsActive) TryBringForward(game);
+    }
+
+    /// <summary>The Play button's "Running" click (twin of the WPF FocusGame): that account's game window comes to the
+    /// front, restored if minimised. When the desktop won't say which window it is, a toast says where the game is, so
+    /// the click is never silent.</summary>
+    private void FocusGame(string key)
+    {
+        if (Book.GameOf(key) is RunningGame game && !TryBringForward(game))
+            _window.Toast("Minecraft is already open - switch to it from your taskbar");
+    }
+
+    private static bool TryBringForward(RunningGame game)
+    {
+        try { return App.Core.Desktop.LinuxGameWindow.BringToFront(game.Process.Id); }
+        catch (InvalidOperationException) { return false; } // the process just exited
     }
 
     private static void StopStartingGame(RunningGame game)
@@ -539,7 +561,7 @@ public sealed class LaunchController
             if (view.Stage is HandoffStage.Opening or HandoffStage.Loading && !view.GameReady)
                 Note(game.Key, $"Loading {game.Version}", LaunchTone.Neutral, game.Version);
         }
-        if (view.ReleaseScene) ReleaseScene(game);
+        if (view.ReleaseScene) ReleaseScene(game, gameLoading: view.Stage >= HandoffStage.Loading);
         if (view.GameReady) CrashRetries.Clear(game.Key, game.Version); // it booted: the next crash starts a fresh chain
         if (!view.GameReady || runningMessage == null) return false;
         if (Book.WindowShown(game.Key, game)) Note(game.Key, runningMessage, LaunchTone.Success, game.Version);

@@ -37,12 +37,65 @@ public static class DesktopEntry
 
     private static FileStream? _instanceLock;
 
+    private const string StartFailedTitle = "Origin Launcher couldn't start";
+
+    // The launcher window. Everything from the first line runs inside one catch (the Windows App's "must still reach the
+    // crash reporter instead of a launcher that silently never opens"): a failure before the window exists - a data
+    // folder that can't be written, no X display, Avalonia failing to start - saves a crash log (the data folder, else
+    // the temp folder) and says so in a desktop message box (Core LinuxDesktop.ShowError), never just nothing.
     private static int RunWindow(string[] args)
     {
+        try
+        {
+            return StartWindow(args);
+        }
+        catch (Exception ex)
+        {
+            string report;
+            try { report = Windows.CrashReporter.BuildReport(ex, fatal: true); }
+            catch (Exception) { report = ex.ToString(); }
+            var saved = Windows.CrashReporter.TryWriteLog(report) ?? TryWriteTemp(report);
+            App.Core.Desktop.LinuxDesktop.ShowError(StartFailedTitle,
+                $"Something went wrong while Origin was starting ({ex.GetType().Name}: {ex.Message})."
+                + (saved != null ? $" The details are saved in {saved}." : ""));
+            return 1;
+        }
+    }
+
+    private static string? TryWriteTemp(string report)
+    {
+        try
+        {
+            var path = Path.Combine(Path.GetTempPath(), $"origin-launcher-crash_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+            File.WriteAllText(path, report);
+            return path;
+        }
+        catch (Exception) { return null; }
+    }
+
+    private static int StartWindow(string[] args)
+    {
         StartupTrace.Init(args);
+        // The launcher is an X11 app, on Wayland desktops through XWayland (started by GNOME, KDE and the other
+        // mainstream Wayland desktops on their own). Kept on X11 on purpose, after checking Avalonia 12.1.5's own
+        // Wayland backend (Avalonia.Wayland, new in 12.1.0): the in-launcher Microsoft sign-in page (Avalonia's
+        // NativeWebView on Linux, GtkX11WebViewAdapter) embeds WebKitGTK through GDK's X11 backend only, and under
+        // Avalonia.Wayland it has nothing but an "ExperimentalOffscreen" adapter, so going native would cost the sign-in
+        // page its stable path; the Wayland backend is also two months old, and a chromeless window that moves itself
+        // (centring, the bar's drag) is exactly what Wayland gives clients least control over. The cost of X11:
+        // fractional scaling on a Wayland desktop is XWayland's (it can look softer), and a session without XWayland
+        // can't open the window, which is said in plain words here instead of failing silently.
+        if (App.Core.Desktop.WindowSession.WindowBlocker(Environment.GetEnvironmentVariable("DISPLAY"),
+                Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")) is { } blocker)
+        {
+            App.Core.Desktop.LinuxDesktop.ShowError(StartFailedTitle, blocker);
+            return 1;
+        }
+
         OriginPaths.EnsureScaffold();
         // One launcher at a time (the Windows launcher's single-instance mutex): an exclusive lock on a file in the
-        // data folder. A second start just exits; the first window stays.
+        // data folder. A second start asks the open one to come to the front (Shell/SingleInstance) and exits.
+        var socketPath = SingleInstance.SocketPath(OriginPaths.Root, Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR"));
         try
         {
             _instanceLock = new FileStream(Path.Combine(OriginPaths.Root, ".launcher.lock"), FileMode.OpenOrCreate,
@@ -50,9 +103,16 @@ public static class DesktopEntry
         }
         catch (IOException)
         {
-            Console.Error.WriteLine("Origin is already open.");
+            Console.Error.WriteLine(SingleInstance.TrySignal(socketPath)
+                ? "Origin is already open: brought it to the front."
+                : "Origin is already open.");
             return 0;
         }
+        SingleInstance.Listen(socketPath, () => MainWindow.Current?.BringForward());
+
+        // Linux's "animations off" (GNOME-family gsettings, KDE's instant animation speed), the twin of Windows'
+        // "Show animations" check in the WPF App: every Motion duration becomes 0 before any view is built.
+        if (App.Core.Desktop.LinuxDesktop.ReducedMotion()) Motion.Off = true;
 
         // "Open Origin when you log in" follows the launcher when the .AppImage is moved or renamed: the autostart entry
         // is re-pointed at what runs now (UPG-5). A dev build never touches the player's real autostart entry.
@@ -87,6 +147,14 @@ public static class DesktopEntry
         };
         System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
 
-        return Builder().UsePlatformDetect().StartWithClassicDesktopLifetime(args);
+        // WM_CLASS = the desktop entry's id (tools/linux/files/org.originclient.Launcher.desktop, StartupWMClass), so
+        // GNOME/KDE docks match the running window to Origin's pinned icon instead of showing an unknown second app.
+        return Builder()
+            .With(new X11PlatformOptions { WmClass = WmClass })
+            .UsePlatformDetect()
+            .StartWithClassicDesktopLifetime(args);
     }
+
+    /// <summary>The X11 window class; tools/release/check_consistency.py keeps the .desktop file's StartupWMClass equal.</summary>
+    public const string WmClass = "org.originclient.Launcher";
 }

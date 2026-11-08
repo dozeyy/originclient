@@ -196,7 +196,9 @@ public sealed class AccountDrawer : Panel
         string? error = null;
         try
         {
-            var session = await MinecraftSessionBroker.FinishPendingAsync(pendingId);
+            // Off the UI thread: reading the stored sign-in goes through the desktop keyring (Core LinuxKeyStore runs
+            // secret-tool), which can wait on an unlock prompt; the window must keep drawing meanwhile.
+            var session = await Task.Run(() => MinecraftSessionBroker.FinishPendingAsync(pendingId));
             if (session == null)
             {
                 MinecraftSessionBroker.RemovePending(pendingId);
@@ -235,16 +237,9 @@ public sealed class AccountDrawer : Panel
         if (!yes) return;
         try
         {
-            AccountStore.Update(list =>
-            {
-                var wasSelected = list.Any(a => a.Id == account.Id && a.IsSelected);
-                list.RemoveAll(a => a.Id == account.Id);
-                // The active one went: the most recently used account that can play takes over.
-                if (wasSelected && list.FirstOrDefault(a => !a.PendingMinecraftSignIn) is not null)
-                    AccountStore.SetSelected(list, list.Where(a => !a.PendingMinecraftSignIn)
-                        .OrderByDescending(a => a.LastUsedUtc).First().Id);
-                return list;
-            });
+            // Core's one removal path (the Windows drawer's too): the row and its tokens go, the cached Minecraft session
+            // is forgotten, and the most recently used account that can play takes over if this was the active one.
+            MinecraftSessionBroker.Remove(account.Id);
         }
         catch (Exception)
         {
@@ -288,13 +283,15 @@ public sealed class AccountDrawer : Panel
     /// <summary>
     /// Store a finished Microsoft sign-in (WPF AccountSwitcherPanel.CompleteSignIn): null = added and selected
     /// (close everything); otherwise what to tell the player. Tokens are encrypted by Core's per-OS key store
-    /// inside AddSignedIn before they reach disk.
+    /// inside AddSignedIn before they reach disk. That store runs on a pool thread: on Linux it is the desktop keyring
+    /// (secret-tool, up to four runs with a 15 s limit each), and a locked keyring shows its unlock prompt while the
+    /// launcher must keep drawing (Windows' DPAPI answers at once, so its drawer can stay synchronous).
     /// </summary>
-    public static Outcome? Save(AuthResult result)
+    public static async Task<Outcome?> SaveAsync(AuthResult result)
     {
         try
         {
-            var added = MinecraftSessionBroker.AddSignedIn(result);
+            var added = await Task.Run(() => MinecraftSessionBroker.AddSignedIn(result));
             AccountsWritten();
             if (added.AlreadyAdded)
             {

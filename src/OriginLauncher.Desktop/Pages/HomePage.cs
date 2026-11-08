@@ -29,6 +29,10 @@ public sealed class HomePage : Panel, IPage
     private readonly TextBlock _familyText = Ui.Caption("");
     private readonly Avalonia.Controls.Shapes.Ellipse _statusDot = Ui.Dot(Palette.TextMuted, 8);
     private readonly TextBlock _statusText = Ui.Caption("");
+    // "/ 1,284 playing Origin" after the status line (WPF HomePage PlayersPill): joins only once a count has arrived,
+    // and leaves again when a fetch fails. Core PlayersOnline, every PlayersOnline.Refresh (5 min), never in render runs.
+    private readonly TextBlock _playersText = Ui.Caption("", Palette.TextDim);
+    private readonly StackPanel _playersPill;
     private readonly Toggle _myMods = new("My mods", home: true);
     private readonly Pressable _join;
     private readonly TextBlock _joinServer = Ui.BodyStrong("Server");
@@ -102,7 +106,15 @@ public sealed class HomePage : Panel, IPage
         _statusText.LineHeight = Sizes.StatusLine;
         _statusDot.VerticalAlignment = VerticalAlignment.Top;
         _statusDot.Margin = new Thickness(0, (Sizes.StatusLine - 8) / 2, 0, 0);
-        var status = Ui.Row(8, _statusDot, _statusText);
+        var slash = Ui.Caption("/", Palette.TextMuted);
+        slash.Margin = new Thickness(0, 0, 14 - 8, 0);
+        _playersText.LineHeight = Sizes.StatusLine;
+        slash.LineHeight = Sizes.StatusLine;
+        _playersPill = Ui.Row(8, slash, _playersText);
+        _playersPill.VerticalAlignment = VerticalAlignment.Top;
+        _playersPill.Margin = new Thickness(14 - 8, 0, 0, 0);
+        _playersPill.IsVisible = false;
+        var status = Ui.Row(8, _statusDot, _statusText, _playersPill);
         status.Margin = new Thickness(4, 10, 0, 0);
         var left = Ui.Column(0, _versionCard, status);
         left.VerticalAlignment = VerticalAlignment.Bottom;
@@ -159,6 +171,41 @@ public sealed class HomePage : Panel, IPage
         LauncherState.AccountsChanged += Refresh;
         Launches.Changed += RefreshPlayState;
         Refresh();
+        if (!Shots.ShotRunner.Active) StartPlayersOnline();
+    }
+
+    private void StartPlayersOnline()
+    {
+        var timer = new Avalonia.Threading.DispatcherTimer(Avalonia.Threading.DispatcherPriority.Background) { Interval = App.Core.Social.PlayersOnline.Refresh };
+        timer.Tick += async (_, _) => await RefreshPlayersOnlineAsync();
+        timer.Start();
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = RefreshPlayersOnlineAsync(), Avalonia.Threading.DispatcherPriority.ApplicationIdle);
+    }
+
+    // Network off the UI thread; any failure just hides the pill until the next try.
+    private async Task RefreshPlayersOnlineAsync()
+    {
+        int? count = null;
+        if (!App.Core.Social.Launcher.SocialHub.PlayersOnlineOff)
+        {
+            try
+            {
+                count = await Task.Run(() => App.Core.Social.PlayersOnline.FetchAsync(App.Core.Social.SocialHttp.SendAsync,
+                    App.Core.Social.SocialEndpoints.BaseUrl, CancellationToken.None));
+            }
+            catch (Exception)
+            {
+                count = null;
+            }
+        }
+        ShowPlayersOnline(count);
+    }
+
+    /// <summary>The pill with a count, or hidden (null). Render runs never show one (Will: no made-up count in shots).</summary>
+    public void ShowPlayersOnline(int? count)
+    {
+        if (count is { } n) _playersText.Text = App.Core.Social.SocialText.PlayersOnline(n);
+        _playersPill.IsVisible = count != null;
     }
 
     public void Shown()
@@ -179,6 +226,8 @@ public sealed class HomePage : Panel, IPage
     public void Refresh()
     {
         var version = LauncherState.SelectedVersion;
+        // The launcher's presence names the version Home has picked (Core/Social: sent with /v1/sync), as on Windows.
+        App.Core.Social.Launcher.SocialHub.PresenceVersion = version;
         ShowVersionCard(version);
         _myMods.IsOn = LauncherState.Settings.PlayWithExternalMods;
         var profile = CurrentProfile();

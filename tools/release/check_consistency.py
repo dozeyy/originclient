@@ -398,10 +398,27 @@ def check_site_downloads() -> list[str]:
             for n in sorted(linked) if not re.search(r"^\s+" + re.escape(n) + r"\s*$", wf, re.M)]
 
 
+def check_linux_wm_class() -> list[str]:
+    """The Linux launcher's X11 window class (Shell/DesktopEntry.cs WmClass) must equal the desktop entry's
+    StartupWMClass (tools/linux/files/org.originclient.Launcher.desktop, shipped in the .deb/.rpm/AppImage): GNOME and
+    KDE match the running window to its pinned icon by it; a mismatch shows Origin as a second, unknown app."""
+    entry = (REPO / "tools/linux/files/org.originclient.Launcher.desktop").read_text(encoding="utf-8")
+    code = (REPO / "src/OriginLauncher.Desktop/Shell/DesktopEntry.cs").read_text(encoding="utf-8")
+    wanted = re.search(r'^StartupWMClass=(.+)$', entry, re.M)
+    actual = re.search(r'const string WmClass = "([^"]+)"', code)
+    if not wanted or not actual:
+        return ["Linux desktop entry or DesktopEntry.WmClass not found (update check_linux_wm_class)"]
+    if wanted.group(1).strip() != actual.group(1):
+        return [f"org.originclient.Launcher.desktop StartupWMClass={wanted.group(1).strip()} but the launcher's "
+                f"X11 WM_CLASS is {actual.group(1)} (Shell/DesktopEntry.cs)"]
+    return []
+
+
 def main() -> int:
     problems = (check_versions() + check_handoff() + check_theme_parity() + check_release_feed()
                 + check_update_hash() + check_update_delta() + check_mac_release() + check_picker()
                 + check_linux_assets() + check_site_downloads())
+    problems += check_linux_wm_class()
     for p in problems:
         print(f"::error::{p}")
     if not problems:
