@@ -110,6 +110,7 @@ public static class UpdatePrompt
         // Home's full-window scene (a real percentage fill), unless a game launch is mid-flight there: then the chip's
         // own "Updating..." carries it.
         window.CloseDrawer();
+        window.CloseSheet(); // the version picker would sit under the scene
         window.Navigate(PageKey.Home);
         var scene = BeginScene(window, Short(update.Version));
         if (scene == null) window.Bar.SetUpdateNote("Updating...");
