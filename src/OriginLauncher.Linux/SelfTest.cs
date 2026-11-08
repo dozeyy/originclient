@@ -40,6 +40,15 @@ internal static class SelfTest
         // CI's package-install jobs read this line: "package" from /opt via the deb/rpm, "appimage", or "folder".
         Console.WriteLine($"  install kind     {(UpdateService.AppImagePath != null ? "appimage" : UpdateService.PackageInstall ? "package" : "folder")}");
         Console.WriteLine($"  Mojang runtime   {MojangMetadata.RuntimePlatform}");
+        // Which OpenSSL HTTPS uses: the system's, or the AppImage/tar.gz's own when the distro has no OpenSSL 3 (LINUX-1).
+        Console.WriteLine($"  openssl          {OriginLauncher.App.Core.Net.LinuxOpenSsl.State}");
+        // A copy that can't replace itself sees updates but only tells the player how to get them (LINUX-7).
+        Console.WriteLine($"  update blocked   {OriginLauncher.App.Core.Updates.LinuxUpdateWords.Blocked(UpdateService.NotUpdatableReason, UpdateService.AppImagePath != null) ?? "no"}");
+        // The optional system pieces this computer lacks, as Settings shows them (LINUX-14).
+        var missing = OriginLauncher.App.Core.Launch.LinuxOptionalPieces.MissingHere();
+        Console.WriteLine($"  optional pieces  {(missing.Count == 0 ? "all present" : "missing " + string.Join(", ", missing.Select(p => p.Name)))}");
+        if (OriginLauncher.App.Core.Launch.LinuxOptionalPieces.Note(missing, OriginLauncher.App.Core.Launch.LinuxPackages.ThisComputer) is { } note)
+            Console.WriteLine($"  settings note    {note}");
 
         var scratch = Path.Combine(Path.GetTempPath(), "origin-selftest-" + Guid.NewGuid().ToString("N"));
         OriginPaths.UseScratchRoot(scratch);

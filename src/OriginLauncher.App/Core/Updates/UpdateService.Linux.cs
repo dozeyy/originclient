@@ -26,8 +26,11 @@ namespace OriginLauncher.App.Core.Updates;
 // Shared code (UpdateService.cs) has already refused a release with a missing or wrong SHA-256
 // before any of this runs (DECISIONS 2026-10-25), and a failure here never blocks Play (UpdateGate).
 // Origin installed somewhere else it can't replace itself (a read-only folder with no marker, a
-// Flatpak, `dotnet OriginLauncher.dll`) is never offered an update at all: such a swap could only
-// fail, and a mandatory update that can never apply would gate Play on every start.
+// Flatpak, `dotnet OriginLauncher.dll`) is never offered an update: such a swap could only fail, and a
+// mandatory update that can never apply would gate Play on every start. The newer release is still
+// seen: InstallBlockedHereAsync names the reason, so UpdateService.Blocked tells the player how to fix
+// it (move the AppImage or the folder somewhere they own), the Linux twin of the Mac's "Move to
+// Applications". Before, such a copy stayed on its version forever without a word (LINUX-7).
 // Asset names are fixed: the website links to them, and tools/release/check_consistency.py checks
 // that the release workflow and tools/linux/package.sh use exactly these, each with its .sha256.
 public static partial class UpdateService
@@ -50,10 +53,9 @@ public static partial class UpdateService
     /// <summary>Why this install can't replace itself, or null when it can.</summary>
     internal static readonly string? NotUpdatableReason = FindNotUpdatableReason();
 
-    // A name no release asset has, so an install that can't swap itself is never offered (or gated on) an update.
-    internal static readonly string ReleaseAssetName =
-        NotUpdatableReason != null ? "(no self-update: " + NotUpdatableReason + ")"
-        : AppImagePath != null ? AppImageAssetName : TarAssetName;
+    // The asset this install would take. An install that can't swap itself still finds it, so a newer release is seen;
+    // InstallBlockedHereAsync then keeps it from being offered or gating Play and says why (UpdateService.Blocked).
+    internal static readonly string ReleaseAssetName = AppImagePath != null ? AppImageAssetName : TarAssetName;
 
     // The local download's file name (UpdateService.cs adds -<version>.zip whatever the content is).
     private static readonly string ReleaseZipPrefix =
@@ -71,8 +73,10 @@ public static partial class UpdateService
     private static void ShutdownApp() => Shutdown();
 
     // The download is not a zip on Linux: unpack the tar.gz, or stage the AppImage as one file.
-    // Nothing refuses an update up front on Linux: a read-only package install updates into the per-user copy.
-    private static Task<string?> InstallBlockedHereAsync() => Task.FromResult<string?>(null);
+    // A read-only package install is never blocked (it updates into the per-user copy); every other install that can't
+    // replace itself is, with the sentence the launcher shows (LinuxUpdateWords). No thread hop: the reason was found once.
+    private static Task<string?> InstallBlockedHereAsync() => Task.FromResult(LinuxUpdateWords.Blocked(NotUpdatableReason, AppImagePath != null));
+
 
     // Never reached (StageReleaseOverride always stages); kept so UpdateService.cs has one extract call for every OS.
     private static void ExtractUpdate(string zipPath, string stageDir) =>
@@ -197,9 +201,9 @@ start
     {
         if (!OperatingSystem.IsLinux()) return "not Linux";
         if (AppImagePath != null)
-            return Writable(Path.GetDirectoryName(AppImagePath)!) ? null : "the AppImage's folder is read-only";
+            return Writable(Path.GetDirectoryName(AppImagePath)!) ? null : LinuxUpdateWords.ReadOnlyAppImage;
         if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FLATPAK_ID")) || File.Exists("/.flatpak-info"))
-            return "Flatpak updates through Flatpak";
+            return LinuxUpdateWords.FlatpakInstall;
         var exe = Environment.ProcessPath;
         if (exe == null || Path.GetFileName(exe) != "OriginLauncher"
             || !string.Equals(Path.GetDirectoryName(exe), AppFolder, StringComparison.Ordinal))
@@ -207,7 +211,7 @@ start
         // A package folder stays read-only on purpose: the swap writes the per-user copy instead.
         if (PackageInstall) return null;
         var parent = Path.GetDirectoryName(AppFolder);
-        if (parent == null || !Writable(parent) || !Writable(AppFolder)) return "the install folder is read-only";
+        if (parent == null || !Writable(parent) || !Writable(AppFolder)) return LinuxUpdateWords.ReadOnlyFolder;
         return null;
     }
 
