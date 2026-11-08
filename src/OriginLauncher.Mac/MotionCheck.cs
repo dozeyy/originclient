@@ -23,6 +23,7 @@ internal static class MotionCheck
 {
     private static readonly List<string> Failures = new();
     private static int _checks;
+    private static Window? _window;
 
     public static int Run(string? root)
     {
@@ -52,6 +53,7 @@ internal static class MotionCheck
 
         Console.WriteLine("Motion check: launcher animations with motion on (headless, scratch data, no network)");
         var window = new MainWindow { Width = 1044, Height = 740 };
+        _window = window;
         window.Show();
         Pump(300);
 
@@ -282,12 +284,17 @@ internal static class MotionCheck
         return Failures.Count == 0 ? 0 : 1;
     }
 
-    // Runs the UI queue and the render clock (which drives animations) for up to ms, or until done says stop.
+    // Runs the UI queue and the render clock (which drives animations) for up to ms, or until done says stop. Each step
+    // asks for an animation frame first: the headless render timer stops itself when the render loop reports nothing to
+    // do, and a forced tick on a stopped timer does nothing, so an animation started at that moment never advanced (seen
+    // on the Apple Silicon runner as a Mods row frozen 0.7 px short; reproduced on Linux with a tight pump). A real
+    // window's timer is restarted by the next frame request, which every animation and input makes.
     private static void Pump(int ms, Func<bool>? done = null)
     {
         var until = DateTime.UtcNow.AddMilliseconds(ms);
         while (DateTime.UtcNow < until && !(done?.Invoke() ?? false))
         {
+            _window?.RequestAnimationFrame(_ => { });
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             Dispatcher.UIThread.RunJobs();
             Thread.Sleep(15);
@@ -302,6 +309,7 @@ internal static class MotionCheck
         var until = DateTime.UtcNow.AddMilliseconds(ms);
         while (DateTime.UtcNow < until)
         {
+            _window?.RequestAnimationFrame(_ => { });
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             Dispatcher.UIThread.RunJobs();
             samples.Add(read());
