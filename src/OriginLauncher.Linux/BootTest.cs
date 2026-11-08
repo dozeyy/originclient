@@ -119,6 +119,9 @@ internal static class BootTest
         }
         catch (Exception ex)
         {
+            // What the player's launch screen says for this failure (PlayFailure), then the full error for the log.
+            var shown = PlayFailure.From(ex, version);
+            Console.WriteLine($"  launch screen: {shown.Title}: {shown.Message}");
             Console.WriteLine($"BOOT-TEST FAILED {version}: {ex}");
             return 1;
         }

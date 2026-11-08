@@ -1,0 +1,11 @@
+[12:00:00] [main/INFO] [LaunchWrapper]: Loading tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[12:00:01] [main/INFO] [FML]: Forge Mod Loader version 11.15.1.2318 for Minecraft 1.8.9 loading
+[12:00:03] [Client thread/INFO]: Setting user: <player>
+[12:00:04] [Client thread/INFO]: LWJGL Version: 2.9.4
+[12:00:04] [Client thread/ERROR]: Couldn't set pixel format
+org.lwjgl.LWJGLException: Pixel format not accelerated
+	at org.lwjgl.opengl.LinuxDisplayPeerInfo.initDefaultPeerInfo(Native Method)
+	at org.lwjgl.opengl.LinuxDisplay.createWindow(LinuxDisplay.java:450)
+	at org.lwjgl.opengl.Display.create(Display.java:870)
+	at net.minecraft.client.Minecraft.createDisplay(Minecraft.java:509)
+	at net.minecraft.client.Minecraft.startGame(Minecraft.java:418)

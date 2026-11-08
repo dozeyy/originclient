@@ -44,6 +44,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Versions\LaunchPrewarm.$(OriginPlatform).cs" LinkBase="Versions" />
     <!-- The per-OS launch seam (Windows: no-ops; Mac: MacLaunchPolicy applied to CmlLib). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\PlatformLaunch.cs" LinkBase="Launch" />
+    <!-- The distro install commands PlatformLaunch.Linux, PlayFailure and CrashRules use (pure, every OS). -->
+    <Compile Include="..\OriginLauncher.App\Core\Launch\LinuxPackages.cs" LinkBase="Launch" />
+    <Compile Include="..\OriginLauncher.App\Core\Launch\LinuxOptionalPieces.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\PlatformLaunch.$(OriginPlatform).cs" LinkBase="Launch" />
   </ItemGroup>
   <ItemGroup Condition="'$(OriginPlatform)' == 'Windows'">
