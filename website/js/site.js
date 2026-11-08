@@ -1,5 +1,5 @@
-// Origin website: hero -> versions -> why Origin -> download, over the island in
-// the sky (world.js). Scrolling blends the camera from one scene's pose to the
+// Origin website: hero -> what it does -> versions -> store -> download, over the
+// island in the sky (world.js). Scrolling blends the camera from one scene's pose to the
 // next; the island is always drawn with its shader lighting.
 
 // ---------------------------------------------------------------------------
@@ -56,8 +56,9 @@ const VERSION_GROUPS = [
 ];
 
 // Scenes top to bottom: [section id, world pose, how much to darken the island].
-// "why" darkens the island so the cards read over it.
-const SCENES = [['top', 'hero', 0], ['versions', 'versions', 0.9], ['why', 'why', 0.92], ['get', 'get', 0.2]];
+// "why" and "shop" cover the island under the screenshots (it rests there); "versions" keeps it
+// visible and moving on the right of wide screens, beside the list.
+const SCENES = [['top', 'hero', 0], ['why', 'why', 0.94], ['versions', 'versions', 0.8], ['shop', 'why', 0.94], ['get', 'get', 0.12]];
 // From this shade on so little of the island shows that it is frozen instead of drawn
 // (the last frame stays on screen): phones scroll the glass cards over a still picture.
 const COVERED = 0.85;
@@ -152,6 +153,35 @@ const GET_COPY = {
   },
 };
 
+// The hero's download block for each kind of visitor: the fact line under the button and which
+// other systems the quiet "Also for" row names (they all lead to the download section).
+const HERO_COPY = {
+  win: { sub: 'Free · Windows 10 & 11 · a small installer that fetches the rest', also: ['mac', 'linux'] },
+  mac: { sub: 'Free · macOS 15 or newer · Apple Silicon. The first open takes one extra step.', also: ['win', 'linux'] },
+  macIntel: { sub: 'Free · macOS 15 or newer · Intel Mac. The first open takes one extra step.', also: ['win', 'linux'] },
+  linux: { sub: 'Free · AppImage for any 64-bit distro · .deb, .rpm and .tar.gz too', also: ['win', 'mac'] },
+  chromeos: { sub: 'Free · turn on Linux in your Chromebook’s settings first', also: ['win', 'mac'] },
+  phone: { sub: 'Origin runs on Windows, Mac and Linux computers. Send yourself the link and download it there.', also: [] },
+};
+const ALSO_LINK = { win: 'Windows', mac: 'Mac <span class="badge">Beta</span>', linux: 'Linux' };
+
+function initHero(kind, main) {
+  const copy = HERO_COPY[kind], big = $('[data-hero-main]');
+  if (!big) return;
+  $('[data-hero-label]').innerHTML = GET_COPY[kind].button + (main?.badge ? ` <span class="badge">${main.badge}</span>` : '');
+  const sub = $('[data-hero-sub]');
+  sub.textContent = copy.sub;
+  if (!main) {
+    big.href = location.href.split('#')[0];
+    big.querySelector('.px-ico')?.remove();   // it shares, it doesn't download
+    big.addEventListener('click', e => sharePage(e, sub));
+  }
+  const also = copy.also.filter(o => o !== 'mac' || DOWNLOAD.mac.live).map(o => `<a href="#get">${ALSO_LINK[o]}</a>`);
+  const row = $('[data-hero-also]');
+  row.hidden = !also.length;
+  row.innerHTML = also.length ? 'Also for ' + also.join(' and ') : '';
+}
+
 function initGet(kind) {
   const all = allDownloads();
   const copy = GET_COPY[kind];
@@ -168,8 +198,9 @@ function initGet(kind) {
   if (main) big.href = main.href;
   else {
     big.href = location.href.split('#')[0];
-    big.addEventListener('click', sharePage);
+    big.addEventListener('click', e => sharePage(e, $('[data-get-sub]')));
   }
+  initHero(kind, main);
   const sub = $('[data-get-sub]');
   sub.textContent = copy.sub;
   sub.hidden = !copy.sub;
@@ -190,10 +221,11 @@ function initGet(kind) {
   if (!main) $('.get__steps').hidden = true;   // a phone opens nothing, so no first-open steps
 }
 
-// The phone's big button: the system share sheet where there is one, else the link is copied.
-async function sharePage(e) {
+// The phone's big buttons: the system share sheet where there is one, else the link is copied
+// and the line under the button (`sub`) says so.
+async function sharePage(e, sub) {
   e.preventDefault();
-  const url = location.href.split('#')[0], sub = $('[data-get-sub]');
+  const url = location.href.split('#')[0];
   try {
     if (navigator.share) { await navigator.share({ title: 'Origin Client', url }); return; }
     await navigator.clipboard.writeText(url);
@@ -238,22 +270,18 @@ async function pinMissingDownloads() {
   }
 }
 
+// One spec-sheet row per family: the range, the update's name, and every release as a small chip
+// (the newest first, which is lit).
 function initVersions() {
-  $('[data-vgrid]').innerHTML = VERSION_GROUPS.map((g, i) => `<article class="vcard${g.versions.length > 6 ? ' vcard--wide' : ''}" data-reveal style="--i:${i % 4}">`
-    + `<header><h3>${g.title}</h3><span class="tag">${g.tag}</span></header>`
-    + `<ul>${g.versions.map(v => `<li>${v}</li>`).join('')}</ul></article>`).join('');
+  $('[data-vgrid]').innerHTML = VERSION_GROUPS.map(g => `<li class="vrow">`
+    + `<h3>${g.title}<span class="vrow__name">${g.tag}</span></h3>`
+    + `<ul class="chips" aria-label="${g.title} releases">${g.versions.map(v => `<li>${v}</li>`).join('')}</ul></li>`).join('');
   const count = VERSION_GROUPS.reduce((n, g) => n + g.versions.length, 0);
   for (const el of $$('[data-version-count]')) el.textContent = count;
   if (SCREENSHOTS.length) {
     $('[data-shots]').hidden = false;
-    $('[data-shots-grid]').innerHTML = SCREENSHOTS.map(s => `<figure data-reveal><img src="${s.src}" alt="${s.caption}" loading="lazy"><figcaption>${s.caption}</figcaption></figure>`).join('');
+    $('[data-shots-grid]').innerHTML = SCREENSHOTS.map(s => `<figure class="shot"><figcaption class="tag">${s.caption}</figcaption><span class="shot__frame"><img src="${s.src}" alt="${s.caption}" loading="lazy"></span></figure>`).join('');
   }
-}
-
-// The cards' loops only run while their card is on screen.
-function initBento() {
-  const io = new IntersectionObserver(es => es.forEach(e => e.target.classList.toggle('is-off', !e.isIntersecting)), { rootMargin: '80px' });
-  $$('.bcard').forEach(c => { c.classList.add('is-off'); io.observe(c); });
 }
 
 // ---------------------------------------------------------------- scroll
@@ -280,7 +308,7 @@ function frame() {
   if (y > lastY + 1 && y > H) top.classList.add('is-hidden');
   else if (y < lastY - 1 || y <= H) top.classList.remove('is-hidden');
   lastY = y;
-  for (const a of $$('.top__nav a[href^="#"]')) {
+  for (const a of $$('.top__nav a[href^="#"]:not(.btn)')) {
     const r = document.querySelector(a.getAttribute('href')).getBoundingClientRect();
     a.classList.toggle('is-on', r.top < H * 0.5 && r.bottom > H * 0.5);
   }
@@ -324,14 +352,9 @@ function syncHeroZone() {
 async function boot() {
   initDownload();
   initVersions();
-  initBento();
   frame();
   addEventListener('scroll', requestFrame, { passive: true });
   addEventListener('resize', requestFrame);
-
-  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } }), { threshold: 0.15 });
-  $$('.section__head, .get > *').forEach(el => { el.dataset.reveal = ''; });
-  $$('[data-reveal]').forEach(el => io.observe(el));
 
   // the 3D world (fails soft to the flat sky backdrop)
   try {

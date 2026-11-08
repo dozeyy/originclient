@@ -1,391 +1,378 @@
-/* Origin website.
-   Monochrome like the launcher: near-black surfaces, one tonal accent (#E0E0E0),
-   no hue. Inter everywhere; headlines big, bold and tightly tracked. */
+/* Origin website: shared look for every page (home, store, terms, privacy).
+   Direction "Minecraft-native premium": the Workbench palette (moss-black, parchment, one
+   emerald), Space Grotesk for headings, DM Sans for reading, and Silkscreen, a pixel face,
+   only for tiny labels. Corners are pixel staircases (two 2 px steps), never smooth radii and
+   never pills; layout snaps to a 16 px block. The island (world.js) is the only big colour. */
 
-@font-face { font-family: Inter; src: url(../assets/fonts/inter-400.woff2) format("woff2"); font-weight: 400; font-display: swap; }
-@font-face { font-family: Inter; src: url(../assets/fonts/inter-600.woff2) format("woff2"); font-weight: 600; font-display: swap; }
-@font-face { font-family: Inter; src: url(../assets/fonts/inter-700.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Space Grotesk"; src: url(../assets/fonts/space-grotesk.woff2) format("woff2"); font-weight: 300 700; font-display: swap; }
+@font-face { font-family: "DM Sans"; src: url(../assets/fonts/dm-sans.woff2) format("woff2"); font-weight: 100 1000; font-display: swap; }
+@font-face { font-family: Silkscreen; src: url(../assets/fonts/silkscreen.woff2) format("woff2"); font-weight: 400; font-display: swap; }
 
 :root {
-  --bg: #0a0a0b; --panel: #111113;
-  --glass: rgba(17, 17, 19, .93); --card: #18181b; --card-alt: #222226;
-  --soft: rgba(255, 255, 255, .1); --stroke: rgba(255, 255, 255, .24);
-  --text: #f4f4f5; --dim: #bcbcc2; --muted: #8e8e96;
-  --acc: #e0e0e0; --acc-h: #ffffff; --acc-p: #c4c4c8;
-  --acc-soft: rgba(224, 224, 224, .12); --acc-border: rgba(224, 224, 224, .4); --on-acc: #0a0a0b;
-  --danger: #e6786a;
-  --backdrop: radial-gradient(ellipse 70% 60% at 68% 36%, #1c1c20 0%, #0d0d0f 60%, #070708 100%);
-  --ease: cubic-bezier(.16, 1, .3, 1);
+  /* Workbench (docs/overhaul/DESIGN-SYSTEM.md §2.1) */
+  --bg: #0e1110; --sunken: #0b0d0c; --panel: #151a17; --raised: #1b211e; --hover: #222925;
+  --glass: #151a17;   /* store.css still names it: a solid surface now, no blur */
+  --soft: rgba(241, 233, 210, .08); --stroke: rgba(241, 233, 210, .16);
+  --text: #f1e9d2; --dim: rgba(241, 233, 210, .74); --muted: rgba(241, 233, 210, .58);
+  --acc: #5fd09b; --acc-h: #83e2b5; --acc-p: #4cb985;
+  --acc-soft: rgba(95, 208, 155, .14); --acc-border: rgba(95, 208, 155, .6); --on-acc: #0a1710;
+  --gold: #e9c46a; --sky: #6faee8;
+  --danger: #d9675a;
+  --ease: cubic-bezier(.2, .8, .2, 1);
   --ease-io: cubic-bezier(.65, 0, .35, 1);
-  --sans: Inter, "Segoe UI", system-ui, sans-serif;
-  --gutter: clamp(16px, 4vw, 56px);
-  /* Side padding that keeps header, hero, sections and footer on one 1240px column on wide screens. */
-  --pad: max(var(--gutter), calc((100vw - 1240px) / 2));
-  --r: 20px;
+  --display: "Space Grotesk", "DM Sans", system-ui, sans-serif;
+  --sans: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --pixel: Silkscreen, ui-monospace, monospace;
+  --gutter: clamp(16px, 4vw, 48px);
+  /* One 1216 px column (76 blocks of 16) for header, sections and footer. */
+  --pad: max(var(--gutter), calc((100vw - 1216px) / 2));
+  --top-h: 64px;
+  --s: 2px;   /* one step of a pixel corner; a corner is two steps */
+  --r: 4px;   /* store.css: the few smooth radii left (inputs) */
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; background: var(--bg); }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; background: var(--bg); scroll-padding-top: 72px; }
 body {
   margin: 0; background: transparent; color: var(--text);
-  font: 400 16px/1.6 var(--sans); overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
+  font: 400 17px/1.6 var(--sans); overflow-x: hidden;
+  -webkit-font-smoothing: antialiased; font-optical-sizing: auto;
 }
 img { display: block; max-width: 100%; }
-a { color: inherit; }
+a { color: inherit; text-underline-offset: .2em; }
+b, strong { font-weight: 600; }
 code { font-family: ui-monospace, Consolas, monospace; font-size: .88em; color: var(--text); }
-.skip { position: fixed; left: 16px; top: -60px; z-index: 100; padding: 12px 18px; border-radius: 999px; background: var(--acc); color: var(--on-acc); font-weight: 600; }
-.skip:focus { top: 16px; }
-:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+::selection { background: rgba(95, 208, 155, .32); color: var(--text); }
+html { scrollbar-color: #2b332f var(--bg); }
+.skip { position: fixed; left: 16px; top: -64px; z-index: 100; padding: 12px 18px; background: var(--acc); color: var(--on-acc); font-weight: 600; text-decoration: none; }
+.skip:focus { top: 12px; }
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* ---------- the pixel corner ----------
+   Every block-cornered thing shares this one staircase: two steps of --s at each corner.
+   Things that take keyboard focus keep the shape on a ::before background, so their
+   ::after can draw a focus ring with the same staircase (an evenodd ring, --w thick). */
+.btn::before, .px, .tag, .badge, .chips li, .shot__frame, .shot img, .versions__slab, .others a, .get__steps, .also, .legal__body, .top__nav.is-open,
+.fit, .item, .plus, .code--top {   /* the last row: store.css containers */
+  --t: calc(var(--s) * 2);
+  clip-path: polygon(var(--t) 0, calc(100% - var(--t)) 0, calc(100% - var(--t)) var(--s), calc(100% - var(--s)) var(--s), calc(100% - var(--s)) var(--t), 100% var(--t), 100% calc(100% - var(--t)), calc(100% - var(--s)) calc(100% - var(--t)), calc(100% - var(--s)) calc(100% - var(--s)), calc(100% - var(--t)) calc(100% - var(--s)), calc(100% - var(--t)) 100%, var(--t) 100%, var(--t) calc(100% - var(--s)), var(--s) calc(100% - var(--s)), var(--s) calc(100% - var(--t)), 0 calc(100% - var(--t)), 0 var(--t), var(--s) var(--t), var(--s) var(--s), var(--t) var(--s));
+}
+.ring::after, .btn::after {
+  --t: calc(var(--s) * 2); --w: 2px;
+  content: ""; position: absolute; inset: -4px; pointer-events: none; background: var(--acc); opacity: 0;
+  clip-path: polygon(evenodd, var(--t) 0, calc(100% - var(--t)) 0, calc(100% - var(--t)) var(--s), calc(100% - var(--s)) var(--s), calc(100% - var(--s)) var(--t), 100% var(--t), 100% calc(100% - var(--t)), calc(100% - var(--s)) calc(100% - var(--t)), calc(100% - var(--s)) calc(100% - var(--s)), calc(100% - var(--t)) calc(100% - var(--s)), calc(100% - var(--t)) 100%, var(--t) 100%, var(--t) calc(100% - var(--s)), var(--s) calc(100% - var(--s)), var(--s) calc(100% - var(--t)), 0 calc(100% - var(--t)), 0 var(--t), var(--s) var(--t), var(--s) var(--s), var(--t) var(--s), calc(var(--w) + var(--t)) var(--w), calc(100% - var(--w) - var(--t)) var(--w), calc(100% - var(--w) - var(--t)) calc(var(--w) + var(--s)), calc(100% - var(--w) - var(--s)) calc(var(--w) + var(--s)), calc(100% - var(--w) - var(--s)) calc(var(--w) + var(--t)), calc(100% - var(--w)) calc(var(--w) + var(--t)), calc(100% - var(--w)) calc(100% - var(--w) - var(--t)), calc(100% - var(--w) - var(--s)) calc(100% - var(--w) - var(--t)), calc(100% - var(--w) - var(--s)) calc(100% - var(--w) - var(--s)), calc(100% - var(--w) - var(--t)) calc(100% - var(--w) - var(--s)), calc(100% - var(--w) - var(--t)) calc(100% - var(--w)), calc(var(--w) + var(--t)) calc(100% - var(--w)), calc(var(--w) + var(--t)) calc(100% - var(--w) - var(--s)), calc(var(--w) + var(--s)) calc(100% - var(--w) - var(--s)), calc(var(--w) + var(--s)) calc(100% - var(--w) - var(--t)), var(--w) calc(100% - var(--w) - var(--t)), var(--w) calc(var(--w) + var(--t)), calc(var(--w) + var(--s)) calc(var(--w) + var(--t)), calc(var(--w) + var(--s)) calc(var(--w) + var(--s)), calc(var(--w) + var(--t)) calc(var(--w) + var(--s)));
+}
+.ring:focus-visible, .btn:focus-visible { outline: none; }
+.ring:focus-visible::after, .btn:focus-visible::after { opacity: 1; }
+/* Pixel icons: drawn on a tiny grid, scaled by whole pixels, never smoothed. */
+.px-ico { flex: none; fill: currentColor; shape-rendering: crispEdges; }
+
 /* ---------- world layers ---------- */
-.backdrop { position: fixed; inset: 0; z-index: -3; background: var(--backdrop); }
+/* A dusk sky for the island: moss-black overhead, a cool desaturated sky band and a faint warm
+   haze where the low sun lights the island. Low chroma on purpose: the island carries the colour. */
+.backdrop {
+  position: fixed; inset: 0; z-index: -3;
+  background:
+    radial-gradient(ellipse 42% 36% at 70% 52%, rgba(233, 196, 106, .075), rgba(233, 196, 106, 0) 70%),
+    radial-gradient(ellipse 90% 70% at 66% 38%, rgba(111, 174, 232, .09), rgba(111, 174, 232, 0) 72%),
+    linear-gradient(180deg, #090c0c 0%, #0d1414 30%, #15232a 60%, #1c2a2b 78%, #121816 100%);
+}
 #world { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -2; display: block; }
 /* Darkens the island under content-heavy chapters; site.js drives --shade. */
-.world-shade { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: rgba(7, 7, 8, .9); opacity: var(--shade, 0); }
+.world-shade { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: rgba(11, 13, 12, .94); opacity: var(--shade, 0); }
 /* Wide screens keep the island visible on the right, away from the text column. */
-@media (min-width: 1100px) { .world-shade { background: linear-gradient(90deg, rgba(7, 7, 8, .96) 0%, rgba(7, 7, 8, .9) 48%, rgba(7, 7, 8, .6) 100%); } }
+@media (min-width: 1100px) { .world-shade { background: linear-gradient(90deg, rgba(11, 13, 12, .97) 0%, rgba(11, 13, 12, .93) 52%, rgba(11, 13, 12, .55) 100%); } }
 body.no-webgl #world { display: none; }
 
 /* ---------- type ---------- */
-.eyebrow { margin: 0 0 16px; font: 600 13px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.eyebrow--accent { color: var(--dim); }
-h1, h2, h3 { font-family: var(--sans); font-weight: 700; margin: 0; text-wrap: balance; }
-h1, h2 { letter-spacing: -.04em; }
-h2 { font-size: clamp(34px, 5.2vw, 68px); line-height: 1; }
-h2 span, h1 span { color: var(--muted); }
-.lede { color: var(--dim); font-size: clamp(16px, 1.4vw, 19px); max-width: 640px; text-wrap: pretty; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; margin: 0; text-wrap: balance; color: var(--text); }
+h1 { font-size: clamp(46px, 7vw, 104px); line-height: .95; letter-spacing: -.04em; }
+h2 { font-size: clamp(34px, 4.4vw, 60px); line-height: 1.02; letter-spacing: -.035em; }
+h3 { font-size: 22px; line-height: 1.2; letter-spacing: -.015em; }
+p { margin: 0; }
+.lede { color: var(--dim); font-size: clamp(17px, 1.35vw, 19px); line-height: 1.6; max-width: 34em; text-wrap: pretty; }
+/* The pixel face: tiny labels only. Silkscreen is drawn on an 8 px grid and its capitals are only 5 of
+   those pixels tall, so it is always set at 16 px (2 screen px per font pixel: crisp at any zoom of 1
+   or 2, and about as tall as 14 px sans capitals). Never for sentences. */
+.tag, .badge, .placard, .chips li { font-family: var(--pixel); font-size: 16px; font-weight: 400; line-height: 1; text-transform: uppercase; letter-spacing: 0; -webkit-font-smoothing: none; font-smooth: never; }
 
 /* ---------- buttons ---------- */
 .btn {
-  --bh: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 12px;
-  height: var(--bh); padding: 0 24px; border: 1px solid transparent; border-radius: 999px;
-  font: 600 15px/1 var(--sans); letter-spacing: -.005em; text-decoration: none; cursor: pointer; white-space: nowrap;
-  transition: background-color .2s, transform .2s var(--ease), box-shadow .2s, color .2s, border-color .2s;
+  --bh: 48px; --btn-bg: transparent; --btn-fg: var(--text);
+  position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+  height: var(--bh); padding: 0 24px; border: 0; background: none; color: var(--btn-fg);
+  font: 600 16px/1 var(--sans); letter-spacing: -.005em; text-decoration: none; cursor: pointer; white-space: nowrap;
+  transition: color .16s var(--ease), translate .08s;
 }
-.btn:active { transform: scale(.97); }
-.btn--primary { background: var(--acc); color: var(--on-acc); }
-.btn--primary:hover { background: var(--acc-h); box-shadow: 0 0 0 6px rgba(255, 255, 255, .08); }
-.btn--ghost { background: rgba(255, 255, 255, .06); color: var(--text); border-color: var(--soft); backdrop-filter: blur(10px); }
-.btn--ghost:hover { background: rgba(255, 255, 255, .12); border-color: var(--stroke); }
-.btn--sm { --bh: 44px; padding: 0 20px; font-size: 14px; }
-.btn--lg { --bh: 56px; padding: 0 30px; font-size: 16px; }
-.btn--xl { --bh: 64px; padding: 0 46px; font-size: 18px; }
-/* "Not yet" state, set by site.js while DOWNLOAD.live is false. */
-.btn[data-soon] { background: rgba(255, 255, 255, .08); color: var(--dim); border-color: var(--soft); cursor: default; }
-.btn[data-soon]:hover { box-shadow: none; }
-.btn[data-soon]:active { transform: none; }
-.btn[data-soon]::after { content: "Soon"; padding: 4px 8px; border-radius: 999px; background: rgba(255, 255, 255, .12); color: var(--text); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
-.scroll-cue { flex: none; width: 9px; height: 9px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translate(-2px, -2px); animation: cue 1.8s var(--ease-io) infinite; }
-@keyframes cue { 50% { transform: rotate(45deg) translate(2px, 2px); } }
+.btn::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--btn-bg); transition: background-color .16s var(--ease); }
+.btn:active { translate: 0 1px; }
+.btn--primary { --btn-bg: var(--acc); --btn-fg: var(--on-acc); }
+.btn--primary:hover { --btn-bg: var(--acc-h); }
+.btn--primary:active { --btn-bg: var(--acc-p); }
+/* Ghost: a raised block with a 1 px parchment hairline (the staircase corners carry no line,
+   which reads as the pixel step). */
+.btn--ghost { --btn-bg: var(--raised); --edge: var(--stroke); }
+.btn--ghost::before { box-shadow: inset 0 0 0 1px var(--edge); }
+.btn--ghost:hover { --btn-bg: var(--hover); --edge: rgba(241, 233, 210, .3); }
+.btn--sm { --bh: 40px; padding: 0 16px; font-size: 15px; }
+.btn--lg { --bh: 56px; padding: 0 28px; font-size: 17px; }
+.btn--xl { --bh: 64px; padding: 0 36px; font-size: 18px; --s: 3px; }
+.btn:disabled, .btn[aria-disabled="true"] { cursor: default; }
+.btn:disabled { opacity: .5; }
+/* "Not yet" state (site.js while DOWNLOAD.live is false; the store's closed checkout). */
+.btn[data-soon] { --btn-bg: var(--raised); --btn-fg: var(--muted); cursor: default; }
+.btn[data-soon]:active { translate: none; }
+.btn[data-soon]:not(:focus-visible)::after { content: "Soon"; position: static; inset: auto; opacity: 1; clip-path: none; padding: 4px 6px 3px; background: var(--hover); color: var(--text); font: 400 8px/1 var(--pixel); text-transform: uppercase; }
+.badge { --s: 2px; display: inline-block; padding: 3px 6px 3px; background: var(--acc-soft); color: var(--acc-h); vertical-align: 1px; }
+.btn--primary .badge { background: rgba(10, 23, 16, .16); color: var(--on-acc); }
 
 /* ---------- header ---------- */
 .top {
-  position: fixed; inset: 0 0 auto; z-index: 50; height: 72px;
-  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 0 var(--pad);
-  transition: transform .45s var(--ease), background-color .3s, box-shadow .3s;
+  position: fixed; inset: 0 0 auto; z-index: 50; height: var(--top-h);
+  display: flex; align-items: center; gap: 32px; padding: 0 var(--pad);
+  transition: transform .4s var(--ease), background-color .25s, box-shadow .25s;
 }
-.top.is-solid { background: rgba(10, 10, 11, .72); backdrop-filter: blur(16px); box-shadow: inset 0 -1px 0 var(--soft); }
+.top.is-solid { background: rgba(14, 17, 16, .94); box-shadow: inset 0 -1px 0 var(--soft); }
 .top.is-hidden { transform: translateY(-100%); }
 /* Keyboard focus inside the slid-away header (Shift+Tab back into it) brings it back into view. */
 .top.is-hidden:focus-within { transform: none; }
-.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; justify-self: start; min-height: 44px; min-width: 44px; justify-content: center; }
+.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; min-height: 44px; min-width: 44px; flex: none; }
 .brand__mark { width: 32px; height: 32px; flex: none; }
 /* The real wordmark file (glow baked in, so it needs no filter). */
 .brand__word { width: 107px; height: 22px; flex: none; }
-.top__nav { display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: rgba(20, 20, 22, .6); backdrop-filter: blur(16px); box-shadow: inset 0 0 0 1px var(--soft); }
-.top__nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 999px; color: var(--dim); font: 600 14px/1 var(--sans); text-decoration: none; transition: color .2s, background-color .2s; }
-.top__nav a:hover { color: var(--text); }
-.top__nav a.is-on { color: var(--text); background: rgba(255, 255, 255, .12); }
-.top__action { justify-self: end; }
+.top__nav { display: flex; align-items: center; gap: 4px; margin-right: auto; }
+.top__nav a:not(.btn) {
+  position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px;
+  color: var(--dim); font: 500 15px/1 var(--sans); text-decoration: none; transition: color .16s;
+}
+/* hover: a 2 px pixel bar under the label; the current section: a 4 px emerald block before it */
+.top__nav a:not(.btn)::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 8px; height: 2px; background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform .2s var(--ease); }
+.top__nav a:not(.btn):hover { color: var(--text); }
+.top__nav a:not(.btn):hover::after { transform: scaleX(1); }
+.top__nav a.is-on { color: var(--text); }
+.top__nav a.is-on::before { content: ""; width: 4px; height: 4px; background: var(--acc); }
+.top__action { flex: none; }
+.top__menu-dl, .top__menu { display: none; }
+.top__menu .px-ico + .px-ico, .top__menu[aria-expanded="true"] .px-ico:first-child { display: none; }
+.top__menu[aria-expanded="true"] .px-ico + .px-ico { display: block; }
+.top__menu {
+  align-items: center; gap: 10px; height: 44px; padding: 0 12px; margin-right: -12px; border: 0; background: none;
+  color: var(--text); font: 500 15px/1 var(--sans); cursor: pointer;
+}
 
 /* ---------- hero ---------- */
-.hero { position: relative; min-height: 100svh; display: flex; align-items: center; padding: 110px var(--pad) 100px; container-type: inline-size; overflow-x: clip; }
-/* overflow-x: clip: CLIENT's box runs past its last letter (tracking adds space after
-   the T); on a phone that spare space would otherwise make the page scroll sideways. */
-/* The hero is one column on one grid. --col is its width: every block in it is
-   exactly that wide, and ORIGIN's letters (their ink, not their box) span it edge
-   to edge. --logo is the font size that makes that true (ORIGIN's ink is 3.2165em
-   wide, measured in the browser). Vertical gaps are whole steps of --u (1/68 of the
-   column, 8px on a wide screen) measured between the letters themselves (cap top /
-   baseline), not between line boxes: each text block cancels its own leading with
-   --trim, which is (line-height - Inter's .727 cap height) / 2 in em. Every block's
-   left AND right edge sits on the column edges (buttons split it in two, the stats
-   spread across it). cqw = % of the hero's content width. */
-.hero__copy { --col: min(44cqw, 560px); --logo: calc(var(--col) / 3.2165); --u: calc(var(--col) / 68); width: var(--col); }
-.hero__copy > .eyebrow { margin: -.1365em 0 calc(var(--u) * 4 - .1365em); }
-/* ORIGIN CLIENT logo (Lunar-style lockup): the name huge in Inter, CLIENT small and
-   widely tracked beneath it. The span's own pale face is only the fallback; the
-   chrome face below covers it. Under it: a thin cool rim along the top edge (the
-   chrome bevel), a dark lip just below (the metal's thickness) and a soft drop. */
-.logo-title { font-family: var(--sans); font-weight: 700; text-transform: uppercase; display: grid; justify-items: start; row-gap: calc(var(--u) * 3); margin: 0 0 calc(var(--u) * 5); }
-.logo-title__main, .logo-title__sub { color: #e4e4e8; text-shadow:
-  0 -.012em 0 rgba(226, 236, 255, .55), 0 .018em 0 #34343a, 0 .05em .16em rgba(0, 0, 0, .6); }
-/* line-height = Inter's cap height, so each line box is exactly its capitals and
-   the gaps around them are the real visible gaps. The negative left margins pull
-   each word's first letter onto the column edge (big letters sit slightly inside
-   their box). CLIENT is .5347x ORIGIN with .5em tracking: measured so its ink is
-   exactly as wide as ORIGIN's (6.016em of its own size); change one number,
-   re-measure all of them (ink left edge: ORIGIN .045em, CLIENT .05em). */
-.logo-title__main, .logo-title__sub { line-height: .727; }
-.logo-title__main { font-size: var(--logo); letter-spacing: -.035em; margin-left: -.045em; }
-.logo-title__sub { font-size: calc(var(--logo) * .5347); font-weight: 600; letter-spacing: .5em; margin: 0 -.54em 0 -.05em; }
-/* Y2K chrome face (the cosmetics' Oakley-ish feel): a copy of the word laid exactly
-   over the fallback face, filled with polished chrome (bright sky, dark horizon line,
-   bright floor) and, on top, a thin lens-glint band (pink -> cyan -> lime, the only
-   hue on the site, and only for a moment) that sweeps across now and then. It has to
-   be a separate layer: on the span itself the shadows would paint over a clipped background.
-   The '/ ""' alt text keeps screen readers from reading the word twice. If clipping
-   isn't supported the plain pale face underneath still shows. */
-.logo-title__main, .logo-title__sub { position: relative; }
-.logo-title__main::after, .logo-title__sub::after {
-  content: attr(data-text); content: attr(data-text) / "";
-  position: absolute; inset: 0; pointer-events: none; text-shadow: none;
-  background:
-    linear-gradient(105deg, transparent 46.5%, rgba(255, 120, 210, .6) 48.5%, rgba(90, 205, 255, .7) 50%, rgba(175, 245, 120, .6) 51.5%, transparent 53.5%) 100% 0 / 300% 100% no-repeat,
-    linear-gradient(180deg, #ffffff 0%, #eef1f7 26%, #b4b8c2 46%, #646a76 50%, #d6d9e0 54%, #f6f7fa 74%, #bfc3cc 100%);
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+.section, .hero { position: relative; }
+.hero {
+  min-height: 100svh; display: flex; align-items: center; padding: calc(var(--top-h) + 32px) var(--pad) 96px;
 }
-@media (prefers-reduced-motion: no-preference) {
-  .logo-title__main::after, .logo-title__sub::after { animation: lens-glint 7s cubic-bezier(.45, 0, .2, 1) .6s infinite; }
-  .logo-title__sub::after { animation-delay: .85s; }
+.hero__copy { width: min(100%, 640px); display: grid; gap: 28px; }
+.hero__lede { color: var(--dim); font-size: clamp(17px, 1.4vw, 20px); line-height: 1.55; max-width: 31em; text-wrap: pretty; }
+.hero__lede b { color: var(--text); font-weight: 600; }
+.cta { display: grid; justify-items: start; gap: 12px; margin-top: 8px; }
+.cta__sub { color: var(--muted); font-size: 15px; }
+.cta__also { color: var(--muted); font-size: 15px; }
+.cta__also a { color: var(--text); text-decoration: underline; text-decoration-color: var(--stroke); text-decoration-thickness: 1px; }
+.cta__also a:hover { text-decoration-color: var(--acc); }
+.cta__also .badge { margin-left: 4px; }
+/* The diorama's label: a pixel-face placard under the island with a hairline up to it. */
+.placard {
+  position: absolute; right: var(--pad); bottom: 40px; display: flex; align-items: center; gap: 10px;
+  padding-top: 12px; color: var(--dim); border-top: 1px solid var(--stroke);
 }
-/* One quick pass left -> right first (so the first one comes right after the page
-   opens), then it rests off to the right until the next loop. */
-@keyframes lens-glint { 0% { background-position: 100% 0, 0 0; } 22%, 100% { background-position: 0% 0, 0 0; } }
-/* One line, sized like the logo so its ink spans the column edge to edge (19.67em
-   wide, first letter .04em inside its box). New wording = re-measure that width. */
-.hero__lede { color: var(--dim); font-size: calc(var(--col) / 19.67); line-height: 1; white-space: nowrap; margin: -.1365em 0 calc(var(--u) * 5 - .1365em) -.04em; }
-.hero__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--u) * 2); }
-/* While Download is "Soon" it can't be the bright button, so the versions link takes the lead. */
-.hero__actions:has(.btn[data-soon]) .btn--ghost { background: var(--acc); color: var(--on-acc); border-color: transparent; }
-.hero__actions:has(.btn[data-soon]) .btn--ghost:hover { background: var(--acc-h); }
-/* Stats span the column like every block above: the first starts on the left edge,
-   the middle sits on the centre line (right over the seam between the buttons), the
-   last ends on the right edge. */
-.facts { display: grid; grid-template-columns: 1fr auto 1fr; gap: calc(var(--u) * 2); margin: calc(var(--u) * 6) 0 0; padding: 0; list-style: none; }
-.facts li { display: grid; gap: var(--u); }
-.facts li:nth-child(2) { justify-items: center; text-align: center; }
-.facts li:last-child { justify-items: end; text-align: right; }
-.facts b { font: 700 30px/1 var(--sans); letter-spacing: -.03em; margin-top: -.1365em; }
-.facts span { font: 600 12px/1 var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: -.1365em; }
+.placard::before { content: ""; position: absolute; right: 24px; bottom: 100%; width: 1px; height: 40px; background: linear-gradient(rgba(241, 233, 210, 0), var(--stroke)); }
+.placard__dot { width: 8px; height: 8px; background: var(--acc); }
+@media (prefers-reduced-motion: no-preference) { .placard__dot { animation: live 2.4s steps(2, jump-none) infinite; } }
+@keyframes live { 50% { opacity: .35; } }
 
 /* ---------- sections ---------- */
-.section { position: relative; padding: clamp(96px, 12vw, 160px) var(--pad); }
-.section__head { max-width: 760px; margin-bottom: 52px; }
-.section__head h2 { margin-bottom: 20px; }
-.vgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; grid-auto-flow: dense; }
-.vcard { padding: 22px 22px 20px; background: var(--glass); border: 1px solid var(--soft); border-radius: var(--r); backdrop-filter: blur(10px); transition: border-color .25s, translate .35s var(--ease); }
-@media (min-width: 560px) {
-  .vcard--wide { grid-column: span 2; }
-  /* The oldest card closes the grid as one full-width row instead of an orphan. */
-  .vcard:last-child { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; }
-  .vcard:last-child ul { margin-top: 0; }
+.section { padding: 128px 0; }
+.wrap { padding: 0 var(--pad); }
+
+/* ---------- what it does ---------- */
+.story__title { max-width: 14em; margin-bottom: 80px; }
+.feat {
+  display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 32px 64px; align-items: center;
+  margin-bottom: 112px;
 }
-.vcard:hover { border-color: var(--stroke); translate: 0 -3px; }
-.vcard header { display: grid; gap: 6px; margin-bottom: 4px; }
-.vcard h3 { font-size: 20px; letter-spacing: -.025em; }
-.vcard .tag { font: 600 12px/1.2 var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.vcard ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 0; padding: 0; list-style: none; }
-.vcard li { padding: 7px 11px; font: 600 13px/1 var(--sans); background: rgba(255, 255, 255, .06); border: 1px solid var(--soft); border-radius: 999px; font-variant-numeric: tabular-nums; }
-.shots__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
-.shots__grid figure { margin: 0; border: 1px solid var(--soft); border-radius: var(--r); overflow: hidden; background: var(--panel); }
-.shots__grid img { width: 100%; height: auto; }
-.shots__grid figcaption { padding: 12px 16px; font: 600 13px/1.4 var(--sans); color: var(--dim); }
-.get { min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 11svh; text-align: center; }
-.get h2 { font-size: clamp(40px, 7vw, 92px); margin-bottom: 20px; }
-.get .lede { margin: 0 auto 36px; }
-/* The big button is the visitor's own system; the line under it says what it's for. */
-.get__sub { margin: 14px 0 0; font: 500 13px/1.4 var(--sans); color: var(--dim); }
-.get__sub[hidden], .get__steps[hidden], [data-mac][hidden] { display: none; }
-.badge { --h: 21px; display: inline-flex; align-items: center; height: var(--h); padding: 0 9px; border-radius: calc(var(--h) / 2); background: rgba(255, 255, 255, .14); font: 700 11px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; }
-.btn--primary .badge { background: rgba(0, 0, 0, .12); }
-/* Every other download under the big button (Windows, Mac Beta, each Linux package), as capsules. */
-.others { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 28px auto 0; max-width: 760px; }
+.feat--flip { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+.feat--flip .shot { order: 2; }
+.feat__text { display: grid; gap: 16px; max-width: 24em; }
+.feat__text h3 { font-size: clamp(24px, 2.2vw, 30px); letter-spacing: -.025em; }
+.feat__text p { color: var(--dim); font-size: 18px; }
+/* A real screenshot in a block-cornered frame: a parchment hairline (the frame's own fill)
+   around the image, and a pixel-face tab on the frame's top edge naming the screen, like a
+   label on a drawer: it never covers the product's own UI. */
+.shot { position: relative; margin: 0; padding-top: 28px; }
+.shot__frame { --s: 3px; display: block; padding: 1px; background: var(--stroke); }
+.shot img { --s: 3px; width: 100%; height: auto; background: var(--sunken); }
+.shot .tag { position: absolute; left: 12px; top: 0; height: 29px; padding: 7px 10px 0; }
+.tag { --s: 2px; display: inline-block; padding: 6px 8px; background: var(--raised); color: var(--dim); }
+.also { --s: 3px; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 8fr); gap: 32px 64px; padding: 40px; background: var(--panel); }
+.also__title { font-size: 22px; }
+.also__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 48px; }
+.also__list li { position: relative; padding-left: 22px; color: var(--dim); font-size: 16px; line-height: 1.55; }
+.also__list li::before { content: ""; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; background: var(--acc); }
+.also__list b { display: block; color: var(--text); font-weight: 600; }
+
+/* ---------- versions ---------- */
+.versions__slab { --s: 3px; max-width: 712px; padding: 48px; background: var(--panel); display: grid; gap: 20px; }
+.versions__slab .lede { font-size: 17px; margin-bottom: 16px; }
+.vlist { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--soft); }
+.vrow { display: grid; grid-template-columns: minmax(0, 13em) minmax(0, 1fr); gap: 8px 24px; padding: 16px 0; border-bottom: 1px solid var(--soft); align-items: baseline; }
+.vrow h3 { font-size: 18px; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.vrow__name { display: block; margin-top: 2px; color: var(--muted); font-size: 14px; font-family: var(--sans); font-weight: 400; letter-spacing: 0; }
+.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 6px; }
+.chips li { --s: 2px; padding: 5px 7px; background: var(--raised); color: var(--dim); }
+.chips li:first-child { color: var(--text); background: var(--hover); }
+
+/* ---------- store teaser ---------- */
+.teaser__grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 48px 80px; align-items: center; }
+.teaser__text { display: grid; gap: 20px; justify-items: start; }
+.teaser__text p { color: var(--dim); max-width: 30em; }
+.teaser__plus b { color: var(--gold); font-weight: 600; }
+.teaser__text .btn { margin-top: 8px; }
+
+/* ---------- get ---------- */
+.get { min-height: 100svh; display: flex; align-items: center; padding: 160px 0 128px; }
+.get .wrap { width: 100%; }
+.get__copy { display: grid; justify-items: start; gap: 20px; max-width: 600px; }
+.get__copy h2 { margin-bottom: 4px; }
+.get__copy .btn--xl { margin-top: 12px; }
+.get__sub { color: var(--muted); font-size: 15px; }
+.get__sub[hidden] { display: none; }
+.others { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; margin-top: 12px; }
 .others[hidden] { display: none; }
-.others a { --h: 44px; display: inline-flex; align-items: center; gap: 8px; height: var(--h); padding: 0 18px; border-radius: calc(var(--h) / 2); background: var(--glass); border: 1px solid var(--soft); color: var(--text); text-decoration: none; font: 600 14px/1 var(--sans); transition: background .15s var(--ease), border-color .15s var(--ease); }
-.others a small { font: 500 12px/1 var(--sans); color: var(--muted); }
-.others a:hover { background: var(--card-alt); border-color: var(--stroke); }
-.others a:active { transform: translateY(1px); }
-.others a:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
-.others a .badge { --h: 18px; padding: 0 7px; font-size: 10px; }
-/* The Mac's one-time Open Anyway steps; open by itself for Mac visitors. */
-.get__steps { width: min(560px, 100%); margin: 28px auto 0; padding: 16px 22px; border: 1px solid var(--soft); border-radius: 20px; background: rgba(10, 10, 12, .55); backdrop-filter: blur(10px); text-align: left; color: var(--dim); font: 500 14px/1.55 var(--sans); text-shadow: none; }
-.get__steps summary { cursor: pointer; color: var(--text); font-weight: 600; list-style-position: inside; }
-.get__steps p { margin: 12px 0 0; }
-.get__steps ol { margin: 12px 0 0; padding-left: 22px; }
-.get__steps li + li { margin-top: 6px; }
-.get__steps b { color: var(--text); font-weight: 600; }
-.specs { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 28px; margin: 32px 0 0; padding: 0; list-style: none; font: 600 13px/1 var(--sans); letter-spacing: .02em; color: var(--dim); }
-.foot { position: relative; display: grid; gap: 14px; padding: 48px var(--pad) 64px; border-top: 1px solid var(--soft); background: rgba(7, 7, 8, .94); color: var(--muted); font-size: 13px; }
-.foot p { margin: 0; max-width: 780px; }
-.foot nav { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; }
-.foot nav a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; color: var(--dim); }
+.others a {
+  --s: 2px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-height: 56px; padding: 10px 16px;
+  background: var(--panel); color: var(--text); font-weight: 600; font-size: 15px; text-decoration: none; transition: background-color .16s;
+}
+.others a:hover { background: var(--raised); }
+.others a:focus-visible { outline-offset: 2px; }
+.others small { flex-basis: 100%; color: var(--muted); font-weight: 400; font-size: 13px; line-height: 1.3; }
+.get__steps { --s: 2px; width: 100%; background: var(--panel); }
+.get__steps summary { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 16px; cursor: pointer; font-weight: 600; font-size: 15px; list-style: none; }
+.get__steps summary::-webkit-details-marker { display: none; }
+.get__steps summary::before { content: ""; width: 8px; height: 8px; flex: none; background: var(--acc); clip-path: polygon(0 0, 100% 50%, 0 100%); transition: rotate .2s var(--ease); }
+.get__steps[open] summary::before { rotate: 90deg; }
+.get__steps > :not(summary) { margin: 0 16px 12px; color: var(--dim); font-size: 15px; }
+.get__steps ol { padding-left: 20px; }
+.get__steps li { margin-bottom: 6px; }
+.get__steps b { color: var(--text); }
+.specs { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--muted); font-size: 14px; }
+.specs li { display: inline-flex; align-items: center; gap: 8px; }
+.specs li::before { content: ""; width: 4px; height: 4px; background: var(--stroke); }
+.specs [hidden] { display: none; }
 
-/* ---------- why origin: the bento ---------- */
-/* Five cards, five small loops. Every animation rests on its finished picture
-   (so reduced motion and no-JS show a complete card) and pauses once its card
-   scrolls off screen (site.js adds .is-off). */
-.bento { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
-.bcard { display: flex; flex-direction: column; min-width: 0; padding: 8px 8px 24px; background: var(--glass); border: 1px solid var(--soft); border-radius: 28px; backdrop-filter: blur(12px); overflow: hidden; transition: border-color .3s, translate .4s var(--ease); }
-.bcard:hover { border-color: var(--stroke); translate: 0 -3px; }
-.bcard--a { grid-column: 1 / 4; grid-row: 1 / 3; }
-.bcard--b { grid-column: 4 / 7; }
-.bcard--c { grid-column: 4 / 7; }
-.bcard--d { grid-column: 1 / 4; }
-.bcard--e { grid-column: 4 / 7; }
-.viz { position: relative; flex: 1; display: grid; place-items: center; min-height: 150px; margin-bottom: 20px; border-radius: 22px; background: radial-gradient(ellipse 70% 70% at 50% 55%, rgba(255, 255, 255, .07), rgba(255, 255, 255, 0) 75%), rgba(255, 255, 255, .025); overflow: hidden; }
-.viz > svg { display: block; width: 100%; height: 100%; max-height: 100%; }
-.bcard--a .viz { min-height: 300px; }
-.bcard h3, .bcard p { padding: 0 16px; }
-.bcard h3 { font-size: clamp(19px, 1.7vw, 24px); letter-spacing: -.03em; line-height: 1.15; margin-bottom: 6px; }
-.bcard p { margin: 0; color: var(--dim); font-size: 15px; line-height: 1.45; text-wrap: pretty; }
-.bcard.is-off .viz, .bcard.is-off .viz * { animation-play-state: paused !important; }
+/* ---------- footer ---------- */
+.foot { position: relative; background: var(--sunken); box-shadow: inset 0 1px 0 var(--soft); }
+.foot__in, .foot:not(:has(.foot__in)) { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px 40px; padding: 32px var(--pad); }
+.foot p { color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 44em; }
+.foot nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 20px; font-size: 14px; }
+.foot nav a { color: var(--dim); text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.foot nav a:hover { color: var(--text); text-decoration: underline; }
+.foot nav span { color: var(--muted); font-size: 13px; }
 
-.viz text { font-family: var(--sans); font-weight: 600; fill: var(--text); }
-.viz .stroke { fill: none; stroke: rgba(255, 255, 255, .5); }
-
-/* A: shaders. The dull scene is underneath, the lit one is wiped in over it. */
-.shade { position: relative; width: min(100%, 440px); aspect-ratio: 4 / 3; }
-.shade svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.shade__lit { animation: shade-wipe 8s var(--ease-io) infinite backwards; }
-.shade__line { position: absolute; top: 3%; bottom: 3%; left: 100%; width: 2px; margin-left: -1px; opacity: 0; border-radius: 2px; background: linear-gradient(transparent, #fff 18%, #fff 82%, transparent); box-shadow: 0 0 14px rgba(255, 255, 255, .6); animation: shade-line 8s var(--ease-io) infinite backwards, shade-line-fade 8s linear infinite backwards; }
-/* the wipe and its divider share one set of stops so they never drift apart */
-@keyframes shade-wipe { 0%, 8% { clip-path: inset(0 0 0 100%); } 46%, 56% { clip-path: inset(0 0 0 0%); } 94%, 100% { clip-path: inset(0 0 0 100%); } }
-@keyframes shade-line { 0%, 8% { left: 100%; } 46%, 56% { left: 0%; } 94%, 100% { left: 100%; } }
-@keyframes shade-line-fade { 0%, 8% { opacity: 0; } 12%, 42% { opacity: 1; } 47%, 57% { opacity: 0; } 61%, 90% { opacity: 1; } 95%, 100% { opacity: 0; } }
-.shade__sun { transform-box: fill-box; transform-origin: center; animation: sun-glow 8s ease-in-out infinite; }
-@keyframes sun-glow { 0%, 100% { opacity: .55; scale: .92; } 50% { opacity: 1; scale: 1.08; } }
-
-/* B: several accounts, one window each */
-.win { transform-box: fill-box; transform-origin: center; animation: win-in 6s var(--ease) calc(var(--d) * 1s) infinite backwards; }
-@keyframes win-in { 0% { opacity: 0; transform: translateY(18px) scale(.94); } 12%, 82% { opacity: 1; transform: none; } 94%, 100% { opacity: 0; transform: translateY(-6px) scale(.98); } }
-.win__dot { animation: pulse 2s ease-in-out infinite; }
-@keyframes pulse { 50% { opacity: .25; } }
-
-/* C: your own mods, snapped in beside Origin's */
-.tm { opacity: .92; }
-.mod--yours { animation: mod-in 5.5s var(--ease) infinite backwards; }
-@keyframes mod-in { 0%, 8% { transform: translateX(110px); opacity: 0; } 30%, 88% { transform: none; opacity: 1; } 100% { transform: none; opacity: 0; } }
-.mod--ring { transform-box: fill-box; transform-origin: center; animation: mod-ring 5.5s ease-out infinite backwards; opacity: 0; }
-@keyframes mod-ring { 0%, 28% { opacity: 0; scale: 1; } 30% { opacity: .8; } 55%, 100% { opacity: 0; scale: 1.35; } }
-
-/* D: settings travelling between versions */
-.hop { animation: hop 4.8s var(--ease-io) calc(var(--d) * 1s) infinite backwards; }
-@keyframes hop { 0% { transform: translateX(0); opacity: 0; } 10% { opacity: 1; } 55% { transform: translateX(116px); opacity: 1; } 62%, 100% { transform: translateX(116px); opacity: 0; } }
-.chip-in { animation: chip-in 4.8s ease-out infinite; }
-@keyframes chip-in { 0%, 50% { stroke: rgba(255, 255, 255, .22); } 62% { stroke: #fff; } 100% { stroke: rgba(255, 255, 255, .22); } }
-
-/* E: FPS Coach finds the dip */
-.trace { stroke-dasharray: 1; animation: trace 6s var(--ease-io) infinite backwards; }
-@keyframes trace { 0% { stroke-dashoffset: 1; } 45%, 100% { stroke-dashoffset: 0; } }
-.found { transform-box: fill-box; transform-origin: center; animation: found 6s var(--ease) infinite backwards; }
-@keyframes found { 0%, 42% { opacity: 0; scale: .6; } 52%, 90% { opacity: 1; scale: 1; } 100% { opacity: 0; scale: 1; } }
-.found--ring { animation: found-ring 6s ease-out infinite backwards; opacity: 0; }
-@keyframes found-ring { 0%, 44% { opacity: 0; scale: 1; } 48% { opacity: .9; } 70%, 100% { opacity: 0; scale: 2.6; } }
-
-/* ---------- terms page ---------- */
-.legal { max-width: 760px; margin: 0 auto; padding: 140px var(--gutter) 96px; }
-.legal__head h1 { font-size: clamp(38px, 6vw, 68px); line-height: 1; margin-bottom: 14px; }
-.legal__updated { color: var(--muted); font: 600 13px/1 var(--sans); letter-spacing: .02em; margin: 0 0 40px; }
-.legal__body { padding: clamp(22px, 4vw, 40px); background: var(--glass); border: 1px solid var(--soft); border-radius: 28px; backdrop-filter: blur(10px); }
-.legal__body h2 { font-size: 20px; letter-spacing: -.02em; margin: 32px 0 10px; scroll-margin-top: 96px; }   /* linked sections (terms#purchases) clear the fixed header */
-.legal__body h2:first-of-type { margin-top: 24px; }
-.legal__body p, .legal__body li { color: var(--dim); }
+/* ---------- legal pages ---------- */
+.legal { max-width: 800px; margin: 0 auto; padding: 128px var(--gutter) 96px; }
+.legal__head h1 { font-size: clamp(40px, 6vw, 72px); margin-bottom: 16px; }
+.legal__updated { color: var(--muted); font-size: 14px; margin: 0 0 40px; }
+.legal__body { --s: 3px; padding: clamp(24px, 4vw, 48px); background: var(--panel); }
+.legal__body h2 { font-size: 22px; letter-spacing: -.015em; margin: 36px 0 10px; scroll-margin-top: 96px; }   /* linked sections (terms#purchases) clear the fixed header */
+.legal__body h2:first-of-type { margin-top: 8px; }
+.legal__body p, .legal__body li { color: var(--dim); font-size: 16px; }
 .legal__body p { margin: 0 0 12px; }
+.legal__body a { color: var(--text); text-decoration-color: var(--acc); }
 /* Long folder paths break anywhere rather than push a 320px phone sideways. */
 .legal__body code { overflow-wrap: anywhere; }
 
-/* ---------- legibility over the island ---------- */
-/* Soft dark pools behind the text. Each must fade to nothing well inside its
-   own section, or its cut-off edge shows up as a line between sections. */
-.hero::before, .get::before, .versions::before {
-  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-}
-.hero::before { background: radial-gradient(ellipse 52% 40% at 22% 54%, rgba(6, 6, 7, .6), rgba(6, 6, 7, 0) 100%); }
-.get::before { background: radial-gradient(ellipse 46% 26% at 50% 36%, rgba(6, 6, 7, .55), rgba(6, 6, 7, 0) 100%); }
-.versions::before { background: radial-gradient(ellipse 60% 44% at 40% 50%, rgba(6, 6, 7, .4), rgba(6, 6, 7, 0) 100%); }
-.hero__copy, .section__head, .get > :not(.btn) { text-shadow: 0 2px 18px rgba(0, 0, 0, .5); }
-.hero__lede, .lede { color: #d4d4d8; }
-.facts span, .specs { color: var(--dim); }
-
-/* ---------- reveal on scroll ---------- */
-[data-reveal] { opacity: 0; translate: 0 24px; transition: opacity .8s var(--ease), translate .8s var(--ease); transition-delay: calc(var(--i, 0) * 70ms); }
-[data-reveal].is-in { opacity: 1; translate: 0; }
-
 /* ---------- small screens ---------- */
+@media (max-width: 1100px) {
+  .feat, .feat--flip { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px 40px; }
+  .teaser__grid { gap: 40px; }
+}
 @media (max-width: 900px) {
-  /* Phones keep only the Store link in the pill; the brand mark leads home. */
-  .top { display: flex; gap: 8px; }
-  .top__nav { margin-left: auto; }
-  .top__nav a:not(.nav-store):not(.nav-home) { display: none; }
-  .top__action { justify-self: auto; }
-  .hero { align-items: flex-end; padding-bottom: 48px; }
-  /* The copy sits low over the island here: a deeper pool behind it, and a fade
-     under the (still clear) header so the island's mark doesn't cut through its buttons. */
-  .hero::before { background: radial-gradient(ellipse 95% 48% at 24% 78%, rgba(6, 6, 7, .78), rgba(6, 6, 7, 0) 100%); }
-  .top:not(.is-solid) { background: linear-gradient(rgba(6, 6, 7, .85), rgba(6, 6, 7, 0)); }
-  .hero__copy { --col: min(70cqw, 600px); }
-  .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .bcard--a { grid-column: 1 / -1; grid-row: auto; }
-  .bcard--b, .bcard--c, .bcard--d, .bcard--e { grid-column: auto; }
-  .bcard--a .viz { min-height: 240px; }
-  /* No blur behind the cards here: they are 93% opaque, so it barely showed, and blurring the
-     live island under every card each frame is what makes phones stutter while scrolling. */
-  .vcard, .bcard { backdrop-filter: none; }
+  :root { --top-h: 60px; }
+  body { font-size: 16px; }
+  .top { gap: 8px; }
+  .top__nav { display: none; }
+  .top__action { margin-left: auto; }
+  .top__menu { display: inline-flex; }
+  /* The menu: a sheet that drops from under the bar. */
+  .top__nav.is-open {
+    --s: 3px; display: grid; position: fixed; left: 8px; right: 8px; top: calc(var(--top-h) + 4px);
+    gap: 0; padding: 8px 16px 16px; margin: 0; background: var(--panel); max-height: calc(100svh - var(--top-h) - 12px); overflow-y: auto;
+  }
+  .top__nav.is-open a:not(.btn) { min-height: 56px; padding: 0 4px; font: 600 24px/1 var(--display); letter-spacing: -.02em; color: var(--text); border-bottom: 1px solid var(--soft); }
+  .top__nav.is-open a:not(.btn)::after { display: none; }
+  .top__nav.is-open .top__menu-dl { display: inline-flex; margin-top: 16px; width: 100%; --bh: 52px; }
+  body.menu-open { overflow: hidden; }
+  body.menu-open::before { content: ""; position: fixed; inset: 0; z-index: 40; background: rgba(11, 13, 12, .78); }
+  body.menu-open .top { background: rgba(14, 17, 16, .98); box-shadow: inset 0 -1px 0 var(--soft); transform: none; }
+  .top:not(.is-solid) { background: linear-gradient(rgba(11, 13, 12, .85), rgba(11, 13, 12, 0)); }
+
+  .hero { align-items: flex-end; padding-bottom: 56px; min-height: 100svh; }
+  .hero::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(rgba(11, 13, 12, 0) 38%, rgba(11, 13, 12, .78) 62%, rgba(11, 13, 12, .9)); }
+  .hero__copy { gap: 20px; }
+  .placard { display: none; }
+
+  .section { padding: 96px 0; }
+  .story__title { margin-bottom: 48px; }
+  .feat, .feat--flip { grid-template-columns: minmax(0, 1fr); gap: 24px; margin-bottom: 64px; }
+  .feat--flip .shot { order: 0; }
+  .also { grid-template-columns: minmax(0, 1fr); padding: 32px 24px; }
+  .versions__slab { padding: 32px 24px; }
+  .teaser__grid { grid-template-columns: minmax(0, 1fr); }
+  /* The island hangs in a band above the heading (pose getMobile); the copy is the ground it sits
+     over, so text never scrolls across the island. */
+  .get { min-height: 0; padding: 44svh 0 0; }
+  .get .wrap { padding: 0; }
+  .get__copy { max-width: none; padding: 40px var(--pad) 72px; background: linear-gradient(rgba(14, 17, 16, 0), var(--bg) 120px); }
+  .foot__in, .foot:not(:has(.foot__in)) { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 32px var(--pad) 40px; }
 }
-@media (max-width: 560px) {
-  .bento { grid-template-columns: minmax(0, 1fr); }
-  .bcard--b, .bcard--c, .bcard--d, .bcard--e { grid-column: 1 / -1; }
-  .top__nav a { padding: 0 14px; }
-  .btn--sm { padding: 0 16px; }
-  .hero__copy { --col: 100cqw; }
-  .hero__actions .btn { --bh: 50px; padding: 0 12px; gap: 8px; font-size: 15px; }
+@media (max-width: 600px) {
+  .also__list { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .vrow { grid-template-columns: minmax(0, 1fr); }
+  .others { grid-template-columns: minmax(0, 1fr); }
+  .btn--lg { --bh: 52px; padding: 0 20px; }
+  .btn--xl { --bh: 56px; padding: 0 24px; font-size: 17px; }
+  .get__copy .btn--xl { width: 100%; }
+  .cta .btn--lg { width: 100%; }
 }
-/* The wordmark file is wider than the old text was: phones keep just the mark so Store + Download fit. */
-@media (max-width: 479px) { .brand__word { display: none; } }
+/* The wordmark file is wide: small phones keep just the mark so Download + Menu fit. */
+@media (max-width: 379px) { .brand__word { display: none; } }
 
 /* ---------- page transitions ---------- */
-/* Cross-document View Transitions (Chromium, Safari 26): the header, brand
-   mark, nav pill, action button and page title are named, so they morph from
-   one page to the next while the page body glides. Elsewhere js/nav.js adds
-   .no-vt and the page just fades in. Names are scoped to the header so each is
-   unique on a page (a duplicate name would cancel the whole transition). */
+/* Cross-document View Transitions (Chromium, Safari 26): the header, brand mark, nav,
+   action button and page title are named, so they morph from one page to the next while
+   the page body glides. Elsewhere js/nav.js adds .no-vt and the page just fades in. Names
+   are scoped to the header so each is unique on a page. */
 @media (prefers-reduced-motion: no-preference) {
   @view-transition { navigation: auto; }
   .top { view-transition-name: site-header; }
   .top .brand__mark { view-transition-name: brand-mark; }
   .top .brand__word { view-transition-name: brand-word; }
-  .top__nav { view-transition-name: nav-pill; }
   .top__action { view-transition-name: top-action; }
   h1 { view-transition-name: page-title; }
 
-  ::view-transition-group(*) { animation-duration: .55s; animation-timing-function: cubic-bezier(.65, 0, .25, 1); }
-  /* the page body: the old page eases back and away, the new one rises into place */
-  ::view-transition-old(root) { animation: vt-out .42s cubic-bezier(.5, 0, .75, 0) both; }
-  ::view-transition-new(root) { animation: vt-in .6s cubic-bezier(.16, 1, .3, 1) .12s both; }
-  /* shared pieces cross-fade inside their morphing frame */
-  ::view-transition-old(page-title), ::view-transition-old(nav-pill), ::view-transition-old(top-action), ::view-transition-old(site-header) { animation: vt-fade-out .3s ease both; }
-  ::view-transition-new(page-title), ::view-transition-new(nav-pill), ::view-transition-new(top-action), ::view-transition-new(site-header) { animation: vt-fade-in .4s ease .12s both; }
-  ::view-transition-group(page-title) { animation-duration: .6s; }
+  ::view-transition-group(*) { animation-duration: .45s; animation-timing-function: cubic-bezier(.65, 0, .25, 1); }
+  ::view-transition-old(root) { animation: vt-out .3s cubic-bezier(.5, 0, .75, 0) both; }
+  ::view-transition-new(root) { animation: vt-in .5s var(--ease) .08s both; }
+  ::view-transition-old(page-title), ::view-transition-old(top-action), ::view-transition-old(site-header) { animation: vt-fade-out .25s ease both; }
+  ::view-transition-new(page-title), ::view-transition-new(top-action), ::view-transition-new(site-header) { animation: vt-fade-in .35s ease .1s both; }
   ::view-transition-image-pair(page-title) { isolation: auto; }
   ::view-transition-old(brand-mark), ::view-transition-new(brand-mark), ::view-transition-old(brand-word), ::view-transition-new(brand-word) { animation: none; }
 }
-@keyframes vt-out { to { opacity: 0; transform: scale(.985) translateY(-10px); filter: blur(6px); } }
-@keyframes vt-in { from { opacity: 0; transform: translateY(26px) scale(1.01); filter: blur(8px); } }
+@keyframes vt-out { to { opacity: 0; transform: translateY(-8px); } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(16px); } }
 @keyframes vt-fade-out { to { opacity: 0; } }
 @keyframes vt-fade-in { from { opacity: 0; } }
-/* browsers without cross-document transitions */
 @media (prefers-reduced-motion: no-preference) {
-  .no-vt main, .no-vt .foot { animation: page-in .45s var(--ease) both; }
+  .no-vt main, .no-vt .foot { animation: page-in .4s var(--ease) both; }
 }
-@keyframes page-in { from { opacity: 0; transform: translateY(12px); } }
+@keyframes page-in { from { opacity: 0; transform: translateY(10px); } }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
-  /* the loops rest on their finished picture */
-  .viz, .viz * { animation: none !important; }
-  [data-reveal] { opacity: 1; translate: 0; }
 }

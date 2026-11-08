@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a0a0b">
+  <meta name="theme-color" content="#0e1110">
   <meta name="color-scheme" content="dark">
   <title>Origin Store</title>
   <meta name="description" content="Capes, wings, hats and more for Origin Client, plus Origin+ membership. Try them on, enter a Minecraft username, and check out with card, PayPal, Apple Pay or Google Pay.">
@@ -20,8 +20,8 @@
   <link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="assets/favicon-192.png" type="image/png" sizes="192x192">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="preload" href="assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="assets/fonts/inter-700.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/space-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/dm-sans.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/site.css">
   <link rel="stylesheet" href="css/store.css">
   <script src="js/nav.js"></script>
@@ -36,11 +36,14 @@
       <img class="brand__mark" src="assets/origin-logo-64.png" srcset="assets/origin-logo-32.png 1x, assets/origin-logo-64.png 2x, assets/origin-logo-128.png 3x" width="32" height="32" alt="Origin" decoding="async">
       <img class="brand__word" src="assets/origin-wordmark-256.png" srcset="assets/origin-wordmark-128.png 1x, assets/origin-wordmark-256.png 2x, assets/origin-wordmark.png 3x" width="107" height="22" alt="" decoding="async">
     </a>
-    <nav class="top__nav" aria-label="Pages">
-      <a href="./" class="nav-home">Home</a>
-      <a href="store" class="is-on nav-store" aria-current="page">Store</a>
+    <nav class="top__nav" id="site-nav" aria-label="Pages">
+      <a href="./#why">What it does</a>
+      <a href="./#versions">Versions</a>
+      <a href="store" class="nav-store is-on" aria-current="page">Store</a>
+      <a class="btn btn--primary top__menu-dl" href="./#get"><svg class="px-ico" viewBox="0 0 7 8" width="14" height="16" aria-hidden="true"><path d="M3 0h1v6H3zM1 3h1v1H1zM2 4h1v1H2zM5 3h1v1H5zM4 4h1v1H4zM0 7h7v1H0z"/></svg><span>Download Origin</span></a>
     </nav>
     <a class="btn btn--primary btn--sm top__action top__bag" href="#checkout">Bag <span class="top__count" data-bag-count></span></a>
+    <button class="top__menu" type="button" aria-expanded="false" aria-controls="site-nav" data-menu><svg class="px-ico" viewBox="0 0 8 5" width="16" height="10" aria-hidden="true"><path d="M0 0h8v1H0zM0 2h8v1H0zM0 4h8v1H0z"/></svg><svg class="px-ico" viewBox="0 0 5 5" width="10" height="10" aria-hidden="true"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM4 0h1v1H4zM3 1h1v1H3zM1 3h1v1H1zM0 4h1v1H0z"/></svg><span data-menu-label>Menu</span></button>
   </header>
 
   <main id="main" class="store">

@@ -48,8 +48,10 @@ const POSES = {
   heroTablet: { pos: [52, 22, 65], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.21, orbit: 1 },    // same, for the bigger open space a tablet has above the headline
   versions: { pos: [-36, 18, 46], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.24, shiftY: 0, orbit: 1 },
   why:      { pos: [-34, 13, 43], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.2, shiftY: 0.03, orbit: 0.6 },
-  // centred under "Ready when you are", whole island in frame below the text
-  get:      { pos: [0, 17, 100], target: [0.5, -4, 0.5], fov: 42, shiftX: 0, shiftY: -0.21, orbit: 1 },
+  // the download section: right of the text on wide screens (never under it); phones force
+  // shiftX to 0 and lift it into the band above the heading
+  get:      { pos: [10, 15, 74], target: [0.5, -4, 0.5], fov: 42, shiftX: 0.24, shiftY: 0, orbit: 1 },
+  getMobile: { pos: [80, 34, 128], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.3, orbit: 1 },
 };
 
 function rng(seed) {
@@ -58,6 +60,64 @@ function rng(seed) {
     let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ---------------------------------------------------------------- the clouds
+// Seeded like the island, so every visit shows the same sky. Each cloud is a random blob of
+// CELL-wide cells; only faces between a filled and an empty cell are built. They drift along +x
+// and wrap round, far enough out that the wrap happens off screen.
+const CLOUD_FACES = [   // [normal, brightness, 4 corners of the unit cell face]
+  [[0, 1, 0], 1.0, [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]]],
+  [[0, -1, 0], 0.62, [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]]],
+  [[1, 0, 0], 0.8, [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]]],
+  [[-1, 0, 0], 0.8, [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]]],
+  [[0, 0, 1], 0.7, [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]]],
+  [[0, 0, -1], 0.7, [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]]],
+];
+const CLOUD_SPAN = 400;   // x range the clouds wrap within
+function makeClouds(r) {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.085, depthWrite: false, blending: THREE.AdditiveBlending });   // additive: moonlit, never a grey slab
+  // [x, y, z, cells across, cells deep]: a loose layer well below the island (its underside ends
+  // near y -20), so every camera pose looks down past the island onto clouds: it is high in the sky.
+  // Nothing at the island's own height, so no cloud ever crosses in front of it.
+  const spots = [[-90, -84, -150, 12, 6], [40, -92, -190, 15, 7], [-30, -78, -90, 10, 5], [120, -88, -110, 11, 5],
+    [-160, -96, -40, 13, 6], [100, -82, -20, 9, 5], [-100, -100, 60, 14, 6], [150, -96, 50, 10, 5]];
+  const CELL = 4, H = 1.6;
+  const list = [];
+  for (const [x, y, z, w, d] of spots) {
+    const filled = new Set();
+    const key = (i, k) => i + ',' + k;
+    for (let i = 0; i < w; i++) for (let k = 0; k < d; k++) {
+      const nx = (i - (w - 1) / 2) / (w / 2), nz = (k - (d - 1) / 2) / (d / 2);
+      if (nx * nx + nz * nz < 0.75 + r() * 0.5) filled.add(key(i, k));
+    }
+    const pos = [], col = [], idx = [];
+    for (const c of filled) {
+      const [i, k] = c.split(',').map(Number);
+      for (const [n, b, corners] of CLOUD_FACES) {
+        if (n[1] === 0 && filled.has(key(i + n[0], k + n[2]))) continue;   // inner wall
+        const base = pos.length / 3;
+        for (const [cx, cy, cz] of corners) { pos.push((i + cx) * CELL, cy * H, (k + cz) * CELL); col.push(b, b * 0.97, b * (n[1] > 0 ? 0.88 : 1)); }
+        idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setIndex(idx);
+    const m = new THREE.Mesh(g, mat);
+    m.position.set(x - w * CELL / 2, y, z - d * CELL / 2);
+    m.frustumCulled = false;
+    group.add(m);
+    list.push({ m, x0: m.position.x, speed: 0.55 + r() * 0.35 });
+  }
+  return {
+    group,
+    drift(t) {
+      for (const c of list) c.m.position.x = ((c.x0 + t * c.speed + CLOUD_SPAN * 1.5) % CLOUD_SPAN) - CLOUD_SPAN / 2;
+    },
   };
 }
 
@@ -421,8 +481,14 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   dust.frustumCulled = false;
   scene.add(dust);
 
+  // Clouds: flat Minecraft-style block clouds (one block tall, blobs of square cells, the game's
+  // face shading: top brightest, underside darkest) drifting slowly past far below the island,
+  // so the diorama reads as high in the sky. One mesh each, no textures.
+  const clouds = makeClouds(rng(20261108));
+  scene.add(clouds.group);
+
   // ---- camera + state
-  const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 400);
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 700);   // far enough for the low cloud layer
   // Phone/tablet layout is decided live (the same 900px line as the CSS), not once at
   // load: a window dragged wider after opening must not keep the stacked phone pose
   // behind the desktop two-column copy.
@@ -490,7 +556,8 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     const phone = isMobile();
     // a desktop window whose free zone is too narrow to hold the island falls back to the phone pose
     const heroPhone = phone || (name === 'hero' && zone.w < MIN_ZONE_W);
-    const q = name === 'hero' && heroPhone ? (window.innerWidth > 600 ? POSES.heroTablet : POSES.heroMobile) : POSES[name];
+    const q = name === 'hero' && heroPhone ? (window.innerWidth > 600 ? POSES.heroTablet : POSES.heroMobile)
+      : name === 'get' && phone ? POSES.getMobile : POSES[name];
     let pos = q.pos, sx = phone ? 0 : q.shiftX, sy = q.shiftY;
     if (name === 'hero') { const f = fitHero(q, heroPhone); pos = f.pos; sx = f.sx; sy = f.sy; }
     out[0] = pos[0]; out[1] = pos[1]; out[2] = pos[2];
@@ -587,6 +654,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
       uniforms.uOrb.value[i].set(Math.cos(ang) * inner * 1.1, Math.sin(ang) * inner * 1.1, 0).applyQuaternion(camera.quaternion).add(pivot.position);
     });
 
+    clouds.drift(now);
     renderer.render(scene, camera);
     if (!covered && !document.hidden && !(reducedMotion && settled())) raf = requestAnimationFrame(step);
   }
