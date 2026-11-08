@@ -47,24 +47,30 @@ code { font-family: var(--mono); font-size: .86em; color: var(--text); }
 .wrap { padding: 0 var(--pad); }
 
 /* ---------- world layers ---------- */
-/* The sky the island floats in: deep moss night overhead, a low warm haze where the sun sits
-   (the island's own light comes from the upper left), and a fine grain so it reads as air, not a
-   flat fill. Other pages get the plain base. */
+/* The sky the island floats in: dusk. Cool and deep overhead (where the headline sits), a low
+   warm sun on the right where the island is (its own key light comes from the same side), two
+   faint haze bands, all desaturated so it stays a backdrop and never a colour fill. A fine grain
+   makes it read as air. Other pages get the plain base. */
 .backdrop { position: fixed; inset: 0; z-index: -3; background: var(--bg); }
 .page-home .backdrop {
   background:
-    radial-gradient(ellipse 70% 38% at 66% 100%, rgba(236, 178, 104, .2), rgba(236, 178, 104, 0) 72%),
-    radial-gradient(ellipse 46% 40% at 68% 58%, rgba(233, 196, 120, .07), rgba(233, 196, 120, 0) 70%),
-    radial-gradient(ellipse 90% 60% at 20% 0%, rgba(95, 208, 155, .05), rgba(95, 208, 155, 0) 70%),
-    linear-gradient(180deg, #090c0b 0%, #0d1412 38%, #142019 64%, #1f251d 84%, #2b2a20 100%);
+    radial-gradient(ellipse 46% 26% at 78% 96%, rgba(240, 176, 112, .42), rgba(240, 176, 112, 0) 72%),
+    radial-gradient(ellipse 130% 46% at 55% 104%, rgba(150, 100, 66, .5), rgba(150, 100, 66, 0) 72%),
+    radial-gradient(ellipse 70% 10% at 30% 74%, rgba(200, 170, 140, .07), rgba(200, 170, 140, 0) 80%),
+    radial-gradient(ellipse 60% 8% at 74% 66%, rgba(200, 170, 140, .06), rgba(200, 170, 140, 0) 80%),
+    linear-gradient(180deg, #090d10 0%, #0f171c 30%, #18242a 54%, #2b2e2c 78%, #46352a 100%);
 }
 .page-home .backdrop::after {
   content: ""; position: absolute; inset: 0; opacity: .5; mix-blend-mode: soft-light;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .35 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 #world { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -2; display: block; }
-/* The page's own colour slides over the island under the content chapters; site.js drives --shade. */
-.world-shade { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--bg); opacity: var(--shade, 0); }
+/* The page's own colour slides over the island under the content chapters (--shade), and a shade
+   from the left edge keeps text legible beside a clear island on the right (--side); site.js
+   drives both from SCENES. */
+.world-shade { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: rgb(14 17 16 / var(--shade, 0)); }
+.world-shade::before { content: ""; position: absolute; inset: 0; opacity: var(--side, 0);
+  background: linear-gradient(90deg, rgb(14 17 16 / .96) 0%, rgb(14 17 16 / .9) 44%, rgb(14 17 16 / .5) 60%, rgb(14 17 16 / 0) 76%); }
 body.no-webgl #world { display: none; }
 
 /* ---------- type ---------- */
@@ -83,13 +89,11 @@ h3 { font-size: 18px; font-weight: 620; letter-spacing: -.012em; line-height: 1.
 }
 .btn:active { transform: scale(.975); }
 .btn svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-/* The one emerald thing: a lit top edge and a soft, offset shadow so it sits ON the page. */
-.btn--primary {
-  background: var(--acc); color: var(--on-acc);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -1px 0 rgba(0, 0, 0, .12), 0 8px 22px -10px rgba(95, 208, 155, .55);
-}
-.btn--primary:hover { background: var(--acc-h); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), inset 0 -1px 0 rgba(0, 0, 0, .1), 0 12px 28px -10px rgba(95, 208, 155, .6); }
-.btn--primary:active { background: var(--acc-p); }
+/* The one emerald thing: flat, with a lit top edge like the launcher's Play button. No glow at
+   rest; hovering lifts it a pixel. */
+.btn--primary { background: var(--acc); color: var(--on-acc); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .32), inset 0 -1px 0 rgba(0, 0, 0, .12); }
+.btn--primary:hover { background: var(--acc-h); transform: translateY(-1px); }
+.btn--primary:active { background: var(--acc-p); transform: scale(.975); }
 .btn--ghost { background: var(--raised); color: var(--text); border-color: var(--soft); }
 .btn--ghost:hover { background: var(--hover); border-color: var(--stroke); }
 .btn--sm { --bh: 40px; font-size: 14px; padding: 0 18px; }
@@ -101,7 +105,7 @@ h3 { font-size: 18px; font-weight: 620; letter-spacing: -.012em; line-height: 1.
 .btn[data-soon] { background: var(--raised); color: var(--dim); border-color: var(--soft); box-shadow: none; cursor: default; }
 .btn[data-soon]:active { transform: none; }
 .btn[data-soon]::after { content: "Soon"; padding: 4px 8px; border-radius: 999px; background: var(--hover); color: var(--text); font: 500 11px/1 var(--mono); }
-.badge { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 9px; border: 1px solid var(--stroke); color: var(--dim); font: 500 10.5px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; vertical-align: .12em; }
+.badge { display: inline-flex; align-items: center; height: 18px; padding: 0 8px; border-radius: 9px; border: 1px solid var(--stroke); color: var(--dim); font: 650 10.5px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; vertical-align: .12em; }
 .btn--primary .badge { border-color: rgba(10, 23, 16, .35); color: var(--on-acc); }
 
 /* ---------- header ---------- */
@@ -110,10 +114,9 @@ h3 { font-size: 18px; font-weight: 620; letter-spacing: -.012em; line-height: 1.
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 0 var(--pad);
   transition: transform .45s var(--ease), background-color .3s, box-shadow .3s;
 }
-.top.is-solid { background: rgba(20, 24, 22, .88); backdrop-filter: blur(14px) saturate(1.2); box-shadow: inset 0 -1px 0 var(--soft); }
-.top.is-hidden { transform: translateY(-100%); }
-/* Keyboard focus inside the slid-away header (Shift+Tab back into it) brings it back into view. */
-.top.is-hidden:focus-within { transform: none; }
+/* Once the page scrolls, the bar is a solid launcher tone with a hairline (no blur). It never
+   slides away, so Download is always one click from anywhere on the page. */
+.top.is-solid { background: #121614; box-shadow: inset 0 -1px 0 var(--soft); }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; justify-self: start; min-height: 44px; min-width: 44px; border-radius: 8px; }
 .brand__mark { width: 28px; height: 28px; flex: none; }
 /* The real wordmark file (glow baked in, so it needs no filter). */
@@ -160,14 +163,15 @@ body.menu-open .top { background: var(--panel); box-shadow: none; transform: non
 .hero__title span { display: block; }
 .hero__lede { margin: 26px 0 0; max-width: 31em; color: var(--dim); font-size: clamp(17px, 1.3vw, 19px); line-height: 1.55; text-wrap: pretty; }
 .hero__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 36px; }
-.hero__meta { margin: 0; color: var(--muted); font: 400 13.5px/1.4 var(--mono); }
+.hero__meta { margin: 0; color: var(--dim); font: 400 15px/1.4 var(--sans); }
 .hero__also { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; margin-top: 8px; color: var(--dim); font-size: 15px; text-decoration: none; transition: color .2s; }
 .hero__also::after { content: ""; width: 6px; height: 6px; margin-left: 2px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .25s var(--ease); }
 .hero__also:hover { color: var(--text); }
 .hero__also:hover::after { transform: rotate(45deg) translate(2px, 0); }
 .hero__also[hidden] { display: none; }
-.hero__note { position: absolute; right: var(--pad); bottom: 28px; margin: 0; color: var(--muted); font: 400 12.5px/1.4 var(--mono); text-align: right; }
-.hero__note::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 0 3px rgba(95, 208, 155, .18); vertical-align: 1px; }
+/* A small capsule chip: it sits on the warm low sun, so it carries its own dark tone for contrast. */
+.hero__note { position: absolute; right: var(--pad); bottom: 24px; display: inline-flex; align-items: center; height: 34px; margin: 0; padding: 0 16px 0 14px; border-radius: 17px; background: rgb(14 17 16 / .78); box-shadow: 0 0 0 1px var(--soft); color: var(--dim); font: 400 14px/1 var(--sans); }
+.hero__note::before { content: ""; width: 6px; height: 6px; margin-right: 10px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 0 3px rgba(95, 208, 155, .18); }
 
 /* one entrance, once: the headline lines settle, then the rest follows */
 @media (prefers-reduced-motion: no-preference) {
@@ -194,10 +198,11 @@ body.menu-open .top { background: var(--panel); box-shadow: none; transform: non
 .frame::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07); pointer-events: none; }
 figure { margin: 0; }
 figcaption { margin-top: 14px; color: var(--text); font-size: 15px; font-weight: 560; }
-figcaption span { display: block; color: var(--muted); font: 400 13px/1.5 var(--mono); }
+figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sans); }
 
 /* the launcher, with three captions pointing up at what they describe */
-.product { position: relative; }
+/* capped near the screenshot's own 1920 px so a 2x screen never shows it much upscaled */
+.product { position: relative; max-width: 1080px; }
 .callouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 0; font-weight: 400; }
 .callout { position: relative; margin: 0; padding-top: 34px; color: var(--dim); font-size: 15.5px; line-height: 1.5; max-width: 22em; }
 .callout b { display: block; color: var(--text); font-weight: 620; margin-bottom: 2px; }
@@ -223,27 +228,32 @@ figcaption span { display: block; color: var(--muted); font: 400 13px/1.5 var(--
 /* in game: one large shot, two stacked */
 .ingame__grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 28px; align-items: end; }
 
-/* feature index: typographic, ruled, no cards */
-.index { list-style: none; margin: clamp(80px, 9vw, 120px) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 40px; }
-.index li { padding: 26px 0 30px; border-top: 1px solid var(--stroke); }
-.index li:nth-child(n+4) { border-top-color: var(--soft); }
-.index p { margin: 8px 0 0; color: var(--dim); font-size: 16px; line-height: 1.55; max-width: 26em; }
+/* "Also built in": a spec list, two columns of hairline rows (like the versions sheet). The first
+   two rows are what other launchers can't say, so they lead, one step larger. */
+.also { margin: clamp(88px, 10vw, 132px) 0 0; }
+.also__title { margin: 0 0 16px; font-size: 18px; font-weight: 640; letter-spacing: -.012em; }
+.feats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: clamp(32px, 4vw, 56px); border-top: 1px solid var(--stroke); }
+.feats li { display: grid; grid-template-columns: minmax(0, 11em) minmax(0, 1fr); column-gap: 24px; align-items: baseline; padding: 18px 0 20px; border-bottom: 1px solid var(--soft); }
+.feats h3 { font-size: 16.5px; font-weight: 620; }
+.feats p { margin: 0; color: var(--dim); font-size: 15.5px; line-height: 1.55; }
+.feats .is-lead { grid-template-columns: minmax(0, 1fr); padding: 26px 0 28px; }
+.feats .is-lead h3 { font-size: 24px; font-weight: 650; letter-spacing: -.022em; line-height: 1.2; }
+.feats .is-lead p { margin-top: 8px; font-size: 17px; max-width: 30em; }
 
 /* ---------- versions spec sheet ---------- */
-.versions__grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(40px, 5vw, 72px); align-items: start; }
-.versions__shot { position: sticky; top: 104px; margin-top: 8px; }
+.versions__main { width: min(100%, 700px); }
 .spec { width: 100%; border-collapse: collapse; }
-.spec thead th { padding: 0 16px 12px 0; border-bottom: 1px solid var(--stroke); color: var(--muted); font: 400 12.5px/1 var(--mono); text-align: left; letter-spacing: .02em; }
+.spec thead th { padding: 0 16px 12px 0; border-bottom: 1px solid var(--stroke); color: var(--dim); font: 500 14px/1 var(--sans); text-align: left; }
 .spec tbody th, .spec td { padding: 20px 16px 20px 0; border-bottom: 1px solid var(--soft); vertical-align: top; text-align: left; }
 .spec tbody tr { transition: background-color .2s; }
 .spec tbody tr:hover { background: linear-gradient(90deg, rgba(241, 233, 210, .03), rgba(241, 233, 210, 0)); }
 .spec__fam { width: 30%; white-space: nowrap; font-size: 20px; font-weight: 640; letter-spacing: -.015em; line-height: 1.25; }
-.spec__fam small { display: block; margin-top: 4px; color: var(--muted); font: 400 12.5px/1.3 var(--mono); letter-spacing: 0; }
+.spec__fam small { display: block; margin-top: 4px; color: var(--dim); font: 400 14px/1.3 var(--sans); letter-spacing: 0; }
 .spec__upd { width: 26%; white-space: nowrap; color: var(--dim); font-size: 15.5px; line-height: 1.6; }
 .spec__rel ul { list-style: none; margin: 0; padding: 3px 0 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
-.spec__rel li { color: var(--muted); font: 400 14px/1.6 var(--mono); }
+.spec__rel li { color: var(--dim); font: 400 14px/1.6 var(--mono); }
 .spec__rel li:first-child { color: var(--text); }
-.spec__note { margin: 18px 0 0; color: var(--muted); font: 400 13px/1.5 var(--mono); }
+.spec__note { margin: 18px 0 0; color: var(--dim); font: 400 14.5px/1.5 var(--sans); }
 
 /* ---------- store teaser ---------- */
 .teaser__grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: clamp(40px, 5vw, 72px); align-items: center; }
@@ -261,10 +271,11 @@ figcaption span { display: block; color: var(--muted); font: 400 13px/1.5 var(--
 .get h2 { font-size: clamp(44px, 5vw, 68px); letter-spacing: -.045em; line-height: .96; }
 .get__note { margin: 16px 0 28px; color: var(--dim); font-size: 17px; line-height: 1.55; max-width: 30em; }
 .get__panel .btn--xl { width: 100%; }
-.get__sub { margin: 12px 0 0; color: var(--muted); font: 400 13.5px/1.5 var(--mono); text-align: center; overflow-wrap: anywhere; }
+.get__sub { margin: 12px 0 0; color: var(--dim); font: 400 14.5px/1.5 var(--sans); text-align: center; overflow-wrap: anywhere; }
+.get__sub code { font-size: 13.5px; color: var(--dim); }
 .others-wrap { margin-top: 30px; }
 .others-wrap[hidden] { display: none; }
-.others__label { margin: 0 0 8px; color: var(--muted); font: 400 12.5px/1 var(--mono); letter-spacing: .02em; }
+.others__label { margin: 0 0 8px; color: var(--dim); font: 500 14px/1 var(--sans); }
 .others { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; }
 .others[hidden] { display: none; }
 .others a {
@@ -272,7 +283,7 @@ figcaption span { display: block; color: var(--muted); font: 400 13px/1.5 var(--
   border-top: 1px solid var(--soft); color: var(--text); text-decoration: none; font-size: 15px; font-weight: 560; transition: color .2s;
 }
 .others a > span:first-child { grid-column: 1; }
-.others a small { grid-column: 1; display: block; color: var(--muted); font: 400 12.5px/1.4 var(--mono); }
+.others a small { grid-column: 1; display: block; color: var(--dim); font: 400 14px/1.4 var(--sans); }
 .others a .badge { margin-left: 6px; }
 .others a svg { grid-column: 2; grid-row: 1 / span 2; width: 18px; height: 18px; fill: none; stroke: var(--muted); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: stroke .2s, transform .25s var(--ease); }
 .others a:hover svg { stroke: var(--acc); transform: translateY(2px); }
@@ -288,13 +299,15 @@ figcaption span { display: block; color: var(--muted); font: 400 13px/1.5 var(--
 .get__steps li { margin-bottom: 6px; }
 .get__steps b { color: var(--text); font-weight: 600; }
 .get__steps > p:last-child { margin-bottom: 16px; }
-.specs { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 0; margin: 26px 0 0; padding: 0; color: var(--muted); font: 400 12.5px/1.5 var(--mono); }
-.specs li[hidden] { display: none; }
-.specs li:not(:last-child)::after { content: "·"; margin: 0 10px; color: var(--stroke); }
+/* The spec row: every item carries a leading dot, and the list is shifted left by one dot's width
+   and clipped there, so a wrapped line never starts or ends on a stray separator. */
+.specs { list-style: none; display: flex; flex-wrap: wrap; row-gap: 4px; margin: 26px 0 0 -22px; padding: 0; clip-path: inset(0 0 0 22px); color: var(--muted); font: 400 13px/1.5 var(--mono); }
+.specs[hidden], .specs li[hidden] { display: none; }
+.specs li::before { content: "·"; display: inline-block; width: 22px; text-align: center; color: var(--stroke); }
 
 /* ---------- footer ---------- */
 .foot { position: relative; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 20px 40px; padding: 36px var(--pad) 40px; border-top: 1px solid var(--soft); color: var(--muted); font-size: 14px; }
-.page-home .foot { background: linear-gradient(rgba(14, 17, 16, .6), rgba(14, 17, 16, .92)); }
+.page-home .foot { background: linear-gradient(rgba(14, 17, 16, .7), rgba(14, 17, 16, .94)); }
 .foot__brand { display: grid; gap: 12px; max-width: 620px; }
 .foot p { margin: 0; line-height: 1.55; }
 .foot nav { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
@@ -316,8 +329,8 @@ figcaption span { display: block; color: var(--muted); font: 400 13px/1.5 var(--
 
 /* ---------- tablets and phones ---------- */
 @media (max-width: 1100px) {
-  .index { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .index li:nth-child(n+3) { border-top-color: var(--soft); }
+  .feats li { grid-template-columns: minmax(0, 1fr); }
+  .feats p { margin-top: 4px; }
 }
 @media (max-width: 900px) {
   :root { --top-h: 60px; }
@@ -342,29 +355,31 @@ figcaption span { display: block; color: var(--muted); font: 400 13px/1.5 var(--
   .callout::after, .callout--c::after, .callout--r::after { left: 2px; right: auto; top: 23px; margin: 0; }
   .ingame__grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .shot--big { grid-row: auto; }
-  .versions__grid, .teaser__grid { grid-template-columns: minmax(0, 1fr); }
-  .versions__shot { position: static; }
+  .teaser__grid { grid-template-columns: minmax(0, 1fr); }
+  .versions__main { width: 100%; }
+  /* the sheet sits on its own panel on a phone */
+  .spec { display: block; padding: 4px 18px; border-radius: var(--r-frame); background: var(--panel); box-shadow: 0 0 0 1px var(--soft); }
   .teaser__shot { order: -1; }
   /* the spec table becomes one block per family */
   .spec thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .spec, .spec tbody, .spec tr, .spec td { display: block; }
   .spec tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--soft); }
-  .spec tr:first-child { border-top: 1px solid var(--stroke); }
+  .spec tr:last-child { border-bottom: 0; }
   .spec tbody th, .spec td { padding: 0; border: 0; width: auto; }
     .spec__fam small { margin-top: 2px; }
   .spec tr.is-single .spec__rel { display: none; }
   .spec__upd { grid-column: 2; grid-row: 1; padding-top: 3px; font-size: 14px; text-align: right !important; }
   .spec__rel { grid-column: 1 / -1; margin-top: 12px; }
-  .get { align-items: flex-end; padding-top: 46svh; padding-bottom: 56px; }
+  .get { align-items: flex-end; padding-top: 46svh; padding-bottom: 40px; }
   .get__panel { width: 100%; }
 }
 @media (max-width: 640px) {
-  .index { grid-template-columns: minmax(0, 1fr); }
-  .index li:nth-child(n+2) { border-top-color: var(--soft); }
+  .feats { grid-template-columns: minmax(0, 1fr); }
   .others { grid-template-columns: minmax(0, 1fr); }
   .get__panel { padding: 24px 20px; border-radius: 16px; }
   .btn--xl { --bh: 58px; font-size: 17px; padding: 0 20px; }
-  .foot { flex-direction: column; align-items: flex-start; }
+  .foot { flex-direction: column; align-items: flex-start; gap: 10px; padding-top: 28px; padding-bottom: 24px; font-size: 13px; }
+  .foot nav { gap: 2px 18px; }
 }
 @media (max-width: 359px) {
   .brand__word { display: none; }

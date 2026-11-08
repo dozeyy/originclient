@@ -39,7 +39,7 @@
       <img class="brand__word" src="assets/origin-wordmark-256.png" srcset="assets/origin-wordmark-128.png 1x, assets/origin-wordmark-256.png 2x, assets/origin-wordmark.png 3x" width="97" height="20" alt="" decoding="async">
     </a>
     <nav class="top__nav" aria-label="Sections">
-      <a href="#why">Launcher</a>
+      <a href="#why">How it works</a>
       <a href="#versions">Versions</a>
       <a href="store" class="nav-store">Store</a>
     </nav>
@@ -55,7 +55,7 @@
   <!-- Phone menu: a sheet under the bar. site.js opens it (Esc, a link or a tap outside closes it). -->
   <div class="menu" id="menu" data-menu hidden>
     <nav class="menu__links" aria-label="Menu">
-      <a href="#why">Launcher</a>
+      <a href="#why">How it works</a>
       <a href="#versions">Versions</a>
       <a href="store">Store</a>
       <a href="#get">Download</a>
@@ -69,14 +69,14 @@
     <section class="hero" id="top" data-scene="hero">
       <div class="hero__copy">
         <h1 class="hero__title"><span>Pick a version.</span> <span>Press Play.</span></h1>
-        <p class="hero__lede">Origin is a free Minecraft launcher and in-game client. It sets up shaders, mods and its own clean menus for each of <span data-version-count>26</span> versions, from 1.8.9 to 26.3.</p>
+        <p class="hero__lede">Origin is a free Minecraft launcher and in-game client. It sets up the mods, shader support and its own clean menus for each of <span data-version-count>26</span> versions, from 1.8.9 to 26.3.</p>
         <div class="hero__actions">
           <!-- site.js names the visitor's own system here and points it at the right file. -->
           <a class="btn btn--primary btn--lg" data-download data-hero-main href="#get">
             <svg class="i-down" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M10 3v10M5.5 9 10 13.5 14.5 9M4 17h12"/></svg>
             <span data-hero-label>Download for Windows</span>
           </a>
-          <p class="hero__meta" data-hero-sub>Free · Windows 10 &amp; 11 · small installer</p>
+          <p class="hero__meta" data-hero-sub>Free · Windows 10 &amp; 11</p>
         </div>
         <a class="hero__also" href="#get" data-hero-also>Also for Mac <span class="badge">Beta</span> and Linux</a>
       </div>
@@ -89,12 +89,12 @@
       <div class="wrap">
         <header class="chapter__head">
           <h2>The launcher does the setup.</h2>
-          <p class="lede">Pick a Minecraft version and press Play. Origin installs what that version needs, its own client, Sodium and Iris, then starts the game.</p>
+          <p class="lede">Pick a Minecraft version and press Play. Origin installs what that version needs (the game, its loader, Origin's own client and the shader and performance mods) and then starts it.</p>
         </header>
 
         <figure class="product">
           <div class="frame frame--launcher" data-settle>
-            <img src="assets/shots/launcher-home-1280.webp" srcset="assets/shots/launcher-home-800.webp 800w, assets/shots/launcher-home-1280.webp 1280w, assets/shots/launcher-home-1920.webp 1920w" sizes="(min-width: 1300px) 1240px, calc(100vw - 32px)" width="1920" height="1080" alt="The Origin Launcher's Home screen: the version 1.21.1 in large type over its update's artwork, the version picker bottom left and a green Play button bottom right." loading="lazy" decoding="async">
+            <img src="assets/shots/launcher-home-1280.webp" srcset="assets/shots/launcher-home-800.webp 800w, assets/shots/launcher-home-1280.webp 1280w, assets/shots/launcher-home-1920.webp 1920w" sizes="(min-width: 1180px) 1080px, calc(100vw - 32px)" width="1920" height="1080" alt="The Origin Launcher's Home screen: the version 1.21.1 in large type over its update's artwork, the version picker bottom left and a green Play button bottom right." loading="lazy" decoding="async">
           </div>
           <figcaption class="callouts">
             <p class="callout callout--l"><b>Version picker</b> Every supported version in one list, grouped by update.</p>
@@ -106,12 +106,12 @@
         <div class="ingame">
           <header class="chapter__head chapter__head--sub">
             <h2>Same look in game.</h2>
-            <p class="lede">The title screen, loading screens, Mod Menu and HUD are Origin's own, with shaders on from the first launch.</p>
+            <p class="lede">The title screen, loading screens, Mod Menu and HUD are Origin's own, and they look the same on each version.</p>
           </header>
           <div class="ingame__grid">
             <figure class="shot shot--big">
               <div class="frame"><img src="assets/shots/game-title-960.webp" srcset="assets/shots/game-title-640.webp 640w, assets/shots/game-title-960.webp 960w, assets/shots/game-title-1600.webp 1600w" sizes="(min-width: 1300px) 720px, (min-width: 901px) 58vw, calc(100vw - 32px)" width="1600" height="900" alt="Origin's title screen in Minecraft 1.21.1: the Origin logo over a shader-lit badlands panorama, with dark Singleplayer, Multiplayer, Options, Mods and Origin buttons." loading="lazy" decoding="async"></div>
-              <figcaption>Title screen <span>1.21.1, shaders on</span></figcaption>
+              <figcaption>Title screen <span>Minecraft 1.21.1</span></figcaption>
             </figure>
             <figure class="shot">
               <div class="frame"><img src="assets/shots/game-modmenu-600.webp" srcset="assets/shots/game-modmenu-600.webp 600w, assets/shots/game-modmenu-944.webp 944w" sizes="(min-width: 1300px) 500px, (min-width: 901px) 40vw, calc(100vw - 32px)" width="944" height="604" alt="The Origin Mod Menu in game: a grid of built-in mods such as 1.7 Animations, Armor Status and Chunk Borders, each with Options and an on/off switch." loading="lazy" decoding="async"></div>
@@ -120,20 +120,23 @@
           </div>
         </div>
 
-        <ul class="index" aria-label="What else comes with it">
-          <li><h3>Shaders, built in</h3><p>Installed and tuned for each version. Nothing to hunt down.</p></li>
-          <li><h3>Your mods stay yours</h3><p>Drop your own mods in. If one does the same job as Origin's, yours wins.</p></li>
-          <li><h3>Several accounts at once</h3><p>One game window per account, side by side.</p></li>
-          <li><h3>Settings come with you</h3><p>Keybinds, mod settings and HUD positions follow you between versions.</p></li>
-          <li><h3>FPS Coach</h3><p>Finds what's costing you frames and suggests what to change.</p></li>
-          <li><h3>Crashes name the culprit</h3><p>If a mod stops the game starting, Origin says which one when it can.</p></li>
-        </ul>
+        <div class="also">
+          <h3 class="also__title">Also built in</h3>
+          <ul class="feats">
+            <li class="is-lead"><h3>Your mods stay yours</h3><p>Drop your own mods in. If one does the same job as an Origin mod, yours loads and Origin's steps aside.</p></li>
+            <li class="is-lead"><h3>Several accounts at once</h3><p>One game window per account, side by side, each with its own worlds and settings.</p></li>
+            <li><h3>Shaders</h3><p>Iris and Sodium on each version (OptiFine on 1.8.9), with a shader browser in game.</p></li>
+            <li><h3>Settings come with you</h3><p>Keybinds, mod settings and HUD positions follow you between versions.</p></li>
+            <li><h3>FPS Coach</h3><p>Finds what's costing you frames and suggests what to change.</p></li>
+            <li><h3>Crashes name the culprit</h3><p>If a mod stops the game starting, Origin says which one when it can.</p></li>
+          </ul>
+        </div>
       </div>
     </section>
 
     <!-- ===================== VERSIONS ===================== -->
     <section class="chapter versions" id="versions" data-scene="versions">
-      <div class="wrap versions__grid">
+      <div class="wrap">
         <div class="versions__main">
           <header class="chapter__head">
             <h2><span data-version-count>26</span> versions, from 1.8.9 to 26.3.</h2>
@@ -148,10 +151,6 @@
           <noscript><p class="lede">The full list, from 1.8.9 to 26.3, shows here with JavaScript turned on.</p></noscript>
           <p class="spec__note">Mac Beta: 1.8.9 to 1.18.2 run through Rosetta on Apple Silicon.</p>
         </div>
-        <figure class="versions__shot">
-          <div class="frame"><img src="assets/shots/launcher-versions-640.webp" srcset="assets/shots/launcher-versions-640.webp 640w, assets/shots/launcher-versions-1044.webp 1044w" sizes="(min-width: 1300px) 480px, (min-width: 901px) 38vw, calc(100vw - 32px)" width="1044" height="740" alt="The launcher's Choose a version panel: eight cards, one per family from 26.1 to 26.3 down to 1.8.9, each with its update's artwork." loading="lazy" decoding="async"></div>
-          <figcaption>The launcher's version picker <span>one card per update</span></figcaption>
-        </figure>
       </div>
     </section>
 

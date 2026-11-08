@@ -51,14 +51,25 @@ const VERSION_GROUPS = [
   { title: '1.8.9', tag: 'The Bountiful Update', versions: ['1.8.9'] },
 ];
 
-// Scenes top to bottom: [section id, world pose, how much the page colour covers the island].
-// The island opens the page (hero) and closes it (get); the content chapters in between sit on
-// the page's own colour, so the island rests under them.
-const SCENES = [['top', 'hero', 0], ['why', 'why', 1], ['versions', 'versions', 1], ['cosmetics', 'versions', 1], ['get', 'get', 0.08, 0.7]];
-// An optional 4th number delays a scene: its blend starts when its top is that far down the
-// screen (default 1 = as soon as it appears). Get waits until it is well up, so the island
-// never fades back in under the cosmetics shot.
-// From this shade on so little of the island shows that it is frozen instead of drawn
+// Scenes top to bottom, one per section (DOM order). The island opens the page (hero), comes
+// back beside the versions sheet (a low shot from the far side, island on the right) and closes
+// it (get); the launcher chapter and the cosmetics shot sit on the page's own colour, so the
+// island rests under them.
+//   cover: how much of the page colour lies over the whole island (from COVERED on it is frozen);
+//   left:  a shade from the left edge only, so text there reads while the island stays clear on
+//          the right (desktop). A phone has no side to spare and any island there would sit under
+//          the sheet's text, so `phone` replaces the cover (the island rests under the versions);
+//   start: delays the blend until the section's top is that far down the screen (default 1 = as
+//          soon as it appears). Get waits until it is well up, so the island never fades back in
+//          under the cosmetics shot.
+const SCENES = [
+  { id: 'top', pose: 'hero', cover: 0 },
+  { id: 'why', pose: 'why', cover: 1 },
+  { id: 'versions', pose: 'versions', cover: 0.1, left: 0.94, phone: 1 },
+  { id: 'cosmetics', pose: 'versions', cover: 1 },
+  { id: 'get', pose: 'get', cover: 0.08, start: 0.7 },
+];
+// From this cover on so little of the island shows that it is frozen instead of drawn
 // (the last frame stays on screen).
 const COVERED = 0.85;
 
@@ -134,9 +145,9 @@ const MAC_NOTE = 'Free for Mac as a beta, on macOS 15 or newer. The first open t
 // `hero` is the hero's own line under its button, `also` the quiet link to the other systems.
 const GET_COPY = {
   win: {
-    file: 'win', button: 'Download for Windows', sub: 'Windows 10 & 11 · a small installer that fetches the rest',
-    note: 'Free for Windows 10 and 11. Setup takes about a minute, and Origin keeps itself up to date.',
-    hero: 'Free · Windows 10 & 11 · small installer', also: 'Also for Mac <span class="badge">Beta</span> and Linux',
+    file: 'win', button: 'Download for Windows', sub: 'Windows 10 &amp; 11 · <code>OriginLauncher-Setup.exe</code>',
+    note: 'Free for Windows 10 and 11. A small installer that fetches the rest. Origin keeps itself up to date.',
+    hero: 'Free · Windows 10 & 11', also: 'Also for Mac <span class="badge">Beta</span> and Linux',
   },
   mac: { file: 'mac', button: 'Download for Mac', sub: 'macOS 15 or newer · Apple Silicon (M1 and later)', note: MAC_NOTE,
     hero: 'Free · macOS 15+ · Apple Silicon', also: 'Also for Windows and Linux' },
@@ -156,7 +167,7 @@ const GET_COPY = {
   // A phone or tablet has nothing to download, so the big button shares the page to open on a computer.
   phone: {
     file: null, button: 'Share this page', sub: '',
-    note: 'Origin is a launcher for Windows, Mac and Linux computers. Open originclient.org on your computer to download it.',
+    note: 'Origin runs on Windows, Mac and Linux computers. Open originclient.org on one to download it.',
     hero: 'Free · for Windows, Mac Beta and Linux PCs', also: '', heroButton: 'Get it on your computer',
   },
 };
@@ -187,7 +198,7 @@ function initGet(kind) {
     big.addEventListener('click', sharePage);
   }
   const sub = $('[data-get-sub]');
-  sub.textContent = copy.sub;
+  sub.innerHTML = copy.sub;   // our own strings (a file name is marked up as data)
   sub.hidden = !copy.sub;
   $('[data-get-note]').textContent = copy.note;
 
@@ -201,6 +212,9 @@ function initGet(kind) {
     $('[data-others-wrap]').hidden = false;
   }
 
+  // A phone's panel stays short (the note already names the systems), so at the end of the page
+  // the island still has the band above it.
+  $('.specs').hidden = !main;
   if (!DOWNLOAD.mac.live) return;
   for (const el of $$('[data-mac]')) el.hidden = false;
   if (mac) $('.get__steps').open = true;
@@ -285,29 +299,30 @@ function initMenu() {
 }
 
 // ---------------------------------------------------------------- scroll
-let lastY = 0, queued = false;
+let queued = false;
 function frame() {
-  const H = innerHeight, y = scrollY;
+  const H = innerHeight, y = scrollY, phone = innerWidth <= 900;   // the CSS phone/tablet line
+  const cover = s => (phone && s.phone !== undefined ? s.phone : s.cover), left = s => (phone ? 0 : s.left || 0);
   // each scene blends into the next as it scrolls up into view, finished by
   // the time its top is halfway up the screen, so the shade is already dark
   // behind the heading before anyone reads it (phones: the island sits there)
-  let pose = ['hero', 'hero', 0], shade = 0;
+  let pose = ['hero', 'hero', 0], shade = 0, side = 0;
   for (let i = 1; i < SCENES.length; i++) {
-    const top = document.getElementById(SCENES[i][0]).getBoundingClientRect().top, start = H * (SCENES[i][3] ?? 1);
+    const a = SCENES[i - 1], b = SCENES[i], start = H * (b.start ?? 1);
+    const top = document.getElementById(b.id).getBoundingClientRect().top;
     if (top >= start) break;
-    const t = smooth(clamp((start - top) / (H * 0.5))), [, pa, sa] = SCENES[i - 1], [, pb, sb] = SCENES[i];
-    pose = [pa, pb, t]; shade = sa + (sb - sa) * t;
+    const t = smooth(clamp((start - top) / (H * 0.5)));
+    pose = [a.pose, b.pose, t];
+    shade = cover(a) + (cover(b) - cover(a)) * t;
+    side = left(a) + (left(b) - left(a)) * t;
   }
   world?.setPose(...pose);
   world?.setCovered(shade >= COVERED);
   root.style.setProperty('--shade', shade.toFixed(3));
+  root.style.setProperty('--side', side.toFixed(3));
 
-  // header: solid once scrolled; hides on scroll down, returns on scroll up
-  const top = $('[data-top]');
-  top.classList.toggle('is-solid', y > 40);
-  if (y > lastY + 1 && y > H) top.classList.add('is-hidden');
-  else if (y < lastY - 1 || y <= H) top.classList.remove('is-hidden');
-  lastY = y;
+  // header: solid once scrolled (it stays in view, so Download is always there)
+  $('[data-top]').classList.toggle('is-solid', y > 40);
   for (const a of $$('.top__nav a[href^="#"]')) {
     const r = document.querySelector(a.getAttribute('href')).getBoundingClientRect();
     a.classList.toggle('is-on', r.top < H * 0.5 && r.bottom > H * 0.5);
@@ -330,12 +345,17 @@ function requestFrame() {
 function heroZone() {
   const hero = $('.hero'), copy = $('.hero__copy'), head = $('.top'), act = $('.top__action');
   if (!hero || !copy) return null;
-  const vw = document.documentElement.clientWidth, pad = parseFloat(getComputedStyle(hero).paddingLeft) || 0;
+  const vw = document.documentElement.clientWidth, vh = innerHeight, pad = parseFloat(getComputedStyle(hero).paddingLeft) || 0;
   const c = copy.getBoundingClientRect(), top = c.top + scrollY;
-  const l = c.right + Math.max(16, vw * 0.01);
-  const r = act ? act.getBoundingClientRect().right : vw - pad;   // the header's right edge: the island lines up with the nav
+  const l = c.right + Math.max(24, vw * 0.02);
+  const ar = act ? act.getBoundingClientRect().right : 0;
+  const r = ar > 0 ? ar : vw - pad;   // the header's right edge: the island lines up with the nav
+  // The opening shot: the island big in the free area beside the copy, centred a touch below the
+  // middle of the screen, never so big that it reaches the header. Its visible shape is about half
+  // its bounding sphere, hence the generous sizes (maxH: sphere radius as a share of the screen
+  // height; kMin: how far the camera may come in; phones: grow past the band, drop a few px).
   return {
-    cx: (l + r) / 2, cy: top + c.height / 2, w: Math.max(0, r - l), bandW: vw - 2 * pad,
+    cx: (l + r) / 2, cy: vh * 0.52, w: Math.max(0, r - l), maxH: 0.42, kMin: 0.35, grow: 1.35, drop: 6, bandW: vw - 2 * pad,
     // (the header may be slid away when resized mid-page, hence the floor)
     top: Math.max(head ? head.getBoundingClientRect().bottom : 0, 62) + 4, bottom: top - 14,
   };
