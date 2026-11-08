@@ -58,53 +58,51 @@ internal static class MotionCheck
         Pump(900, () => press.IsCompleted);
         if (press.Exception is { } thrown) Fail("Play signed out threw: " + thrown.GetBaseException());
         var openSamples = Sample(900, () => window.MotionSignIn.ScaleX);
-        var signIn = window.MotionSignIn;
-        Expect("sign-in card shown after Play signed out", signIn.Visible);
-        ExpectNear("sign-in card opacity after opening", signIn.Opacity, 1);
-        ExpectNear("sign-in card scale X after opening", signIn.ScaleX, 1);
-        ExpectNear("sign-in card scale Y after opening", signIn.ScaleY, 1);
+        ExpectSoon("sign-in card shown after Play signed out", () => window.MotionSignIn.Visible);
+        ExpectNear("sign-in card opacity after opening", () => window.MotionSignIn.Opacity, 1);
+        ExpectNear("sign-in card scale X after opening", () => window.MotionSignIn.ScaleX, 1);
+        ExpectNear("sign-in card scale Y after opening", () => window.MotionSignIn.ScaleY, 1);
         Moved("sign-in card scale", openSamples, 0.97, 1);
 
         window.TourCloseSignIn();
         Pump(900);
-        signIn = window.MotionSignIn;
-        Expect("sign-in card hidden after closing", !signIn.Visible);
-        ExpectNear("sign-in card scale X after closing", signIn.ScaleX, 0.97);
+        ExpectSoon("sign-in card hidden after closing", () => !window.MotionSignIn.Visible);
+        ExpectNear("sign-in card scale X after closing", () => window.MotionSignIn.ScaleX, 0.97);
 
         // 2. The Accounts drawer, open then closed (the same TranslateTransform shape as the Friends drawer).
         window.TourSetAccountOpen(true);
         var drawerSamples = Sample(900, () => window.MotionAccountPanel.ShiftX);
-        Expect("Accounts drawer shown", window.MotionAccountPanel.Visible);
-        ExpectNear("Accounts drawer slid fully in", window.MotionAccountPanel.ShiftX, 0);
-        ExpectNear("scrim dimmed behind the Accounts drawer", window.MotionScrimOpacity, 0.5);
+        ExpectSoon("Accounts drawer shown", () => window.MotionAccountPanel.Visible);
+        ExpectNear("Accounts drawer slid fully in", () => window.MotionAccountPanel.ShiftX, 0);
+        ExpectNear("scrim dimmed behind the Accounts drawer", () => window.MotionScrimOpacity, 0.5);
         Moved("Accounts drawer slide", drawerSamples, Res.D("Size.Drawer"), 0);
         window.TourSetAccountOpen(false);
         Pump(900);
-        Expect("Accounts drawer hidden after closing", !window.MotionAccountPanel.Visible);
+        ExpectSoon("Accounts drawer hidden after closing", () => !window.MotionAccountPanel.Visible);
 
         // 3. The Friends drawer, open then closed, then open and closed again before it settles (a newer run must
         //    replace the older one, never fight it).
         window.TourSetFriendsOpen(true);
         Pump(900);
-        Expect("Friends drawer shown", window.MotionFriendsDrawer.Visible);
-        ExpectNear("Friends drawer slid fully in", window.MotionFriendsDrawer.ShiftX, 0);
+        ExpectSoon("Friends drawer shown", () => window.MotionFriendsDrawer.Visible);
+        ExpectNear("Friends drawer slid fully in", () => window.MotionFriendsDrawer.ShiftX, 0);
         window.TourSetFriendsOpen(false);
         Pump(60);
         window.TourSetFriendsOpen(true);
         Pump(60);
         window.TourSetFriendsOpen(false);
         Pump(900);
-        Expect("Friends drawer hidden after a quick open/close/open/close", !window.MotionFriendsDrawer.Visible);
-        ExpectNear("Friends drawer slid fully out", window.MotionFriendsDrawer.ShiftX, Res.D("Size.Drawer"));
-        ExpectNear("scrim cleared after the drawers closed", window.MotionScrimOpacity, 0);
+        ExpectSoon("Friends drawer hidden after a quick open/close/open/close", () => !window.MotionFriendsDrawer.Visible);
+        ExpectNear("Friends drawer slid fully out", () => window.MotionFriendsDrawer.ShiftX, Res.D("Size.Drawer"));
+        ExpectNear("scrim cleared after the drawers closed", () => window.MotionScrimOpacity, 0);
 
         // 4. A popup menu (opacity + its card's TranslateTransform).
         var menu = new PopupMenu(window.MotionPopupHost);
         menu.AddItem("Check", "Icon.Check", () => { });
         menu.Open(window.MotionPopupHost);
         Pump(500);
-        ExpectNear("popup menu faded in", menu.Card.Opacity, 1);
-        ExpectNear("popup menu rose into place", (menu.Card.RenderTransform as TranslateTransform)?.Y ?? double.NaN, 0);
+        ExpectNear("popup menu faded in", () => menu.Card.Opacity, 1);
+        ExpectNear("popup menu rose into place", () => (menu.Card.RenderTransform as TranslateTransform)?.Y ?? double.NaN, 0);
         menu.Close();
         Pump(200);
 
@@ -126,10 +124,10 @@ internal static class MotionCheck
         _ = MotionFx.Run(jar, scale, ScaleTransform.ScaleYProperty, 1.14, 1, 420, MotionFx.Back);
         _ = MotionFx.Run(jar, lift, TranslateTransform.YProperty, 0, -6, 260, MotionFx.Back);
         Pump(700);
-        ExpectNear("Mods row faded in", row.Opacity, 1);
-        ExpectNear("Mods row landed", shift.Y, 0);
-        ExpectNear("drop icon pulse settled (scale)", scale.ScaleX, 1);
-        ExpectNear("drop icon lifted", lift.Y, -6);
+        ExpectNear("Mods row faded in", () => row.Opacity, 1);
+        ExpectNear("Mods row landed", () => shift.Y, 0);
+        ExpectNear("drop icon pulse settled (scale)", () => scale.ScaleX, 1);
+        ExpectNear("drop icon lifted", () => lift.Y, -6);
         host.Children.Remove(row);
         host.Children.Remove(jar);
 
@@ -189,8 +187,20 @@ internal static class MotionCheck
         else Fail(what);
     }
 
-    private static void ExpectNear(string what, double actual, double expected) =>
+    // Waits (pumping the UI and the render clock) until the value is there or 5 s pass, then checks it: a busy CI runner's
+    // headless clock can lag well behind wall time, so a fixed wait would fail a healthy animation.
+    private static void ExpectNear(string what, Func<double> read, double expected)
+    {
+        Pump(5000, () => Math.Abs(read() - expected) < 0.01);
+        var actual = read();
         Expect($"{what} ({actual:0.###}, expected {expected:0.###})", Math.Abs(actual - expected) < 0.01);
+    }
+
+    private static void ExpectSoon(string what, Func<bool> ok)
+    {
+        Pump(5000, ok);
+        Expect(what, ok());
+    }
 
     // An animation that ran shows at least one value strictly between its ends. A headless clock that delivers no
     // frame between the two ends would not show one, so a missing middle is a warning, not a failure: the crash
