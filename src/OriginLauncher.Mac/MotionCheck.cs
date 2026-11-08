@@ -118,17 +118,22 @@ internal static class MotionCheck
         var shift = new TranslateTransform();
         row.RenderTransform = shift;
         host.Children.Add(row);
-        _ = MotionFx.Run(row, Visual.OpacityProperty, 0, 1, 220, MotionFx.Out);
-        _ = MotionFx.Run(row, shift, TranslateTransform.YProperty, -14, 0, 420, MotionFx.Back);
+        // Every run is waited for to its end (a slow runner's clock can lag the wall clock), then its end value checked.
+        var runs = new List<Task>
+        {
+            MotionFx.Run(row, Visual.OpacityProperty, 0, 1, 220, MotionFx.Out),
+            MotionFx.Run(row, shift, TranslateTransform.YProperty, -14, 0, 420, MotionFx.Back),
+        };
         var jar = new Border { Width = 20, Height = 20 };
         var scale = new ScaleTransform();
         var lift = new TranslateTransform();
         jar.RenderTransform = new TransformGroup { Children = { scale, lift } };
         host.Children.Add(jar);
-        _ = MotionFx.Run(jar, scale, ScaleTransform.ScaleXProperty, 1.14, 1, 420, MotionFx.Back);
-        _ = MotionFx.Run(jar, scale, ScaleTransform.ScaleYProperty, 1.14, 1, 420, MotionFx.Back);
-        _ = MotionFx.Run(jar, lift, TranslateTransform.YProperty, 0, -6, 260, MotionFx.Back);
-        Pump(700);
+        runs.Add(MotionFx.Run(jar, scale, ScaleTransform.ScaleXProperty, 1.14, 1, 420, MotionFx.Back));
+        runs.Add(MotionFx.Run(jar, scale, ScaleTransform.ScaleYProperty, 1.14, 1, 420, MotionFx.Back));
+        runs.Add(MotionFx.Run(jar, lift, TranslateTransform.YProperty, 0, -6, 260, MotionFx.Back));
+        Pump(5000, () => runs.All(t => t.IsCompleted));
+        Expect("the Mods page shapes finished", runs.All(t => t.IsCompletedSuccessfully));
         ExpectNear("Mods row faded in", row.Opacity, 1);
         ExpectNear("Mods row landed", shift.Y, 0);
         ExpectNear("drop icon pulse settled (scale)", scale.ScaleX, 1);
@@ -141,31 +146,36 @@ internal static class MotionCheck
         window.TourSetAccountOpen(true);
         Pump(50);
         window.TourSetAccountOpen(false);
-        Pump(700);
+        Pump(3000, () => !window.MotionAccountPanel.Visible && window.MotionScrimOpacity < 0.001);
         Expect("Accounts drawer hidden after a quick open/close", !window.MotionAccountPanel.Visible);
         ExpectNear("Accounts drawer slid fully out after a quick open/close", window.MotionAccountPanel.ShiftX, Res.D("Size.Drawer"));
         ExpectNear("scrim cleared after a quick open/close", window.MotionScrimOpacity, 0);
 
         // 7. Tab switches glide the page in from the side of the tab (the WPF AnimatePageIn: 0.85 -> 1, 10 px -> 0).
         window.TourNavigate(1);
+        // The entrance starts from its first values on the click (a page that just appeared would read 1 and 0 here).
+        ExpectNear("page entrance starts at 0.85 opacity", window.MotionPage.Opacity, 0.85);
+        ExpectNear("page entrance starts 10 px toward the clicked tab", window.MotionPage.ShiftX, 10);
         var pageSamples = Sample(500, () => window.MotionPage.Opacity);
+        Pump(3000, () => window.MotionPage.Opacity > 0.999 && Math.Abs(window.MotionPage.ShiftX) < 0.001);
         Expect("Mods page shown by its tab", window.MotionCurrentPage == MainWindow.LauncherPage.Mods);
         ExpectNear("page faded fully in", window.MotionPage.Opacity, 1);
         ExpectNear("page slid into place", window.MotionPage.ShiftX, 0);
         Moved("page entrance fade", pageSamples, 0.85, 1);
         window.TourNavigate(0);
-        Pump(500);
+        Pump(3000, () => window.MotionPage.Opacity > 0.999);
         ExpectNear("Home faded fully in", window.MotionPage.Opacity, 1);
 
         // 8. The bar fades away under the launch screen and comes back with it (WPF SetTopBarHidden, 200 / 320 ms).
         window.TourSetTopBarHidden(true);
         var barSamples = Sample(500, () => window.MotionBar.Bar);
+        Pump(3000, () => window.MotionBar.Bar < 0.001 && window.MotionBar.Glass < 0.001);
         ExpectNear("bar faded out under the launch screen", window.MotionBar.Bar, 0);
         ExpectNear("bar glass faded out under the launch screen", window.MotionBar.Glass, 0);
         Expect("bar takes no clicks under the launch screen", !window.MotionBar.TakesClicks);
         Moved("bar fade", barSamples, 1, 0);
         window.TourSetTopBarHidden(false);
-        Pump(600);
+        Pump(3000, () => window.MotionBar.Bar > 0.999 && window.MotionBar.Glass > 0.999);
         ExpectNear("bar back after the launch screen", window.MotionBar.Bar, 1);
         ExpectNear("bar glass back on Home", window.MotionBar.Glass, 1);
 
@@ -210,7 +220,7 @@ internal static class MotionCheck
         window.TourSetAccountOpen(true);
         Pump(400);
         window.OpenSettingsFromMenu();
-        Pump(600);
+        Pump(3000, () => !window.MotionAccountPanel.Visible);
         Expect("Settings... opened the Settings page", window.MotionCurrentPage == MainWindow.LauncherPage.Settings);
         Expect("Settings... closed the Accounts drawer", !window.MotionAccountPanel.Visible);
         window.TourNavigate(0);
