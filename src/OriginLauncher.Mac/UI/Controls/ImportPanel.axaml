@@ -12,6 +12,9 @@
          shared ImportFlowModel / ImportGridModel. -->
 
     <UserControl.Resources>
+    <!-- The Done page's "Nothing was changed in your other launchers" line (here, as in the WPF ImportPanel.xaml's own resources). -->
+    <StreamGeometry x:Key="Import.Icon.Shield">M12,3 L5,6 L5,11 C5,15.5 8,19 12,21 C16,19 19,15.5 19,11 L19,6 Z M9,12 L11,14 L15,10</StreamGeometry>
+
         <!-- The scrolled list's top edge fades 12 px into the page (List_ScrollChanged sets it as the list's mask). -->
         <LinearGradientBrush x:Key="Import.TopFade" StartPoint="0,0" EndPoint="0,12">
             <GradientStop Color="Transparent" Offset="0"/>
@@ -254,6 +257,15 @@
     </UserControl.Resources>
 
     <UserControl.Styles>
+        <!-- The scan, review and plan spinners: one turn every 900 ms while "spinning" is on (StartSpin / StopSpin). -->
+        <Style Selector="c|IconPath.spinning">
+            <Style.Animations>
+                <Animation Duration="0:0:0.9" IterationCount="INFINITE">
+                    <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0"/></KeyFrame>
+                    <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360"/></KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
         <!-- The WPF templates' triggers, as classes the rows switch on. -->
         <Style Selector="c|IconPath.collapsed">
             <Setter Property="RenderTransform" Value="rotate(-90deg)"/>

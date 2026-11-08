@@ -158,8 +158,9 @@ public sealed partial class MainWindow
         }
         FriendsDrawer.IsHitTestVisible = open;
         Scrim.IsHitTestVisible = open;
-        MotionFx.Run(Scrim, OpacityProperty, Scrim.Opacity, open ? 0.5 : 0, ms);
-        MotionFx.Run(FriendsDrawer, _friendsShift, TranslateTransform.XProperty, _friendsShift.X, open ? 0 : UI.Res.D("Size.Drawer"), ms)
+        // WPF SetFriendsOpen: the scrim fades with no easing, the drawer slides cubic ease-out.
+        MotionFx.Run(Scrim, OpacityProperty, Scrim.Opacity, open ? 0.5 : 0, ms, MotionFx.Linear);
+        MotionFx.Run(FriendsDrawer, _friendsShift, TranslateTransform.XProperty, _friendsShift.X, open ? 0 : UI.Res.D("Size.Drawer"), ms, MotionFx.Cubic)
             .ContinueWith(_ => Dispatcher.UIThread.Post(() =>
             {
                 if (_friendsOpen) return;

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using OriginLauncher.App.Core;
@@ -36,6 +37,8 @@ internal static class MotionCheck
         });
 
         Motion.Off = false;
+        // No network: Home's "N playing Origin" count stays off (TourShowPlayersOnline checks the pill instead).
+        OriginLauncher.App.Core.Social.Launcher.SocialHub.PlayersOnlineOff = true;
         AppBuilder.Configure<App>()
             .UseSkia()
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })
@@ -132,6 +135,122 @@ internal static class MotionCheck
         ExpectNear("drop icon lifted", lift.Y, -6);
         host.Children.Remove(row);
         host.Children.Remove(jar);
+
+        // 6. A drawer opened and closed faster than its slide (a double click on the pill): it settles closed and out
+        //    of view, so the next open slides and fades again (MAC-7).
+        window.TourSetAccountOpen(true);
+        Pump(50);
+        window.TourSetAccountOpen(false);
+        Pump(700);
+        Expect("Accounts drawer hidden after a quick open/close", !window.MotionAccountPanel.Visible);
+        ExpectNear("Accounts drawer slid fully out after a quick open/close", window.MotionAccountPanel.ShiftX, Res.D("Size.Drawer"));
+        ExpectNear("scrim cleared after a quick open/close", window.MotionScrimOpacity, 0);
+
+        // 7. Tab switches glide the page in from the side of the tab (the WPF AnimatePageIn: 0.85 -> 1, 10 px -> 0).
+        window.TourNavigate(1);
+        var pageSamples = Sample(500, () => window.MotionPage.Opacity);
+        Expect("Mods page shown by its tab", window.MotionCurrentPage == MainWindow.LauncherPage.Mods);
+        ExpectNear("page faded fully in", window.MotionPage.Opacity, 1);
+        ExpectNear("page slid into place", window.MotionPage.ShiftX, 0);
+        Moved("page entrance fade", pageSamples, 0.85, 1);
+        window.TourNavigate(0);
+        Pump(500);
+        ExpectNear("Home faded fully in", window.MotionPage.Opacity, 1);
+
+        // 8. The bar fades away under the launch screen and comes back with it (WPF SetTopBarHidden, 200 / 320 ms).
+        window.TourSetTopBarHidden(true);
+        var barSamples = Sample(500, () => window.MotionBar.Bar);
+        ExpectNear("bar faded out under the launch screen", window.MotionBar.Bar, 0);
+        ExpectNear("bar glass faded out under the launch screen", window.MotionBar.Glass, 0);
+        Expect("bar takes no clicks under the launch screen", !window.MotionBar.TakesClicks);
+        Moved("bar fade", barSamples, 1, 0);
+        window.TourSetTopBarHidden(false);
+        Pump(600);
+        ExpectNear("bar back after the launch screen", window.MotionBar.Bar, 1);
+        ExpectNear("bar glass back on Home", window.MotionBar.Glass, 1);
+
+        // 9. The bar's links reach the browser (MAC-1: Website and Store did nothing on a Mac).
+        var opened = new List<string>();
+        var realOpen = MainWindow.OpenLink;
+        MainWindow.OpenLink = u => opened.Add(u?.AbsoluteUri ?? "");
+        window.TourWebsiteButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.TourStoreButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        MainWindow.OpenLink = realOpen;
+        Expect($"Website and Store open their pages ({string.Join(", ", opened)})",
+            opened.SequenceEqual(new[] { "https://originclient.org/", "https://originclient.org/store" }));
+
+        // 10. Removing an account asks first; closing the drawer answers it with Cancel (PAR3-1).
+        window.TourSetAccountOpen(true);
+        Pump(400);
+        window.TourAskRemoveAccount("Alex", true);
+        Pump(50);
+        Expect("Remove asks first", window.MotionRemoveQuestionShown);
+        window.TourSetAccountOpen(false);
+        Pump(400);
+        Expect("closing the drawer closes the Remove question", !window.MotionRemoveQuestionShown);
+
+        // 11. The menu bar: Edit, View and Window in the window's menu, Settings... in the app menu (MAC-11), and the
+        //     Edit items reaching a focused text box (MAC-2's routing; the sign-in page half needs a real Mac).
+        var menus = NativeMenu.GetMenu(window)?.Items.OfType<NativeMenuItem>().Select(i => i.Header).ToList() ?? new();
+        Expect($"window menus Edit, View, Window ({string.Join(", ", menus)})", menus.SequenceEqual(new[] { "Edit", "View", "Window" }));
+        var appMenu = Application.Current is { } app
+            ? NativeMenu.GetMenu(app)?.Items.OfType<NativeMenuItem>().Select(i => i.Header).ToList() ?? new()
+            : new List<string?>();
+        Expect($"app menu has Settings... ({string.Join(", ", appMenu)})", appMenu.Contains("Settings..."));
+        var box = new TextBox { Text = "edit me", Width = 120 };
+        host.Children.Add(box);
+        Pump(50);
+        box.Focus();
+        window.TourEditMenu("SelectAll");
+        Expect($"Edit > Select All reached the focused text box (went to {window.EditRoutedTo})",
+            window.EditRoutedTo == "textbox" && box.SelectionStart == 0 && box.SelectionEnd == box.Text.Length);
+        host.Children.Remove(box);
+
+        // 12. App menu > Settings... from an open drawer: the drawer closes and Settings opens (MAC-11).
+        window.TourSetAccountOpen(true);
+        Pump(400);
+        window.OpenSettingsFromMenu();
+        Pump(600);
+        Expect("Settings... opened the Settings page", window.MotionCurrentPage == MainWindow.LauncherPage.Settings);
+        Expect("Settings... closed the Accounts drawer", !window.MotionAccountPanel.Visible);
+        window.TourNavigate(0);
+        Pump(400);
+
+        // 13. Full screen moves the brand to the WPF bar's inset; back to windowed, after the traffic lights (MAC-12).
+        window.WindowState = WindowState.FullScreen;
+        Pump(100);
+        ExpectNear("brand inset in full screen", window.BrandInset, 18);
+        window.WindowState = WindowState.Normal;
+        Pump(100);
+        ExpectNear("brand inset beside the traffic lights", window.BrandInset, 72);
+
+        // 14. Moved to a Retina screen without a resize: the art picks the sharper tier (MAC-9).
+        var tierAt1 = window.MotionArtTier;
+        window.SetRenderScaling(2);
+        Pump(300);
+        var tierAt2 = window.MotionArtTier;
+        window.SetRenderScaling(1);
+        Pump(300);
+        Expect($"art tier follows the screen's scale (1x {tierAt1}, 2x {tierAt2})", tierAt1 > 0 && tierAt2 > tierAt1);
+
+        // 15. The window fits a small screen: a 1024 x 640 point MacBook with the Dock leaves 1024 x 615 (MAC-5).
+        var (w0, h0, mw0, mh0) = (window.Width, window.Height, window.MinWidth, window.MinHeight);
+        window.FitTo(new PixelRect(0, 25, 1024, 615), 1);
+        Expect($"window fits a 1024 x 615 visible area ({window.Width:0} x {window.Height:0}, min {window.MinWidth:0} x {window.MinHeight:0})",
+            window.Width <= 1024 && window.Height <= 615 && window.MinHeight <= 615);
+        window.FitTo(new PixelRect(0, 25, 1512, 919), 1);
+        Expect($"window keeps its designed size on a 1512 x 919 area ({window.Width:0} x {window.Height:0})",
+            window.Width == 1180 && window.Height == 740 && window.MinWidth == 960 && window.MinHeight == 600);
+        (window.Width, window.Height, window.MinWidth, window.MinHeight) = (w0, h0, mw0, mh0);
+
+        // 16. Hover labels: the Windows timing and placement (PAR3-13), and Home's "N playing Origin" (PAR3-5).
+        var labelled = window.TourImportButton; // an icon button with a hover label ("Import")
+        Expect($"hover labels open after 300 ms ({ToolTip.GetShowDelay(labelled)})", ToolTip.GetShowDelay(labelled) == 300);
+        Expect($"hover labels open at once for 700 ms after one closes ({ToolTip.GetBetweenShowDelay(labelled)})", ToolTip.GetBetweenShowDelay(labelled) == 700);
+        Expect("hover labels follow the shared placement rule", ToolTip.GetPlacement(labelled) == PlacementMode.Custom);
+        window.Home.TourShowPlayersOnline(1284);
+        Expect($"Home shows the players-online count ({window.Home.TourPlayersText})", window.Home.TourPlayersText == "1,284 playing Origin");
+        window.Home.TourShowPlayersOnline(null);
 
         // A transform property handed the transform itself (the v1.0.92 mistake) is refused at once, not at run time.
         _checks++;

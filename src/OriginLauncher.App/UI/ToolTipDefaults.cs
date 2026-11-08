@@ -23,9 +23,8 @@ internal static class ToolTipDefaults
     internal const int OpenDelayMs = 300;
     internal const int BetweenShowMs = 700;
     internal const int ShowDurationMs = 8000;
-    /// <summary>Space between the control and its label, and the least space the label keeps to the window edge.</summary>
-    internal const double Gap = 8;
-    internal const double EdgeMargin = 6;
+    /// <summary>Space between the control and its label (UI/TipPlacement, the rule every launcher shares).</summary>
+    internal const double Gap = TipPlacement.Gap;
 
     private static bool _applied;
 
@@ -101,23 +100,18 @@ internal static class ToolTipDefaults
     /// <summary>
     /// Where a label of <paramref name="tip"/> size goes for a control at <paramref name="box"/> in a window of
     /// <paramref name="window"/> size: the placement mode and the offsets from that mode's own anchor (Bottom
-    /// anchors the label's left edge at the control's left edge, Right its top edge at the control's top).
-    /// Pure (no window needed), but not unit-tested: the tests project has no WPF, so the placement is proven by the tooltip shots in launcher-shots.
+    /// anchors the label's left edge at the control's left edge, Right its top edge at the control's top). The numbers
+    /// are UI/TipPlacement's (unit-tested, shared with the Mac launcher); this only maps them to WPF's modes.
     /// </summary>
     internal static (PlacementMode Mode, double X, double Y) Place(Rect box, Size tip, Size window, PlacementMode wanted)
     {
-        if (wanted == PlacementMode.Right && box.Right + Gap + tip.Width <= window.Width - EdgeMargin)
+        var (side, x, y) = TipPlacement.Place(new TipPlacement.Box(box.X, box.Y, box.Width, box.Height),
+            tip.Width, tip.Height, window.Width, window.Height, wantRight: wanted == PlacementMode.Right);
+        return (side switch
         {
-            // Beside the control, centred on it.
-            var top = Math.Clamp(box.Top + (box.Height - tip.Height) / 2, EdgeMargin, Math.Max(EdgeMargin, window.Height - tip.Height - EdgeMargin));
-            return (PlacementMode.Right, Gap, top - box.Top);
-        }
-
-        // Below the control, or above when the window ends first.
-        var above = box.Bottom + Gap + tip.Height > window.Height - EdgeMargin && box.Top - Gap - tip.Height >= EdgeMargin;
-        var left = Math.Clamp(box.Left + (box.Width - tip.Width) / 2, EdgeMargin, Math.Max(EdgeMargin, window.Width - tip.Width - EdgeMargin));
-        return above
-            ? (PlacementMode.Top, left - box.Left, -Gap)
-            : (PlacementMode.Bottom, left - box.Left, Gap);
+            TipPlacement.Side.Right => PlacementMode.Right,
+            TipPlacement.Side.Above => PlacementMode.Top,
+            _ => PlacementMode.Bottom,
+        }, x, y);
     }
 }

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Media;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Mods;
 using OriginLauncher.App.Core.Models;
@@ -10,9 +11,10 @@ using OriginLauncher.Mac.UI.Pages;
 namespace OriginLauncher.Mac;
 
 // The Mods and Profiles tabs (twin of the WPF MainWindow.NavigateTo for those two pages): each page is built on its
-// first visit, shown at once (screens open instantly: no entrance animation, no per-open load before the first frame),
-// and re-reads what may have changed elsewhere right after that frame. Home shows the clear art and the numeral;
-// every other page sits on it dimmed, under the bar's opaque surface.
+// first visit, shown at once (screens open instantly: no per-open load before the first frame; the page is readable on
+// its first frame and glides the last 10 px in from the side it was clicked from, AnimatePageIn), and re-reads what may
+// have changed elsewhere right after that frame. Home shows the clear art and the numeral; every other page sits on it
+// dimmed, under the bar's opaque surface.
 public sealed partial class MainWindow
 {
     internal enum LauncherPage { Home, Mods, Profiles, Settings }
@@ -61,6 +63,7 @@ public sealed partial class MainWindow
         // KeepOneTab then checks Home, so Mods -> Profiles lit both Home and Profiles.
         SelectTab(TabOf(page));
         if (page == _currentPage && PageHost.Content != null) return;
+        var direction = Math.Sign((int)page - (int)_currentPage);
         _currentPage = page;
 
         // Only what the page's FIRST frame must show happens before it appears: a page pointed at another version
@@ -90,6 +93,7 @@ public sealed partial class MainWindow
         PageHost.Content = content;
         Stage.SetPage(home: page == LauncherPage.Home);
         SetBarSurface(solid: page != LauncherPage.Home);
+        AnimatePageIn(direction == 0 ? 1 : direction);
         PlaceToasts(); // the strip gap is Home's only
 
         // The rest of the refresh (settings and file reads, row rebuilds) runs after this frame, and only if no newer
@@ -131,12 +135,51 @@ public sealed partial class MainWindow
         }
     }
 
-    // The bar's surface: opaque on every page but Home, the nav colour at 88 % (BarGlass) over the art on Home.
+    // The bar's surface: opaque on every page but Home, the nav colour at 88 % (BarGlass) over the art on Home; both
+    // fade away with the bar under the launch screen (the WPF SetBarSurface / ApplyBarSurface / SetTopBarHidden, the
+    // same durations and curve).
+    private bool _barSolid;
+    private bool _barHidden;
+
     private void SetBarSurface(bool solid)
     {
-        MotionFx.Run(BarSurface, OpacityProperty, BarSurface.Opacity, solid ? 1 : 0, 260);
-        MotionFx.Run(BarGlass, OpacityProperty, BarGlass.Opacity, solid ? 0 : 1, 260);
+        _barSolid = solid;
+        ApplyBarSurface(260);
     }
+
+    private void ApplyBarSurface(int ms)
+    {
+        MotionFx.Run(BarSurface, OpacityProperty, BarSurface.Opacity, _barSolid && !_barHidden ? 1 : 0, ms);
+        MotionFx.Run(BarGlass, OpacityProperty, BarGlass.Opacity, !_barSolid && !_barHidden ? 1 : 0, ms);
+    }
+
+    private void SetTopBarHidden(bool hidden)
+    {
+        TopBar.IsHitTestVisible = !hidden;
+        MotionFx.Run(TopBar, OpacityProperty, TopBar.Opacity, hidden ? 0 : 1, hidden ? 200 : 320);
+        _barHidden = hidden;
+        ApplyBarSurface(hidden ? 200 : 320);
+    }
+
+    // The page's entrance (the WPF AnimatePageIn, the same numbers): opacity 0.85 -> 1 and 10 px from the side of the
+    // tab clicked (direction +1 = a tab to the right) to 0, Motion.Base, quintic ease-out. Short and front-loaded, so the
+    // page is readable on its first frame; a click during it restarts it from the new page (MotionFx replaces the run).
+    private readonly TranslateTransform _pageShift = new();
+
+    private void AnimatePageIn(int direction)
+    {
+        var ms = (int)UI.Res.Get<TimeSpan>("Motion.Base").TotalMilliseconds;
+        MotionFx.Run(PageHost, OpacityProperty, 0.85, 1, ms);
+        MotionFx.Run(PageHost, _pageShift, TranslateTransform.XProperty, direction * 10, 0, ms);
+    }
+
+    // ---- --motion-check (MotionCheck.cs): the page entrance, the bar and the art tier right now ----
+    internal (double Opacity, double ShiftX) MotionPage => (PageHost.Opacity, _pageShift.X);
+    internal (double Bar, double Surface, double Glass, bool TakesClicks) MotionBar =>
+        (TopBar.Opacity, BarSurface.Opacity, BarGlass.Opacity, TopBar.IsHitTestVisible);
+    internal int MotionArtTier => Stage.ShownTier;
+    internal LauncherPage MotionCurrentPage => _currentPage;
+    internal void TourSetTopBarHidden(bool hidden) => SetTopBarHidden(hidden);
 
     // ---- Render shots (AreaBShots): made-up rows and profiles, never the player's files or settings ----
 

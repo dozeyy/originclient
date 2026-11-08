@@ -116,8 +116,9 @@ internal sealed class PopupMenu
         _popup.IsOpen = true;
         Card.Focus();
         var enter = (int)Res.Get<TimeSpan>("Motion.Enter").TotalMilliseconds;
-        _ = MotionFx.Run(Card, Visual.OpacityProperty, 0, 1, enter);
-        _ = MotionFx.Run(Card, _rise, TranslateTransform.YProperty, 4, 0, enter);
+        // WPF Theme/Menus.xaml: the fade has no easing, the rise eases out (cubic).
+        _ = MotionFx.Run(Card, Visual.OpacityProperty, 0, 1, enter, MotionFx.Linear);
+        _ = MotionFx.Run(Card, _rise, TranslateTransform.YProperty, 4, 0, enter, MotionFx.Cubic);
     }
 
     /// <summary>Closes without running anything.</summary>

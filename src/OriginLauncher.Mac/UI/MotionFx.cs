@@ -16,8 +16,24 @@ namespace OriginLauncher.Mac.UI;
 /// </summary>
 internal static class MotionFx
 {
-    public static readonly Easing Out = new CubicEaseOut();
-    public static readonly Easing Back = new BackEaseOut();
+    // The WPF launcher's own curves (src/OriginLauncher.App/UI/Motion.cs), so a slide or a landing moves the same on
+    // every OS: Out is WPF Motion.Out (quintic ease-out), Back is WPF Motion.Back (BackEase, amplitude 0.45; Avalonia's
+    // BackEaseOut overshoots with amplitude 1, twice as far). Cubic is the drawers' and the sign-in card's slide/scale
+    // (WPF: new CubicEase EaseOut there), Linear their scrim and fade (WPF: a DoubleAnimation with no easing).
+    public static readonly Easing Out = new QuinticEaseOut();
+    public static readonly Easing Back = new WpfBackEaseOut(0.45);
+    public static readonly Easing Cubic = new CubicEaseOut();
+    public static readonly Easing Linear = new LinearEasing();
+
+    /// <summary>WPF's BackEase in EaseOut mode: 1 - f(1 - t) with f(t) = t^3 - t * amplitude * sin(pi * t).</summary>
+    private sealed class WpfBackEaseOut(double amplitude) : Easing
+    {
+        public override double Ease(double progress)
+        {
+            var t = 1 - progress;
+            return 1 - (t * t * t - t * amplitude * Math.Sin(Math.PI * t));
+        }
+    }
 
     // The run in flight per (object, property): the next run cancels it, so two runs never fight over one value and a
     // cancelled run never writes its stale end value over the newer one.

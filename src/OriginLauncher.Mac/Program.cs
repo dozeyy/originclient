@@ -108,6 +108,11 @@ internal static class Program
         };
         TaskScheduler.UnobservedTaskException += (_, e) => e.SetObserved();
 
+        // Follow the Mac's "Reduce motion" (Accessibility > Display), as the Windows launcher follows "Show animations
+        // in Windows": every transition and code-driven motion goes, the screens stay the same. Read before the app
+        // starts, because App.Initialize applies the switch to the theme once.
+        if (MacNative.ReduceMotion()) Motion.Off = true;
+
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

@@ -10,9 +10,6 @@
         Theme/Social.axaml; a key both files carry has the same value in both (the later merged file wins, harmlessly).
     -->
 
-    <!-- The Done page's "Nothing was changed in your other launchers" line (the WPF ImportPanel.xaml's own resource). -->
-    <StreamGeometry x:Key="Import.Icon.Shield">M12,3 L5,6 L5,11 C5,15.5 8,19 12,21 C16,19 19,15.5 19,11 L19,6 Z M9,12 L11,14 L15,10</StreamGeometry>
-
     <x:Double x:Key="Social.AvatarSize">32</x:Double>
     <c:CardCornersConverter x:Key="Social.CardCorners"/>
 
@@ -257,6 +254,23 @@
         </Style>
         <Style Selector="^:disabled">
             <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </ControlTheme>
+
+    <!-- The WPF Theme/Social.xaml's Import button styles, twinned so a ported screen finds every key Windows has. -->
+    <ControlTheme x:Key="Import.Primary" TargetType="Button" BasedOn="{StaticResource Button.Primary.Medium}">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </ControlTheme>
+    <!-- Footer buttons: Small (32), centred in the footer, never stretched, 8 apart. -->
+    <ControlTheme x:Key="Import.FooterAction" TargetType="Button" BasedOn="{StaticResource Social.Action}"/>
+    <!-- Disabled, the primary drops its emerald for the secondary's surface at full strength (the WPF template swap):
+         a faded emerald still read brighter than the enabled DETAILS beside it, so "off" looks off. -->
+    <ControlTheme x:Key="Import.FooterPrimary" TargetType="Button" BasedOn="{StaticResource Social.ActionPrimary}">
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
         </Style>
     </ControlTheme>
 

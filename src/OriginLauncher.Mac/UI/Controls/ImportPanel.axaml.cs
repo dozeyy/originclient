@@ -3134,32 +3134,16 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         return fresh;
     }
 
-    // A spinner turns once every 900 ms until stopped (its RenderTransform is a RotateTransform in the XAML). Motion off
-    // (render-shots): it stays still.
-    private readonly Dictionary<Control, CancellationTokenSource> _spins = new();
-
+    // A spinner turns once every 900 ms until stopped (its RenderTransform is a RotateTransform in the XAML): the
+    // "spinning" class switches on the style animation in the XAML (Home's Play spinner works the same way). Not
+    // Animation.RunAsync: Avalonia refuses a looping animation there ("Looping animations must not use the Run
+    // method") and faults the task it returns. Motion off (render-shots, Reduce motion): it stays still.
     private void StartSpin(Control spinner)
     {
-        if (Motion.Off || _spins.ContainsKey(spinner)) return;
-        var cts = new CancellationTokenSource();
-        _spins[spinner] = cts;
-        var turn = new Avalonia.Animation.Animation
-        {
-            Duration = TimeSpan.FromMilliseconds(900),
-            IterationCount = Avalonia.Animation.IterationCount.Infinite,
-            Children =
-            {
-                new Avalonia.Animation.KeyFrame { Cue = new Avalonia.Animation.Cue(0), Setters = { new Setter(RotateTransform.AngleProperty, 0d) } },
-                new Avalonia.Animation.KeyFrame { Cue = new Avalonia.Animation.Cue(1), Setters = { new Setter(RotateTransform.AngleProperty, 360d) } },
-            },
-        };
-        _ = turn.RunAsync(spinner, cts.Token);
+        if (!Motion.Off) spinner.Classes.Add("spinning");
     }
 
-    private void StopSpin(Control spinner)
-    {
-        if (_spins.Remove(spinner, out var cts)) cts.Cancel();
-    }
+    private void StopSpin(Control spinner) => spinner.Classes.Remove("spinning");
 
     private void StopSpinners()
     {
