@@ -26,6 +26,13 @@ public sealed class TopBar : Border
     private readonly Image _wordmark;
     private readonly IconView _brandArrow;
     private readonly Pressable _update;
+    private readonly TextBlock _updateLabel;
+    private string? _updateNote;
+    // The bar's two surfaces (WPF BarSurface / BarGlass): opaque on every page but Home, colour.nav at 88 % over the art
+    // on Home; a page switch crossfades them over 260 ms, quintic out (WPF MainWindow.SetBarSurface).
+    private readonly Border _solid = new() { Opacity = 0 };
+    private readonly Border _glass = new() { Background = Palette.Nav };
+    private readonly Tween _solidMotion, _glassMotion;
     private readonly Pressable _updateIcon;
     private readonly Pressable _store;
     private readonly TextBlock _storeLabel;
@@ -98,8 +105,9 @@ public sealed class TopBar : Border
         }
 
         // Right group (pad 8, gaps 4).
+        _updateLabel = Ui.BodyStrong("Update", Palette.HueGold);
         _update = new Pressable(Look.Ghost,
-            Ui.Row(6, Ui.Icon(Icons.Download, Sizes.Icon, Palette.HueGold), Ui.BodyStrong("Update", Palette.HueGold)),
+            Ui.Row(6, Ui.Icon(Icons.Download, Sizes.Icon, Palette.HueGold), _updateLabel),
             "Update ready: restart to install")
         {
             Height = Sizes.ControlMd, Padding = new Thickness(10, 0), CornerRadius = new CornerRadius(Radius.Sm),
@@ -175,10 +183,14 @@ public sealed class TopBar : Border
         row.Children.Add(_right.At(2));
         _tabRow.HorizontalAlignment = HorizontalAlignment.Center;
         _tabRow.Margin = new Thickness(24, 0);
-        Child = row;
-        // Clicks on empty bar space drag the window; every control inside handles its own press first.
+        _solid.Background = new SolidColorBrush(Color.FromRgb(Palette.Nav.Color.R, Palette.Nav.Color.G, Palette.Nav.Color.B));
+        _solidMotion = new Tween(_solid, opacityEasing: Motion.Out);
+        _glassMotion = new Tween(_glass, opacityEasing: Motion.Out);
+        Child = new Panel { Children = { _solid, _glass, row } };
+        // Clicks on empty bar space drag the window; every control inside handles its own press first. The surfaces
+        // draw the colour, so the bar itself is transparent (but still hit-tested for the drag).
         PointerPressed += (_, e) => { if (!e.Handled) _window.DragFrom(e); };
-        Background = Palette.Nav;
+        Background = Brushes.Transparent;
         LauncherState.UpdateChanged += () => Fit(_window.Bounds.Width);
     }
 
@@ -197,7 +209,31 @@ public sealed class TopBar : Border
             if (k == key) Avalonia.Controls.Documents.TextElement.SetForeground(tab, Palette.Text);
         }
         // Home: the nav at 88 % over the art; every other page: opaque, so a scrolled page never reads through.
-        Background = key == PageKey.Home ? Palette.Nav : new SolidColorBrush(Color.FromRgb(Palette.Nav.Color.R, Palette.Nav.Color.G, Palette.Nav.Color.B));
+        var home = key == PageKey.Home;
+        _solidMotion.To(Motion.Ms(260), opacity: home ? 0 : 1);
+        _glassMotion.To(Motion.Ms(260), opacity: home ? 1 : 0);
+    }
+
+    /// <summary>
+    /// The update chip's one short line in place of "Update" (WPF ShowUpdateNote): "Updating..." while it downloads off
+    /// Home's scene, "Update failed - retry" in the warning colour after a failure; null puts "Update" back. A note shows
+    /// the full chip at every width, so the words are never hidden behind the compact icon.
+    /// </summary>
+    public void SetUpdateNote(string? text, IBrush? brush = null)
+    {
+        _updateNote = text;
+        _updateLabel.Text = text ?? "Update";
+        _updateLabel.Foreground = text == null ? Palette.HueGold : brush ?? Palette.TextDim;
+        Avalonia.Automation.AutomationProperties.SetName(_update, text == "Update failed - retry"
+            ? "Update failed, retry" : "Update ready: restart to install");
+        Fit(_window.Bounds.Width);
+    }
+
+    /// <summary>The chip takes no clicks while its download runs (WPF UpdateBadge.IsEnabled).</summary>
+    public void SetUpdateEnabled(bool enabled)
+    {
+        _update.IsEnabled = enabled;
+        _updateIcon.IsEnabled = enabled;
     }
 
     /// <summary>Show friends online (the small dot on the Friends button).</summary>
@@ -272,8 +308,9 @@ public sealed class TopBar : Border
     {
         if (width <= 0) return;
         var update = LauncherState.UpdateVersion != null;
-        _update.IsVisible = update && width >= Sizes.UpdateChipMinWindow;
-        _updateIcon.IsVisible = update && width < Sizes.UpdateChipMinWindow;
+        var wide = width >= Sizes.UpdateChipMinWindow || _updateNote != null;
+        _update.IsVisible = update && wide;
+        _updateIcon.IsVisible = update && !wide;
         _wordmark.IsVisible = width >= Sizes.WordmarkMinWindow;
         _storeLabel.IsVisible = true;
         Measure(new Avalonia.Size(width, Sizes.Bar));

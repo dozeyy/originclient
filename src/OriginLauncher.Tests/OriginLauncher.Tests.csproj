@@ -101,6 +101,8 @@
     <Compile Include="..\OriginLauncher.App\UI\PageSwitch.cs" LinkBase="UI" />
     <!-- Where the window opens: the designed size shrunk into the monitor's work area, centred (pure). -->
     <Compile Include="..\OriginLauncher.App\UI\WindowFit.cs" LinkBase="UI" />
+    <!-- The Linux launcher's desktop rules: which window "Switch to Minecraft" picks, "animations off", no X display (pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Desktop\GameWindowPick.cs;..\OriginLauncher.App\Core\Desktop\ReduceMotion.cs;..\OriginLauncher.App\Core\Desktop\WindowSession.cs" LinkBase="Desktop" />
     <!-- Only the top folder: Core/GameFolders/Launcher is the account/settings glue. -->
     <Compile Include="..\OriginLauncher.App\Core\GameFolders\*.cs" LinkBase="GameFolders" />
     <!-- When the launcher signs in to Minecraft: per-account session reuse, expiry,

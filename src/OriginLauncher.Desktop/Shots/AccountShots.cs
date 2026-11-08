@@ -2,6 +2,7 @@ using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Social;
 using OriginLauncher.Desktop.Overlays;
 using OriginLauncher.Desktop.Shell;
+using OriginLauncher.Desktop.Theme;
 
 namespace OriginLauncher.Desktop.Shots;
 
@@ -34,14 +35,12 @@ public static class AccountShots
 
         yield return new Shot("06b-sign-in", w => SignIn(w).ShowLoading());
         yield return new Shot("06c-sign-in-message", w => SignIn(w).ShowMessage("Couldn't add this account", "Couldn't save this account. Please try again."));
-        yield return new Shot("06d-sign-in-browser", w => SignIn(w).ShowBrowser(openNow: false));
-        yield return new Shot("06e-sign-in-paste-error", w =>
-        {
-            var card = SignIn(w);
-            card.ShowBrowser(openNow: false);
-            card.ShowPasteError("https://login.live.com/oauth20_desktop.srf?lc=1033",
-                "That address has no sign-in code yet. Copy it once the page has finished.");
-        });
+        // Microsoft's page can't open in the card (no WebKitGTK, a broken one): sign in with a code (Windows' name).
+        yield return new Shot("06d-sign-in-code", w => SignIn(w).TourShowCode("ABCD-EFGH", "https://www.microsoft.com/link"));
+        // Update clicked while a game is open: the scene waits for Minecraft to close, with Cancel and the top bar.
+        yield return new Shot("06e-update-waiting-for-game", w => UpdatePrompt.TourScene(w, "1.0.99", waitingForGame: true));
+        yield return new Shot("06e2-update-downloading", w => UpdatePrompt.TourScene(w, "1.0.99", waitingForGame: false));
+        yield return new Shot("06e3-update-failed-chip", w => w.Bar.SetUpdateNote("Update failed - retry", Palette.Warning));
         yield return new Shot("06f-sign-in-finishing", w => SignIn(w).ShowLoading("Finishing sign-in..."));
         yield return new Shot("dpi-sign-in-loading-1180x740-100pct", w => SignIn(w).ShowLoading());
         yield return new Shot("dpi-sign-in-message-1180x740-100pct", w =>

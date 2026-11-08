@@ -101,7 +101,7 @@ public static class CrashReporter
         return sb.ToString().TrimEnd();
     }
 
-    private static string? TryWriteLog(string report)
+    internal static string? TryWriteLog(string report)
     {
         try
         {

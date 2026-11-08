@@ -26,6 +26,8 @@
          numeral band rule, family names, toast queue, keyed list diff, head fit, page switch, rail spy. -->
     <Compile Include="$(OriginAppDir)UI\FamilyTheme.cs" Link="Shared\UI\FamilyTheme.cs" />
     <Compile Include="$(OriginAppDir)UI\PageSwitch.cs" Link="Shared\UI\PageSwitch.cs" />
+    <!-- Where the window opens: the designed size shrunk into the screen's work area and centred (Shell/MainWindow). -->
+    <Compile Include="$(OriginAppDir)UI\WindowFit.cs" Link="Shared\UI\WindowFit.cs" />
     <Compile Include="$(OriginAppDir)UI\SelectorFakeInstalls.cs" Link="Shared\UI\SelectorFakeInstalls.cs" />
     <Compile Include="$(OriginAppDir)UI\Controls\NumeralBand.cs" Link="Shared\UI\Controls\NumeralBand.cs" />
     <Compile Include="$(OriginAppDir)UI\Controls\VersionSelectModel.cs" Link="Shared\UI\Controls\VersionSelectModel.cs" />
@@ -41,6 +43,8 @@
     <!-- The one token source (read by Theme/Tokens.cs and Theme/Icons.cs). -->
     <EmbeddedResource Include="$(OriginAppDir)Theme\Colors.xaml" LogicalName="Origin.Theme.Colors.xaml" Link="Desktop\Theme\Colors.xaml" />
     <EmbeddedResource Include="$(OriginAppDir)Theme\Icons.xaml" LogicalName="Origin.Theme.Icons.xaml" Link="Desktop\Theme\Icons.xaml" />
+    <!-- The motion durations (Motion.* in Spacing.xaml, read by Theme/Tokens.cs Motion): Linux moves as long as Windows. -->
+    <EmbeddedResource Include="$(OriginAppDir)Theme\Spacing.xaml" LogicalName="Origin.Theme.Spacing.xaml" Link="Desktop\Theme\Spacing.xaml" />
 
     <!-- Art, brand files (the ONLY logo files: origin_logo.png and wordmark.png), launcher logos, promo art, Inter. -->
     <AvaloniaResource Include="$(OriginAppDir)Assets\Art\*.jpg"
