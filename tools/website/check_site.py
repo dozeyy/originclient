@@ -166,9 +166,10 @@ def copy_problems() -> list[str]:
     for name in re.findall(r"releases/latest/download/([^\"']+)", index):
         if name not in site_js:
             out.append(f"index.html links {name}, which site.js doesn't offer")
+    # Only while the page has the "N reasons" card bento: its heading must count the cards.
     bento = len(re.findall(r'<li class="bcard ', index))
     words = {4: "Four", 5: "Five", 6: "Six", 7: "Seven"}
-    if f"<h2>{words.get(bento, bento)} reasons." not in index:
+    if bento and f"<h2>{words.get(bento, bento)} reasons." not in index:
         out.append(f"index.html: the Why heading must count the {bento} cards")
     return out
 
