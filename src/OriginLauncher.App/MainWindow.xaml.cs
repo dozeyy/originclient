@@ -293,13 +293,14 @@ public partial class MainWindow : Window
         var stopWaiting = new CancellationTokenSource();
         Action cancelWait = () => stopWaiting.Cancel();
         _homePage.UpdateWaitCancelRequested += cancelWait;
+        // Taken here so only the click the prompt made carries it; the chip on its own never starts a game. A failed
+        // download puts it back (below), so "Update failed - retry" still plays afterwards, as on Linux (PAR3-7).
+        var playAfter = _playAfterUpdate;
+        _playAfterUpdate = null;
         try
         {
             // Downloads + stages the new build, then shuts this process down;
             // the swap script relaunches the updated launcher.
-            // Taken here so only the click the prompt made carries it; the chip on its own never starts a game.
-            var playAfter = _playAfterUpdate;
-            _playAfterUpdate = null;
             await UpdateService.DownloadAndRestartAsync(progress, stopWaiting.Token, playAfter);
         }
         catch (OperationCanceledException) when (stopWaiting.IsCancellationRequested)
@@ -326,6 +327,7 @@ public partial class MainWindow : Window
             UpdateBadge.IsEnabled = true;
             // Visible, not a hover label: the badge says it failed and that a click retries.
             ShowUpdateNote("Update failed - retry", "Brush.Warning");
+            _playAfterUpdate ??= playAfter; // the retry is still the "Update and play" the player asked for
             System.Windows.Automation.AutomationProperties.SetName(UpdateBadge, "Update failed, retry");
         }
         finally
