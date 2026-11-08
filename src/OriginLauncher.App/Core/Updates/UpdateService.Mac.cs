@@ -19,7 +19,10 @@ namespace OriginLauncher.App.Core.Updates;
 // failed anyway leaves a marker, so the next attempt at that version refuses before quitting too.
 public static partial class UpdateService
 {
-    private static readonly string ReleaseZipPrefix = MacReleaseAssets.ZipPrefixFor(RuntimeInformation.ProcessArchitecture);
+    // The machine's CPU (PlatformLaunch.HostArch, right under Rosetta too), so the Intel build on an Apple Silicon Mac
+    // updates itself to the Apple Silicon app (MacReleaseAssets.ZipPrefixForUpdate).
+    private static readonly string ReleaseZipPrefix =
+        MacReleaseAssets.ZipPrefixForUpdate(RuntimeInformation.ProcessArchitecture, Launch.PlatformLaunch.HostArch);
 
     internal static readonly string ReleaseAssetName = ReleaseZipPrefix + ".zip";
 

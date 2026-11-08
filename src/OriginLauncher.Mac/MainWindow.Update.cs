@@ -46,6 +46,10 @@ public sealed partial class MainWindow
         // Raised from whichever thread finished the check.
         UpdateService.AvailableChanged += (_, _) => Dispatcher.UIThread.Post(ShowUpdateState);
         if (OriginPaths.IsScratchRoot) return;
+        // The Intel build under Rosetta on an Apple Silicon Mac: once per start, offer the Apple Silicon download (its
+        // sign-in web view crashes under Rosetta). The next self-update installs the Apple Silicon app by itself
+        // (MacReleaseAssets.ZipPrefixForUpdate); this covers the time until a newer release exists.
+        Opened += (_, _) => _ = OfferNativeBuildAsync();
 
         // "Update and play" (JL-5): the Play the required update refused starts once the window is up, no second click.
         Opened += (_, _) =>
@@ -62,6 +66,15 @@ public sealed partial class MainWindow
             _lastFocusCheck = now;
             await UpdateService.CheckAsync();
         };
+    }
+
+    private async Task OfferNativeBuildAsync()
+    {
+        var notice = MacReleaseAssets.NativeBuildNotice(System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture,
+            OriginLauncher.App.Core.Launch.PlatformLaunch.HostArch);
+        if (notice is not { } n) return;
+        if (await Confirm.ShowAsync(n.Title, n.Message, n.Download, n.Later))
+            OriginLauncher.App.Core.Promos.ExternalLink.Open(MacReleaseAssets.AppleSiliconDownload);
     }
 
     // Lives for the app's lifetime; quitting ends it. CheckAsync never throws (an unreachable feed fails open).

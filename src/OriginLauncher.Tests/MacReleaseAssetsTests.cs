@@ -82,6 +82,28 @@ public sealed class MacReleaseAssetsTests : IDisposable
         Assert.True(File.Exists(winOld));
     }
 
+    // MAC-4: the Intel build under Rosetta (process X64, machine Arm64) updates to the Apple Silicon zip and says so
+    // once; a build that matches its machine keeps its own zip and shows nothing.
+    [Theory]
+    [InlineData(Architecture.Arm64, Architecture.Arm64, "OriginLauncher-osx-arm64")]
+    [InlineData(Architecture.X64, Architecture.X64, "OriginLauncher-osx-x64")]
+    [InlineData(Architecture.X64, Architecture.Arm64, "OriginLauncher-osx-arm64")]
+    public void An_update_takes_the_zip_for_the_machines_cpu(Architecture process, Architecture machine, string prefix)
+    {
+        Assert.Equal(prefix, MacReleaseAssets.ZipPrefixForUpdate(process, machine));
+        Assert.Single(Matches(MacReleaseAssets.ZipPrefixForUpdate(process, machine) + ".zip"));
+        Assert.Equal(process == Architecture.X64 && machine == Architecture.Arm64,
+            MacReleaseAssets.NativeBuildNotice(process, machine) != null);
+    }
+
+    [Fact]
+    public void The_apple_silicon_download_is_a_released_disk_image()
+    {
+        Assert.Single(Matches(MacReleaseAssets.AppleSiliconDmg));
+        Assert.Single(Matches(MacReleaseAssets.IntelDmg));
+        Assert.EndsWith("/releases/latest/download/" + MacReleaseAssets.AppleSiliconDmg, MacReleaseAssets.AppleSiliconDownload.AbsoluteUri);
+    }
+
     private string Touch(string name)
     {
         var p = Path.Combine(_dir, name);

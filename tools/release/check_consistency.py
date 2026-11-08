@@ -264,9 +264,11 @@ def check_mac_release() -> list[str]:
     if not re.search(r'Architecture\.Arm64\s*=>\s*AppleSiliconZipPrefix', assets) \
             or not re.search(r'Architecture\.X64\s*=>\s*IntelZipPrefix', assets):
         return ["MacReleaseAssets.ZipPrefixFor no longer maps Arm64 -> AppleSiliconZipPrefix and X64 -> IntelZipPrefix"]
-    if not re.search(r'ReleaseZipPrefix\s*=\s*MacReleaseAssets\.ZipPrefixFor\(RuntimeInformation\.ProcessArchitecture\)', mac_svc) \
+    # ZipPrefixForUpdate(process, machine): the machine's CPU wins under Rosetta (MAC-4), and it maps through ZipPrefixFor.
+    if not re.search(r'ReleaseZipPrefix\s*=\s*MacReleaseAssets\.ZipPrefixForUpdate\(RuntimeInformation\.ProcessArchitecture,\s*Launch\.PlatformLaunch\.HostArch\)', mac_svc) \
+            or not re.search(r'ZipPrefixForUpdate\([^)]*\)\s*=>\s*ZipPrefixFor\(', assets) \
             or not re.search(r'ReleaseAssetName\s*=\s*ReleaseZipPrefix\s*\+\s*"\.zip"', mac_svc):
-        return ["UpdateService.Mac.cs no longer takes its zip name from MacReleaseAssets.ZipPrefixFor (update check_mac_release)"]
+        return ["UpdateService.Mac.cs no longer takes its zip name from MacReleaseAssets.ZipPrefixForUpdate (update check_mac_release)"]
 
     problems: list[str] = []
     # The build matrix: each rid builds exactly the zip and disk image named for it.

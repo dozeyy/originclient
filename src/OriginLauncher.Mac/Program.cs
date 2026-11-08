@@ -11,11 +11,12 @@ internal static class Program
     //   --self-test [--network]              checks the Mac seams; exit 0 (all passed) or 1.
     //   --render-shots <dir>                 draws every built screen to PNGs headless (made-up data, exits by itself).
     //   --launch-plan <version> [--root dir] prepares a launch without starting the game (LaunchPlan).
-    //       [--start-game]                   CI only: then starts it until Minecraft's own code logs, and stops it.
+    //       [--start-game]                   CI only: then starts it until the game window is on screen, and stops it.
     //   --play-plan <version> [--root dir]   presses the Home Play button headless, stops before the game starts (PlayPlan).
     //   --motion-check [--root dir]          runs the launcher's animations with motion ON, headless (MotionCheck).
     //   --list-versions                      the versions the picker offers, one per line.
     //   --update-proof <loopback feed> --root dir --expect <outcome>   CI: the self-update against a local fake release (UpdateProof).
+    //   --update-asset                       CI: which release zip this copy updates to, and whether it runs under Rosetta.
     // Anything else opens the launcher window (--signin-probe <dir>, CI only, opens just the sign-in card's window).
     [STAThread]
     private static int Main(string[] args)
@@ -30,6 +31,8 @@ internal static class Program
             return PlayPlan.Run(playVersion, ValueOf(args, "--root"));
         if (args.Contains("--motion-check"))
             return MotionCheck.Run(ValueOf(args, "--root"));
+        if (args.Contains("--update-asset"))
+            return UpdateProof.PrintAsset();
         if (ValueOf(args, "--update-proof") is { } feedUrl)
             return UpdateProof.Run(feedUrl, ValueOf(args, "--root"), ValueOf(args, "--expect"));
 
