@@ -172,8 +172,6 @@ body.menu-open .top { background: var(--panel); box-shadow: none; transform: non
 .hero__also:hover::after { transform: rotate(45deg) translate(2px, 0); }
 .hero__also[hidden] { display: none; }
 /* A small capsule chip: it sits on the warm low sun, so it carries its own dark tone for contrast. */
-.hero__note { position: absolute; right: var(--pad); bottom: 24px; display: inline-flex; align-items: center; height: 34px; margin: 0; padding: 0 16px 0 14px; border-radius: 17px; background: rgb(14 17 16 / .78); box-shadow: 0 0 0 1px var(--soft); color: var(--dim); font: 400 14px/1 var(--sans); }
-.hero__note::before { content: ""; width: 6px; height: 6px; margin-right: 10px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 0 3px rgba(95, 208, 155, .18); }
 
 /* one entrance, once: the headline lines settle, then the rest follows */
 @media (prefers-reduced-motion: no-preference) {
@@ -200,18 +198,12 @@ body.menu-open .top { background: var(--panel); box-shadow: none; transform: non
 .frame::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07); pointer-events: none; }
 figure { margin: 0; }
 figcaption { margin-top: 14px; color: var(--text); font-size: 15px; font-weight: 560; }
-figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sans); }
 
-/* the launcher: the screenshot (at most 960 px, its own pixels on a 2x screen) with three numbered
-   marks on it, and the matching numbered list beside it */
+/* the launcher: the screenshot (at most 960 px, its own pixels on a 2x screen) and a short list
+   of its three parts beside it (Will, 2026-11-08: no numbered marks on the shot or the list) */
 .product { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 1fr); gap: clamp(28px, 3.2vw, 48px); align-items: end; }
-.mark {
-  position: absolute; left: var(--x); top: var(--y); display: grid; place-items: center; width: 26px; height: 26px; margin: -13px 0 0 -13px;
-  border-radius: 50%; background: var(--acc); color: var(--on-acc); font: 700 13px/1 var(--sans); box-shadow: 0 0 0 4px rgba(95, 208, 155, .22), 0 2px 8px rgba(0, 0, 0, .5);
-}
-.callouts { list-style: none; counter-reset: c; margin: 0; padding: 0; border-top: 1px solid var(--stroke); }
-.callouts li { counter-increment: c; position: relative; padding: 16px 0 18px 40px; border-bottom: 1px solid var(--soft); color: var(--dim); font-size: 15.5px; line-height: 1.5; }
-.callouts li::before { content: counter(c); position: absolute; left: 0; top: 17px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--acc-soft); box-shadow: inset 0 0 0 1px var(--acc-border); color: var(--acc-h); font: 700 12.5px/1 var(--sans); }
+.callouts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--stroke); }
+.callouts li { padding: 16px 0 18px; border-bottom: 1px solid var(--soft); color: var(--dim); font-size: 15.5px; line-height: 1.5; }
 .callouts b { display: block; color: var(--text); font-weight: 620; margin-bottom: 2px; }
 
 /* the launcher frame settles into place as it scrolls into view (one authored motion moment) */
@@ -356,13 +348,11 @@ figcaption span { display: block; color: var(--dim); font: 400 14px/1.5 var(--sa
   .hero { align-items: flex-end; padding-bottom: 40px; }
   .hero::before { content: ""; position: absolute; inset: 40% 0 0; z-index: -1; background: linear-gradient(rgba(10, 13, 12, 0), rgba(10, 13, 12, .72) 45%); pointer-events: none; }
   .hero__copy { --col: min(100cqw, 600px); }
-  .hero__note { display: none; }
   .hero__title { font-size: clamp(40px, 11vw, 64px); }
   .hero__lede { margin-top: 18px; }
   .hero__actions { margin-top: 26px; }
   .product { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .callouts { display: block; }
-  .mark { width: 20px; height: 20px; margin: -10px 0 0 -10px; font-size: 11px; box-shadow: 0 0 0 3px rgba(95, 208, 155, .22), 0 2px 6px rgba(0, 0, 0, .5); }
   .island-band { display: block; height: 80svh; }
   .island-band + .chapter { padding-top: 8px; }
   .ingame__grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }

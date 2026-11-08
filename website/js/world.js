@@ -326,13 +326,21 @@ class Spring {
 
 const TAU = Math.PI * 2;
 const DUST_VERT = /* glsl */`
-  uniform float uTime; uniform float uScale; attribute float seed;
+  uniform float uTime; uniform float uScale; uniform vec4 uIsland; attribute float seed;
+  varying float vFade;
   void main() {
     vec3 p = position;
     // rises slowly, wrapping from the top of the void back to the bottom
     p.y = mod(p.y + 20.0 + uTime * 0.3, 40.0) - 20.0;
     p.x += sin(uTime * 0.2 + seed * 6.28) * 0.6;
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    // Dust stays in the void, never over the island (Will saw motes as specks floating over the
+    // grass): a mote in front of the island, closer to its line of sight than the island's
+    // radius, fades out. Motes behind it are already hidden by the depth test.
+    vec3 c = (modelViewMatrix * vec4(uIsland.xyz, 1.0)).xyz;
+    float along = dot(c, mv.xyz) / dot(mv.xyz, mv.xyz);
+    float off = length(c - mv.xyz * along);
+    vFade = along > 1.0 ? smoothstep(uIsland.w, uIsland.w + 3.0, off) : 1.0;
     gl_PointSize = 0.12 * uScale / -mv.z;
     gl_Position = projectionMatrix * mv;
   }`;
@@ -357,9 +365,11 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     t.minFilter = THREE.NearestMipmapLinearFilter;
     t.colorSpace = THREE.NoColorSpace;
     t.anisotropy = 4;
-    // repeat, not clamp: the water's scrolling UVs leave 0..1, and clamping
-    // smears the edge texels into lines across the surface
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    // Water repeats: its scrolling UVs leave 0..1, and clamping smears the edge texels into
+    // lines across the surface. Everything else clamps, like the game's atlas: with repeat, the
+    // filtered samples at a quad's top edge wrap round to the texture's bottom row, so every
+    // grass tuft and flower got a thin green line floating a block above it (Will, 2026-11-08).
+    t.wrapS = t.wrapT = n === 'water' ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
     textures[n] = t;
   }));
 
@@ -418,10 +428,10 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   const dustGeo = new THREE.BufferGeometry();
   dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
   dustGeo.setAttribute('seed', new THREE.BufferAttribute(dustSeed, 1));
-  const dustUniforms = { uTime: uniforms.uTime, uScale: { value: 400 } };
+  const dustUniforms = { uTime: uniforms.uTime, uScale: { value: 400 }, uIsland: { value: new THREE.Vector4(bounds.center.x, bounds.center.y, bounds.center.z, inner) } };
   const dustMat = new THREE.ShaderMaterial({
     uniforms: dustUniforms, vertexShader: DUST_VERT,
-    fragmentShader: 'void main() { float d = length(gl_PointCoord - 0.5); if (d > 0.5) discard; gl_FragColor = vec4(0.96, 0.86, 0.7, 0.42 * (1.0 - d * 2.0)); }',   // warm dust, lit by the low dusk sun
+    fragmentShader: 'varying float vFade; void main() { float d = length(gl_PointCoord - 0.5); if (d > 0.5 || vFade < 0.01) discard; gl_FragColor = vec4(0.96, 0.86, 0.7, 0.42 * vFade * (1.0 - d * 2.0)); }',   // warm dust, lit by the low dusk sun
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   });
   const dust = new THREE.Points(dustGeo, dustMat);
