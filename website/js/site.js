@@ -1,5 +1,5 @@
-// Origin website: hero -> versions -> why Origin -> download, over the island in
-// the sky (world.js). Scrolling blends the camera from one scene's pose to the
+// Origin website: hero -> the product (launcher + in game) -> versions -> cosmetics -> download,
+// over the island in the sky (world.js). Scrolling blends the camera from one scene's pose to the
 // next; the island is always drawn with its shader lighting.
 
 // ---------------------------------------------------------------------------
@@ -34,10 +34,6 @@ const ON_CHROMEOS = !ON_PHONE && (/CrOS/.test(UA) || /chrome ?os/i.test(UA_PLATF
 const ON_LINUX = !ON_PHONE && (ON_CHROMEOS || /linux/i.test(UA_PLATFORM || UA));
 const ON_MAC = DOWNLOAD.mac.live && !ON_PHONE && /mac/i.test(UA_PLATFORM);
 
-// Player screenshots for the "Straight from the game" section. The section
-// stays hidden while this is empty. Put images in website/assets/screens/.
-// e.g. { src: 'assets/screens/title-1.21.1.png', caption: 'Title screen · 1.21.1' }
-const SCREENSHOTS = [];
 // ---------------------------------------------------------------------------
 
 // Every live Minecraft version, grouped exactly like the launcher's picker
@@ -55,11 +51,15 @@ const VERSION_GROUPS = [
   { title: '1.8.9', tag: 'The Bountiful Update', versions: ['1.8.9'] },
 ];
 
-// Scenes top to bottom: [section id, world pose, how much to darken the island].
-// "why" darkens the island so the cards read over it.
-const SCENES = [['top', 'hero', 0], ['versions', 'versions', 0.9], ['why', 'why', 0.92], ['get', 'get', 0.2]];
+// Scenes top to bottom: [section id, world pose, how much the page colour covers the island].
+// The island opens the page (hero) and closes it (get); the content chapters in between sit on
+// the page's own colour, so the island rests under them.
+const SCENES = [['top', 'hero', 0], ['why', 'why', 1], ['versions', 'versions', 1], ['cosmetics', 'versions', 1], ['get', 'get', 0.08, 0.7]];
+// An optional 4th number delays a scene: its blend starts when its top is that far down the
+// screen (default 1 = as soon as it appears). Get waits until it is well up, so the island
+// never fades back in under the cosmetics shot.
 // From this shade on so little of the island shows that it is frozen instead of drawn
-// (the last frame stays on screen): phones scroll the glass cards over a still picture.
+// (the last frame stays on screen).
 const COVERED = 0.85;
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -107,6 +107,8 @@ async function initDownload() {
     // The HTML's own text is the live state (so the page works without JavaScript).
     $('[data-get-note]').textContent = 'Origin isn’t available to download just yet. This button lights up the day it is.';
     $('[data-get-main]').textContent = 'Download';
+    $('[data-hero-label]').textContent = 'Download';
+    $('[data-hero-sub]').textContent = 'Free · coming soon';
     return;
   }
   initGet(ON_PHONE ? 'phone' : ON_MAC ? (await macIsIntel() ? 'macIntel' : 'mac') : ON_CHROMEOS ? 'chromeos' : ON_LINUX ? 'linux' : 'win');
@@ -129,28 +131,37 @@ function allDownloads() {
 // says, and the lines around it. The Windows installer is small and fetches the rest itself,
 // so no size is quoted (one would drift with every release).
 const MAC_NOTE = 'Free for Mac as a beta, on macOS 15 or newer. The first open takes one extra step, shown below, and Origin keeps itself up to date.';
+// `hero` is the hero's own line under its button, `also` the quiet link to the other systems.
 const GET_COPY = {
   win: {
     file: 'win', button: 'Download for Windows', sub: 'Windows 10 & 11 · a small installer that fetches the rest',
     note: 'Free for Windows 10 and 11. Setup takes about a minute, and Origin keeps itself up to date.',
+    hero: 'Free · Windows 10 & 11 · small installer', also: 'Also for Mac <span class="badge">Beta</span> and Linux',
   },
-  mac: { file: 'mac', button: 'Download for Mac', sub: 'macOS 15 or newer · Apple Silicon (M1 and later)', note: MAC_NOTE },
-  macIntel: { file: 'macIntel', button: 'Download for Mac', sub: 'macOS 15 or newer · Intel Mac', note: MAC_NOTE },
+  mac: { file: 'mac', button: 'Download for Mac', sub: 'macOS 15 or newer · Apple Silicon (M1 and later)', note: MAC_NOTE,
+    hero: 'Free · macOS 15+ · Apple Silicon', also: 'Also for Windows and Linux' },
+  macIntel: { file: 'macIntel', button: 'Download for Mac', sub: 'macOS 15 or newer · Intel Mac', note: MAC_NOTE,
+    hero: 'Free · macOS 15+ · Intel', also: 'Also for Windows and Linux' },
   linux: {
     file: 'linux', button: 'Download for Linux', sub: 'AppImage · any 64-bit distro',
     note: 'Free for Linux on 64-bit PCs. Make the AppImage executable and open it, and Origin keeps itself up to date.',
+    hero: 'Free · AppImage · any 64-bit distro', also: 'Other Linux files, Windows and Mac <span class="badge">Beta</span>',
   },
   // Linux on a Chromebook installs from the .deb (64-bit Intel/AMD only, like every Linux build).
   chromeos: {
     file: 'linux .deb', button: 'Download for Chromebook', sub: '.deb · Chromebooks with an Intel or AMD chip',
     note: 'Turn on Linux in your Chromebook’s settings (under Developers), then open the download to install Origin.',
+    hero: 'Free · .deb · Intel or AMD Chromebooks', also: 'Other systems',
   },
   // A phone or tablet has nothing to download, so the big button shares the page to open on a computer.
   phone: {
     file: null, button: 'Share this page', sub: '',
     note: 'Origin is a launcher for Windows, Mac and Linux computers. Open originclient.org on your computer to download it.',
+    hero: 'Free · for Windows, Mac Beta and Linux PCs', also: '', heroButton: 'Get it on your computer',
   },
 };
+// The small download glyph at the end of each "other systems" row.
+const DOWN_GLYPH = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 9 10 13.5 14.5 9M4 17h12"/></svg>';
 
 function initGet(kind) {
   const all = allDownloads();
@@ -163,6 +174,11 @@ function initGet(kind) {
   // the download section instead, because the first open needs the Open Anyway steps there,
   // and so does a phone, which has nothing to download.
   for (const a of $$('[data-download]')) if (!a.closest('#get')) a.href = main && !mac ? main.href : '#get';
+  $('[data-hero-label]').innerHTML = (copy.heroButton || copy.button) + (main?.badge ? badge(main) : '');
+  $('[data-hero-sub]').textContent = copy.hero;
+  const also = $('[data-hero-also]');
+  also.innerHTML = copy.also;
+  also.hidden = !copy.also;
   const big = $('[data-get-main]');
   big.innerHTML = copy.button + (main ? badge(main) : '');
   if (main) big.href = main.href;
@@ -180,8 +196,9 @@ function initGet(kind) {
   if (main) {
     const others = all.filter(d => d !== main && d.os === main.os).concat(all.filter(d => d.os !== main.os));
     const row = $('[data-other-downloads]');
-    row.innerHTML = others.map(d => `<a href="${d.href}"><span>${d.label}</span>${badge(d)}<small>${d.note}</small></a>`).join('');
+    row.innerHTML = others.map(d => `<a href="${d.href}"><span>${d.label}${badge(d)}</span><small>${d.note}</small>${DOWN_GLYPH}</a>`).join('');
     row.hidden = false;
+    $('[data-others-wrap]').hidden = false;
   }
 
   if (!DOWNLOAD.mac.live) return;
@@ -238,22 +255,33 @@ async function pinMissingDownloads() {
   }
 }
 
+// The spec sheet: one row per family, newest first, straight from VERSION_GROUPS.
 function initVersions() {
-  $('[data-vgrid]').innerHTML = VERSION_GROUPS.map((g, i) => `<article class="vcard${g.versions.length > 6 ? ' vcard--wide' : ''}" data-reveal style="--i:${i % 4}">`
-    + `<header><h3>${g.title}</h3><span class="tag">${g.tag}</span></header>`
-    + `<ul>${g.versions.map(v => `<li>${v}</li>`).join('')}</ul></article>`).join('');
+  $('[data-vrows]').innerHTML = VERSION_GROUPS.map(g => `<tr${g.versions.length > 1 ? '' : ' class="is-single"'}>`
+    + `<th scope="row" class="spec__fam">${g.title}<small>${g.versions.length} ${g.versions.length > 1 ? 'releases' : 'release'}</small></th>`
+    + `<td class="spec__upd">${g.tag}</td>`
+    + `<td class="spec__rel"><ul aria-label="${g.title} releases">${g.versions.map(v => `<li>${v}</li>`).join('')}</ul></td></tr>`).join('');
   const count = VERSION_GROUPS.reduce((n, g) => n + g.versions.length, 0);
   for (const el of $$('[data-version-count]')) el.textContent = count;
-  if (SCREENSHOTS.length) {
-    $('[data-shots]').hidden = false;
-    $('[data-shots-grid]').innerHTML = SCREENSHOTS.map(s => `<figure data-reveal><img src="${s.src}" alt="${s.caption}" loading="lazy"><figcaption>${s.caption}</figcaption></figure>`).join('');
-  }
 }
 
-// The cards' loops only run while their card is on screen.
-function initBento() {
-  const io = new IntersectionObserver(es => es.forEach(e => e.target.classList.toggle('is-off', !e.isIntersecting)), { rootMargin: '80px' });
-  $$('.bcard').forEach(c => { c.classList.add('is-off'); io.observe(c); });
+// Phone menu: a sheet under the bar. Esc, a link inside it or a tap outside closes it; focus
+// goes into it on open and back to the button on close.
+function initMenu() {
+  const btn = $('[data-menu-btn]'), sheet = $('[data-menu]');
+  if (!btn || !sheet) return;
+  const set = open => {
+    btn.setAttribute('aria-expanded', String(open));
+    sheet.hidden = !open;
+    document.body.classList.toggle('menu-open', open);
+    if (open) sheet.querySelector('a')?.focus();
+  };
+  btn.addEventListener('click', () => set(sheet.hidden));
+  sheet.addEventListener('click', e => { if (e.target.closest('a')) set(false); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) { set(false); btn.focus(); } });
+  addEventListener('pointerdown', e => { if (!sheet.hidden && !sheet.contains(e.target) && !btn.contains(e.target)) set(false); });
+  // grown past the phone layout: the sheet has no button any more
+  matchMedia('(min-width: 901px)').addEventListener('change', e => { if (e.matches) set(false); });
 }
 
 // ---------------------------------------------------------------- scroll
@@ -265,9 +293,9 @@ function frame() {
   // behind the heading before anyone reads it (phones: the island sits there)
   let pose = ['hero', 'hero', 0], shade = 0;
   for (let i = 1; i < SCENES.length; i++) {
-    const top = document.getElementById(SCENES[i][0]).getBoundingClientRect().top;
-    if (top >= H) break;
-    const t = smooth(clamp((H - top) / (H * 0.5))), [, pa, sa] = SCENES[i - 1], [, pb, sb] = SCENES[i];
+    const top = document.getElementById(SCENES[i][0]).getBoundingClientRect().top, start = H * (SCENES[i][3] ?? 1);
+    if (top >= start) break;
+    const t = smooth(clamp((start - top) / (H * 0.5))), [, pa, sa] = SCENES[i - 1], [, pb, sb] = SCENES[i];
     pose = [pa, pb, t]; shade = sa + (sb - sa) * t;
   }
   world?.setPose(...pose);
@@ -324,14 +352,11 @@ function syncHeroZone() {
 async function boot() {
   initDownload();
   initVersions();
-  initBento();
+  initMenu();
   frame();
   addEventListener('scroll', requestFrame, { passive: true });
   addEventListener('resize', requestFrame);
 
-  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } }), { threshold: 0.15 });
-  $$('.section__head, .get > *').forEach(el => { el.dataset.reveal = ''; });
-  $$('[data-reveal]').forEach(el => io.observe(el));
 
   // the 3D world (fails soft to the flat sky backdrop)
   try {

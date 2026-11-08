@@ -48,8 +48,9 @@ const POSES = {
   heroTablet: { pos: [52, 22, 65], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.21, orbit: 1 },    // same, for the bigger open space a tablet has above the headline
   versions: { pos: [-36, 18, 46], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.24, shiftY: 0, orbit: 1 },
   why:      { pos: [-34, 13, 43], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.2, shiftY: 0.03, orbit: 0.6 },
-  // centred under "Ready when you are", whole island in frame below the text
-  get:      { pos: [0, 17, 100], target: [0.5, -4, 0.5], fov: 42, shiftX: 0, shiftY: -0.21, orbit: 1 },
+  // the download moment: desktop, the island floats large in the right half beside the download
+  // panel; phones (shiftYPhone) lift it into the band above the panel
+  get:      { pos: [30, 15, 62], posPhone: [52, 25, 106], target: [0.5, -4, 0.5], fov: 42, shiftX: 0.23, shiftY: 0.03, shiftYPhone: 0.27, orbit: 1 },
 };
 
 function rng(seed) {
@@ -491,7 +492,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     // a desktop window whose free zone is too narrow to hold the island falls back to the phone pose
     const heroPhone = phone || (name === 'hero' && zone.w < MIN_ZONE_W);
     const q = name === 'hero' && heroPhone ? (window.innerWidth > 600 ? POSES.heroTablet : POSES.heroMobile) : POSES[name];
-    let pos = q.pos, sx = phone ? 0 : q.shiftX, sy = q.shiftY;
+    let pos = phone && q.posPhone ? q.posPhone : q.pos, sx = phone ? 0 : q.shiftX, sy = phone && q.shiftYPhone !== undefined ? q.shiftYPhone : q.shiftY;
     if (name === 'hero') { const f = fitHero(q, heroPhone); pos = f.pos; sx = f.sx; sy = f.sy; }
     out[0] = pos[0]; out[1] = pos[1]; out[2] = pos[2];
     out[3] = q.target[0]; out[4] = q.target[1]; out[5] = q.target[2];
