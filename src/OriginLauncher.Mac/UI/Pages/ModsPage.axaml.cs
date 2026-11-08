@@ -241,7 +241,7 @@ public sealed partial class ModsPage : UserControl
         var shift = new TranslateTransform();
         row.RenderTransform = shift;
         MotionFx.Run(row, OpacityProperty, 0, 1, 220, MotionFx.Out, delayMs);
-        MotionFx.Run(shift, TranslateTransform.YProperty, -14, 0, 420, MotionFx.Back, delayMs);
+        MotionFx.Run(row, shift, TranslateTransform.YProperty, -14, 0, 420, MotionFx.Back, delayMs);
     }
 
     // ---- row builders -----------------------------------------------------
@@ -773,8 +773,8 @@ public sealed partial class ModsPage : UserControl
     private void Pop()
     {
         if (Motion.Off) return;
-        MotionFx.Run(_jarScale, ScaleTransform.ScaleXProperty, 1.14, 1, 420, MotionFx.Back);
-        MotionFx.Run(_jarScale, ScaleTransform.ScaleYProperty, 1.14, 1, 420, MotionFx.Back);
+        MotionFx.Run(JarIcon, _jarScale, ScaleTransform.ScaleXProperty, 1.14, 1, 420, MotionFx.Back);
+        MotionFx.Run(JarIcon, _jarScale, ScaleTransform.ScaleYProperty, 1.14, 1, 420, MotionFx.Back);
     }
 
     // ---- the drop zone's states -----------------------------------------
@@ -788,7 +788,7 @@ public sealed partial class ModsPage : UserControl
         DropDash.Stroke = Res.Brush(over ? "Brush.Accent" : hover ? "Brush.TextMuted" : "Brush.Stroke");
         JarIcon.Stroke = Res.Brush(over || hover ? "Brush.Text" : "Brush.TextDim");
         var lift = over ? -3 : 0;
-        if (Math.Abs(_jarLift.Y - lift) > 0.01) MotionFx.Run(_jarLift, TranslateTransform.YProperty, _jarLift.Y, lift, 260, MotionFx.Back);
+        if (Math.Abs(_jarLift.Y - lift) > 0.01) MotionFx.Run(JarIcon, _jarLift, TranslateTransform.YProperty, _jarLift.Y, lift, 260, MotionFx.Back);
         IdleText.Opacity = over ? 0 : 1;
         OverText.Opacity = over ? 1 : 0;
         if (over) OverText.Text = count == 1 ? "Release to add 1 mod jar" : $"Release to add {count} mod jars";

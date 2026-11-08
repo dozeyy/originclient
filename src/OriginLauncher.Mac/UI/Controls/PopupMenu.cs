@@ -117,7 +117,7 @@ internal sealed class PopupMenu
         Card.Focus();
         var enter = (int)Res.Get<TimeSpan>("Motion.Enter").TotalMilliseconds;
         _ = MotionFx.Run(Card, Visual.OpacityProperty, 0, 1, enter);
-        _ = MotionFx.Run(_rise, TranslateTransform.YProperty, 4, 0, enter);
+        _ = MotionFx.Run(Card, _rise, TranslateTransform.YProperty, 4, 0, enter);
     }
 
     /// <summary>Closes without running anything.</summary>

@@ -107,7 +107,7 @@ public sealed partial class MainWindow
         AccountPanel.IsHitTestVisible = open;
         Scrim.IsHitTestVisible = open;
         MotionFx.Run(Scrim, OpacityProperty, Scrim.Opacity, open ? 0.5 : 0, ms);
-        MotionFx.Run(_accountPanelShift, TranslateTransform.XProperty, _accountPanelShift.X, open ? 0 : UI.Res.D("Size.Drawer"), ms)
+        MotionFx.Run(AccountPanel, _accountPanelShift, TranslateTransform.XProperty, _accountPanelShift.X, open ? 0 : UI.Res.D("Size.Drawer"), ms)
             .ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 if (_accountPanelOpen) return;
@@ -182,8 +182,8 @@ public sealed partial class MainWindow
             Scrim.IsVisible = true;
         }
         SignInPanel.IsHitTestVisible = open;
-        MotionFx.Run(_signInScale, ScaleTransform.ScaleXProperty, _signInScale.ScaleX, open ? 1 : 0.97, ms);
-        MotionFx.Run(_signInScale, ScaleTransform.ScaleYProperty, _signInScale.ScaleY, open ? 1 : 0.97, ms);
+        MotionFx.Run(SignInPanel, _signInScale, ScaleTransform.ScaleXProperty, _signInScale.ScaleX, open ? 1 : 0.97, ms);
+        MotionFx.Run(SignInPanel, _signInScale, ScaleTransform.ScaleYProperty, _signInScale.ScaleY, open ? 1 : 0.97, ms);
         MotionFx.Run(SignInPanel, OpacityProperty, SignInPanel.Opacity, open ? 1 : 0, ms)
             .ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
@@ -225,6 +225,14 @@ public sealed partial class MainWindow
     }
 
     internal void TourCloseSignIn() => CloseSignInPanel();
+
+    // ---- --motion-check (MotionCheck.cs): what the drawers and the sign-in card show right now ----
+    internal (bool Visible, double Opacity, double ScaleX, double ScaleY) MotionSignIn =>
+        (SignInPanel.IsVisible, SignInPanel.Opacity, _signInScale.ScaleX, _signInScale.ScaleY);
+    internal (bool Visible, double ShiftX) MotionAccountPanel => (AccountPanel.IsVisible, _accountPanelShift.X);
+    internal (bool Visible, double ShiftX) MotionFriendsDrawer => (FriendsDrawer.IsVisible, _friendsShift.X);
+    internal double MotionScrimOpacity => Scrim.Opacity;
+    internal Avalonia.Controls.Panel MotionPopupHost => Root;
 
     internal Avalonia.Controls.Button TourAccountButton => AccountButton;
     internal Avalonia.Controls.Button TourStoreButton => StoreButton;

@@ -13,6 +13,7 @@ internal static class Program
     //   --launch-plan <version> [--root dir] prepares a launch without starting the game (LaunchPlan).
     //       [--start-game]                   CI only: then starts it until Minecraft's own code logs, and stops it.
     //   --play-plan <version> [--root dir]   presses the Home Play button headless, stops before the game starts (PlayPlan).
+    //   --motion-check [--root dir]          runs the launcher's animations with motion ON, headless (MotionCheck).
     //   --list-versions                      the versions the picker offers, one per line.
     //   --update-proof <loopback feed> --root dir --expect <outcome>   CI: the self-update against a local fake release (UpdateProof).
     // Anything else opens the launcher window (--signin-probe <dir>, CI only, opens just the sign-in card's window).
@@ -27,6 +28,8 @@ internal static class Program
             return LaunchPlan.RunAsync(version, ValueOf(args, "--root"), args.Contains("--start-game")).GetAwaiter().GetResult();
         if (ValueOf(args, "--play-plan") is { } playVersion)
             return PlayPlan.Run(playVersion, ValueOf(args, "--root"));
+        if (args.Contains("--motion-check"))
+            return MotionCheck.Run(ValueOf(args, "--root"));
         if (ValueOf(args, "--update-proof") is { } feedUrl)
             return UpdateProof.Run(feedUrl, ValueOf(args, "--root"), ValueOf(args, "--expect"));
 

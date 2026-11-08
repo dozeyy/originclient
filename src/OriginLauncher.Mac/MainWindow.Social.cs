@@ -159,7 +159,7 @@ public sealed partial class MainWindow
         FriendsDrawer.IsHitTestVisible = open;
         Scrim.IsHitTestVisible = open;
         MotionFx.Run(Scrim, OpacityProperty, Scrim.Opacity, open ? 0.5 : 0, ms);
-        MotionFx.Run(_friendsShift, TranslateTransform.XProperty, _friendsShift.X, open ? 0 : UI.Res.D("Size.Drawer"), ms)
+        MotionFx.Run(FriendsDrawer, _friendsShift, TranslateTransform.XProperty, _friendsShift.X, open ? 0 : UI.Res.D("Size.Drawer"), ms)
             .ContinueWith(_ => Dispatcher.UIThread.Post(() =>
             {
                 if (_friendsOpen) return;

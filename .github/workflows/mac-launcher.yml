@@ -102,6 +102,11 @@ jobs:
       # no account): the web view (WKWebView, non-persistent store) draws Microsoft's real authorize page and
       # catches a simulated redirect and Microsoft's own 302; "sign in with a code" gets a live code and then
       # cancels. Nobody is signed in; the code is logged by length only. perl's alarm stops a hung window.
+      # Every other headless run switches animations off; this one runs them for real: Play signed out (the v1.0.92
+      # ScaleTransform crash), the Accounts and Friends drawers, a popup menu and the Mods page motion shapes.
+      - name: Motion check
+        run: '"$RUNNER_TEMP/publish/OriginLauncher" --motion-check --root "$RUNNER_TEMP/motion-check"'
+
       - name: Sign-in probe
         run: |
           perl -e 'alarm 240; exec @ARGV' "$RUNNER_TEMP/publish/OriginLauncher" --signin-probe "$RUNNER_TEMP/signin-probe"
