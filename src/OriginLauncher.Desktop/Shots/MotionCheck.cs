@@ -67,7 +67,7 @@ public static class MotionCheck
         var samples = Sample(900, () => Opacity(window.DialogContent));
         Expect("Play signed out opens the sign-in card", window.DialogOpen);
         Settled("sign-in card", window.DialogContent);
-        Moved("sign-in card fade", samples);
+        Moved("sign-in card fade", window.DialogContent, samples);
         window.CloseDialog();
         Pump(900);
         Expect("sign-in card closed", !window.DialogOpen);
@@ -124,7 +124,7 @@ public static class MotionCheck
         samples.AddRange(Sample(900, () => Opacity(window.DrawerContent)));
         Expect($"{name} opened", window.DrawerOpen);
         Settled(name, window.DrawerContent);
-        Moved($"{name} entrance", samples);
+        Moved($"{name} entrance", window.DrawerContent, samples);
         window.CloseDrawer();
         Pump(900);
         Expect($"{name} closed", !window.DrawerOpen);
@@ -173,10 +173,27 @@ public static class MotionCheck
         }
     }
 
-    private static void Moved(string what, List<double> samples)
+    // An entrance either shows an in-between frame, or (Avalonia's headless clock lets Transitions jump straight to their
+    // end value, so a sample may never land mid-way) the layer the player sees must carry a running-length transition on
+    // its opacity or render transform: the Kit/Tween that moves it. No transition anywhere on the way up = no motion = FAIL.
+    private static void Moved(string what, Control? control, List<double> samples)
     {
-        if (samples.Any(v => v > 0.01 && v < 0.99)) Console.WriteLine($"  ok    {what} moved through the middle");
-        else Console.WriteLine($"  WARN  {what}: no in-between frame seen ({samples.Count} samples): no entrance motion");
+        if (samples.Any(v => v > 0.01 && v < 0.99))
+        {
+            Expect($"{what} moved through the middle", true);
+            return;
+        }
+        var longest = TimeSpan.Zero;
+        for (Visual? v = control; v != null; v = v.GetVisualParent())
+        {
+            if (v is not Avalonia.Animation.Animatable { Transitions: { } transitions }) continue;
+            foreach (var t in transitions)
+                if (t is Avalonia.Animation.TransitionBase tb
+                    && (tb.Property == Visual.OpacityProperty || tb.Property == Visual.RenderTransformProperty)
+                    && tb.Duration > longest)
+                    longest = tb.Duration;
+        }
+        Expect($"{what}: the layer carries its entrance transition ({longest.TotalMilliseconds:0} ms)", longest > TimeSpan.Zero);
     }
 
     // Runs the UI queue and the render clock (which drives transitions and animations) for up to ms, or until done.
