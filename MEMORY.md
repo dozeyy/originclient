@@ -449,3 +449,18 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
   shots published); Linux + build-check green after reruns through a GitHub/Gradle 504 outage; local builds of all three
   launchers + Linux/Mac test subsets. Review: fix-required -> 5 fixed. UNPROVEN: a Minecraft window on a real Mac (no GPU in CI),
   Cmd+V into Microsoft's page, X11 focus / keyring prompts / second-start on a real Linux desktop.
+
+## 2026-11-11 - Ad capture harness: real in-game clips R2-R8 for launch ad v2 (branch claude/ad-capture, dev-only)
+- Harness: `tools/ad-capture/capture.py` + `OriginDevAd`/`OriginDevAdCapture` + 5 `DevAd*` mixins, all behind
+  `ORIGIN_SHOTS_SET=ad`. Runs the 1.21.1 module's dev game (`run/`, offline name "Rowan") under verify-lock; every input is
+  synthetic through MouseHandler/KeyboardHandler, window opens unfocused, real input cut off, OS pointer never grabbed;
+  frames read from the main target via 3 PBOs into ffmpeg at wall-clock 60 fps CFR. Never released, never on main.
+- Re-run: put ComplementaryReimagined_r5.9.3.zip in tools/ad-capture/cache/, then
+  `python tools/ad-capture/capture.py R2 R3 R4 R5 R6 R7 R8` and `... encode` (-> origin-client-ad/edit/public/footage).
+- Traps: Level.getHeight lies for unloaded chunks (force getChunk); spot searches from world spawn, not the player;
+  in-world clicks need mouseGrabbed mirrored; Iris 1.8 "Download Shaders" is a pinned list row (found by class name);
+  screen changes stall 1-2 s, so steps run one per frame with slip and R3's post-download steps are a chain; FPS Coach
+  ignores the first 30 s in a world (R5 warmup 45 s); prepare() resets HUD positions so R6's drags don't leak.
+- Result: R2 (seed 6671238423019257953, peaks orbit -64,256,16; river 398,-165 -> 398,-221; forest 604,196 -> 644,156),
+  R3 real Modrinth download + apply, R4 pack browser, R5 real coach numbers, R6 HUD editor drags, R7 toasts (made-up
+  Mossbrook / TidewaterJay), R8 72 s PvP vs armored mobs. Both ad layouts rendered with SFX, opening 0-338 unchanged.
