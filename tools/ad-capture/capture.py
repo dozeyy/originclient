@@ -34,7 +34,7 @@ CACHE = os.path.join(HERE, "cache")
 SPOTS = os.path.join(ROOT, "tools", "panorama", "spots.json")
 
 # Clips that start without a shader pack (R3 downloads and applies one in game, for real).
-NO_SHADER = {"R3", "R9"}   # R9 paints a key colour over the world anyway
+NO_SHADER = {"R3"}   # R9 keeps the shaders on under its key colour so its FPS readout is a shaded world's real number
 # How long a clip may run before the game is killed (world creation + chunk waits included).
 LIMIT = {"R2": 3600, "R8": 900}
 # Per-clip settings. R2's water run: the river stretch from the second probe (seed terrain, picked by eye: the

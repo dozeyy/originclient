@@ -70,6 +70,6 @@ windows are logged as `hits on <Screen> (window px)` on the first run of a clip.
 - A chunk wait that only checks `hasRenderedAllSections` passes right after a teleport, before any chunk has arrived
   (blank-sky stills): `landed()` also needs half the render-distance disc loaded.
 - R9: Minecraft's vignette is drawn over the key fill in the first seconds (corners a few percent darker), so
-  `key_hud.py` keys on magenta hue (G 0, R = B), not the exact colour. The FPS readout on a magenta screen reads in
-  the thousands: it is the real counter, but not what a shaded world gets.
+  `key_hud.py` keys on magenta hue (G 0, R = B), not the exact colour. R9 keeps the shaders on under the key: with
+  them off its FPS readout showed ~2800 (a bare world), next to the Coach's real 265 average.
 - `prepare()` writes `config/originclient-mods.json`; module states set for one clip (R9, R6) stay for the next.

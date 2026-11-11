@@ -468,3 +468,9 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
   (`ORIGIN_AD_VANILLA`, IrisBridge.apply(null)), Boss Bar module off in ad mode (menus drew an "Ender Dragon" sample).
   Probes: time 10800 + ATM_FOG_MULT 0.65 / ATM_FOG_DISTANCE 200 reads far better than 11800 (pink haze); jungle/badlands/
   forest/river good, cherry/meadow/coast runs weak. Hand-off: origin-client-ad/v2/CAPTURE_HANDOFF.md.
+- 2026-11-11 rev 3 captured and cut (ad 42.3 s, both layouts with SFX; frames 0-337 unchanged, PSNR >= 46.6 dB / mostly
+  identical). Flights pinned per name (`ORIGIN_AD_RUN_<NAME>`, table in origin-client-ad/v2/CAPTURE_HANDOFF.md).
+  Root causes: blank-sky stills = chunk wait passed before chunks arrived (`landed()` now also needs half the
+  render-distance disc); `SCOUT=kinds` OOMs 8 GB (use `SCOUT=list`); R9 with shaders off showed FPS ~2800 next to the
+  Coach's 265 (keep shaders on under the key); baseOptions/hud() switch fps/cps/armorhud off, so R6 menu-only re-enables
+  them under F1 for real card states; R9's first ~2 s the FPS dips to 59 (edit skips 3 s).
