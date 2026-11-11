@@ -35,13 +35,20 @@ SPOTS = os.path.join(ROOT, "tools", "panorama", "spots.json")
 # Clips that start without a shader pack (R3 downloads and applies one in game, for real).
 NO_SHADER = {"R3"}
 # How long a clip may run before the game is killed (world creation + chunk waits included).
-LIMIT = {"R2": 1500, "R8": 900}
+LIMIT = {"R2": 3600, "R8": 900}
 # Per-clip settings. R2's water run: the river stretch from the second probe (seed terrain, picked by eye: the
 # scorer's best run kept ending at a lava-lit canyon wall).
 # R6: the mod menu's EDIT HUD button, then Key Strokes and CPS dragged from the top-left stack to above the hotbar's
 # left (grab x,y, drop x,y in window px, read off the first take: the HUD editor draws no click targets of its own).
-CLIP_ENV = {"R2": {"ORIGIN_AD_WATER": "398,-165,398,-221"},
+# R2: the flights in order (OriginDevAd.flight), then the river run again with shaders off for a before/after wipe.
+CLIP_ENV = {"R2": {"ORIGIN_AD_WATER": "398,-165,398,-221",
+                   "ORIGIN_AD_FLIGHTS": "water,forest,mountain,cherry,meadow,jungle,badlands,coast",
+                   "ORIGIN_AD_VANILLA": "water",
+                   "ORIGIN_AD_TIME": "10800"},   # earlier than 11800: blue sky + warm light (probe 2026-11-11)
             "R6": {"ORIGIN_AD_EDIT": "1296,282", "ORIGIN_AD_KEYS": "75,130,110,860", "ORIGIN_AD_CPS": "30,42,70,985"}}
+# Complementary settings per clip on top of the base ones. R2: clearer air for the landscapes (the default fog turned
+# the first cut's peaks into a beige haze): less atmospheric fog, pushed further out.
+SHADER_OPTS = {"R2": "ATM_FOG_MULT=0.65\nATM_FOG_DISTANCE=200\n"}
 # The ad's footage names -> raw take files (R2 is three flights joined in order).
 FOOTAGE = {"R3": "R3", "R4": "R4", "R5": "R5", "R6": "R6", "R7": "R7", "R8": "R8"}
 
@@ -71,7 +78,7 @@ def prepare(clip):
         shutil.copyfile(path, os.path.join(sp, name))
         # Complementary at its defaults (waving leaves, moving clouds) but the high shadow/cloud/light-shaft tiers.
         open(os.path.join(sp, name + ".txt"), "w", encoding="utf-8").write(
-            "SHADOW_QUALITY=4\nCLOUD_QUALITY=3\nLIGHTSHAFT_QUALI_DEFINE=3\nVIGNETTE_R=false\n")
+            "SHADOW_QUALITY=4\nCLOUD_QUALITY=3\nLIGHTSHAFT_QUALI_DEFINE=3\nVIGNETTE_R=false\n" + SHADER_OPTS.get(clip, ""))
         props = f"enableShaders=true\nshaderPack={name}\n"
     open(os.path.join(RUN, "config", "iris.properties"), "w", encoding="utf-8").write(props)
     # HUD positions back to the defaults (the top-left stack), so a take never inherits R6's drags.
@@ -95,7 +102,7 @@ def run_clip(clip, out, probe, extra, user, fps):
     env.update(CLIP_ENV.get(clip, {}))
     env.update(extra)
     logp = os.path.join(out, f"{clip}{'_probe' if probe else ''}.run.log")
-    cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", LOCK, "-MaxMinutes", "40", "--",
+    cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", LOCK, "-MaxMinutes", "70", "--",
            os.path.join(MDIR, "gradlew.bat"), "runClient", "--no-daemon", "-PbootJvmArgs=-Xmx8G",
            f"-PdevUser={user}", "-PdevSize=1920x1080"]
     t0 = time.time()
@@ -121,7 +128,7 @@ def run_clip(clip, out, probe, extra, user, fps):
             failed = True
     print(f"capture: {clip}: game exited {proc.returncode} after {time.time() - t0:.0f} s", flush=True)
     if clip == "R2" and not probe and not failed:
-        parts = sorted(f for f in os.listdir(out) if f.startswith("R2_") and f.endswith(".mp4"))
+        parts = sorted(f for f in os.listdir(out) if f.startswith("R2_") and f.endswith(".mp4") and "_vanilla" not in f and f[3:5].isdigit())
         lst = os.path.join(out, "R2_parts.txt")
         open(lst, "w", encoding="utf-8").write("".join(f"file '{p}'\n" for p in parts))
         subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst,
@@ -133,7 +140,9 @@ def run_clip(clip, out, probe, extra, user, fps):
 def encode(out, dest):
     """Raw takes (60 fps, near-lossless) -> the edit's footage slots at 30 fps."""
     os.makedirs(dest, exist_ok=True)
-    for name in ["R2", *FOOTAGE]:
+    # every R2 flight on its own too (R2_NN_<flight>.mp4, plus the shaders-off twin), for montages and the wipe
+    flights = sorted(f[:-4] for f in os.listdir(out) if f.startswith("R2_") and f[3:5].isdigit() and f.endswith(".mp4"))
+    for name in ["R2", *flights, *FOOTAGE]:
         src = os.path.join(out, name + ".mp4")
         if not os.path.exists(src):
             print(f"encode: {name}: no take")

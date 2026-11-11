@@ -207,6 +207,8 @@ public final class OriginDevAd {
 		o.hideGui = false;
 		o.onboardAccessibility = false;
 		o.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+		// The menus and the HUD editor draw a sample boss bar ("Ender Dragon") while open; no clip is about it.
+		Mods.setOn("bossbar", false);
 		o.pauseOnLostFocus = false;
 		o.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.0);
 		o.save();
@@ -667,6 +669,108 @@ public final class OriginDevAd {
 		return new Shot("forest", u -> new double[]{lerp(b[0], b[2], u), y, lerp(b[1], b[3], u), yaw, 9f}, 11);
 	}
 
+	/** ORIGIN_AD_FLIGHTS: the R2 flights in order (default the three of the first cut). */
+	static final String[] FLIGHTS = env("ORIGIN_AD_FLIGHTS", "mountain,water,forest").split(",");
+	static final String VANILLA = env("ORIGIN_AD_VANILLA", "");
+
+	static Shot flight(ServerLevel level, BlockPos spawn, String name) {
+		return switch (name) {
+			case "mountain" -> mountain(level, spawn);
+			case "water" -> waterRun(level, spawn);
+			case "forest" -> canopy(level, spawn);
+			case "cherry" -> dolly(level, spawn, name, Set.of("minecraft:cherry_grove"), 7, 9, false);
+			case "meadow" -> dolly(level, spawn, name, Set.of("minecraft:meadow"), 6, 7, false);
+			case "jungle" -> dolly(level, spawn, name, Set.of("minecraft:jungle", "minecraft:bamboo_jungle", "minecraft:sparse_jungle"), 6, 9, false);
+			case "badlands" -> dolly(level, spawn, name, Set.of("minecraft:badlands", "minecraft:eroded_badlands", "minecraft:wooded_badlands"), 12, 11, false);
+			case "coast" -> dolly(level, spawn, name, Set.of("minecraft:beach", "minecraft:stony_shore"), 9, 6, true);
+			case "snowy" -> dolly(level, spawn, name, Set.of("minecraft:snowy_slopes", "minecraft:grove"), 10, 10, false);
+			default -> throw new IllegalStateException("unknown flight " + name);
+		};
+	}
+
+	/**
+	 * A slow straight dolly over a biome found from the spawn: of 48-block runs through it (every 16 blocks, 8
+	 * headings), the one most inside the biome with the most relief ahead, light from the side and no hill in the lens.
+	 * coast: the view ahead is half water, half land. Camera {@code lift} blocks over the tallest thing under the run.
+	 */
+	static Shot dolly(ServerLevel level, BlockPos near, String name, Set<String> biomes, double lift, double pitch, boolean coast) {
+		BlockPos at = locate(level, near, biomes);
+		load(level, at.getX(), at.getZ(), 160);
+		double bestScore = -1e9;
+		double[] best = null;
+		for (int ox = -48; ox <= 48; ox += 16) {
+			for (int oz = -48; oz <= 48; oz += 16) {
+				double cx = at.getX() + ox, cz = at.getZ() + oz;
+				for (int d = 0; d < 8; d++) {
+					double a = Math.toRadians(d * 45);
+					double ux = Math.cos(a), uz = Math.sin(a);
+					double sx = cx - 24 * ux, sz = cz - 24 * uz, ex = cx + 24 * ux, ez = cz + 24 * uz;
+					int in = 0, wet = 0, maxTop = -999;
+					for (int i = 0; i <= 12; i++) {
+						double x = lerp(sx, ex, i / 12.0), z = lerp(sz, ez, i / 12.0);
+						for (int side = -8; side <= 8; side += 8) {
+							double bx = x - uz * side, bz = z + ux * side;
+							int gr = ground(level, bx, bz);
+							maxTop = Math.max(maxTop, top(level, bx, bz));
+							if (biomes.contains(biomeAt(level, (int) bx, gr, (int) bz))) {
+								in++;
+							}
+							if (water(level, bx, bz)) {
+								wet++;
+							}
+						}
+					}
+					double y = maxTop + lift;
+					int lo = 999, hi = -999, aheadWet = 0, ahead = 0, wall = 0;
+					for (int k = 8; k <= 80; k += 8) {
+						for (int side = -32; side <= 32; side += 16) {
+							double bx = ex + ux * k - uz * side, bz = ez + uz * k + ux * side;
+							int gr = ground(level, bx, bz);
+							lo = Math.min(lo, gr);
+							hi = Math.max(hi, gr);
+							ahead++;
+							if (water(level, bx, bz)) {
+								aheadWet++;
+							}
+							if (k <= 48 && Math.abs(side) <= 16 && top(level, bx, bz) > y - 2) {
+								wall++;   // a hill right in the lens
+							}
+						}
+					}
+					for (int i = 0; i <= 12; i += 2) {   // a slope rising right beside the run fills half the frame
+						double x = lerp(sx, ex, i / 12.0), z = lerp(sz, ez, i / 12.0);
+						for (int side = -32; side <= 32; side += 8) {
+							if (Math.abs(side) >= 16 && top(level, x - uz * side, z + ux * side) > y - 3) {
+								wall++;
+							}
+						}
+					}
+					if (in < 26) {
+						continue;   // two thirds of the run inside the biome, or it is another biome's shot
+					}
+					float yaw = yawTo(ux, uz);
+					// the sun (west, yaw 90) beside or behind the camera: lit faces under a blue sky, not a lens full of haze
+					double sideLight = Math.abs(Math.sin(Math.toRadians(yaw - 90))) + Math.max(0, -Math.cos(Math.toRadians(yaw - 90)));
+					double wetShare = aheadWet / (double) ahead;
+					double score = in * 4 + Math.min(60, hi - lo) * 2 + sideLight * 30 - wall * 25
+							- (coast ? Math.abs(wetShare - 0.5) * 200 : wet * 15 + wetShare * 60);
+					if (score > bestScore) {
+						bestScore = score;
+						best = new double[]{sx, sz, ex, ez, y};
+					}
+				}
+			}
+		}
+		if (best == null) {
+			throw new IllegalStateException("no clear " + name + " run near " + at.toShortString());
+		}
+		final double[] b = best;
+		final float yaw = yawTo(b[2] - b[0], b[3] - b[1]);
+		log(String.format(Locale.ROOT, "%s: %.0f,%.0f -> %.0f,%.0f at y=%.0f yaw %.0f (%s) score %.0f", name, b[0], b[1], b[2], b[3], b[4], yaw,
+				biomeAt(level, (int) b[0], ground(level, b[0], b[1]), (int) b[1]), bestScore));
+		return new Shot(name, u -> new double[]{lerp(b[0], b[2], u), b[4], lerp(b[1], b[3], u), yaw, (float) pitch}, 9);
+	}
+
 	/** Moves the server player to the pose (chunks start loading there right away). */
 	static void place(ServerPlayer p, double[] c) {
 		p.teleportTo(p.serverLevel(), c[0], c[1], c[2], (float) c[3], (float) c[4]);
@@ -680,6 +784,9 @@ public final class OriginDevAd {
 		private long stepAt;
 		private double[] cam;
 		private double rehearseFrom = -1;
+		// ORIGIN_AD_VANILLA=<flight>: after every flight, that one flight again with shaders off (a before/after pair)
+		private int vanillaOf = -1;
+		private boolean vanillaPass;
 
 		@Override
 		void options(Minecraft mc) {
@@ -693,9 +800,18 @@ public final class OriginDevAd {
 			cmd(server, "gamemode spectator @a");
 			BlockPos spawn = level.getSharedSpawnPos();
 			List<Shot> list = new ArrayList<>();
-			list.add(mountain(level, spawn));
-			list.add(waterRun(level, spawn));
-			list.add(canopy(level, spawn));
+			for (String f : FLIGHTS) {
+				try {
+					list.add(flight(level, spawn, f.trim()));
+				} catch (IllegalStateException e) {
+					log("flight " + f + " skipped: " + e.getMessage());
+				}
+			}
+			for (int k = 0; k < list.size(); k++) {
+				if (list.get(k).name().equals(VANILLA)) {
+					vanillaOf = k;
+				}
+			}
 			place(p, list.get(0).path().at(0));
 			shots = list;
 		}
@@ -737,7 +853,7 @@ public final class OriginDevAd {
 							return false;
 						}
 						try {
-							startTake("R2_" + (i + 1) + "_" + s.name());
+							startTake(String.format(Locale.ROOT, "R2_%02d_%s%s", i + 1, s.name(), vanillaPass ? "_vanilla" : ""));
 						} catch (java.io.IOException e) {
 							throw new RuntimeException(e);
 						}
@@ -748,8 +864,18 @@ public final class OriginDevAd {
 					if (t() >= s.secs()) {
 						stopTake();
 						step = 0;
-						if (++i >= shots.size()) {
+						if (vanillaPass) {
 							return true;
+						}
+						if (++i >= shots.size()) {
+							if (vanillaOf < 0) {
+								return true;
+							}
+							// same path, same time of day, shaders off: Iris reloads, every section rebuilds before the take
+							log("vanilla pass: " + shots.get(vanillaOf).name() + " with shaders off");
+							com.origin.client.client.shaders.IrisBridge.apply(null);
+							vanillaPass = true;
+							i = vanillaOf;
 						}
 					}
 				}
