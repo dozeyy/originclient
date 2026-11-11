@@ -9,6 +9,7 @@
     "DevAdKeyboardMixin",
     "DevAdMinecraftMixin",
     "DevAdWindowMixin",
+    "DevAdGuiMixin",
     "KeyTapsMixin",
     "MouseTapsMixin",
     "WindowTitleMixin",

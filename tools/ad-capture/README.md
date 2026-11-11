@@ -32,13 +32,17 @@ Put `ComplementaryReimagined_r5.9.3.zip` (sha512 in `tools/panorama/spots.json`)
 
 | Clip | What the script does |
 |---|---|
-| R2 | Three spots found in the seed (closest jagged/frozen/stony peaks summit orbit, an open-water run into the low sun, a forest canopy skim). Per flight: fly there, wait for every section, rehearse the move at 2.5x, then record 11 s. Segments `R2_1..3` are joined into `R2.mp4`. |
+| R2 | Rev 3: the flights in `CLIP_ENV["R2"]["ORIGIN_AD_FLIGHTS"]`, each pinned by `ORIGIN_AD_RUN_<NAME>=sx,sz,ex,ez,y,pitch[,secs[,yawOff[,yEnd]]]` (a straight dolly over seed terrain, no placed blocks) and timed by `ORIGIN_AD_TIME_<NAME>`. Per flight: fly there, wait until `landed()` (every section built and at least half the render-distance disc loaded), rehearse, record 11 s to `R2_NN_<name>.mp4`. `ORIGIN_AD_VANILLA=<flight>` flies that path again with Iris off (`R2_NN_<name>_vanilla.mp4`, frame-aligned with the shaded take). |
 | R3 | Shaders off. Opens Iris's shader screen, clicks Origin's **Download Shaders**, scrolls, clicks Download on Complementary Reimagined (a real Modrinth download), back to Iris, selects it, Apply, Done. |
 | R4 | Opens the resource pack screen, clicks **Browse Packs**, scrolls. |
-| R5 | FPS counter on, 20 s of play first (FPS Coach averages the last 10 s), slow pan, then opens FPS Coach. |
-| R6 | Mod menu, then the HUD editor; drags Key Strokes and CPS (`ORIGIN_AD_KEYS`/`ORIGIN_AD_CPS` = grab x,y,drop x,y in window px). |
+| R5 | F1-clean, spectator, nothing in the hands. FPS Coach opens at 6.6 s; the pointer glides to TRY IT on the clouds tip (`ORIGIN_AD_COACH_X/Y`, default 1331,634) and clicks at 8.1 s. |
+| R6 | `ORIGIN_AD_MENU_ONLY=1` (rev 3): the mod menu alone over an F1-clean canopy, then a slow scroll. `prepare()` sets every mod to its Mods.java default plus the shot-11 HUD set (`R6_ON`), so the cards show a real setup, not a wall of DISABLED. Without MENU_ONLY: the old HUD-editor drags (`ORIGIN_AD_EDIT/_KEYS/_CPS`). |
 | R7 | In the arena: `SocialToast.request` and `.invite` with made-up players (`Mossbrook`, `TidewaterJay`, made-up UUIDs). |
-| R8 | Diamond kit in a sky arena; armored zombies/husks/a piglin brute with 10 HP and 1.5 attack in rounds; client AI aims, sprints, strafes, jumps and clicks 9–13 CPS through the real input path. |
+| R8 | Diamond kit in a sky arena (rev 1-2 only; rev 3 has no gameplay). |
+| R9 | Rev 3's keyed HUD: `DevAdGuiMixin` paints 0xFF00FF before the HUD draws, the take is lossless `libx264rgb` (`ORIGIN_AD_LOSSLESS=1`). The modules in `R9_HUD` (FPS, CPS, Clock, Memory, Coordinates, Potion Effects, Armor Status as a column) at 2x with no backgrounds, plus the two toasts at 4.0 s and 5.2 s. `origin-client-ad/v2/capture/key_hud.py` cuts it into per-module PNG sequences. |
+
+Scouting: `ORIGIN_AD_SCOUT=list` with `ORIGIN_AD_SCOUT_LIST=name:sx,sz,ex,ez,y,p;...` flies to each run and saves one
+still per run (`footage/scout/screenshots/scout_<name>.png`); pick by eye, then pin the winners as `RUN_<NAME>`.
 
 `--set ORIGIN_AD_*=...` passes clip tuning (click targets, time of day `ORIGIN_AD_TIME`). Click targets in Origin
 windows are logged as `hits on <Screen> (window px)` on the first run of a clip.
@@ -61,3 +65,11 @@ windows are logged as `hits on <Screen> (window px)` on the first run of a clip.
   glides start from the frame they are created in. Never schedule a glide and its click at fixed times across a
   screen change: the click lands at the old pointer.
 - Logs: Complementary floods `Unknown variable` lines; `capture.py` prints only `[ad]`, exceptions and the lock.
+- `ORIGIN_AD_SCOUT=kinds` (rate every candidate of five biome kinds in one world) loads too many chunks and dies with
+  OutOfMemoryError on an 8 GB heap; use the `list` scout.
+- A chunk wait that only checks `hasRenderedAllSections` passes right after a teleport, before any chunk has arrived
+  (blank-sky stills): `landed()` also needs half the render-distance disc loaded.
+- R9: Minecraft's vignette is drawn over the key fill in the first seconds (corners a few percent darker), so
+  `key_hud.py` keys on magenta hue (G 0, R = B), not the exact colour. The FPS readout on a magenta screen reads in
+  the thousands: it is the real counter, but not what a shaded world gets.
+- `prepare()` writes `config/originclient-mods.json`; module states set for one clip (R9, R6) stay for the next.

@@ -69,10 +69,14 @@ public final class OriginDevAdCapture {
 		fps = framesPerSecond;
 		path = out;
 		new File(out).getParentFile().mkdirs();
-		List<String> cmd = List.of("ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-				"-f", "rawvideo", "-pix_fmt", "bgra", "-s", w + "x" + h, "-r", String.valueOf(fps), "-i", "-",
-				"-vf", "vflip", "-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv420p",
-				"-movflags", "+faststart", out);
+		// ORIGIN_AD_LOSSLESS=1: RGB lossless (no chroma subsampling), for clips keyed off a flat background later
+		List<String> enc = "1".equals(System.getenv("ORIGIN_AD_LOSSLESS"))
+				? List.of("-c:v", "libx264rgb", "-preset", "ultrafast", "-qp", "0", "-pix_fmt", "bgr0")
+				: List.of("-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv420p");
+		List<String> cmd = new java.util.ArrayList<>(List.of("ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+				"-f", "rawvideo", "-pix_fmt", "bgra", "-s", w + "x" + h, "-r", String.valueOf(fps), "-i", "-", "-vf", "vflip"));
+		cmd.addAll(enc);
+		cmd.addAll(List.of("-movflags", "+faststart", out));
 		ffmpeg = new ProcessBuilder(cmd).redirectErrorStream(true)
 				.redirectOutput(new File(out + ".ffmpeg.log")).start();
 		pipe = ffmpeg.getOutputStream();

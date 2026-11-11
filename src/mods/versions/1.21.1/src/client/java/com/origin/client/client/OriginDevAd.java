@@ -61,6 +61,8 @@ public final class OriginDevAd {
 
 	/** True while the harness itself is feeding an input event (the real devices are blocked). */
 	public static boolean synthetic;
+	/** ARGB painted over the world before the HUD draws (0 = off): the keyed HUD clip R9 (DevAdGuiMixin). */
+	public static int keyBackground = 0;
 
 	private static int phase = 0;
 	private static long nextAt = 0, phaseFrom = 0;
@@ -396,6 +398,7 @@ public final class OriginDevAd {
 				case "R6" -> new ClipHud();
 				case "R7" -> new ClipSocial();
 				case "R8" -> new ClipPvp();
+				case "R9" -> new ClipHudKeyed();
 				default -> throw new IllegalArgumentException("unknown clip " + id);
 			};
 		}
@@ -472,15 +475,23 @@ public final class OriginDevAd {
 		}
 	}
 
+	/** Generates the chunk under (x, z) if it isn't yet (getHeight lies for chunks that aren't loaded). */
+	static void need(ServerLevel level, double x, double z) {
+		level.getChunk((int) Math.floor(x) >> 4, (int) Math.floor(z) >> 4);
+	}
+
 	static int ground(ServerLevel level, double x, double z) {
+		need(level, x, z);
 		return level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(x), (int) Math.floor(z));
 	}
 
 	static int top(ServerLevel level, double x, double z) {
+		need(level, x, z);
 		return level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(x), (int) Math.floor(z));
 	}
 
 	static boolean water(ServerLevel level, double x, double z) {
+		need(level, x, z);
 		int h = level.getHeight(Heightmap.Types.WORLD_SURFACE, (int) Math.floor(x), (int) Math.floor(z));
 		return level.getFluidState(new BlockPos((int) Math.floor(x), h - 1, (int) Math.floor(z))).is(net.minecraft.tags.FluidTags.WATER);
 	}
@@ -672,8 +683,14 @@ public final class OriginDevAd {
 	/** ORIGIN_AD_FLIGHTS: the R2 flights in order (default the three of the first cut). */
 	static final String[] FLIGHTS = env("ORIGIN_AD_FLIGHTS", "mountain,water,forest").split(",");
 	static final String VANILLA = env("ORIGIN_AD_VANILLA", "");
+	/** ORIGIN_AD_SCOUT=cherry,peaks,...: R2 takes one still per candidate run of each kind instead of recording. */
+	static final String SCOUT = env("ORIGIN_AD_SCOUT", "");
 
 	static Shot flight(ServerLevel level, BlockPos spawn, String name) {
+		Shot pinned = pinned(level, name);
+		if (pinned != null) {
+			return pinned;
+		}
 		return switch (name) {
 			case "mountain" -> mountain(level, spawn);
 			case "water" -> waterRun(level, spawn);
@@ -771,6 +788,234 @@ public final class OriginDevAd {
 		return new Shot(name, u -> new double[]{lerp(b[0], b[2], u), b[4], lerp(b[1], b[3], u), yaw, (float) pitch}, 9);
 	}
 
+	/**
+	 * ORIGIN_AD_RUN_<NAME>=sx,sz,ex,ez,y,pitch[,secs[,yawOffset[,yEnd]]]: a straight run picked by eye from the scout
+	 * stills (still the seed's own terrain, nothing placed). The camera looks along the run (plus yawOffset degrees).
+	 */
+	/**
+	 * The client really has the land around the camera: most chunks inside the render distance received (not just "every
+	 * section that exists is meshed", which is also true right after a teleport, before any chunk arrives) and all meshed.
+	 */
+	static boolean landed(Minecraft mc) {
+		if (mc.level == null || !mc.levelRenderer.hasRenderedAllSections()) {
+			return false;
+		}
+		int rd = mc.options.getEffectiveRenderDistance();
+		return mc.level.getChunkSource().getLoadedChunksCount() >= (int) (0.5 * Math.PI * rd * rd);
+	}
+
+	static Shot pinned(ServerLevel level, String name) {
+		double[] r = coords("ORIGIN_AD_RUN_" + name.toUpperCase(Locale.ROOT));
+		if (r == null) {
+			return null;
+		}
+		return straight(level, name, r[0], r[1], r[2], r[3], r[4], r[5], r.length > 6 ? r[6] : 11, r.length > 7 ? r[7] : 0,
+				r.length > 8 ? r[8] : r[4]);
+	}
+
+	static Shot straight(ServerLevel level, String name, double sx, double sz, double ex, double ez, double y, double pitch, double secs,
+			double yawOff, double yEnd) {
+		final float yaw = (float) (yawTo(ex - sx, ez - sz) + yawOff);
+		log(String.format(Locale.ROOT, "%s: run %.0f,%.0f -> %.0f,%.0f at y=%.1f..%.1f yaw %.0f pitch %.0f (%s)", name, sx, sz, ex, ez, y, yEnd, yaw, pitch,
+				biomeAt(level, (int) sx, ground(level, sx, sz), (int) sz)));
+		return new Shot(name, u -> new double[]{lerp(sx, ex, u), lerp(y, yEnd, u), lerp(sz, ez, u), yaw, (float) pitch}, secs);
+	}
+
+	/** ORIGIN_AD_TIME_<NAME>: a flight's own time of day (the coast at sunset), else ORIGIN_AD_TIME. */
+	static int timeOf(String name) {
+		String base = name.contains("#") ? name.substring(0, name.indexOf('#')) : name;
+		return Integer.parseInt(env("ORIGIN_AD_TIME_" + base.toUpperCase(Locale.ROOT), String.valueOf(TIME)));
+	}
+
+	static final Set<String> CHERRY = Set.of("minecraft:cherry_grove");
+	static final Set<String> SNOWPEAKS = Set.of("minecraft:jagged_peaks", "minecraft:frozen_peaks", "minecraft:snowy_slopes");
+	static final Set<String> BEACH = Set.of("minecraft:beach", "minecraft:snowy_beach");
+	static final Set<String> OCEAN = Set.of("minecraft:ocean", "minecraft:deep_ocean", "minecraft:warm_ocean", "minecraft:lukewarm_ocean",
+			"minecraft:deep_lukewarm_ocean");
+	static final Set<String> RIVER = Set.of("minecraft:river");
+
+	/**
+	 * Scout: candidate straight runs for one kind of shot (cherry, peaks, coast, ocean, river), from several finds of
+	 * the biome around the spawn, best first and at least 96 blocks apart. Each is {sx, sz, ex, ez, y, pitch, score}.
+	 * Only a short list for the eye: the stills decide, then the pick is pinned with ORIGIN_AD_RUN_<NAME>.
+	 */
+	static List<double[]> scout(ServerLevel level, BlockPos spawn, String kind, int want) {
+		Set<String> biomes = switch (kind) {
+			case "cherry" -> CHERRY;
+			case "peaks" -> SNOWPEAKS;
+			case "coast" -> BEACH;
+			case "ocean" -> OCEAN;
+			case "river" -> RIVER;
+			default -> throw new IllegalStateException("no scout for " + kind);
+		};
+		int sea = level.getSeaLevel();
+		List<BlockPos> finds = new ArrayList<>();
+		int[][] origins = {{0, 0}, {1800, 0}, {-1800, 0}, {0, 1800}, {0, -1800}, {1300, 1300}, {-1300, -1300}};
+		for (int[] o : origins) {
+			BlockPos at;
+			try {
+				at = locate(level, spawn.offset(o[0], 0, o[1]), biomes);
+			} catch (IllegalStateException e) {
+				continue;
+			}
+			boolean near = false;
+			for (BlockPos f : finds) {
+				near |= f.distSqr(at) < 256 * 256;
+			}
+			if (!near) {
+				finds.add(at);
+			}
+		}
+		List<double[]> all = new ArrayList<>();
+		for (BlockPos at : finds) {
+			for (int ox = -64; ox <= 64; ox += 16) {
+				for (int oz = -64; oz <= 64; oz += 16) {
+					for (int d = 0; d < 8; d++) {
+						double[] c = rate(level, kind, biomes, sea, at.getX() + ox, at.getZ() + oz, Math.toRadians(d * 45));
+						if (c != null) {
+							all.add(c);
+						}
+					}
+				}
+			}
+		}
+		all.sort((a, b) -> Double.compare(b[6], a[6]));
+		List<double[]> out = new ArrayList<>();
+		for (double[] c : all) {
+			boolean near = false;
+			for (double[] o : out) {
+				near |= Math.hypot((c[0] + c[2]) / 2 - (o[0] + o[2]) / 2, (c[1] + c[3]) / 2 - (o[1] + o[3]) / 2) < 96;
+			}
+			if (!near) {
+				out.add(c);
+				if (out.size() >= want) {
+					break;
+				}
+			}
+		}
+		log("scout " + kind + ": " + finds.size() + " finds, " + all.size() + " runs rated, " + out.size() + " kept");
+		return out;
+	}
+
+	/** One 48-block run through (cx, cz) at heading a, rated for its kind; null when it isn't that kind of shot at all. */
+	static double[] rate(ServerLevel level, String kind, Set<String> biomes, int sea, double cx, double cz, double a) {
+		double ux = Math.cos(a), uz = Math.sin(a);
+		double sx = cx - 24 * ux, sz = cz - 24 * uz, ex = cx + 24 * ux, ez = cz + 24 * uz;
+		int in = 0, n = 0, wetLine = 0, maxTop = -999;
+		for (int i = 0; i <= 12; i++) {
+			double x = lerp(sx, ex, i / 12.0), z = lerp(sz, ez, i / 12.0);
+			if (water(level, x, z)) {
+				wetLine++;
+			}
+			for (int side = -8; side <= 8; side += 8) {
+				double bx = x - uz * side, bz = z + ux * side;
+				int gr = ground(level, bx, bz);
+				maxTop = Math.max(maxTop, top(level, bx, bz));
+				n++;
+				if (biomes.contains(biomeAt(level, (int) bx, gr, (int) bz))) {
+					in++;
+				}
+			}
+		}
+		double inShare = in / (double) n;
+		boolean wetKind = kind.equals("ocean") || kind.equals("river");
+		if (inShare < (wetKind ? 0.5 : 0.6)) {
+			return null;
+		}
+		if (wetKind && wetLine < 12) {
+			return null;   // the camera runs over water the whole way
+		}
+		double y = switch (kind) {
+			case "cherry" -> maxTop + 5;
+			case "peaks" -> maxTop + 16;
+			case "coast" -> Math.max(sea + 9, maxTop + 4);
+			case "ocean" -> sea + 5;
+			default -> sea + 3.2;   // river: low over the water
+		};
+		double pitch = switch (kind) {
+			case "cherry" -> 13;
+			case "peaks" -> 7;
+			case "coast" -> 5;
+			case "ocean" -> 2;
+			default -> 4;
+		};
+		int lo = 999, hi = -999, ahead = 0, wetAhead = 0, leafy = 0, pink = 0, snow = 0, wall = 0;
+		for (int k = 8; k <= 96; k += 8) {
+			for (int side = -40; side <= 40; side += 10) {
+				double bx = ex + ux * k - uz * side, bz = ez + uz * k + ux * side;
+				int gr = ground(level, bx, bz), t = top(level, bx, bz);
+				lo = Math.min(lo, gr);
+				hi = Math.max(hi, gr);
+				ahead++;
+				if (water(level, bx, bz)) {
+					wetAhead++;
+				}
+				if (t - gr >= 4) {
+					leafy++;
+				}
+				var st = level.getBlockState(new BlockPos((int) Math.floor(bx), t - 1, (int) Math.floor(bz)));
+				if (st.is(net.minecraft.world.level.block.Blocks.CHERRY_LEAVES) || st.is(net.minecraft.world.level.block.Blocks.PINK_PETALS)) {
+					pink++;
+				}
+				if (st.is(net.minecraft.world.level.block.Blocks.SNOW_BLOCK) || st.is(net.minecraft.world.level.block.Blocks.SNOW)
+						|| st.is(net.minecraft.world.level.block.Blocks.POWDER_SNOW) || st.is(net.minecraft.world.level.block.Blocks.PACKED_ICE)) {
+					snow++;
+				}
+				if (k <= 48 && Math.abs(side) <= 20 && t > y - 2) {
+					wall++;   // something right in the lens
+				}
+			}
+		}
+		// banks: land rising right beside the camera fills half the frame
+		int bank = 0, landL = 0, landR = 0, treesBeside = 0;
+		for (int i = 0; i <= 12; i += 2) {
+			double x = lerp(sx, ex, i / 12.0), z = lerp(sz, ez, i / 12.0);
+			for (int side = -40; side <= 40; side += 8) {
+				if (side == 0) {
+					continue;
+				}
+				double bx = x - uz * side, bz = z + ux * side;
+				int t = top(level, bx, bz), gr = ground(level, bx, bz);
+				if (Math.abs(side) <= 16 && t > y + 2) {
+					bank++;
+				}
+				if (!water(level, bx, bz)) {
+					if (side < 0) {
+						landL++;
+					} else {
+						landR++;
+					}
+				}
+				if (t - gr >= 4) {
+					treesBeside++;
+				}
+			}
+		}
+		int far = 0, farWet = 0;
+		for (int k = 100; k <= 260; k += 20) {
+			for (int side = -80; side <= 80; side += 20) {
+				far++;
+				if (water(level, ex + ux * k - uz * side, ez + uz * k + ux * side)) {
+					farWet++;
+				}
+			}
+		}
+		double wa = wetAhead / (double) ahead, fw = farWet / (double) far;
+		float yaw = yawTo(ux, uz);
+		double sunAhead = Math.cos(Math.toRadians(yaw - 90));   // the low sun is in the west (yaw 90)
+		double sideLight = Math.abs(Math.sin(Math.toRadians(yaw - 90))) + Math.max(0, -sunAhead);
+		double relief = Math.min(70, hi - lo);
+		double score = switch (kind) {
+			case "cherry" -> pink * 5 + inShare * 60 + relief - wall * 20 - bank * 15 + sideLight * 20 - wetAhead * 2;
+			case "peaks" -> snow * 2 + relief * 3 - wall * 25 - bank * 20 + sideLight * 40;
+			case "coast" -> (fw < 0.75 ? -400 : 0) + fw * 100 - Math.abs(wa - 0.55) * 160 + Math.abs(landL - landR) * 3 - wall * 25 - bank * 20
+					+ sunAhead * 25;
+			case "ocean" -> fw * 60 + Math.min(wa, 0.97) * 40 + (fw > 0.6 && fw < 0.95 ? 60 : 0) - wall * 30 + sunAhead * 30;
+			default -> leafy * 2 + treesBeside * 3 + wetLine * 4 + relief - bank * 25 - wall * 30 + sideLight * 20;   // river
+		};
+		return new double[]{sx, sz, ex, ez, y, pitch, score};
+	}
+
 	/** Moves the server player to the pose (chunks start loading there right away). */
 	static void place(ServerPlayer p, double[] c) {
 		p.teleportTo(p.serverLevel(), c[0], c[1], c[2], (float) c[3], (float) c[4]);
@@ -800,6 +1045,32 @@ public final class OriginDevAd {
 			cmd(server, "gamemode spectator @a");
 			BlockPos spawn = level.getSharedSpawnPos();
 			List<Shot> list = new ArrayList<>();
+			if (!SCOUT.isEmpty()) {   // scout: one still per candidate run, nothing recorded
+				int want = Integer.parseInt(env("ORIGIN_AD_SCOUT_N", "5"));
+				// ORIGIN_AD_SCOUT=list + ORIGIN_AD_SCOUT_LIST=name:sx,sz,ex,ez,y,pitch;...: stills of runs already rated (no rating pass,
+				// which loads thousands of chunks and ran an 8 GB heap out of memory with five kinds in one session)
+				String[] given = SCOUT.equals("list") ? env("ORIGIN_AD_SCOUT_LIST", "").split(";") : new String[0];
+				for (String g : given) {
+					String[] nv = g.trim().split(":");
+					String[] q = nv[1].split(",");
+					double[] c = new double[q.length];
+					for (int j = 0; j < q.length; j++) {
+						c[j] = Double.parseDouble(q[j].trim());
+					}
+					list.add(straight(level, nv[0].trim(), c[0], c[1], c[2], c[3], c[4], c[5], 11, 0, c[4]));
+				}
+				for (String kind : given.length > 0 ? new String[0] : SCOUT.split(",")) {
+					int k = 0;
+					for (double[] c : scout(level, spawn, kind.trim(), want)) {
+						String name = kind.trim() + "#" + (++k);
+						log(String.format(Locale.ROOT, "scout %s score %.0f: RUN=%.0f,%.0f,%.0f,%.0f,%.1f,%.0f", name, c[6], c[0], c[1], c[2], c[3], c[4], c[5]));
+						list.add(straight(level, name, c[0], c[1], c[2], c[3], c[4], c[5], 11, 0, c[4]));
+					}
+				}
+				place(p, list.get(0).path().at(0.5));
+				shots = list;
+				return;
+			}
 			for (String f : FLIGHTS) {
 				try {
 					list.add(flight(level, spawn, f.trim()));
@@ -824,15 +1095,30 @@ public final class OriginDevAd {
 			long now = System.currentTimeMillis();
 			Shot s = shots.get(i);
 			switch (step) {
-				case 0 -> {   // fly there, let the far land generate and mesh
-					cam = s.path().at(0);
+				case 0 -> {   // fly there (at the flight's own time of day), let the far land generate and mesh
+					cam = s.path().at(SCOUT.isEmpty() ? 0 : 0.5);
 					MinecraftServer server = mc.getSingleplayerServer();
-					server.execute(() -> place(server.getPlayerList().getPlayers().get(0), cam));
+					int time = timeOf(s.name());
+					server.execute(() -> {
+						cmd(server, "time set " + time);
+						place(server.getPlayerList().getPlayers().get(0), cam);
+					});
 					stepAt = now;
 					step = 1;
 				}
 				case 1 -> {
-					if (now - stepAt > 12_000 && mc.levelRenderer.hasRenderedAllSections() || now - stepAt > 90_000) {
+					if (!SCOUT.isEmpty()) {
+						if (now - stepAt > 9_000 && landed(mc) || now - stepAt > 60_000) {
+							still(mc, "scout_" + s.name().replace('#', '_'));
+							log("scout still " + s.name() + " after " + (now - stepAt) / 1000 + " s");
+							step = 0;
+							if (++i >= shots.size()) {
+								return true;
+							}
+						}
+						return false;
+					}
+					if (now - stepAt > 12_000 && landed(mc) || now - stepAt > 90_000) {
 						log(s.name() + ": loaded after " + (now - stepAt) / 1000 + " s; rehearsing the move");
 						rehearseFrom = System.nanoTime();
 						step = 2;
@@ -1363,7 +1649,8 @@ public final class OriginDevAd {
 		@Override
 		void options(Minecraft mc) {
 			length = 15;
-			hud(true, false);
+			hud(false, false);
+			mc.options.hideGui = true;   // rev 3: F1-clean behind the Coach (the FPS readout comes from R9)
 		}
 
 		@Override
@@ -1373,8 +1660,8 @@ public final class OriginDevAd {
 
 		@Override
 		void server(MinecraftServer server, ServerLevel level, ServerPlayer p) {
-			cmd(server, "gamemode creative @a");
-			kit(server);
+			cmd(server, "gamemode spectator @a");   // nothing in the hands
+			cmd(server, "clear @a");
 			double[] v = canopy(level, level.getSharedSpawnPos()).path().at(0.2);
 			place(p, v);
 			view(v);
@@ -1411,14 +1698,39 @@ public final class OriginDevAd {
 		static final double[] KEYS = coords("ORIGIN_AD_KEYS");      // Key Strokes: grab point, drop point
 		static final double[] CPS = coords("ORIGIN_AD_CPS");        // CPS: grab point, drop point
 
+		/** ORIGIN_AD_MENU_ONLY=1 (rev 3): just the mod menu over an F1-clean real landscape, then a slow scroll of the list. */
+		static final boolean MENU_ONLY = "1".equals(System.getenv("ORIGIN_AD_MENU_ONLY"));
+
 		@Override
 		void options(Minecraft mc) {
-			length = 12.5;
-			hud(true, true);
+			length = MENU_ONLY ? 9 : 12.5;
+			if (MENU_ONLY) {
+				mc.options.hideGui = true;   // F1: no HUD draws, so the cards can show a real setup (capture.py R6_ON)
+				for (String id : new String[]{"fps", "cps", "armorhud"}) {   // the ones baseOptions switched off
+					Mods.setOn(id, true);
+				}
+			} else {
+				hud(true, true);
+			}
 		}
 
 		@Override
 		void server(MinecraftServer server, ServerLevel level, ServerPlayer p) {
+			if (MENU_ONLY) {
+				cmd(server, "gamemode spectator @a");
+				cmd(server, "clear @a");
+				double[] v = canopy(level, level.getSharedSpawnPos()).path().at(0.6);
+				place(p, v);
+				view(v);
+				drift = 0.5;
+				at(0.5, mc -> mc.setScreen(new com.origin.client.client.gui.OriginModMenuScreen()));
+				at(1.2, mc -> logHits(mc.screen));
+				at(1.4, mc -> glides.add(new Glide(1.4, 2.0, 1500, 900, 960, 600)));
+				for (int k = 0; k < 8; k++) {   // one notch every 0.35 s from 4.5 s: the list rolls past slowly
+					at(4.5 + k * 0.35, mc -> scroll(mc, -1));
+				}
+				return;
+			}
 			cmd(server, "gamemode survival @a");
 			kit(server);
 			arena(server, level, p);
@@ -1507,6 +1819,66 @@ public final class OriginDevAd {
 			drift = -1.2;
 			at(1.5, mc -> com.origin.client.client.social.SocialToast.request(mc, FRIEND_ID, FRIEND));
 			at(2.1, mc -> com.origin.client.client.social.SocialToast.invite(mc, HOST_ID, HOST));
+		}
+	}
+
+	// ---------------------------------------------------------------- R9: the HUD modules alone, keyed, plus the two toasts
+
+	/**
+	 * Rev 3's floating HUD layers: the real modules (positions and scale from capture.py's prepare(), no backgrounds)
+	 * drawn over one flat key colour (DevAdGuiMixin) and recorded lossless, so the edit keys each one out exactly.
+	 * Spectator (no hand, hotbar, health or crosshair), armor on for Armor Status, two effects for Potion Effects,
+	 * scripted left clicks for CPS, then the friend-request and party-invite toasts (made-up players).
+	 */
+	static final class ClipHudKeyed extends UiClip {
+		static final String[] ON = {"fps", "cps", "coords", "armorhud", "potionhud", "clock", "memory"};
+		static final String[] OFF = {"keystrokes", "combo", "reach", "ping", "saturation", "packdisplay", "itemcounter",
+				"directionhud", "daycounter", "stopwatch", "serveraddress", "scoreboard", "minimap", "crosshair", "togglesprint", "cooldowns",
+				"bossbar", "waypoints", "titles", "teamview"};
+		private final Random rnd = new Random(11);
+		private double nextClick = 0.3;
+
+		@Override
+		void options(Minecraft mc) {
+			length = 12;
+			mc.options.hideGui = false;   // the modules only draw with the HUD on; spectator hides everything vanilla
+			mc.options.graphicsMode().set(net.minecraft.client.GraphicsStatus.FAST);   // no vignette over the key colour
+			for (String id : OFF) {
+				Mods.setOn(id, false);
+			}
+			for (String id : ON) {
+				Mods.setOn(id, true);
+			}
+			keyBackground = 0xFFFF00FF;
+		}
+
+		@Override
+		void server(MinecraftServer server, ServerLevel level, ServerPlayer p) {
+			cmd(server, "gamemode spectator @a");
+			cmd(server, "clear @a");
+			String ench = "[minecraft:enchantments={levels:{\"minecraft:protection\":4,\"minecraft:unbreaking\":3}}]";
+			cmd(server, "item replace entity @a armor.head with minecraft:diamond_helmet" + ench);
+			cmd(server, "item replace entity @a armor.chest with minecraft:diamond_chestplate" + ench);
+			cmd(server, "item replace entity @a armor.legs with minecraft:diamond_leggings" + ench);
+			cmd(server, "item replace entity @a armor.feet with minecraft:diamond_boots" + ench);
+			cmd(server, "effect give @a minecraft:speed 900 1 true");
+			cmd(server, "effect give @a minecraft:night_vision 900 0 true");
+			double[] v = canopy(level, level.getSharedSpawnPos()).path().at(0.5);
+			place(p, v);
+			view(v);
+			drift = 2.0;   // the world keeps moving under the key colour, so the FPS readout is a real one
+			at(4.0, mc -> com.origin.client.client.social.SocialToast.request(mc, ClipSocial.FRIEND_ID, ClipSocial.FRIEND));
+			at(5.2, mc -> com.origin.client.client.social.SocialToast.invite(mc, ClipSocial.HOST_ID, ClipSocial.HOST));
+		}
+
+		@Override
+		void perFrame(Minecraft mc, double t) {
+			// CPS: real clicks through the real input path, 9-12 a second (spectator: a click in the air does nothing)
+			if (t >= nextClick && t < length - 0.5) {
+				button(mc, GLFW.GLFW_MOUSE_BUTTON_LEFT, true);
+				button(mc, GLFW.GLFW_MOUSE_BUTTON_LEFT, false);
+				nextClick = t + 1.0 / (9 + rnd.nextDouble() * 3);
+			}
 		}
 	}
 

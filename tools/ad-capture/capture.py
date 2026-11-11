@@ -17,6 +17,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -33,7 +34,7 @@ CACHE = os.path.join(HERE, "cache")
 SPOTS = os.path.join(ROOT, "tools", "panorama", "spots.json")
 
 # Clips that start without a shader pack (R3 downloads and applies one in game, for real).
-NO_SHADER = {"R3"}
+NO_SHADER = {"R3", "R9"}   # R9 paints a key colour over the world anyway
 # How long a clip may run before the game is killed (world creation + chunk waits included).
 LIMIT = {"R2": 3600, "R8": 900}
 # Per-clip settings. R2's water run: the river stretch from the second probe (seed terrain, picked by eye: the
@@ -41,16 +42,35 @@ LIMIT = {"R2": 3600, "R8": 900}
 # R6: the mod menu's EDIT HUD button, then Key Strokes and CPS dragged from the top-left stack to above the hotbar's
 # left (grab x,y, drop x,y in window px, read off the first take: the HUD editor draws no click targets of its own).
 # R2: the flights in order (OriginDevAd.flight), then the river run again with shaders off for a before/after wipe.
-CLIP_ENV = {"R2": {"ORIGIN_AD_WATER": "398,-165,398,-221",
-                   "ORIGIN_AD_FLIGHTS": "water,forest,mountain,cherry,meadow,jungle,badlands,coast",
-                   "ORIGIN_AD_VANILLA": "water",
+# Rev 3 flights: each one a straight run picked by eye from the scout stills (ORIGIN_AD_SCOUT, footage/scout/screenshots),
+# RUN = start x,z -> end x,z at camera y, pitch. Montage order: jungle, badlands, ocean, lush, peaks2, cherry2.
+CLIP_ENV = {"R2": {"ORIGIN_AD_FLIGHTS": "hero,peaks,cherry,coast,jungle,badlands,ocean,lush,peaks2,cherry2",
+                   "ORIGIN_AD_RUN_HERO": "1292,1268,1340,1268,66.2,4",          # scout river#1: river into a forest
+                   "ORIGIN_AD_RUN_PEAKS": "47,-47,81,-81,239,18",                 # scout peaks#3: jagged peaks
+                   "ORIGIN_AD_RUN_CHERRY": "-1185,-873,-1151,-839,130,13",       # scout cherry#2
+                   "ORIGIN_AD_RUN_COAST": "2489,-545,2455,-511,73,5",            # scout coast#2: islands at sunset
+                   "ORIGIN_AD_TIME_COAST": "12300",
+                   "ORIGIN_AD_RUN_JUNGLE": "-721,-769,-687,-735,108,9",          # probe 10800
+                   "ORIGIN_AD_RUN_BADLANDS": "-113,-1865,-79,-1831,66.2,4",      # scout river#2: badlands over still water
+                   "ORIGIN_AD_RUN_OCEAN": "-1267,-1235,-1301,-1269,68,2",        # scout ocean#4
+                   "ORIGIN_AD_RUN_LUSH": "398,-165,398,-221,66.2,4",             # the first cut's river run
+                   "ORIGIN_AD_RUN_PEAKS2": "-1673,129,-1639,95,165,7",           # scout peaks#4: snowy slopes, ice
+                   "ORIGIN_AD_RUN_CHERRY2": "-1720,-24,-1720,24,126,13",         # scout cherry#5: cherry under a snowy peak
+                   "ORIGIN_AD_VANILLA": "hero",
                    "ORIGIN_AD_TIME": "10800"},   # earlier than 11800: blue sky + warm light (probe 2026-11-11)
-            "R6": {"ORIGIN_AD_EDIT": "1296,282", "ORIGIN_AD_KEYS": "75,130,110,860", "ORIGIN_AD_CPS": "30,42,70,985"}}
+            "R6": {"ORIGIN_AD_MENU_ONLY": "1"},   # rev 3: the mod menu alone (the old HUD-editor drags: ORIGIN_AD_EDIT/_KEYS/_CPS)
+            "R9": {"ORIGIN_AD_LOSSLESS": "1"}}
 # Complementary settings per clip on top of the base ones. R2: clearer air for the landscapes (the default fog turned
 # the first cut's peaks into a beige haze): less atmospheric fog, pushed further out.
 SHADER_OPTS = {"R2": "ATM_FOG_MULT=0.65\nATM_FOG_DISTANCE=200\n"}
+# R9: where each HUD module sits in the keyed take (the edit crops them by these, see v2/capture/key_hud.py)
+R9_HUD = {"fps": [0, 10, 10, 2.0, 0], "cps": [0, 10, 40, 2.0, 0], "clock": [0, 10, 70, 2.0, 0], "memory": [0, 10, 100, 2.0, 0],
+          "coords": [0, 10, 140, 2.0, 0], "potionhud": [0, 330, 10, 2.0, 0], "armorhud": [0, 330, 150, 2.0, 0]}
+# Module options for R9: the real defaults, plus Armor Status as a column (it sits flush on the stack's left edge)
+R6_ON = set(R9_HUD) | {"armorhud", "potionhud", "oldanimations", "blockoverlay"}
+R9_OPTS = {"armorhud": {"listMode": "Vertical", "durabilityPos": "Right"}}
 # The ad's footage names -> raw take files (R2 is three flights joined in order).
-FOOTAGE = {"R3": "R3", "R4": "R4", "R5": "R5", "R6": "R6", "R7": "R7", "R8": "R8"}
+FOOTAGE = {"R3": "R3", "R4": "R4", "R5": "R5", "R6": "R6", "R7": "R7", "R8": "R8"}   # R9 is keyed, not encoded here
 
 
 def shader_zip():
@@ -86,6 +106,21 @@ def prepare(clip):
     if os.path.exists(mods):
         cfg = json.load(open(mods, encoding="utf-8"))
         cfg["hud"] = {}
+        if clip == "R9":
+            # Rev 3's HUD layers: each module at 2x, spaced apart so each crops alone; no backgrounds (layout
+            # backing opacity 0, showBackground off). [anchor TL, dx, dy, scale, backing] in GUI px (GUI scale 2).
+            for mid, spot in R9_HUD.items():
+                cfg["hud"][mid] = spot
+                cfg["mods"][mid] = dict(R9_OPTS.get(mid, {}), enabled=True, showBackground=False)
+        if clip == "R6":
+            # The menu as a player's setup shows it: every mod at its shipped default (Mods.java), plus the HUD modules
+            # shot 11 stacks and 1.7 Animations / Block Outline on. A dev run left from older takes has them all off,
+            # which reads as a wall of red DISABLED. R6 hides the HUD (F1), so none of these draw over the menu.
+            src = open(os.path.join(MDIR, "src", "client", "java", "com", "origin", "client", "client", "mods", "Mods.java"),
+                       encoding="utf-8").read()
+            defaults = dict(re.findall(r'add\("(\w+)",\s*"[^"]*",\s*"[^"]*",\s*(true|false)', src))
+            for mid, on in defaults.items():
+                cfg["mods"].setdefault(mid, {})["enabled"] = on == "true" or mid in R6_ON
         json.dump(cfg, open(mods, "w", encoding="utf-8"), indent=2)
     open(os.path.join(RUN, "options.txt"), "w", encoding="utf-8").write(
         "version:3955\nonboardAccessibility:false\npauseOnLostFocus:false\nrenderDistance:20\nsimulationDistance:8\n"
@@ -142,12 +177,13 @@ def encode(out, dest):
     os.makedirs(dest, exist_ok=True)
     # every R2 flight on its own too (R2_NN_<flight>.mp4, plus the shaders-off twin), for montages and the wipe
     flights = sorted(f[:-4] for f in os.listdir(out) if f.startswith("R2_") and f[3:5].isdigit() and f.endswith(".mp4"))
-    for name in ["R2", *flights, *FOOTAGE]:
+    for name in [*flights, *FOOTAGE]:   # (R2.mp4, the flights joined, is for review only; the edit uses F_*)
         src = os.path.join(out, name + ".mp4")
         if not os.path.exists(src):
             print(f"encode: {name}: no take")
             continue
-        dst = os.path.join(dest, name + ".mp4")
+        # a flight lands under its own name, F_<flight>[_vanilla].mp4, so the edit never depends on the take order
+        dst = os.path.join(dest, ("F_" + name[6:] if name in flights else name) + ".mp4")
         subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-vf", "fps=30",
                         "-c:v", "libx264", "-preset", "slow", "-crf", "15", "-pix_fmt", "yuv420p", "-an",
                         "-movflags", "+faststart", dst], check=True)
