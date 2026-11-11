@@ -24,7 +24,9 @@ public final class ServerMods {
 				// fail-soft
 			}
 			try {
-				DiscordPresence.tick(mc);
+				if (!com.origin.client.client.OriginDevAd.ON) {   // the ad capture never talks to Discord
+					DiscordPresence.tick(mc);
+				}
 			} catch (Throwable t) {
 				// fail-soft
 			}

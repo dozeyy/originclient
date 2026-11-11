@@ -92,6 +92,15 @@ loom {
 			if (project.hasProperty("quickplay")) {
 				programArgs "--quickPlaySingleplayer", project.property("quickplay").toString()
 			}
+			// `-PdevUser=<name>` (offline dev name) and `-PdevSize=1920x1080`: the ad capture harness
+			// (tools/ad-capture) runs with a neutral name and a fixed window size.
+			if (project.hasProperty("devUser")) {
+				programArgs "--username", project.property("devUser").toString()
+			}
+			if (project.hasProperty("devSize")) {
+				def wh = project.property("devSize").toString().split("x")
+				programArgs "--width", wh[0], "--height", wh[1]
+			}
 			if (project.hasProperty("mixinexport")) {
 				property "mixin.debug.export", "true"
 			}

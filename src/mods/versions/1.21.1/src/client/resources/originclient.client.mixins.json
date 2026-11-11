@@ -4,6 +4,11 @@
 	"plugin": "com.origin.client.client.compat.CompatMixinPlugin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
+    "DevAdMouseAccess",
+    "DevAdInputMixin",
+    "DevAdKeyboardMixin",
+    "DevAdMinecraftMixin",
+    "DevAdWindowMixin",
     "KeyTapsMixin",
     "MouseTapsMixin",
     "WindowTitleMixin",

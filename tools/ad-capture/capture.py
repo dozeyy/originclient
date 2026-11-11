@@ -1,0 +1,166 @@
+"""Records the Origin Client launch ad's in-game clips (R2-R8) in a dev copy of the game. Dev-only, branch claude/ad-capture.
+
+    python tools/ad-capture/capture.py R2 R3 ...          record clips into --out (default origin-client-ad/footage/raw)
+    python tools/ad-capture/capture.py R2 --probe          stills along each move instead of video (check the spots)
+    python tools/ad-capture/capture.py R3 --set ORIGIN_AD_PACK_X=1330 --set ORIGIN_AD_PACK_Y=330
+    python tools/ad-capture/capture.py encode              raw takes -> edit/public/footage/R*.mp4 (30 fps)
+
+Per clip: writes the 1.21.1 module's dev run folder (run/, gitignored: shader pack + options, iris.properties,
+options.txt), then runs `gradlew runClient` under the machine-wide verify lock with ORIGIN_SHOTS_SET=ad and
+ORIGIN_AD_CLIP=<clip>. OriginDevAd (in the mod) opens the fixed world, stages the clip, scripts every input inside the
+game and records the game's own frames with ffmpeg (OriginDevAdCapture), then quits. The window opens unfocused, the
+real mouse and keyboard are cut off from it, and the OS pointer is never moved or grabbed.
+
+Never touches %LocalAppData%\\OriginLauncher, Will's account or saves: the run folder is the module's own dev game.
+"""
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+MDIR = os.path.join(ROOT, "src", "mods", "versions", "1.21.1")
+RUN = os.path.join(MDIR, "run")
+JDK21 = r"C:\Program Files\Java\jdk-21.0.10"
+LOCK = os.path.join(os.path.expanduser("~"), ".claude", "scripts", "verify-lock.ps1")
+AD = r"C:\Users\Will\origin-client-ad"
+CACHE = os.path.join(HERE, "cache")
+SPOTS = os.path.join(ROOT, "tools", "panorama", "spots.json")
+
+# Clips that start without a shader pack (R3 downloads and applies one in game, for real).
+NO_SHADER = {"R3"}
+# How long a clip may run before the game is killed (world creation + chunk waits included).
+LIMIT = {"R2": 1500, "R8": 900}
+# Per-clip settings. R2's water run: the river stretch from the second probe (seed terrain, picked by eye: the
+# scorer's best run kept ending at a lava-lit canyon wall).
+# R6: the mod menu's EDIT HUD button, then Key Strokes and CPS dragged from the top-left stack to above the hotbar's
+# left (grab x,y, drop x,y in window px, read off the first take: the HUD editor draws no click targets of its own).
+CLIP_ENV = {"R2": {"ORIGIN_AD_WATER": "398,-165,398,-221"},
+            "R6": {"ORIGIN_AD_EDIT": "1296,282", "ORIGIN_AD_KEYS": "75,130,110,860", "ORIGIN_AD_CPS": "30,42,70,985"}}
+# The ad's footage names -> raw take files (R2 is three flights joined in order).
+FOOTAGE = {"R3": "R3", "R4": "R4", "R5": "R5", "R6": "R6", "R7": "R7", "R8": "R8"}
+
+
+def shader_zip():
+    pack = json.load(open(SPOTS, encoding="utf-8"))["shaderpack"]
+    path = os.path.join(CACHE, pack["file"])
+    if not os.path.exists(path):
+        sys.exit(f"capture: put {pack['file']} (sha512 {pack['sha512'][:16]}...) in {CACHE}\n  (Modrinth: {pack['url']})")
+    h = hashlib.sha512(open(path, "rb").read()).hexdigest()
+    if h != pack["sha512"]:
+        sys.exit(f"capture: {path} sha512 mismatch")
+    return pack["file"], path
+
+
+def prepare(clip):
+    for d in ("shaderpacks", "config"):
+        os.makedirs(os.path.join(RUN, d), exist_ok=True)
+    sp = os.path.join(RUN, "shaderpacks")
+    for f in os.listdir(sp):
+        p = os.path.join(sp, f)
+        shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)
+    if clip in NO_SHADER:
+        props = "enableShaders=false\n"
+    else:
+        name, path = shader_zip()
+        shutil.copyfile(path, os.path.join(sp, name))
+        # Complementary at its defaults (waving leaves, moving clouds) but the high shadow/cloud/light-shaft tiers.
+        open(os.path.join(sp, name + ".txt"), "w", encoding="utf-8").write(
+            "SHADOW_QUALITY=4\nCLOUD_QUALITY=3\nLIGHTSHAFT_QUALI_DEFINE=3\nVIGNETTE_R=false\n")
+        props = f"enableShaders=true\nshaderPack={name}\n"
+    open(os.path.join(RUN, "config", "iris.properties"), "w", encoding="utf-8").write(props)
+    # HUD positions back to the defaults (the top-left stack), so a take never inherits R6's drags.
+    mods = os.path.join(RUN, "config", "originclient-mods.json")
+    if os.path.exists(mods):
+        cfg = json.load(open(mods, encoding="utf-8"))
+        cfg["hud"] = {}
+        json.dump(cfg, open(mods, "w", encoding="utf-8"), indent=2)
+    open(os.path.join(RUN, "options.txt"), "w", encoding="utf-8").write(
+        "version:3955\nonboardAccessibility:false\npauseOnLostFocus:false\nrenderDistance:20\nsimulationDistance:8\n"
+        "guiScale:2\nfov:0.0\nfullscreen:false\nnarrator:0\nsoundCategory_master:0.0\ntutorialStep:none\n"
+        "chatVisibility:2\nskipMultiplayerWarning:true\njoinedFirstServer:true\nenableVsync:false\nmaxFps:260\n")
+
+
+def run_clip(clip, out, probe, extra, user, fps):
+    prepare(clip)
+    os.makedirs(out, exist_ok=True)
+    env = dict(os.environ)
+    env.update(ORIGIN_SHOTS=out, ORIGIN_SHOTS_SET="ad", ORIGIN_AD_CLIP=clip, ORIGIN_AD_MODE="probe" if probe else "take",
+               ORIGIN_AD_FPS=str(fps), JAVA_HOME=JDK21)
+    env.update(CLIP_ENV.get(clip, {}))
+    env.update(extra)
+    logp = os.path.join(out, f"{clip}{'_probe' if probe else ''}.run.log")
+    cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", LOCK, "-MaxMinutes", "40", "--",
+           os.path.join(MDIR, "gradlew.bat"), "runClient", "--no-daemon", "-PbootJvmArgs=-Xmx8G",
+           f"-PdevUser={user}", "-PdevSize=1920x1080"]
+    t0 = time.time()
+    print(f"capture: {clip}{' (probe)' if probe else ''} -> {out}", flush=True)
+    with open(logp, "w", encoding="utf-8", errors="replace") as log:
+        proc = subprocess.Popen(cmd, cwd=MDIR, env=env, stdout=log, stderr=subprocess.STDOUT)
+    pos = 0
+    failed = False
+    while proc.poll() is None:
+        time.sleep(2)
+        with open(logp, encoding="utf-8", errors="replace") as f:
+            f.seek(pos)
+            new = f.read()
+            pos = f.tell()
+        for line in new.splitlines():
+            if "[ad]" in line or "Exception" in line[:200] or "FATAL" in line or "verify-lock" in line:
+                print(f"  {time.time() - t0:5.0f}s {line[line.find('['):][:240] if '[ad]' in line else line[:240]}", flush=True)
+            if "[ad] FAILED" in line:
+                failed = True
+        if time.time() - t0 > LIMIT.get(clip, 600):
+            print(f"capture: {clip}: over {LIMIT.get(clip, 600)} s, killing the game", flush=True)
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
+            failed = True
+    print(f"capture: {clip}: game exited {proc.returncode} after {time.time() - t0:.0f} s", flush=True)
+    if clip == "R2" and not probe and not failed:
+        parts = sorted(f for f in os.listdir(out) if f.startswith("R2_") and f.endswith(".mp4"))
+        lst = os.path.join(out, "R2_parts.txt")
+        open(lst, "w", encoding="utf-8").write("".join(f"file '{p}'\n" for p in parts))
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst,
+                        "-c", "copy", os.path.join(out, "R2.mp4")], check=True, cwd=out)
+        print(f"capture: R2.mp4 <- {parts}")
+    return not failed
+
+
+def encode(out, dest):
+    """Raw takes (60 fps, near-lossless) -> the edit's footage slots at 30 fps."""
+    os.makedirs(dest, exist_ok=True)
+    for name in ["R2", *FOOTAGE]:
+        src = os.path.join(out, name + ".mp4")
+        if not os.path.exists(src):
+            print(f"encode: {name}: no take")
+            continue
+        dst = os.path.join(dest, name + ".mp4")
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-vf", "fps=30",
+                        "-c:v", "libx264", "-preset", "slow", "-crf", "15", "-pix_fmt", "yuv420p", "-an",
+                        "-movflags", "+faststart", dst], check=True)
+        print(f"encode: {dst}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("clips", nargs="+", help="R2..R8, or 'encode'")
+    ap.add_argument("--out", default=os.path.join(AD, "footage", "raw"))
+    ap.add_argument("--probe", action="store_true")
+    ap.add_argument("--fps", type=int, default=60)
+    ap.add_argument("--user", default="Rowan", help="offline dev name (never a real account)")
+    ap.add_argument("--set", action="append", default=[], help="extra ORIGIN_AD_* env, K=V")
+    a = ap.parse_args()
+    if a.clips == ["encode"]:
+        encode(a.out, os.path.join(AD, "edit", "public", "footage"))
+        return
+    extra = dict(s.split("=", 1) for s in a.set)
+    ok = all([run_clip(c, a.out, a.probe, extra, a.user, a.fps) for c in a.clips])
+    sys.exit(0 if ok else 1)
+
+
+if __name__ == "__main__":
+    main()

@@ -708,6 +708,10 @@ public final class OriginDevShots {
 	}
 
 	public static void tick(Minecraft mc) {
+		if (OriginDevAd.ON) {   // dev-only ad capture harness (branch claude/ad-capture)
+			OriginDevAd.tick(mc);
+			return;
+		}
 		if (done) {
 			if (inWorld) {
 				// The in-world shots count towards the done line (check_shots.py needs them on disk).

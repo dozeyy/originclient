@@ -69,3 +69,6 @@ tools/panorama/out/
 
 # website smoke test: Playwright is installed next to it (website-check.yml), never committed
 tools/website/node_modules/
+
+# ad capture harness: cached third-party shader pack (never committed)
+tools/ad-capture/cache/
