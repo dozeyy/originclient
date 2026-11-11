@@ -98,7 +98,7 @@ internal static class AccountShots
         [
             new MinecraftAccount { Id = SocialDemo.Steve, Gamertag = "Steve", LastUsedUtc = DateTimeOffset.UtcNow, IsSelected = true },
             new MinecraftAccount { Id = SocialDemo.Alex, Gamertag = "Alex", LastUsedUtc = DateTimeOffset.UtcNow.AddDays(-3) },
-            new MinecraftAccount { Id = SocialDemo.Notch, Gamertag = "Notch", LastUsedUtc = DateTimeOffset.UtcNow.AddDays(-9), IsPending = true },
+            new MinecraftAccount { Id = SocialDemo.Quill, Gamertag = "Quill", LastUsedUtc = DateTimeOffset.UtcNow.AddDays(-9), IsPending = true },
             new MinecraftAccount { Id = SocialDemo.Kai, Gamertag = Widest, LastUsedUtc = DateTimeOffset.UtcNow.AddDays(-30) },
         ]);
         RenderShots.Pump(300);

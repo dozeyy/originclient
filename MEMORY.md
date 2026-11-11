@@ -483,3 +483,9 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
   line under cp1252 and orphaned the game (stdout errors=replace); the far gate never opened when DH printed nothing
   (LODs cached) - silence from the start now counts; FPS Coach closes on the TRY IT click itself (edit holds the frame).
   Origin bug seen: the Coach result line "Render distance 32 → 19" draws the arrow as a box (font lacks U+2192).
+- 2026-11-11 ad friends shot: render-shots demo data (SocialDemo, SocialShots, AccountShots, CompatShots) now uses only
+  invented players (Notch -> Quill, dinnerbone -> lanternfox, Hermit/Mojang/YouTuber names -> made-up) and reserved
+  example.net/.org/.com servers instead of hypixel/cubecraft/mineplex. Ad image = `dpi-home-friends-toasts-1180x740-200pct.png`
+  -> origin-client-ad/edit/public/v2/ui/friends.png (old kept as friends_orig.png). Branch-only build break: csproj needs
+  website/assets/fonts/Inter-LICENSE.txt (deleted by the website redesign); restore it temporarily from 8c5629376^ to build.
+  Pre-existing test failure here: GameRunningProbeTests.The_game_dir_argument_is_matched_as_one_exact_argument.

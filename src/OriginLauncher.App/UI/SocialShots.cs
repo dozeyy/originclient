@@ -369,12 +369,12 @@ public static class SocialShots
     {
         string[] names =
         [
-            "Steve", "Alex", "Kai_Builds", "rinrin", "Notch", "Dream_SMP_fan_1", "xX_Slayer_Xx", "Technoblade_RIP",
-            "ender_pearl", "CreeperAwMan", "redstone_guy", "Herobrine", "jeb_", "Dinnerbone", "Grumm", "MumboJumbo",
-            "iskall85", "Xisuma", "Etho", "BdoubleO100", "Grian", "Scar", "Pearl", "Impulse", "Tango", "Zedaph",
-            "Keralis", "Cubfan135", "Docm77", "Welsknight",
+            "Steve", "Alex", "Kai_Builds", "rinrin", "Quill", "Oak_Trail_fan_1", "xX_Slayer_Xx", "Turnip_Knight_7",
+            "ender_pearl", "GravelGuy_42", "redstone_guy", "Shadebrim", "pip_", "Tidewalker", "Brakk", "FizzleWick",
+            "torvik42", "Zylora", "Tavi", "MapleMoss12", "Pippa", "Wisp", "Clove", "Bramble", "Ember", "Lumeni",
+            "Halvard", "Duckpond7", "Brix88", "Ironmoss_1",
         ];
-        string?[] servers = ["hypixel.net", "play.cubecraft.net", "mc.very-long-server-name-network.example.com", null, "mineplex.com"];
+        string?[] servers = ["play.example.net", "play.example.org", "mc.very-long-server-name-network.example.com", null, "mc.example.com"];
         var friends = new List<FriendInfo>();
         for (var i = 0; i < names.Length; i++)
         {
@@ -402,7 +402,7 @@ public static class SocialShots
         Status = SocialStatus.Online,
         HasData = true,
         Me = new SocialMe(SocialDemo.Me, "OriginPlayer", false),
-        Friends = [new FriendInfo("b1".PadLeft(32, '0'), "Yozeyy", false, null, null, null, null, now - 11 * 3_600_000L)],
+        Friends = [new FriendInfo("b1".PadLeft(32, '0'), "Tilvex", false, null, null, null, null, now - 11 * 3_600_000L)],
     };
 
     private static SocialSnapshot AsMember(long now)
@@ -415,7 +415,7 @@ public static class SocialShots
                 new PartyMember(SocialDemo.Steve, "Steve", true),
                 new PartyMember(SocialDemo.Me, "OriginPlayer", true),
                 new PartyMember(SocialDemo.Alex, "Alex", true),
-                new PartyMember(SocialDemo.Notch, "Notch", false),
+                new PartyMember(SocialDemo.Quill, "Quill", false),
             ]),
             PartyInvites = [],
             Incoming = [],
@@ -436,7 +436,7 @@ public static class SocialShots
 
     private static SocialSnapshot WithWarp(long now) => SocialDemo.Online(now) with
     {
-        Warp = new WarpRequest("hypixel.net", "1.21.1", now, SocialDemo.Steve, "Steve"),
+        Warp = new WarpRequest("play.example.net", "1.21.1", now, SocialDemo.Steve, "Steve"),
         Me = new SocialMe(SocialDemo.Me, "OriginPlayer", true),
     };
 
@@ -454,7 +454,7 @@ public static class SocialShots
             Dm("c4", steve, me, "also the map thing", 3187),
             Dm("c5", me, steve, "nice", 300),
             Dm("c6", steve, me, "you on tonight?", 42),
-            Dm("c7", steve, me, "bed wars? I'm on hypixel already. bring the whole party, we need four for the new map and the queue is empty right now so we should get in fast, then we can try the new mode after", 41),
+            Dm("c7", steve, me, "bed wars? I'm on the server already. bring the whole party, we need four for the new map and the queue is empty right now so we should get in fast, then we can try the new mode after", 41),
             Dm("c8", me, steve, "yeah, after dinner", 40),
             Dm("c9", me, steve, "give me twenty minutes", 40),
             Dm("c10", me, steve, "https://example.com/a/really/long/link/with/no/spaces/that/should/still/wrap/inside/the/bubble/without/clipping", 39),
@@ -524,7 +524,7 @@ public static class SocialShots
             {
                 List(w, SocialDemo.Online(now));
                 w.TourFriendsPanel.TourSetAddOpen(true);
-                w.TourFriendsPanel.ShowNotice("Friend request sent to dinnerbone.", error: false);
+                w.TourFriendsPanel.ShowNotice("Friend request sent to lanternfox.", error: false);
             }),
             new("list-add-error", w =>
             {
@@ -606,7 +606,7 @@ public static class SocialShots
             new("list-stale", w => List(w, SocialDemo.Online(now) with { Status = SocialStatus.Unreachable })),
             new("chat-friend-online", w => Chat(w, SocialDemo.Online(now), SocialDemo.Steve)),
             new("chat-friend-long", w => Chat(w, LongChat(now), SocialDemo.Steve)),
-            new("chat-friend-offline-empty", w => Chat(w, SocialDemo.Online(now), SocialDemo.Notch)),
+            new("chat-friend-offline-empty", w => Chat(w, SocialDemo.Online(now), SocialDemo.Quill)),
             new("chat-party", w => Chat(w, SocialDemo.Online(now), SocialSnapshot.PartyKey)),
             new("chat-party-alone", w => Chat(w, SocialDemo.Online(now) with
             {

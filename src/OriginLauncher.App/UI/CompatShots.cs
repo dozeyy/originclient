@@ -90,7 +90,7 @@ internal static class CompatShots
     private static void FixPrompt(MainWindow window, string outDir, object home, string version, object tone)
     {
         var platform = LaunchPreflight.PlatformFor(version);
-        var profile = new ModProfile { Id = ProfileRules.NewId(), Name = "Hypixel PvP", Version = version };
+        var profile = new ModProfile { Id = ProfileRules.NewId(), Name = "Arena PvP", Version = version };
         var source = new FixSource(version, profile, @"C:\demo\mods", @"C:\demo\profile\mods", _ => false, _ => false);
         var shipped = ConfigurationCatalog.For(version).First(c => c.IsDefault);
 
