@@ -79,6 +79,19 @@ public final class OriginDevAd {
 		return v == null || v.isBlank() ? def : v;
 	}
 
+	/** The take's window (capture.py --size, default 1920x1080) and GUI scale (--gui, default 2). */
+	static final int WIN_W = Integer.parseInt(env("ORIGIN_AD_SIZE", "1920x1080").split("x")[0].trim());
+	static final int WIN_H = Integer.parseInt(env("ORIGIN_AD_SIZE", "1920x1080").split("x")[1].trim());
+	static final int GUI = Integer.parseInt(env("ORIGIN_AD_GUI", "2"));
+
+	/**
+	 * Window px per 1080p px for the deck screens (Download Shaders, FPS Coach): OriginDeck scales them with the window
+	 * height and centres them, so a 1080p spot (x, y) sits at (x, y) * this on a 16:9 window of any size.
+	 */
+	static double k1080(Minecraft mc) {
+		return mc.getWindow().getHeight() / 1080.0;
+	}
+
 	static void log(String s) {
 		com.origin.client.OriginClient.LOGGER.info("[ad] " + s);
 	}
@@ -200,7 +213,7 @@ public final class OriginDevAd {
 
 	private static void baseOptions(Minecraft mc) {
 		var o = mc.options;
-		o.guiScale().set(2);
+		o.guiScale().set(GUI);
 		o.fov().set(70);
 		o.fovEffectScale().set(0.0);
 		o.renderDistance().set(20);
@@ -216,8 +229,8 @@ public final class OriginDevAd {
 		o.pauseOnLostFocus = false;
 		o.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.0);
 		o.save();
-		if (mc.getWindow().getWidth() != 1920 || mc.getWindow().getHeight() != 1080) {
-			mc.getWindow().setWindowed(1920, 1080);
+		if (mc.getWindow().getWidth() != WIN_W || mc.getWindow().getHeight() != WIN_H) {
+			mc.getWindow().setWindowed(WIN_W, WIN_H);
 		}
 		// Origin's own: never throttle (the window is deliberately left unfocused), no HUD extras we didn't pick.
 		Mods.set(Mods.PERFORMANCE_ID, "limitUnfocusedFps", false);
@@ -2179,15 +2192,15 @@ public final class OriginDevAd {
 			at(1.4, mc -> logHits(mc.screen));
 			for (int k = 0; k < PICKS.length; k++) {
 				final int kk = k;
-				final double y = Double.parseDouble(PICKS[k].split("@")[1].trim());
+				final double y1080 = Double.parseDouble(PICKS[k].split("@")[1].trim());
 				double c = FIRST + k * GAP;
 				at(c - 0.75, mc -> {
 					double t = t();
-					glides.add(new Glide(t, t + 0.55, mx(mc), my(mc), PX, y));
+					glides.add(new Glide(t, t + 0.55, mx(mc), my(mc), PX * k1080(mc), y1080 * k1080(mc)));
 				});
 				at(c, mc -> {
 					logHits(mc.screen);
-					mouseTo(mc, PX, y);   // a pack switch stalls the game ~2 s; a glide that fell inside the stall never ran
+					mouseTo(mc, PX * k1080(mc), y1080 * k1080(mc));   // a pack switch stalls the game ~2 s; a glide that fell inside the stall never ran
 					ClipShaders.click(mc);
 					clickT[kk] = t();
 					log(String.format(Locale.ROOT, "pick %d %s clicked at %.3f s: %s", kk, slug(kk), clickT[kk],
@@ -2229,8 +2242,9 @@ public final class OriginDevAd {
 				StringBuilder b = new StringBuilder("{\n  \"picks\": [\n");
 				for (int k = 0; k < PICKS.length; k++) {
 					b.append(String.format(Locale.ROOT,
-							"    {\"slug\": \"%s\", \"file\": \"%s\", \"y\": %s, \"x\": %.0f, \"click\": %.3f, \"downloaded\": %.3f, \"on\": %.3f}%s\n",
-							slug(k), files[k], PICKS[k].split("@")[1].trim(), PX, clickT[k], doneT[k], onT[k], k < PICKS.length - 1 ? "," : ""));
+							"    {\"slug\": \"%s\", \"file\": \"%s\", \"y\": %.1f, \"x\": %.1f, \"click\": %.3f, \"downloaded\": %.3f, \"on\": %.3f}%s\n",
+							slug(k), files[k], Double.parseDouble(PICKS[k].split("@")[1].trim()) * k1080(mc), PX * k1080(mc), clickT[k], doneT[k],
+							onT[k], k < PICKS.length - 1 ? "," : ""));
 				}
 				b.append("  ]\n}\n");
 				sidecar("R10", b.toString());
@@ -2310,11 +2324,11 @@ public final class OriginDevAd {
 					throw new IllegalStateException("no FPS Coach tip " + TIP);
 				}
 				double t = t();
-				tryY = TY0 + TDY * i;
-				glides.add(new Glide(t, t + 0.6, mx(mc), my(mc), TX, tryY));
+				tryY = (TY0 + TDY * i) * k1080(mc);
+				glides.add(new Glide(t, t + 0.6, mx(mc), my(mc), TX * k1080(mc), tryY));
 			});
 			at(3.5, mc -> {
-				mouseTo(mc, TX, tryY);
+				mouseTo(mc, TX * k1080(mc), tryY);
 				ClipShaders.click(mc);
 				clickT = t();
 				log(String.format(Locale.ROOT, "TRY IT at %.3f s: testing=%s (%s)", clickT, com.origin.client.client.mods.FpsCoach.testing(),
@@ -2347,7 +2361,7 @@ public final class OriginDevAd {
 			if (!written && t >= length - 0.3) {
 				written = true;
 				sidecar("R11", String.format(Locale.ROOT, "{\n  \"tip\": \"%s\",\n  \"x\": %.0f,\n  \"y\": %.0f,\n  \"click\": %.3f,\n  \"result_at\": %.3f,\n  \"result\": %s,\n  \"fps\": [%s]\n}\n",
-						TIP, TX, tryY, clickT, resultT, result, samples));
+						TIP, TX * k1080(mc), tryY, clickT, resultT, result, samples));
 			}
 			if (t > 150 && resultT < 0) {
 				throw new IllegalStateException("FPS Coach test never finished");
@@ -2373,7 +2387,7 @@ public final class OriginDevAd {
 			for (String id : new String[]{"fps", "cps", "armorhud"}) {   // the ones baseOptions switched off (capture.py R6_ON)
 				Mods.setOn(id, true);
 			}
-			deckScale = 1920f / 920f;
+			deckScale = mc.getWindow().getWidth() / 920f;   // frame-wide at any window width
 			deckTop = 0;
 			length = 3.0 + N * 0.7 + 1.0;
 		}
@@ -2413,7 +2427,7 @@ public final class OriginDevAd {
 
 		@Override
 		void perFrame(Minecraft mc, double t) {
-			mouseTo(mc, 4, 1076);   // over the panel's own margin: no card is hovered in any still
+			mouseTo(mc, 4, mc.getWindow().getHeight() - 4);   // over the panel's own margin: no card is hovered in any still
 		}
 
 		static double menuF(Screen s, String name) {

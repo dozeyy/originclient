@@ -150,7 +150,7 @@ def dh_toml(far):
 """
 
 
-def prepare(clip, far=0):
+def prepare(clip, far=0, gui=2):
     for d in ("shaderpacks", "config", "mods"):
         os.makedirs(os.path.join(RUN, d), exist_ok=True)
     # Far terrain: exactly the pinned Distant Horizons jar with --far, none without.
@@ -207,16 +207,16 @@ def prepare(clip, far=0):
         json.dump(cfg, open(mods, "w", encoding="utf-8"), indent=2)
     open(os.path.join(RUN, "options.txt"), "w", encoding="utf-8").write(
         "version:3955\nonboardAccessibility:false\npauseOnLostFocus:false\nrenderDistance:20\nsimulationDistance:8\n"
-        "guiScale:2\nfov:0.0\nfullscreen:false\nnarrator:0\nsoundCategory_master:0.0\ntutorialStep:none\n"
+        f"guiScale:{gui}\nfov:0.0\nfullscreen:false\nnarrator:0\nsoundCategory_master:0.0\ntutorialStep:none\n"
         "chatVisibility:2\nskipMultiplayerWarning:true\njoinedFirstServer:true\nenableVsync:false\nmaxFps:260\n")
 
 
-def run_clip(clip, out, probe, extra, user, fps, far=0):
-    prepare(clip, far)
+def run_clip(clip, out, probe, extra, user, fps, far=0, size="1920x1080", gui=2):
+    prepare(clip, far, gui)
     os.makedirs(out, exist_ok=True)
     env = dict(os.environ)
     env.update(ORIGIN_SHOTS=out, ORIGIN_SHOTS_SET="ad", ORIGIN_AD_CLIP=clip, ORIGIN_AD_MODE="probe" if probe else "take",
-               ORIGIN_AD_FPS=str(fps), JAVA_HOME=JDK21)
+               ORIGIN_AD_FPS=str(fps), ORIGIN_AD_SIZE=size, ORIGIN_AD_GUI=str(gui), JAVA_HOME=JDK21)
     env.update(CLIP_ENV.get(clip, {}))
     env.update(extra)
     gate = os.path.join(out, f"{clip}.far.ok")
@@ -227,7 +227,7 @@ def run_clip(clip, out, probe, extra, user, fps, far=0):
     logp = os.path.join(out, f"{clip}{'_probe' if probe else ''}.run.log")
     cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", LOCK, "-MaxMinutes", "70", "--",
            os.path.join(MDIR, "gradlew.bat"), "runClient", "--no-daemon", f"-PbootJvmArgs=-Xmx{12 if far else 8}G",
-           f"-PdevUser={user}", "-PdevSize=1920x1080"]
+           f"-PdevUser={user}", f"-PdevSize={size}"]
     t0 = time.time()
     print(f"capture: {clip}{' (probe)' if probe else ''} -> {out}", flush=True)
     with open(logp, "w", encoding="utf-8", errors="replace") as log:
@@ -289,8 +289,9 @@ def run_clip(clip, out, probe, extra, user, fps, far=0):
     return not failed
 
 
-def encode(out, dest):
-    """Raw takes (60 fps, near-lossless) -> the edit's footage slots at 30 fps."""
+def encode(out, dest, tag="", crf=15):
+    """Raw takes (60 fps, near-lossless) -> the edit's footage slots at 30 fps. tag: a name suffix (`9x16` for the
+    1440x2560 flights the vertical cut uses: F_<flight>_9x16.mp4)."""
     os.makedirs(dest, exist_ok=True)
     # every R2 flight on its own too (R2_NN_<flight>.mp4, plus the shaders-off twin), for montages and the wipe
     flights = sorted(f[:-4] for f in os.listdir(out) if f.startswith("R2_") and f[3:5].isdigit() and f.endswith(".mp4"))
@@ -300,9 +301,9 @@ def encode(out, dest):
             print(f"encode: {name}: no take")
             continue
         # a flight lands under its own name, F_<flight>[_vanilla].mp4, so the edit never depends on the take order
-        dst = os.path.join(dest, ("F_" + name[6:] if name in flights else name) + ".mp4")
+        dst = os.path.join(dest, ("F_" + name[6:] if name in flights else name) + (f"_{tag}" if tag else "") + ".mp4")
         subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-vf", "fps=30",
-                        "-c:v", "libx264", "-preset", "slow", "-crf", "15", "-pix_fmt", "yuv420p", "-an",
+                        "-c:v", "libx264", "-preset", "slow", "-crf", str(crf), "-pix_fmt", "yuv420p", "-an",
                         "-movflags", "+faststart", dst], check=True)
         print(f"encode: {dst}")
 
@@ -319,13 +320,20 @@ def main():
     ap.add_argument("--set", action="append", default=[], help="extra ORIGIN_AD_* env, K=V")
     ap.add_argument("--far", type=int, default=0, help="Distant Horizons LOD radius in chunks (0 = no far terrain)")
     ap.add_argument("--packs", action="store_true", help="R2 as the rev 4 pack flights (bsl, photon, solas)")
+    # 1440 masters (2026-11-11): 2560x1440 at GUI 3 (the UI the same relative size as 1920x1080 at GUI 2, a touch
+    # bigger), and the flights again at 1440x2560 for the 9:16 cut (same vertical FOV = exactly the 16:9 frame's centre
+    # crop, at native density). The deck screens (Download Shaders, FPS Coach) scale with the window height on their own.
+    ap.add_argument("--size", default="1920x1080", help="window / take size WxH (e.g. 2560x1440, 1440x2560)")
+    ap.add_argument("--gui", type=int, default=2, help="Minecraft GUI scale for the take")
+    ap.add_argument("--tag", default="", help="encode: suffix for the footage names (9x16 for the portrait flights)")
+    ap.add_argument("--crf", type=int, default=15, help="encode: x264 CRF (12 for the 1440 masters)")
     a = ap.parse_args()
     if a.clips == ["encode"]:
-        encode(a.out, os.path.join(AD, "edit", "public", "footage"))
+        encode(a.out, os.path.join(AD, "edit", "public", "footage"), a.tag, a.crf)
         return
     extra = dict(PACK_FLIGHTS) if a.packs else {}
     extra.update(s.split("=", 1) for s in a.set)
-    ok = all([run_clip(c, a.out, a.probe, extra, a.user, a.fps, a.far) for c in a.clips])
+    ok = all([run_clip(c, a.out, a.probe, extra, a.user, a.fps, a.far, a.size, a.gui) for c in a.clips])
     sys.exit(0 if ok else 1)
 
 

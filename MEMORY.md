@@ -489,3 +489,9 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
   -> origin-client-ad/edit/public/v2/ui/friends.png (old kept as friends_orig.png). Branch-only build break: csproj needs
   website/assets/fonts/Inter-LICENSE.txt (deleted by the website redesign); restore it temporarily from 8c5629376^ to build.
   Pre-existing test failure here: GameRunningProbeTests.The_game_dir_argument_is_matched_as_one_exact_argument.
+- 2026-11-11 ad 1440 masters: capture.py --size WxH / --gui N (encode: --crf, --tag 9x16); OriginDevAd scales the
+  1080p deck spots by window height/1080 (k1080) and R12 by width/920. All flights, R10, R11, R12 re-taken at 2560x1440
+  GUI 3 (+ 1440x2560 portrait flights; MC FOV is vertical, so portrait = centre of landscape) into origin-client-ad
+  footage/raw1440. FPS Coach at 1440: 160.9 -> 177.8 avg (+16.9; was +28.1 at 1080). Launcher shots at 500 % came from
+  scratch builds of 81bfeb039 (home/import) and 555a5e023 (friends) with a scratch-only RenderShots.Snap hook
+  (ORIGIN_SHOTS_AD_SCALE). Edit: CSS zoom 4/3 root (transform: scale rasterised the R10/R11 panels soft).
