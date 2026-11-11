@@ -474,3 +474,12 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
   render-distance disc); `SCOUT=kinds` OOMs 8 GB (use `SCOUT=list`); R9 with shaders off showed FPS ~2800 next to the
   Coach's 265 (keep shaders on under the key); baseOptions/hud() switch fps/cps/armorhud off, so R6 menu-only re-enables
   them under F1 for real card states; R9's first ~2 s the FPS dips to 59 (edit skips 3 s).
+- 2026-11-11 rev 4 captured and cut (ad 30.5 s / 915 frames, both layouts with SFX; no words in shots 8-14, the import
+  caption removed; frames 0-338 outside the caption box bit-identical or >= 65 dB). New clips: R10 shader picker (real
+  downloads BSL v10.1.8, Photon v1.4, Solas V3.9), R2 --packs (one flight per pack), R12 mod menu stills (deckScale),
+  R2/R11 --far 128 with Distant Horizons 3.3.3 (Voxy port needs Sodium 0.6.13 / Iris 1.8.8, Origin ships 0.8.13 / 1.8.14).
+  FPS Coach real result at the far vantage: render distance 32 -> 19, 201.7 -> 229.8 avg (+28.1). Root causes: a pack
+  switch stall skipped a Glide so the click missed (mouseTo before every click); capture.py crashed on an arrow in a log
+  line under cp1252 and orphaned the game (stdout errors=replace); the far gate never opened when DH printed nothing
+  (LODs cached) - silence from the start now counts; FPS Coach closes on the TRY IT click itself (edit holds the frame).
+  Origin bug seen: the Coach result line "Render distance 32 → 19" draws the arrow as a box (font lacks U+2192).

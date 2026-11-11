@@ -40,9 +40,17 @@ Put `ComplementaryReimagined_r5.9.3.zip` (sha512 in `tools/panorama/spots.json`)
 | R7 | In the arena: `SocialToast.request` and `.invite` with made-up players (`Mossbrook`, `TidewaterJay`, made-up UUIDs). |
 | R8 | Diamond kit in a sky arena (rev 1-2 only; rev 3 has no gameplay). |
 | R9 | Rev 3's keyed HUD: `DevAdGuiMixin` paints 0xFF00FF before the HUD draws, the take is lossless `libx264rgb` (`ORIGIN_AD_LOSSLESS=1`). The modules in `R9_HUD` (FPS, CPS, Clock, Memory, Coordinates, Potion Effects, Armor Status as a column) at 2x with no backgrounds, plus the two toasts at 4.0 s and 5.2 s. `origin-client-ad/v2/capture/key_hud.py` cuts it into per-module PNG sequences. |
+| R10 | Rev 4's shader picker: fresh shaderpacks folder, the hero vantage, Origin's own Download Shaders browser, three scripted Download clicks (`ORIGIN_AD_PICKS=slug@y,...`, default BSL / Photon / Solas at x 1306) with real downloads; each click is `mouseTo` + click. Writes `R10.json` (click second, downloaded second, file per pick). |
+| R11 | Rev 4's FPS Coach: lossless magenta key with only the FPS module (scale 4) on, render distance 32, at the `RUN_FAR` vantage; TRY IT on the `ORIGIN_AD_COACH_TIP` tip (default renderdistance). Writes `R11.json` with Coach's own before/after and an FPS sample every 0.5 s. Run with `--far 128`. |
+| R12 | Rev 4's mod menu: 13 stills of the menu drawn 1920 wide at exact scroll offsets plus `R12.json`, for `stitch_menu.py`. |
 
 Scouting: `ORIGIN_AD_SCOUT=list` with `ORIGIN_AD_SCOUT_LIST=name:sx,sz,ex,ez,y,p;...` flies to each run and saves one
 still per run (`footage/scout/screenshots/scout_<name>.png`); pick by eye, then pin the winners as `RUN_<NAME>`.
+
+`--packs` records one flight per shader pack (`PACK_FLIGHTS`). `--far N` installs Distant Horizons 3.3.3 (sha512-pinned
+Modrinth download, cached in `cache/`, dev `run/mods` only; any other run removes it) with an N-chunk LOD radius, and holds
+the game at its first pose until DH's log says generation is done plus 60 s (gate file `<out>/<clip>.far.ok`). Voxy is not
+usable here: the local port targets Sodium 0.6.13 / Iris 1.8.8, Origin ships Sodium 0.8.13 / Iris 1.8.14.
 
 `--set ORIGIN_AD_*=...` passes clip tuning (click targets, time of day `ORIGIN_AD_TIME`). Click targets in Origin
 windows are logged as `hits on <Screen> (window px)` on the first run of a clip.

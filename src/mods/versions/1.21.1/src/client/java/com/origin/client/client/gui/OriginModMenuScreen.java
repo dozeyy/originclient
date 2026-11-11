@@ -469,6 +469,11 @@ public class OriginModMenuScreen extends Screen {
 		float s = OriginDeck.scale(win.getWidth(), win.getHeight(), W, H);
 		float ox = (win.getWidth() - W * s) / 2f;
 		float oy = (win.getHeight() - H * s) / 2f + (1 - p) * 12 * s;
+		if (com.origin.client.client.OriginDevAd.deckScale > 0) {   // dev ad harness only (R12): the menu drawn frame-wide
+			s = com.origin.client.client.OriginDevAd.deckScale;
+			ox = (win.getWidth() - W * s) / 2f;
+			oy = com.origin.client.client.OriginDevAd.deckTop;
+		}
 		lastS = s;
 		lastOx = ox;
 		lastOy = oy;

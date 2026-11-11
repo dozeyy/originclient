@@ -4,6 +4,11 @@
     python tools/ad-capture/capture.py R2 --probe          stills along each move instead of video (check the spots)
     python tools/ad-capture/capture.py R3 --set ORIGIN_AD_PACK_X=1330 --set ORIGIN_AD_PACK_Y=330
     python tools/ad-capture/capture.py encode              raw takes -> edit/public/footage/R*.mp4 (30 fps)
+    python tools/ad-capture/capture.py R11 --far 128       Distant Horizons 3.3.3 in the dev run, 128-chunk LODs; the
+                                                           take starts only once DH has generated the land and settled
+
+Rev 4 order: R10 (downloads BSL, Photon, Solas for real) -> R2 pack flights (ORIGIN_AD_FLIGHTS=bsl,photon,solas, each
+ORIGIN_AD_PACK_<NAME>) -> R2 far flight and R11 with --far -> R12 (mod menu stills, stitched by v2/capture/stitch_menu.py).
 
 Per clip: writes the 1.21.1 module's dev run folder (run/, gitignored: shader pack + options, iris.properties,
 options.txt), then runs `gradlew runClient` under the machine-wide verify lock with ORIGIN_SHOTS_SET=ad and
@@ -22,6 +27,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -35,8 +41,18 @@ SPOTS = os.path.join(ROOT, "tools", "panorama", "spots.json")
 
 # Clips that start without a shader pack (R3 downloads and applies one in game, for real).
 NO_SHADER = {"R3"}   # R9 keeps the shaders on under its key colour so its FPS readout is a shaded world's real number
+# Clips that wipe shaderpacks/ and Origin's download index first (their in-game downloads must be real, not "installed").
+# Every other clip keeps the packs R10 downloaded (the rev 4 pack flights switch to them) and re-copies Complementary.
+FRESH_PACKS = {"R3", "R10"}
 # How long a clip may run before the game is killed (world creation + chunk waits included).
-LIMIT = {"R2": 3600, "R8": 900}
+LIMIT = {"R2": 3600, "R8": 900, "R11": 3000}
+# Rev 4 far flight (Distant Horizons): the peaks run raised well above the ridges, looking out level-ish.
+FAR_RUN = "47,-47,81,-81,250,3"
+# Distant Horizons for far terrain (the panorama path's pin; Voxy has no Origin 1.21.1 build: Will's port needs
+# Sodium 0.6.13 / Iris 1.8.8, Origin ships Sodium 0.8.13 / Iris 1.8.14).
+UA = {"User-Agent": "originclient-adcapture/1.0"}
+DH_LINE = re.compile(r"(?i)(distant|world ?gen|generat).*?(\d[\d,]*)\s*(chunks?\s*)?(remaining|left|to go)")
+SETTLE = 60
 # Per-clip settings. R2's water run: the river stretch from the second probe (seed terrain, picked by eye: the
 # scorer's best run kept ending at a lava-lit canyon wall).
 # R6: the mod menu's EDIT HUD button, then Key Strokes and CPS dragged from the top-left stack to above the hotbar's
@@ -59,7 +75,19 @@ CLIP_ENV = {"R2": {"ORIGIN_AD_FLIGHTS": "hero,peaks,cherry,coast,jungle,badlands
                    "ORIGIN_AD_VANILLA": "hero",
                    "ORIGIN_AD_TIME": "10800"},   # earlier than 11800: blue sky + warm light (probe 2026-11-11)
             "R6": {"ORIGIN_AD_MENU_ONLY": "1"},   # rev 3: the mod menu alone (the old HUD-editor drags: ORIGIN_AD_EDIT/_KEYS/_CPS)
-            "R9": {"ORIGIN_AD_LOSSLESS": "1"}}
+            "R9": {"ORIGIN_AD_LOSSLESS": "1"},
+            # rev 4 shot 9: Origin's Download Shaders browser over the hero vantage, three real downloads
+            "R10": {"ORIGIN_AD_RUN_HERO": "1292,1268,1340,1268,66.2,4"},
+            # rev 4 shot 10: FPS Coach TRY IT at the far flight's first pose, keyed FPS module (lossless for the key)
+            "R11": {"ORIGIN_AD_LOSSLESS": "1", "ORIGIN_AD_RUN_FAR": FAR_RUN},
+            "R12": {}}
+# Rev 4 pack flights (R2 with --set): each pack in its own scene, the pack switched on before the flight.
+PACK_FLIGHTS = {"ORIGIN_AD_FLIGHTS": "bsl,photon,solas", "ORIGIN_AD_VANILLA": " ",
+                "ORIGIN_AD_RUN_BSL": "-1720,-24,-1720,24,126,13", "ORIGIN_AD_PACK_BSL": "bsl",
+                "ORIGIN_AD_RUN_PHOTON": "-113,-1865,-79,-1831,66.2,4", "ORIGIN_AD_PACK_PHOTON": "photon",
+                "ORIGIN_AD_RUN_SOLAS": "2489,-545,2455,-511,73,5", "ORIGIN_AD_PACK_SOLAS": "solas", "ORIGIN_AD_TIME_SOLAS": "12300"}
+# R11: the FPS module alone, big, no background (v2/capture/key_fps.py keys it out)
+R11_HUD = {"fps": [0, 10, 10, 4.0, 0]}
 # Complementary settings per clip on top of the base ones. R2: clearer air for the landscapes (the default fog turned
 # the first cut's peaks into a beige haze): less atmospheric fog, pushed further out.
 SHADER_OPTS = {"R2": "ATM_FOG_MULT=0.65\nATM_FOG_DISTANCE=200\n"}
@@ -70,7 +98,7 @@ R9_HUD = {"fps": [0, 10, 10, 2.0, 0], "cps": [0, 10, 40, 2.0, 0], "clock": [0, 1
 R6_ON = set(R9_HUD) | {"armorhud", "potionhud", "oldanimations", "blockoverlay"}
 R9_OPTS = {"armorhud": {"listMode": "Vertical", "durabilityPos": "Right"}}
 # The ad's footage names -> raw take files (R2 is three flights joined in order).
-FOOTAGE = {"R3": "R3", "R4": "R4", "R5": "R5", "R6": "R6", "R7": "R7", "R8": "R8"}   # R9 is keyed, not encoded here
+FOOTAGE = {"R3": "R3", "R4": "R4", "R5": "R5", "R6": "R6", "R7": "R7", "R8": "R8", "R10": "R10", "R11": "R11"}   # R9 is keyed
 
 
 def shader_zip():
@@ -84,13 +112,64 @@ def shader_zip():
     return pack["file"], path
 
 
-def prepare(clip):
-    for d in ("shaderpacks", "config"):
+def fetch(url, sha512, name):
+    """A pinned download into cache/, verified by sha512 (cdn.modrinth.com only)."""
+    assert url.startswith("https://cdn.modrinth.com/"), url
+    os.makedirs(CACHE, exist_ok=True)
+    dst = os.path.join(CACHE, name)
+    if os.path.isfile(dst) and hashlib.sha512(open(dst, "rb").read()).hexdigest() == sha512:
+        return dst
+    data = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120).read()
+    if hashlib.sha512(data).hexdigest() != sha512:
+        sys.exit(f"capture: {name}: sha512 mismatch")
+    open(dst, "wb").write(data)
+    print(f"capture: fetched {name} ({len(data)} bytes)")
+    return dst
+
+
+def dh_toml(far):
+    # Only the keys that matter; Distant Horizons fills in the rest on first load (local_render.py's settings).
+    return f"""[client]
+\tqualityPresetSetting = "EXTREME"
+\tthreadPresetSetting = "I_PAID_FOR_THE_WHOLE_CPU"
+\tquickShowWorldGenProgress = false
+\t[client.advanced.graphics.quality]
+\t\tlodChunkRenderDistanceRadius = {far}
+\t[client.advanced.graphics.fog]
+\t\tenableDhFog = false
+[common]
+\t[common.multiThreading]
+\t\tnumberOfThreads = 14
+\t\tthreadRunTimeRatio = "1.0"
+\t[common.worldGenerator]
+\t\tenableDistantGeneration = true
+\t\tchunkGeneratorMode = "FEATURES"
+\t\tshowGenerationProgress = "LOG"
+\t\tgenerationProgressDisplayIntervalInSeconds = 5
+\t\tgenerationProgressIncludeChunksPerSecond = true
+"""
+
+
+def prepare(clip, far=0):
+    for d in ("shaderpacks", "config", "mods"):
         os.makedirs(os.path.join(RUN, d), exist_ok=True)
+    # Far terrain: exactly the pinned Distant Horizons jar with --far, none without.
+    md = os.path.join(RUN, "mods")
+    for f in os.listdir(md):
+        if f.lower().startswith(("distanthorizons", "voxy")):
+            os.remove(os.path.join(md, f))
+    if far:
+        pin = json.load(open(SPOTS, encoding="utf-8"))["farTerrain"]["1.21.1"]
+        shutil.copyfile(fetch(pin["url"], pin["sha512"], pin["file"]), os.path.join(md, pin["file"]))
+        open(os.path.join(RUN, "config", "DistantHorizons.toml"), "w", encoding="utf-8").write(dh_toml(far))
     sp = os.path.join(RUN, "shaderpacks")
     for f in os.listdir(sp):
-        p = os.path.join(sp, f)
-        shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)
+        if clip in FRESH_PACKS or f.lower().startswith("complementary"):
+            p = os.path.join(sp, f)
+            shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)
+    idx = os.path.join(RUN, "config", "originclient-shaders.json")
+    if clip in FRESH_PACKS and os.path.exists(idx):
+        os.remove(idx)
     if clip in NO_SHADER:
         props = "enableShaders=false\n"
     else:
@@ -112,7 +191,11 @@ def prepare(clip):
             for mid, spot in R9_HUD.items():
                 cfg["hud"][mid] = spot
                 cfg["mods"][mid] = dict(R9_OPTS.get(mid, {}), enabled=True, showBackground=False)
-        if clip == "R6":
+        if clip == "R11":
+            for mid, spot in R11_HUD.items():
+                cfg["hud"][mid] = spot
+                cfg["mods"].setdefault(mid, {}).update(enabled=True, showBackground=False)
+        if clip in ("R6", "R12"):
             # The menu as a player's setup shows it: every mod at its shipped default (Mods.java), plus the HUD modules
             # shot 11 stacks and 1.7 Animations / Block Outline on. A dev run left from older takes has them all off,
             # which reads as a wall of red DISABLED. R6 hides the HUD (F1), so none of these draw over the menu.
@@ -128,17 +211,22 @@ def prepare(clip):
         "chatVisibility:2\nskipMultiplayerWarning:true\njoinedFirstServer:true\nenableVsync:false\nmaxFps:260\n")
 
 
-def run_clip(clip, out, probe, extra, user, fps):
-    prepare(clip)
+def run_clip(clip, out, probe, extra, user, fps, far=0):
+    prepare(clip, far)
     os.makedirs(out, exist_ok=True)
     env = dict(os.environ)
     env.update(ORIGIN_SHOTS=out, ORIGIN_SHOTS_SET="ad", ORIGIN_AD_CLIP=clip, ORIGIN_AD_MODE="probe" if probe else "take",
                ORIGIN_AD_FPS=str(fps), JAVA_HOME=JDK21)
     env.update(CLIP_ENV.get(clip, {}))
     env.update(extra)
+    gate = os.path.join(out, f"{clip}.far.ok")
+    if os.path.exists(gate):
+        os.remove(gate)
+    if far:
+        env["ORIGIN_AD_FAR_GATE"] = gate
     logp = os.path.join(out, f"{clip}{'_probe' if probe else ''}.run.log")
     cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", LOCK, "-MaxMinutes", "70", "--",
-           os.path.join(MDIR, "gradlew.bat"), "runClient", "--no-daemon", "-PbootJvmArgs=-Xmx8G",
+           os.path.join(MDIR, "gradlew.bat"), "runClient", "--no-daemon", f"-PbootJvmArgs=-Xmx{12 if far else 8}G",
            f"-PdevUser={user}", "-PdevSize=1920x1080"]
     t0 = time.time()
     print(f"capture: {clip}{' (probe)' if probe else ''} -> {out}", flush=True)
@@ -146,6 +234,11 @@ def run_clip(clip, out, probe, extra, user, fps):
         proc = subprocess.Popen(cmd, cwd=MDIR, env=env, stdout=log, stderr=subprocess.STDOUT)
     pos = 0
     failed = False
+    # Far terrain: the game logs "far wait" once it stands at the first pose; from then on DH's progress lines are
+    # watched and the gate file appears when generation is done (0 left, the lines stopped, or a small count froze)
+    # plus SETTLE s for DH to finish building its LODs (local_render.py's rule).
+    wait_from = last_dh = last_left = last_change = settle_from = None
+    last_print = 0
     while proc.poll() is None:
         time.sleep(2)
         with open(logp, encoding="utf-8", errors="replace") as f:
@@ -157,6 +250,30 @@ def run_clip(clip, out, probe, extra, user, fps):
                 print(f"  {time.time() - t0:5.0f}s {line[line.find('['):][:240] if '[ad]' in line else line[:240]}", flush=True)
             if "[ad] FAILED" in line:
                 failed = True
+            if far and wait_from is None and "[ad] far wait" in line:
+                wait_from = time.time()
+            m = DH_LINE.search(line) if far else None
+            if m and wait_from:
+                left = int(m.group(2).replace(",", ""))
+                if left != last_left:
+                    last_change = time.time()
+                last_left = left
+                if time.time() - last_print > 60:
+                    last_print = time.time()
+                    print(f"  {time.time() - t0:5.0f}s DH: {left} chunks left", flush=True)
+                last_dh = time.time()
+        if far and wait_from and not os.path.exists(gate):
+            waited = time.time() - wait_from
+            # no progress line for 45 s (or none at all: the world's LODs were generated on an earlier run) after 90 s
+            done = last_left == 0 or (time.time() - (last_dh or wait_from) > 45 and waited > 90) \
+                or (last_change and time.time() - last_change > 90 and last_left is not None and last_left < 500)
+            if (done or waited > 1800) and not settle_from:
+                print(f"  far terrain {'done' if done else 'TIMED OUT'} after {waited:.0f} s (last {last_left} left); settling {SETTLE} s",
+                      flush=True)
+                settle_from = time.time()
+            if settle_from and time.time() - settle_from > SETTLE:
+                open(gate, "w").close()
+                print(f"  {time.time() - t0:5.0f}s far gate open", flush=True)
         if time.time() - t0 > LIMIT.get(clip, 600):
             print(f"capture: {clip}: over {LIMIT.get(clip, 600)} s, killing the game", flush=True)
             subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
@@ -191,6 +308,8 @@ def encode(out, dest):
 
 
 def main():
+    # game log lines carry arrows and the like; a cp1252 console must not kill the run (and orphan the game) over one
+    sys.stdout.reconfigure(errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("clips", nargs="+", help="R2..R8, or 'encode'")
     ap.add_argument("--out", default=os.path.join(AD, "footage", "raw"))
@@ -198,12 +317,15 @@ def main():
     ap.add_argument("--fps", type=int, default=60)
     ap.add_argument("--user", default="Rowan", help="offline dev name (never a real account)")
     ap.add_argument("--set", action="append", default=[], help="extra ORIGIN_AD_* env, K=V")
+    ap.add_argument("--far", type=int, default=0, help="Distant Horizons LOD radius in chunks (0 = no far terrain)")
+    ap.add_argument("--packs", action="store_true", help="R2 as the rev 4 pack flights (bsl, photon, solas)")
     a = ap.parse_args()
     if a.clips == ["encode"]:
         encode(a.out, os.path.join(AD, "edit", "public", "footage"))
         return
-    extra = dict(s.split("=", 1) for s in a.set)
-    ok = all([run_clip(c, a.out, a.probe, extra, a.user, a.fps) for c in a.clips])
+    extra = dict(PACK_FLIGHTS) if a.packs else {}
+    extra.update(s.split("=", 1) for s in a.set)
+    ok = all([run_clip(c, a.out, a.probe, extra, a.user, a.fps, a.far) for c in a.clips])
     sys.exit(0 if ok else 1)
 
 

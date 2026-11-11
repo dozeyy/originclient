@@ -63,6 +63,8 @@ public final class OriginDevAd {
 	public static boolean synthetic;
 	/** ARGB painted over the world before the HUD draws (0 = off): the keyed HUD clip R9 (DevAdGuiMixin). */
 	public static int keyBackground = 0;
+	/** Dev-only deck layout (R12): Origin windows drawn at this scale with their top at deckTop window px (0 = normal). */
+	public static float deckScale = 0, deckTop = 0;
 
 	private static int phase = 0;
 	private static long nextAt = 0, phaseFrom = 0;
@@ -399,6 +401,9 @@ public final class OriginDevAd {
 				case "R7" -> new ClipSocial();
 				case "R8" -> new ClipPvp();
 				case "R9" -> new ClipHudKeyed();
+				case "R10" -> new ClipPicker();
+				case "R11" -> new ClipCoach();
+				case "R12" -> new ClipMenuStills();
 				default -> throw new IllegalArgumentException("unknown clip " + id);
 			};
 		}
@@ -1097,6 +1102,16 @@ public final class OriginDevAd {
 			switch (step) {
 				case 0 -> {   // fly there (at the flight's own time of day), let the far land generate and mesh
 					cam = s.path().at(SCOUT.isEmpty() ? 0 : 0.5);
+					// ORIGIN_AD_PACK_<NAME>=<part of a file name>: this flight under a pack the in-game picker downloaded (R10),
+					// switched on with the same IrisBridge.apply call Download makes. The reload stalls; landed() waits it out.
+					String pk = env("ORIGIN_AD_PACK_" + s.name().toUpperCase(Locale.ROOT), "");
+					if (!pk.isEmpty() && !vanillaPass) {
+						String file = packFile(pk);
+						if (!file.equals(com.origin.client.client.shaders.IrisBridge.currentPack())) {
+							log(s.name() + ": shader pack " + file);
+							com.origin.client.client.shaders.IrisBridge.apply(file);
+						}
+					}
 					MinecraftServer server = mc.getSingleplayerServer();
 					int time = timeOf(s.name());
 					server.execute(() -> {
@@ -1118,8 +1133,12 @@ public final class OriginDevAd {
 						}
 						return false;
 					}
+					if (!farReady(now)) {
+						return false;
+					}
 					if (now - stepAt > 12_000 && landed(mc) || now - stepAt > 90_000) {
-						log(s.name() + ": loaded after " + (now - stepAt) / 1000 + " s; rehearsing the move");
+						log(s.name() + ": loaded after " + (now - stepAt) / 1000 + " s (pack " + com.origin.client.client.shaders.IrisBridge.currentPack()
+								+ "); rehearsing the move");
 						rehearseFrom = System.nanoTime();
 						step = 2;
 					}
@@ -1242,7 +1261,7 @@ public final class OriginDevAd {
 				if (loadedAt == 0) {
 					loadedAt = now;
 				}
-				if (now - loadedAt > warmup() && (mc.levelRenderer.hasRenderedAllSections() || now - loadedAt > 60_000)) {
+				if (now - loadedAt > warmup() && farReady(now) && (mc.levelRenderer.hasRenderedAllSections() || now - loadedAt > 60_000)) {
 					shotsLoaded = true;
 					try {
 						startTake(CLIP);
@@ -2073,6 +2092,348 @@ public final class OriginDevAd {
 				}
 			}
 			return end;
+		}
+	}
+
+	// ---------------------------------------------------------------- far terrain gate, pack files, sidecars
+
+	private static long farLogAt = 0;
+
+	/**
+	 * ORIGIN_AD_FAR_GATE=<file>: capture.py creates the file once Distant Horizons has generated the land around the
+	 * camera and settled (it watches DH's progress lines); nothing records before that. No env = no far terrain = ready.
+	 */
+	static boolean farReady(long now) {
+		String g = env("ORIGIN_AD_FAR_GATE", "");
+		if (g.isEmpty() || new File(g).exists()) {
+			return true;
+		}
+		if (now - farLogAt > 30_000) {
+			farLogAt = now;
+			log("far wait: far terrain not settled yet (gate " + g + ")");
+		}
+		return false;
+	}
+
+	/** The shaderpacks/ file whose name contains {@code part} (case-insensitive). */
+	static String packFile(String part) {
+		for (String f : com.origin.client.client.shaders.IrisBridge.listPacks()) {
+			if (f.toLowerCase(Locale.ROOT).contains(part.toLowerCase(Locale.ROOT))) {
+				return f;
+			}
+		}
+		throw new IllegalStateException("no shader pack matching '" + part + "' in shaderpacks/ (run R10 first): "
+				+ com.origin.client.client.shaders.IrisBridge.listPacks());
+	}
+
+	/** A small JSON sidecar next to the take (the edit reads click times and measured numbers from it). */
+	static void sidecar(String name, String json) {
+		try {
+			java.nio.file.Files.writeString(new File(DIR, name + ".json").toPath(), json);
+			log("wrote " + name + ".json");
+		} catch (java.io.IOException e) {
+			log("sidecar " + name + " failed: " + e);
+		}
+	}
+
+	// ---------------------------------------------------------------- R10 (rev 4): the shader picker, three real downloads
+
+	/**
+	 * Shaders already on (Complementary), Origin's Download Shaders browser over the hero view; the pointer clicks
+	 * Download on three packs, ORIGIN_AD_PICK_GAP s apart. Each Download is real: Modrinth, SHA-512, then the pack is
+	 * switched on (ShaderDownloader.use). The packs stay in shaderpacks/ for the R2 flights (ORIGIN_AD_PACK_<NAME>).
+	 * Writes R10.json: each click's take second, when its download finished and when Iris switched to it.
+	 */
+	static final class ClipPicker extends UiClip {
+		private final List<Glide> glides = new ArrayList<>();
+		static final String[] PICKS = env("ORIGIN_AD_PICKS", "bsl-shaders@594,photon-shader@678,solas-shader@762").split(",");
+		static final double PX = Double.parseDouble(env("ORIGIN_AD_PICK_X", "1306"));
+		static final double FIRST = 2.6, GAP = Double.parseDouble(env("ORIGIN_AD_PICK_GAP", "7"));
+		private final double[] clickT = new double[PICKS.length], doneT = new double[PICKS.length], onT = new double[PICKS.length];
+		private final String[] files = new String[PICKS.length];
+		private boolean finished;
+
+		@Override
+		void options(Minecraft mc) {
+			mc.options.hideGui = true;
+			length = 1e9;   // set once the last pack is in and switched on
+			java.util.Arrays.fill(clickT, -1);
+			java.util.Arrays.fill(doneT, -1);
+			java.util.Arrays.fill(onT, -1);
+		}
+
+		static String slug(int k) {
+			return PICKS[k].split("@")[0].trim();
+		}
+
+		@Override
+		void server(MinecraftServer server, ServerLevel level, ServerPlayer p) {
+			cmd(server, "gamemode spectator @a");
+			cmd(server, "clear @a");
+			Shot h = pinned(level, "hero");
+			double[] v = h != null ? h.path().at(0.35) : mountain(level, level.getSharedSpawnPos()).path().at(0.45);
+			place(p, v);
+			view(v);
+			drift = 0.4;
+			at(0.6, mc -> mc.setScreen(new com.origin.client.client.shaders.ShaderBrowserScreen(null)));
+			at(1.4, mc -> logHits(mc.screen));
+			for (int k = 0; k < PICKS.length; k++) {
+				final int kk = k;
+				final double y = Double.parseDouble(PICKS[k].split("@")[1].trim());
+				double c = FIRST + k * GAP;
+				at(c - 0.75, mc -> {
+					double t = t();
+					glides.add(new Glide(t, t + 0.55, mx(mc), my(mc), PX, y));
+				});
+				at(c, mc -> {
+					logHits(mc.screen);
+					mouseTo(mc, PX, y);   // a pack switch stalls the game ~2 s; a glide that fell inside the stall never ran
+					ClipShaders.click(mc);
+					clickT[kk] = t();
+					log(String.format(Locale.ROOT, "pick %d %s clicked at %.3f s: %s", kk, slug(kk), clickT[kk],
+							com.origin.client.client.shaders.ShaderDownloader.state(slug(kk))));
+				});
+			}
+		}
+
+		@Override
+		void perFrame(Minecraft mc, double t) {
+			for (Glide g : glides) {
+				g.apply(mc, t);
+			}
+			String cur = com.origin.client.client.shaders.IrisBridge.currentPack();
+			boolean all = true;
+			for (int k = 0; k < PICKS.length; k++) {
+				if (clickT[k] < 0) {
+					all = false;
+					continue;
+				}
+				var st = com.origin.client.client.shaders.ShaderDownloader.state(slug(k));
+				if (doneT[k] < 0 && st.status() == com.origin.client.client.shaders.ShaderDownloader.Status.DONE) {
+					doneT[k] = t;
+					files[k] = st.message();
+					log(String.format(Locale.ROOT, "pick %d %s downloaded at %.3f s: %s", k, slug(k), t, files[k]));
+				}
+				if (st.status() == com.origin.client.client.shaders.ShaderDownloader.Status.ERROR) {
+					throw new IllegalStateException("download " + slug(k) + " failed: " + st.message());
+				}
+				if (files[k] != null && onT[k] < 0 && files[k].equals(cur)) {
+					onT[k] = t;
+					log(String.format(Locale.ROOT, "pick %d %s switched on at %.3f s", k, slug(k), t));
+				}
+				all &= onT[k] >= 0 || (doneT[k] >= 0 && k < PICKS.length - 1);
+			}
+			if (all && !finished) {
+				finished = true;
+				length = t + 2.5;
+				StringBuilder b = new StringBuilder("{\n  \"picks\": [\n");
+				for (int k = 0; k < PICKS.length; k++) {
+					b.append(String.format(Locale.ROOT,
+							"    {\"slug\": \"%s\", \"file\": \"%s\", \"y\": %s, \"x\": %.0f, \"click\": %.3f, \"downloaded\": %.3f, \"on\": %.3f}%s\n",
+							slug(k), files[k], PICKS[k].split("@")[1].trim(), PX, clickT[k], doneT[k], onT[k], k < PICKS.length - 1 ? "," : ""));
+				}
+				b.append("  ]\n}\n");
+				sidecar("R10", b.toString());
+				log("all picks in: " + b.toString().replace('\n', ' '));
+			}
+			if (t > FIRST + GAP * PICKS.length + 90 && !finished) {
+				throw new IllegalStateException("picks never finished");
+			}
+		}
+	}
+
+	// ---------------------------------------------------------------- R11 (rev 4): FPS Coach TRY IT over far terrain, keyed FPS
+
+	/**
+	 * At the far flight's first pose (Distant Horizons on, Complementary on, render distance 32), the world under a flat
+	 * key colour (DevAdGuiMixin) so the real FPS module (big, no background) can be keyed. FPS Coach opens, the pointer
+	 * clicks TRY IT on ORIGIN_AD_COACH_TIP (default renderdistance); the Coach's own A/B test runs (before, settle,
+	 * after, the camera held still); then the Coach reopens on its result card. R11.json: the click second, the
+	 * Coach's measured before/after, and the FPS readout every half second.
+	 */
+	static final class ClipCoach extends UiClip {
+		private final List<Glide> glides = new ArrayList<>();
+		static final String TIP = env("ORIGIN_AD_COACH_TIP", "renderdistance");
+		static final double TX = Double.parseDouble(env("ORIGIN_AD_COACH_X", "1331")), TY0 = 488, TDY = 72;
+		static final String[] OFF = {"keystrokes", "cps", "combo", "armorhud", "potionhud", "clock", "memory", "coords", "reach", "ping",
+				"saturation", "packdisplay", "itemcounter", "directionhud", "daycounter", "stopwatch", "serveraddress", "scoreboard", "minimap",
+				"crosshair", "togglesprint", "cooldowns", "bossbar", "waypoints", "titles", "teamview"};
+		private double clickT = -1, resultT = -1, nextSample = 0, tryY = -1;
+		private final StringBuilder samples = new StringBuilder();
+		private String result = "null";
+		private boolean written;
+
+		@Override
+		void options(Minecraft mc) {
+			length = 1e9;
+			mc.options.hideGui = false;   // the FPS module only draws with the HUD on
+			mc.options.renderDistance().set(32);
+			mc.options.fov().set(64);
+			for (String id : OFF) {
+				Mods.setOn(id, false);
+			}
+			Mods.setOn("fps", true);
+			keyBackground = 0xFFFF00FF;
+		}
+
+		@Override
+		long warmup() {
+			return 45_000;   // FPS Coach ignores the first 30 s in a world
+		}
+
+		@Override
+		void server(MinecraftServer server, ServerLevel level, ServerPlayer p) {
+			cmd(server, "gamemode spectator @a");
+			cmd(server, "clear @a");
+			Shot f = pinned(level, "far");
+			if (f == null) {
+				throw new IllegalStateException("R11 needs ORIGIN_AD_RUN_FAR");
+			}
+			double[] v = f.path().at(0);
+			place(p, v);
+			view(v);
+			drift = 0;   // the Coach's test counts a move; a still camera keeps before and after the same view
+			at(1.5, mc -> mc.setScreen(new com.origin.client.client.gui.FpsCoachScreen(null)));
+			at(2.4, mc -> {
+				logHits(mc.screen);
+				var tips = com.origin.client.client.mods.FpsCoach.tips(mc);
+				int i = -1;
+				StringBuilder b = new StringBuilder("coach tips:");
+				for (int k = 0; k < tips.size(); k++) {
+					b.append(" [").append(k).append(' ').append(tips.get(k).id()).append(": ").append(tips.get(k).title()).append(']');
+					if (tips.get(k).id().equals(TIP)) {
+						i = k;
+					}
+				}
+				log(b.toString());
+				if (i < 0) {
+					throw new IllegalStateException("no FPS Coach tip " + TIP);
+				}
+				double t = t();
+				tryY = TY0 + TDY * i;
+				glides.add(new Glide(t, t + 0.6, mx(mc), my(mc), TX, tryY));
+			});
+			at(3.5, mc -> {
+				mouseTo(mc, TX, tryY);
+				ClipShaders.click(mc);
+				clickT = t();
+				log(String.format(Locale.ROOT, "TRY IT at %.3f s: testing=%s (%s)", clickT, com.origin.client.client.mods.FpsCoach.testing(),
+						com.origin.client.client.mods.FpsCoach.testingChange()));
+			});
+		}
+
+		@Override
+		void perFrame(Minecraft mc, double t) {
+			for (Glide g : glides) {
+				g.apply(mc, t);
+			}
+			if (t >= nextSample) {
+				nextSample = t + 0.5;
+				samples.append(samples.length() == 0 ? "" : ", ").append(String.format(Locale.ROOT, "[%.2f, %d]", t, mc.getFps()));
+			}
+			var r = com.origin.client.client.mods.FpsCoach.result();
+			if (clickT >= 0 && resultT < 0 && !com.origin.client.client.mods.FpsCoach.testing() && r != null) {
+				resultT = t;
+				if (r.before() != null && r.after() != null) {
+					result = String.format(Locale.ROOT, "{\"change\": \"%s\", \"before\": {\"avg\": %.2f, \"low\": %.2f, \"frames\": %d}, "
+									+ "\"after\": {\"avg\": %.2f, \"low\": %.2f, \"frames\": %d}, \"gain\": %.2f, \"moved\": %s, \"stopped\": %s}",
+							r.change(), r.before().avg(), r.before().low(), r.before().frames(), r.after().avg(), r.after().low(), r.after().frames(),
+							r.after().avg() - r.before().avg(), r.moved(), r.stopped());
+				}
+				log(String.format(Locale.ROOT, "coach result at %.3f s: %s", t, result));
+				length = t + 6.0;
+				mc.setScreen(new com.origin.client.client.gui.FpsCoachScreen(null));   // the result card
+			}
+			if (!written && t >= length - 0.3) {
+				written = true;
+				sidecar("R11", String.format(Locale.ROOT, "{\n  \"tip\": \"%s\",\n  \"x\": %.0f,\n  \"y\": %.0f,\n  \"click\": %.3f,\n  \"result_at\": %.3f,\n  \"result\": %s,\n  \"fps\": [%s]\n}\n",
+						TIP, TX, tryY, clickT, resultT, result, samples));
+			}
+			if (t > 150 && resultT < 0) {
+				throw new IllegalStateException("FPS Coach test never finished");
+			}
+		}
+	}
+
+	// ---------------------------------------------------------------- R12 (rev 4): the mod menu as one tall real image
+
+	/**
+	 * The mod menu drawn 1920 px wide (deckScale = 1920/920, top at y 0; it runs past the window's foot), then the list
+	 * stepped through exact scroll offsets with one still each (menu_NN.png). v2/capture/stitch_menu.py joins them into
+	 * one tall image; R12.json lists every still's real scroll offset (design px) and the scale.
+	 */
+	static final class ClipMenuStills extends UiClip {
+		static final double STEP = 300;
+		static final int N = 13;
+		private final double[] got = new double[N];
+
+		@Override
+		void options(Minecraft mc) {
+			mc.options.hideGui = true;
+			for (String id : new String[]{"fps", "cps", "armorhud"}) {   // the ones baseOptions switched off (capture.py R6_ON)
+				Mods.setOn(id, true);
+			}
+			deckScale = 1920f / 920f;
+			deckTop = 0;
+			length = 3.0 + N * 0.7 + 1.0;
+		}
+
+		@Override
+		void server(MinecraftServer server, ServerLevel level, ServerPlayer p) {
+			cmd(server, "gamemode spectator @a");
+			cmd(server, "clear @a");
+			double[] v = canopy(level, level.getSharedSpawnPos()).path().at(0.6);
+			place(p, v);
+			view(v);
+			drift = 0;
+			at(0.5, mc -> mc.setScreen(new com.origin.client.client.gui.OriginModMenuScreen()));
+			at(2.6, mc -> logHits(mc.screen));
+			for (int k = 0; k < N; k++) {
+				final int kk = k;
+				at(3.0 + k * 0.7, mc -> {
+					double want = Math.min(kk * STEP, menuF(mc.screen, "maxScroll"));
+					menuSet(mc.screen, "scroll", want);
+					menuSet(mc.screen, "scrollTarget", want);
+				});
+				at(3.0 + k * 0.7 + 0.45, mc -> {
+					got[kk] = menuF(mc.screen, "scroll");
+					still(mc, String.format(Locale.ROOT, "menu_%02d", kk));
+					log(String.format(Locale.ROOT, "menu still %d at scroll %.1f (max %.1f)", kk, got[kk], menuF(mc.screen, "maxScroll")));
+					if (kk == N - 1) {
+						StringBuilder b = new StringBuilder();
+						for (int j = 0; j < N; j++) {
+							b.append(j == 0 ? "" : ", ").append(String.format(Locale.ROOT, "%.2f", got[j]));
+						}
+						sidecar("R12", String.format(Locale.ROOT, "{\n  \"scale\": %.6f,\n  \"top\": %.1f,\n  \"bodyY\": 128,\n  \"bottom\": 572,\n  \"scroll\": [%s]\n}\n",
+								deckScale, deckTop, b));
+					}
+				});
+			}
+		}
+
+		@Override
+		void perFrame(Minecraft mc, double t) {
+			mouseTo(mc, 4, 1076);   // over the panel's own margin: no card is hovered in any still
+		}
+
+		static double menuF(Screen s, String name) {
+			try {
+				var f = s.getClass().getDeclaredField(name);
+				f.setAccessible(true);
+				return ((Number) f.get(s)).doubleValue();
+			} catch (Exception e) {
+				throw new IllegalStateException("mod menu field " + name + ": " + e);
+			}
+		}
+
+		static void menuSet(Screen s, String name, double v) {
+			try {
+				var f = s.getClass().getDeclaredField(name);
+				f.setAccessible(true);
+				f.setDouble(s, v);
+			} catch (Exception e) {
+				throw new IllegalStateException("mod menu field " + name + ": " + e);
+			}
 		}
 	}
 
