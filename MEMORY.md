@@ -464,3 +464,7 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Result: R2 (seed 6671238423019257953, peaks orbit -64,256,16; river 398,-165 -> 398,-221; forest 604,196 -> 644,156),
   R3 real Modrinth download + apply, R4 pack browser, R5 real coach numbers, R6 HUD editor drags, R7 toasts (made-up
   Mossbrook / TidewaterJay), R8 72 s PvP vs armored mobs. Both ad layouts rendered with SFX, opening 0-338 unchanged.
+- 2026-11-11 later: flights through any biome (`ORIGIN_AD_FLIGHTS`, `dolly()` scoring), shaders-off twin of one path
+  (`ORIGIN_AD_VANILLA`, IrisBridge.apply(null)), Boss Bar module off in ad mode (menus drew an "Ender Dragon" sample).
+  Probes: time 10800 + ATM_FOG_MULT 0.65 / ATM_FOG_DISTANCE 200 reads far better than 11800 (pink haze); jungle/badlands/
+  forest/river good, cherry/meadow/coast runs weak. Hand-off: origin-client-ad/v2/CAPTURE_HANDOFF.md.
