@@ -464,7 +464,7 @@ public final class OriginDeck {
 		if (seeThrough && isLight(color) && (fa(color) >>> 24) > 2) {
 			color = legible(color);
 		}
-		ModIcons.draw(g, id, ix, iy, sz, fa(color));
+		ModIcons.drawDevice(g, id, ix, iy, sz, fa(color));   // the deck pose is in device px
 	}
 
 	/** The Origin mark (textures/ui/origin_logo.png) with its soft white glow. */
