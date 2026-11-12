@@ -49,6 +49,7 @@ public class RobustnessTests
     [Fact]
     public void ASetupThatCantReachTheRunningOnesLockStillHandsOver()
     {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return; // Windows-only: mutex DACLs via kernel32/advapi32
         var name = @"Local\OriginSetupTest." + Guid.NewGuid().ToString("N");
         Assert.True(ConvertStringSecurityDescriptorToSecurityDescriptorW("D:(D;;GA;;;WD)", 1, out var sd, IntPtr.Zero));
         var sa = new SecurityAttributes { Length = Marshal.SizeOf<SecurityAttributes>(), Descriptor = sd };
