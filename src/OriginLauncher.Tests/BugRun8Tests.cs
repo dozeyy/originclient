@@ -121,7 +121,8 @@ public sealed class BugRun8Tests : IDisposable
     public void A_missing_fabric_api_stops_play_with_its_own_words_and_retry()
     {
         var failure = PlayFailure.From(new RequiredModMissingException("Fabric API"), "1.20.1");
-        Assert.Contains("Fabric API", failure.Message);
+        // The host is named (a Modrinth outage is not Mojang's); the mod is not: it would name the loader (mandate 1).
+        Assert.DoesNotContain("Fabric", failure.Message);
         Assert.Contains("Modrinth", failure.Message);
         Assert.DoesNotContain("Minecraft's download servers", failure.Message);
         Assert.EndsWith(PlayFailure.RetryLine, failure.Message);

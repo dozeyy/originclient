@@ -40,7 +40,7 @@ public static class FabricApiInstaller
     public static Task InstallAsync(
         string mcVersion, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default) =>
         InstallProjectAsync(Http, ProjectSlug, "fabric-api-", "[\"fabric\"]",
-            "Installing Fabric API...", ManagedPins.FabricApi(mcVersion), mcVersion, modsFolder, progress, ct);
+            "Installing Origin's mods...", ManagedPins.FabricApi(mcVersion), mcVersion, modsFolder, progress, ct);
 
     /// <summary>
     /// A working Fabric API is in the folder: an enabled jar named fabric-api-*, Origin's or the player's own (Modrinth's
@@ -154,12 +154,16 @@ public static class FabricApiInstaller
 /// <summary>
 /// A mod the game can't start without (Fabric API, which every Origin jar depends on) couldn't be downloaded, so Play
 /// stops here with Retry instead of starting a game that Fabric Loader would refuse at once. Message is the plain
-/// cause sentence the launch screen shows (PlayFailure).
+/// cause sentence the launch screen shows (PlayFailure). It names the host (a Modrinth outage is not Mojang's) but never
+/// the mod: "Fabric API" would tell the player which loader the version runs on (mandate 1). ModName is for the log.
 /// </summary>
 public sealed class RequiredModMissingException : Exception
 {
+    public string ModName { get; }
+
     public RequiredModMissingException(string modName)
-        : base($"Couldn't download {modName} from Modrinth, and Origin needs it to start. Check your internet connection.")
+        : base("Couldn't download a mod Origin needs to start (from Modrinth). Check your internet connection.")
     {
+        ModName = modName;
     }
 }

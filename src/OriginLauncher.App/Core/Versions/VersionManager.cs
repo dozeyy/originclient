@@ -573,7 +573,7 @@ public sealed class VersionManager
         }
         else
         {
-            progress?.Report("Installing Fabric loader...");
+            progress?.Report("Setting up Origin for this version...");
             var fabricInstaller = new FabricInstaller(SharedHttp);
             try
             {
@@ -746,7 +746,7 @@ public sealed class VersionManager
         }
         else if (!externalMods || profileId != null)
         {
-            progress?.Report(profileId != null ? "Preparing profile mods..." : "Preparing Origin-only mod set...");
+            progress?.Report(profileId != null ? "Preparing profile mods..." : "Preparing Origin's mods...");
             // An alternate configuration gets its own folder (mods-profile-<id>), so switching never rewrites the
             // folder another configuration's game may still hold open.
             var launchFolder = Path.Combine(path.BasePath,
@@ -874,7 +874,7 @@ public sealed class VersionManager
         // A mod profile mirrors Origin's own jars plus the profile's folder —
         // none of the player's loose jars in the shared folder (SharedMods.Mirror).
         progress?.Report(profileId != null ? "Preparing profile mods..."
-            : externalMods ? "Preparing mods..." : "Preparing Origin-only mod set...");
+            : externalMods ? "Preparing mods..." : "Preparing Origin's mods...");
         Func<string, bool> include = profileId != null ? name => ModManager.IsOriginProvisionedFile(Path.Combine(modsFolder, name))
             : externalMods ? static _ => true : name => ModManager.IsManagedFile(Path.Combine(modsFolder, name));
         SharedMods.Mirror(modsFolder, Path.Combine(path.BasePath, InstanceLayout.ModsFolder), include,

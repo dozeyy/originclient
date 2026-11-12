@@ -110,7 +110,7 @@ public static class OptiFineInstaller
     {
         Directory.CreateDirectory(CacheDir);
         var cached = Path.Combine(CacheDir, build.FileName);
-        progress?.Report("Downloading OptiFine...");
+        progress?.Report("Downloading shader support...");
 
         // Official site first (their download page flow), mirrors after. All
         // sources funnel through the same SHA-1 gate.
