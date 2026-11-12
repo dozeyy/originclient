@@ -142,6 +142,9 @@ public sealed class SocialToastHost : UserControl
         {
             SocialToastKind.Message => "Icon.Chat",
             SocialToastKind.FriendRequest => "Icon.UserPlus",
+            // A notice is the launcher talking ("Move Origin to Applications", "Can't join"), not a friend: the alert
+            // glyph, like the Linux twin (Desktop SocialToasts), never the two-person Friends glyph.
+            SocialToastKind.Notice => "Icon.Alert",
             _ => "Icon.Friends",
         });
         var xs = Res<CornerRadius>("Radius.Xs");
@@ -168,7 +171,10 @@ public sealed class SocialToastHost : UserControl
         text.Children.Add(new TextBlock
         {
             Text = toast.Body, Theme = Res<ControlTheme>("Social.Caption"), TextWrapping = TextWrapping.Wrap,
-            TextTrimming = TextTrimming.CharacterEllipsis, MaxHeight = 36,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            // Social previews stay two lines; a notice is an instruction ("Move it to Applications, open it from there,
+            // and the update installs"), so it shows in full instead of being cut before the part that says what to do.
+            MaxHeight = toast.Kind == SocialToastKind.Notice ? double.PositiveInfinity : 36,
         });
         // Warp -> Join, request / invite -> Accept, DM -> Reply (opens that chat); notices just open the drawer.
         var actionText = toast.Kind switch
