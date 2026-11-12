@@ -140,7 +140,9 @@ async function initDownload() {
 // (Will's own, so his testing stays out). Every link to a release file counts
 // (the big button, the hero, the header, the other-systems list): Windows, Mac or
 // Linux. Shown after the hero's meta line and first in the download section's
-// specs; hidden until there's a real number.
+// specs; hidden until there's a real number (COUNT_SHOW_FROM: "1 download" on a
+// brand-new site reads as "nobody uses this", so tiny counts stay hidden).
+const COUNT_SHOW_FROM = 100;
 const COUNT_KEYS = { counted: 'origin-download-counted', me: 'origin-download-me' };
 const store = {
   get: k => { try { return localStorage.getItem(k); } catch { return null; } },
@@ -150,7 +152,7 @@ let countApi = null;
 let shownCount = 0;
 
 function showCount(n) {
-  if (!Number.isFinite(n) || n < 1 || n === shownCount) return;
+  if (!Number.isFinite(n) || n < COUNT_SHOW_FROM || n === shownCount) return;
   const from = shownCount;
   shownCount = n;
   const word = n === 1 ? 'download' : 'downloads';
