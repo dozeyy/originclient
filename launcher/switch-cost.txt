@@ -1,20 +1,20 @@
 tab switch, UI thread ms per click (switch + layout), median / worst of 11
-  Home      median 1.33  worst 2.14
-  Mods      median 1.24  worst 1.48
-  Profiles  median 1.33  worst 2.86
-  Settings  median 2.20  worst 7.89
+  Home      median 1.33  worst 3.53
+  Mods      median 0.92  worst 1.38
+  Profiles  median 1.05  worst 2.81
+  Settings  median 2.12  worst 6.98
 tab switch plus its deferred refresh, median / worst of 11
-  Home      median 3.69  worst 6.02
-  Mods      median 3.21  worst 4.06
-  Profiles  median 5.14  worst 7.30
-  Settings  median 3.18  worst 6.90
-picker open (Show + layout): first 11.69  median of rest 0.51
-window with the picker up, one full render (CPU rasteriser): median 142.26  best 141.15
-full CPU render, shadow on the sheet (old): median 109.88
-cards bobbing, shadow on the sheet (old): 9.4 fps, frame median 156.25 ms, worst 203.13 ms
-full CPU render, shadow own layer (new)  : median 143.76
-cards bobbing, shadow own layer (new)  : 13.9 fps, frame median 78.13 ms, worst 140.63 ms
-full CPU render, shadow on the sheet (old): median 112.78
-cards bobbing, shadow on the sheet (old): 9.3 fps, frame median 156.25 ms, worst 203.13 ms
-full CPU render, shadow own layer (new)  : median 143.08
-cards bobbing, shadow own layer (new)  : 13.9 fps, frame median 31.25 ms, worst 140.63 ms
+  Home      median 3.47  worst 4.33
+  Mods      median 3.02  worst 4.47
+  Profiles  median 5.09  worst 6.21
+  Settings  median 2.75  worst 6.19
+picker open (Show + layout): first 9.48  median of rest 0.48
+window with the picker up, one full render (CPU rasteriser): median 153.98  best 150.75
+full CPU render, shadow on the sheet (old): median 119.27
+cards bobbing, shadow on the sheet (old): 9.0 fps, frame median 171.88 ms, worst 218.75 ms
+full CPU render, shadow own layer (new)  : median 154.71
+cards bobbing, shadow own layer (new)  : 12.8 fps, frame median 78.13 ms, worst 156.25 ms
+full CPU render, shadow on the sheet (old): median 119.26
+cards bobbing, shadow on the sheet (old): 9.0 fps, frame median 171.88 ms, worst 218.75 ms
+full CPU render, shadow own layer (new)  : median 154.19
+cards bobbing, shadow own layer (new)  : 12.3 fps, frame median 78.13 ms, worst 140.63 ms
