@@ -162,6 +162,19 @@ public class OriginClientMod {
 			// Mandate 4: a hub bug turns the hub off, never the game.
 			tickBroken = true;
 			com.origin.client.OriginClient.LOGGER.error("Origin tick hub failed; its features are off for this session", t);
+			// The hub never ticks again, so nothing would ever put back Zoom's
+			// sensitivity, Freelook's perspective or the smooth camera: hand
+			// them back now so the player isn't stuck zoomed or in third person.
+			try {
+				Minecraft mc = Minecraft.getMinecraft();
+				releaseCameraMods(mc);
+				if (savedPerspective >= 0) {
+					mc.gameSettings.thirdPersonView = savedPerspective;
+					savedPerspective = -1;
+				}
+			} catch (Throwable ignored) {
+				// already failing soft
+			}
 		}
 		// Vanilla options save the moment they change (Settings Sync needs it);
 		// Zoom's sensitivity / smooth camera / perspective are not the player's

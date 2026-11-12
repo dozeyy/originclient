@@ -31,7 +31,7 @@ public class EntityNametagMixin {
 		}
 		Minecraft mc = Minecraft.getInstance();
 		// Same rules as LivingNametagMixin: still hidden in F1, while invisible, or when ridden.
-		if (entity == mc.player && !mc.options.getCameraType().isFirstPerson()
+		if (entity == mc.player && entity == mc.getCameraEntity() && !mc.options.getCameraType().isFirstPerson()
 				&& Minecraft.renderNames() && !entity.isInvisibleTo(mc.player) && !entity.isVehicle()) {
 			cir.setReturnValue(true);
 		}

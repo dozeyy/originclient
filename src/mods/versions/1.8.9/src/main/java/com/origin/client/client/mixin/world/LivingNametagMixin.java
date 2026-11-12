@@ -31,7 +31,7 @@ public abstract class LivingNametagMixin {
 				return;
 			}
 			Minecraft mc = Minecraft.getMinecraft();
-			if (entity == mc.thePlayer && mc.gameSettings.thirdPersonView != 0 && Minecraft.isGuiEnabled()
+			if (entity == mc.thePlayer && entity == mc.getRenderViewEntity() && mc.gameSettings.thirdPersonView != 0 && Minecraft.isGuiEnabled()
 					&& !entity.isInvisible() && entity.riddenByEntity == null) {
 				cir.setReturnValue(true);
 			}
