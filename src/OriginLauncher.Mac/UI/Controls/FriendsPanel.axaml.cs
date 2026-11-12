@@ -333,7 +333,7 @@ public sealed partial class FriendsPanel : UserControl
                 "Add Microsoft account"),
             SocialStatus.SignInFailed => ("Couldn't sign in to friends",
                 s.StatusMessage ?? "Origin couldn't confirm your Minecraft account.", "Try again"),
-            SocialStatus.Unreachable => ("Friends are offline",
+            SocialStatus.Unreachable => ("Can't reach friends right now",
                 s.StatusMessage ?? "Origin can't reach its friends service. It keeps trying in the background.", "Try again"),
             _ => ("Connecting...", "Signing in to Origin friends.", (string?)null),
         };
