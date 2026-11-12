@@ -15,6 +15,7 @@ public class RobustnessTests
     [Fact]
     public void ASecondSetupHandsOverToTheFirst()
     {
+        if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) return; // Windows-only: named mutexes
         var name = @"Local\OriginSetupTest." + Guid.NewGuid().ToString("N");
         using var first = SingleInstance.TryClaim(TimeSpan.Zero, name);
         Assert.NotNull(first);
@@ -33,6 +34,7 @@ public class RobustnessTests
     [Fact]
     public void TheNextSetupRunsOnceTheFirstHasClosed()
     {
+        if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) return; // Windows-only: named mutexes
         var name = @"Local\OriginSetupTest." + Guid.NewGuid().ToString("N");
         SingleInstance.TryClaim(TimeSpan.Zero, name)!.Dispose();
         SingleInstance? again = null;

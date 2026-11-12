@@ -241,6 +241,7 @@ public class UninstallTests
     [Fact]
     public void DeletingAFolderNeverReachesThroughAFolderLink()
     {
+        if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) return; // Windows-only: mklink /J junctions
         var outside = Temp();
         Put(outside, "keep.txt");
         var keep = Path.Combine(outside, "keep.txt");

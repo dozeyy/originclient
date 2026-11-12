@@ -78,6 +78,7 @@ public class FinishLaunchTests
     [Fact]
     public void WindowsProgramsAreStartedByFullPath()
     {
+        if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) return; // Windows-only: System32 paths
         var start = FinishLaunch.UnelevatedStartInfo(@"C:\Origin\Origin.lnk");
         Assert.True(Path.IsPathRooted(start.FileName), start.FileName);
         Assert.EndsWith(@"\explorer.exe", start.FileName, System.StringComparison.OrdinalIgnoreCase);
