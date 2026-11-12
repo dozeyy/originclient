@@ -10,6 +10,7 @@
     "DevAdMinecraftMixin",
     "DevAdWindowMixin",
     "DevAdGuiMixin",
+    "DevAdKeysMixin",
     "KeyTapsMixin",
     "MouseTapsMixin",
     "WindowTitleMixin",

@@ -81,6 +81,14 @@ CLIP_ENV = {"R2": {"ORIGIN_AD_FLIGHTS": "hero,peaks,cherry,coast,jungle,badlands
             # rev 4 shot 10: FPS Coach TRY IT at the far flight's first pose, keyed FPS module (lossless for the key)
             "R11": {"ORIGIN_AD_LOSSLESS": "1", "ORIGIN_AD_RUN_FAR": FAR_RUN},
             "R12": {}}
+# Film v3 (2026-11-12, v3/SCRIPT.md shots 7-17): golden hour (10800) at the hero vantage; each clip's script lives in
+# OriginDevAdV3. V3_LOAD runs twice (a stage run parks the player at the hero view, then the take records the join).
+V3 = ["V3_LOAD", "V3_TITLE", "V3_HUD", "V3_ITEMSIZE", "V3_WAYPOINT", "V3_SNAPLOOK", "V3_FRIENDS", "V3_SCREENSHOT"]
+for _c in V3:
+    CLIP_ENV[_c] = {"ORIGIN_AD_TIME": "10800", "ORIGIN_AD_RUN_HERO": "1292,1268,1340,1268,66.2,4"}
+    LIMIT[_c] = 1500   # opening origin-ad took 5 min on a busy machine (2026-11-12)
+# V3_HUD: the four modules the editor drags, without backgrounds; Armor Status as a column (flush left in the stack)
+V3_HUD_OPTS = {"fps": {}, "cps": {}, "coords": {}, "armorhud": {"listMode": "Vertical", "durabilityPos": "Right"}}
 # Rev 4 pack flights (R2 with --set): each pack in its own scene, the pack switched on before the flight.
 PACK_FLIGHTS = {"ORIGIN_AD_FLIGHTS": "bsl,photon,solas", "ORIGIN_AD_VANILLA": " ",
                 "ORIGIN_AD_RUN_BSL": "-1720,-24,-1720,24,126,13", "ORIGIN_AD_PACK_BSL": "bsl",
@@ -195,7 +203,10 @@ def prepare(clip, far=0, gui=2):
             for mid, spot in R11_HUD.items():
                 cfg["hud"][mid] = spot
                 cfg["mods"].setdefault(mid, {}).update(enabled=True, showBackground=False)
-        if clip in ("R6", "R12"):
+        if clip == "V3_HUD":
+            for mid, opts in V3_HUD_OPTS.items():
+                cfg["mods"].setdefault(mid, {}).update(opts, enabled=True, showBackground=False)
+        if clip in ("R6", "R12", "V3_TITLE"):
             # The menu as a player's setup shows it: every mod at its shipped default (Mods.java), plus the HUD modules
             # shot 11 stacks and 1.7 Animations / Block Outline on. A dev run left from older takes has them all off,
             # which reads as a wall of red DISABLED. R6 hides the HUD (F1), so none of these draw over the menu.
@@ -308,6 +319,23 @@ def encode(out, dest, tag="", crf=15):
         print(f"encode: {dst}")
 
 
+def encode_v3(out, dest, crf=12):
+    """Film v3: raw V3_*.mp4 -> the edit's v3 footage at 60 fps (no frame drop: smooth pointer and scrolls), x264
+    CRF 12, plus each take's V3_*.json pointer/event sidecar next to it."""
+    os.makedirs(dest, exist_ok=True)
+    for f in sorted(os.listdir(out)):
+        if not (f.startswith("V3_") and f.endswith(".mp4")):
+            continue
+        dst = os.path.join(dest, f)
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", os.path.join(out, f), "-r", "60",
+                        "-c:v", "libx264", "-preset", "slow", "-crf", str(crf), "-pix_fmt", "yuv420p", "-an",
+                        "-movflags", "+faststart", dst], check=True)
+        side = os.path.join(out, f[:-4] + ".json")
+        if os.path.exists(side):
+            shutil.copyfile(side, os.path.join(dest, f[:-4] + ".json"))
+        print(f"encode-v3: {dst}")
+
+
 def main():
     # game log lines carry arrows and the like; a cp1252 console must not kill the run (and orphan the game) over one
     sys.stdout.reconfigure(errors="replace")
@@ -327,13 +355,23 @@ def main():
     ap.add_argument("--gui", type=int, default=2, help="Minecraft GUI scale for the take")
     ap.add_argument("--tag", default="", help="encode: suffix for the footage names (9x16 for the portrait flights)")
     ap.add_argument("--crf", type=int, default=15, help="encode: x264 CRF (12 for the 1440 masters)")
+    ap.add_argument("--suffix", default="", help="V3 clips: appended to the take name (_9x16 for the portrait takes)")
     a = ap.parse_args()
     if a.clips == ["encode"]:
         encode(a.out, os.path.join(AD, "edit", "public", "footage"), a.tag, a.crf)
         return
+    if a.clips == ["encode-v3"]:
+        encode_v3(a.out, os.path.join(AD, "edit", "public", "v3", "footage"), 12)
+        return
     extra = dict(PACK_FLIGHTS) if a.packs else {}
     extra.update(s.split("=", 1) for s in a.set)
-    ok = all([run_clip(c, a.out, a.probe, extra, a.user, a.fps, a.far, a.size, a.gui) for c in a.clips])
+    if a.suffix:
+        extra["ORIGIN_AD_SUFFIX"] = a.suffix
+    ok = True
+    for c in a.clips:
+        if c == "V3_LOAD":   # the stage run first: the take must land on the hero view, not where the last clip left off
+            ok = run_clip(c, a.out, a.probe, dict(extra, ORIGIN_AD_LOAD_STAGE="1"), a.user, a.fps, a.far, a.size, a.gui) and ok
+        ok = run_clip(c, a.out, a.probe, extra, a.user, a.fps, a.far, a.size, a.gui) and ok
     sys.exit(0 if ok else 1)
 
 

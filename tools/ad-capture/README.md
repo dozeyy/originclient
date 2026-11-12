@@ -43,6 +43,17 @@ Put `ComplementaryReimagined_r5.9.3.zip` (sha512 in `tools/panorama/spots.json`)
 | R10 | Rev 4's shader picker: fresh shaderpacks folder, the hero vantage, Origin's own Download Shaders browser, three scripted Download clicks (`ORIGIN_AD_PICKS=slug@y,...`, default BSL / Photon / Solas at x 1306) with real downloads; each click is `mouseTo` + click. Writes `R10.json` (click second, downloaded second, file per pick). |
 | R11 | Rev 4's FPS Coach: lossless magenta key with only the FPS module (scale 4) on, render distance 32, at the `RUN_FAR` vantage; TRY IT on the `ORIGIN_AD_COACH_TIP` tip (default renderdistance). Writes `R11.json` with Coach's own before/after and an FPS sample every 0.5 s. Run with `--far 128`. |
 | R12 | Rev 4's mod menu: 13 stills of the menu drawn 1920 wide at exact scroll offsets plus `R12.json`, for `stitch_menu.py`. |
+| V3_LOAD | Film v3 (`OriginDevAdV3`, all V3 clips: time 10800, hero vantage, a `V3_*.json` sidecar with every pointer position and input event). Two runs: a stage run parks the spectator at the hero view, then the take records from the world-open request through Origin's loading screens until a few seconds after the world draws. |
+| V3_TITLE | The title screen alone (no world): the pointer glides to "Origin" beside "Mods" and clicks; the Origin menu holds 2.5 s. Mods at their shipped defaults (as R6/R12). |
+| V3_HUD | F1-clean hero view, diamond armor (for Armor Status); the HUD editor opens and FPS, CPS, Coordinates and Armor Status are dragged into a left-middle stack flush with the editor's edge. No backgrounds (`V3_HUD_OPTS`). |
+| V3_ITEMSIZE | Items dropped by the script (3 diamonds, an emerald, a gold ingot) on a flat grass patch near `ORIGIN_AD_ITEM_AT`; Item Size's grid opens, "diamond" is typed in search, Diamond picked, the slider dragged 1.00x -> 2.50x, Esc twice, then the items at their sizes. |
+| V3_WAYPOINT | A "Home" waypoint at `ORIGIN_AD_WP_AT` (default 1420,1268), the HUD on with only Minimap + Waypoints, a 12 s dolly (`ORIGIN_AD_RUN_WAYPOINT`) toward it. |
+| V3_SNAPLOOK | Creative + F1 (spectator's front view is a floating head), a dolly; the Snaplook key is held 4.2-6.9 s (`DevAdKeysMixin` answers `InputConstants.isKeyDown` from the script's held keys). |
+| V3_FRIENDS | Hero view, the friend request and party invite toasts (made-up players). HUD on with every module off in spectator, not F1: 1.21.1's toast pass draws nothing under F1. |
+| V3_SCREENSHOT | HUD on with every module off, chat visible: F2, T, the pointer clicks the line's Copy Image (a real copy to the clipboard); the take ends 2.5 s after the copy's own "Screenshot copied" line shows, and only then is the clipboard's text put back. |
+
+`--suffix _9x16` names a V3 take `V3_<clip>_9x16` (the portrait takes: `--size 1440x2560`). `capture.py encode-v3` turns
+every raw `V3_*.mp4` into `origin-client-ad/edit/public/v3/footage/` at 60 fps (x264 CRF 12) and copies each sidecar.
 
 Scouting: `ORIGIN_AD_SCOUT=list` with `ORIGIN_AD_SCOUT_LIST=name:sx,sz,ex,ez,y,p;...` flies to each run and saves one
 still per run (`footage/scout/screenshots/scout_<name>.png`); pick by eye, then pin the winners as `RUN_<NAME>`.

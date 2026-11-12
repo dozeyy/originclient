@@ -65,6 +65,10 @@ public final class OriginDevAd {
 	public static int keyBackground = 0;
 	/** Dev-only deck layout (R12): Origin windows drawn at this scale with their top at deckTop window px (0 = normal). */
 	public static float deckScale = 0, deckTop = 0;
+	/** GLFW keys the script holds down (DevAdKeysMixin answers InputConstants.isKeyDown from this; Snaplook reads raw state). */
+	public static final Set<Integer> heldKeys = java.util.concurrent.ConcurrentHashMap.newKeySet();
+	/** ORIGIN_AD_SUFFIX: appended to a V3 take's name (capture.py --suffix _9x16 for the portrait takes). */
+	static final String SUFFIX = env("ORIGIN_AD_SUFFIX", "").trim();
 
 	private static int phase = 0;
 	private static long nextAt = 0, phaseFrom = 0;
@@ -74,7 +78,7 @@ public final class OriginDevAd {
 	private OriginDevAd() {
 	}
 
-	private static String env(String k, String def) {
+	static String env(String k, String def) {
 		String v = System.getenv(k);
 		return v == null || v.isBlank() ? def : v;
 	}
@@ -122,6 +126,12 @@ public final class OriginDevAd {
 					clip = Clip.of(CLIP);
 					baseOptions(mc);
 					clip.options(mc);
+					if (clip.titleOnly()) {   // V3_TITLE: the script runs on the title screen itself, no world
+						log("title clip " + CLIP);
+						go(5, now);
+						return;
+					}
+					clip.openingWorld();   // V3_LOAD starts recording here, before openWorld: it spins the loading screens itself
 					var flows = mc.createWorldOpenFlows();
 					fresh = !mc.getLevelSource().levelExists(LEVEL);
 					if (!fresh) {
@@ -169,8 +179,21 @@ public final class OriginDevAd {
 						go(3, now);
 					}
 				}
+				case 5 -> {   // title-only clip
+					if (clip.failed != null) {
+						throw new IllegalStateException(clip.failed);
+					}
+					if (clip.tick(mc, now - phaseFrom)) {
+						go(3, now);
+					}
+				}
 				case 3 -> {
 					log("done");
+					try {
+						clip.finish(mc);
+					} catch (Throwable t) {
+						log("finish failed: " + t);
+					}
 					OriginDevAdCapture.stop();
 					phase = 4;
 					mc.stop();
@@ -189,7 +212,10 @@ public final class OriginDevAd {
 
 	/** Render thread, every frame, after the ticks and before the world is drawn: camera and per-frame input. */
 	public static void preRender(Minecraft mc) {
-		if (phase == 2 && clip != null && mc.player != null) {
+		if (clip != null && clip.takeFrom >= 0) {
+			clip.noteScreen(mc);
+		}
+		if (clip != null && (phase == 2 && mc.player != null || phase == 5)) {
 			// The window is never really grabbed (that would take Will's pointer): mirror only the flag, so in-world
 			// clicks reach the key mappings while menus see a free pointer.
 			((DevAdMouseAccess) mc.mouseHandler).originad$setGrabbed(mc.screen == null);
@@ -272,6 +298,9 @@ public final class OriginDevAd {
 		} finally {
 			synthetic = false;
 		}
+		if (clip != null) {
+			clip.trackMove(x, y);
+		}
 	}
 
 	static void mouseGui(Minecraft mc, double gx, double gy) {
@@ -285,6 +314,9 @@ public final class OriginDevAd {
 			((DevAdMouseAccess) mc.mouseHandler).originad$onPress(handle(mc), b, down ? GLFW.GLFW_PRESS : GLFW.GLFW_RELEASE, 0);
 		} finally {
 			synthetic = false;
+		}
+		if (clip != null) {
+			clip.trackEvent(down ? "press" : "release", "mouse" + b, mx(mc), my(mc));
 		}
 	}
 
@@ -303,6 +335,9 @@ public final class OriginDevAd {
 			mc.keyboardHandler.keyPress(handle(mc), key, GLFW.glfwGetKeyScancode(key), down ? GLFW.GLFW_PRESS : GLFW.GLFW_RELEASE, 0);
 		} finally {
 			synthetic = false;
+		}
+		if (clip != null) {
+			clip.trackEvent(down ? "keydown" : "keyup", keyName(key), mx(mc), my(mc));
 		}
 	}
 
@@ -336,7 +371,7 @@ public final class OriginDevAd {
 		}
 	}
 
-	private static float fieldF(Object o, String name) throws Exception {
+	static float fieldF(Object o, String name) throws Exception {
 		for (Class<?> k = o.getClass(); k != null; k = k.getSuperclass()) {
 			try {
 				java.lang.reflect.Field f = k.getDeclaredField(name);
@@ -417,11 +452,72 @@ public final class OriginDevAd {
 				case "R10" -> new ClipPicker();
 				case "R11" -> new ClipCoach();
 				case "R12" -> new ClipMenuStills();
-				default -> throw new IllegalArgumentException("unknown clip " + id);
+				default -> {
+					Clip v3 = OriginDevAdV3.of(id);
+					if (v3 == null) {
+						throw new IllegalArgumentException("unknown clip " + id);
+					}
+					yield v3;
+				}
 			};
 		}
 
 		void options(Minecraft mc) {
+		}
+
+		/** True: the clip runs on the title screen (phase 5), no world is opened. */
+		boolean titleOnly() {
+			return false;
+		}
+
+		/** Right after the world open was requested (still on the title screen). */
+		void openingWorld() {
+		}
+
+		/** The run is over (phase 3), right before the recorder stops. */
+		void finish(Minecraft mc) {
+		}
+
+		// ---- V3 sidecars: every scripted pointer position and input event, in take seconds and output (window) px
+		String takeName;
+		final StringBuilder track = new StringBuilder(), events = new StringBuilder(), screens = new StringBuilder();
+		private double lastX = Double.NaN, lastY = Double.NaN;
+		private String lastScreen = "?";
+
+		void trackMove(double x, double y) {
+			if (takeFrom < 0 || x == lastX && y == lastY) {
+				return;
+			}
+			lastX = x;
+			lastY = y;
+			track.append(track.length() == 0 ? "" : ", ").append(String.format(Locale.ROOT, "[%.4f, %.1f, %.1f]", t(), x, y));
+		}
+
+		void trackEvent(String type, String what, double x, double y) {
+			if (takeFrom < 0) {
+				return;
+			}
+			events.append(events.length() == 0 ? "" : ",\n    ").append(String.format(Locale.ROOT,
+					"{\"t\": %.4f, \"type\": \"%s\", \"input\": \"%s\", \"x\": %.1f, \"y\": %.1f}", t(), type, what, x, y));
+		}
+
+		void noteScreen(Minecraft mc) {
+			String s = mc.screen == null ? null : mc.screen.getClass().getSimpleName();
+			if (!java.util.Objects.equals(s, lastScreen)) {
+				lastScreen = s;
+				screens.append(screens.length() == 0 ? "" : ", ").append(String.format(Locale.ROOT, "[%.4f, %s]", Math.max(0, t()),
+						s == null ? "null" : "\"" + s + "\""));
+			}
+		}
+
+		/** The take's pointer/events/screens as JSON (extra: more top-level fields, "" or starting with ","). */
+		String trackJson(Minecraft mc, String extra) {
+			return String.format(Locale.ROOT, "{\n  \"take\": \"%s\",\n  \"size\": [%d, %d],\n  \"gui\": %.0f,\n  \"fps\": %d,\n"
+							+ "  \"note\": \"t = seconds into the take; x,y = output pixels; pointer holds its last position between entries; "
+							+ "screens: [t, open screen class or null] (null = in the world: no pointer drawn)\",\n"
+							+ "  \"length\": %.3f,\n  \"pointer\": [%s],\n  \"events\": [\n    %s\n  ],\n  \"screens\": [%s]%s\n}\n",
+					takeName, mc.getWindow().getWidth(), mc.getWindow().getHeight(), mc.getWindow().getGuiScale(), FPS, Math.max(0, t()),
+					track, events, screens, extra);
 		}
 
 		abstract void server(MinecraftServer server, ServerLevel level, ServerPlayer p);
@@ -437,11 +533,15 @@ public final class OriginDevAd {
 		}
 
 		void startTake(String name) throws java.io.IOException {
+			if (name.startsWith("V3_")) {
+				name += SUFFIX;
+			}
+			takeName = name;
 			if (!PROBE) {
 				OriginDevAdCapture.start(out(name), FPS);
 			}
 			takeFrom = System.nanoTime();
-			if (!"R7".equals(CLIP)) {
+			if (!"R7".equals(CLIP) && !"V3_FRIENDS".equals(CLIP)) {
 				Minecraft.getInstance().getToasts().clear();   // recipe/advancement toasts from the setup commands
 			}
 			log("take " + name + " started");
@@ -1249,6 +1349,9 @@ public final class OriginDevAd {
 		private int done = 0;
 		protected double length;
 		protected double drift = 0;   // degrees per second of slow yaw drift behind the UI
+		/** A camera move instead of the held view (V3 world clips): pose = path.at((t - pathFrom) / pathSecs), clamped. */
+		protected volatile Path path;
+		protected double pathSecs = 11, pathFrom = 0;
 		private final List<Step> steps = new ArrayList<>();
 		private double slip = 0;
 
@@ -1293,7 +1396,10 @@ public final class OriginDevAd {
 
 		@Override
 		void frame(Minecraft mc) {
-			if (view != null && holdCamera()) {
+			if (path != null && holdCamera() && mc.player != null) {
+				double[] c = path.at(Math.min(1, Math.max(0, (Math.max(0, t()) - pathFrom) / pathSecs)));
+				pose(mc.player, c[0], c[1], c[2], (float) c[3], (float) c[4]);
+			} else if (view != null && holdCamera() && mc.player != null) {
 				double t = Math.max(0, t());
 				pose(mc.player, view[0], view[1], view[2], (float) (view[3] + drift * t), (float) view[4]);
 			}
