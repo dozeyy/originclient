@@ -35,6 +35,8 @@ public static class RenderShots
         new("iris-fabric-1.8.8+mc1.21.1.jar", "Iris Shaders", true, true),
     };
 
+    internal static IReadOnlyList<Core.Mods.ModEntry> DemoModsList => DemoMods;
+    internal static IReadOnlyList<Core.Mods.ModEntry> DemoModsDroppedList => DemoModsDropped;
     private static readonly Core.Mods.ModEntry[] DemoModsDropped =
         new[] { new Core.Mods.ModEntry("zoomify-2.14.2+1.21.1.jar", "Zoomify", true, false, Version: "2.14.2+1.21.1") }.Concat(DemoMods).ToArray();
 
@@ -90,6 +92,14 @@ public static class RenderShots
         };
         window.Show();
         Pump(2500); // first layout, fonts, the players pill's idle fetch
+
+        // `--film`: only the walkthrough film's states, at one window size and 3x density (UI/FilmShots.cs).
+        if (Environment.GetCommandLineArgs().Contains("--film"))
+        {
+            FilmShots.Run(window, outDir);
+            window.Close();
+            return;
+        }
 
         // `--hover-cost`: only how fast Home answers the mouse (hover-cost.txt), no pictures.
         if (Environment.GetCommandLineArgs().Contains("--hover-cost"))

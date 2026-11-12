@@ -41,6 +41,13 @@ public partial class SettingsPage : UserControl
         Scroller.ScrollToVerticalOffset(Math.Max(0, top - 160));
     }
 
+    /// <summary>Film shots (UI/FilmShots.cs): the offset that shows the Recommended for this PC card in the middle of the page.</summary>
+    internal double TourOffsetOfRecommended()
+    {
+        var top = PresetStatusText.TranslatePoint(new Point(0, 0), Column).Y;
+        return Math.Clamp(top - 330, 0, Scroller.ScrollableHeight);
+    }
+
     /// <summary>Render mode: back to the top, so a later visit to this page starts where a player would.</summary>
     internal void TourScrollToTop() => Scroller.ScrollToVerticalOffset(0);
 

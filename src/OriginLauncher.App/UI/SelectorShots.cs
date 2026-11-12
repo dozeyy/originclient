@@ -29,6 +29,8 @@ internal static class SelectorShots
     private static readonly Size[] Sizes = { new(960, 600), new(1180, 740), new(1920, 1080) };
 
     // Three multi-release families with a mix of every state, plus single-release families showing their own state.
+    internal static IReadOnlyDictionary<string, InstallState> FakeStates => States;
+
     private static readonly Dictionary<string, InstallState> States = new()
     {
         ["26.3"] = InstallState.Installed,
@@ -163,7 +165,7 @@ internal static class SelectorShots
     // The open popup's content, drawn where the popup window sits over the window: under the box (or over it when the
     // list opened upward), shifted by its own offsets, with its shadow's bleed around it. No layout pass here: the
     // shot's content may be laid out by hand at a size bigger than the real window.
-    private static Visual? PopupInPlace(ComboBox combo, FrameworkElement root)
+    internal static Visual? PopupInPlace(ComboBox combo, FrameworkElement root)
     {
         if (combo.Template.FindName("Popup", combo) is not Popup { IsOpen: true, Child: FrameworkElement child } popup) return null;
         // The list is at least as wide as the box. Its MinWidth binding only hears about the hand-laid box's width on the
