@@ -35,6 +35,7 @@ import { handleSocial, socialCleanup, presenceSweep, session, socialBudget } fro
 import { keysDiag } from './mojang.js';
 import { catalog, checkout, plusCheckout, webhook, isMember, membersAmong, PLUS_CAPE } from './stripe.js';
 import { makeCodes, redeem } from './codes.js';
+import { countDownload, downloadCount, downloadCleanup } from './downloads.js';
 
 export { normUuid, slotOf };
 
@@ -208,6 +209,8 @@ export async function handle(request, env) {
     if (request.method === 'POST' && url.pathname === '/v1/stripe/webhook') return await webhook(request, env);
     if (request.method === 'POST' && url.pathname === '/v1/store/redeem') return await redeem(env, await request.json().catch(() => null));
     if (request.method === 'POST' && url.pathname === '/v1/admin/codes') return await makeCodes(request, env, await request.json().catch(() => null));
+    if (request.method === 'GET' && url.pathname === '/v1/downloads') return await downloadCount(env);
+    if (request.method === 'POST' && url.pathname === '/v1/downloads') return await countDownload(request, env);
     if (request.method === 'GET' && url.pathname === '/') return json({ service: 'origin-cosmetics', ok: true });
     // How many of Mojang's keys the service holds (counts only), checked after every deploy.
     if (request.method === 'GET' && url.pathname === '/v1/diag/keys') return json(await keysDiag(env));
@@ -231,6 +234,7 @@ export async function scheduled(event, env, now = Date.now()) {
     presenceSweep(env, minute * 60_000).catch(err => console.error('origin-cosmetics: offline sweep failed', err)),
     minute % 10 === 0 ? socialCleanup(env, now).catch(err => console.error('origin-cosmetics: social cleanup failed', err)) : null,
     minute % L.BUDGET_EVERY_MIN === 0 ? socialBudget(env, t).catch(err => console.error('origin-cosmetics: store reserve failed', err)) : null,
+    minute % 60 === 0 ? downloadCleanup(env, now).catch(err => console.error('origin-cosmetics: download cleanup failed', err)) : null,
   ]);
 }
 

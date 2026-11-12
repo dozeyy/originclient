@@ -227,10 +227,19 @@
       <h2>8. This Website</h2>
       <p>
         originclient.org is hosted by Vercel. The site loads no analytics, no
-        ad trackers and no outside scripts, and our code sets no cookies. The
-        only thing it saves in your browser is the Store's bag and typed name
-        (section 5). The Store also talks to the services listed in section
-        5. The download button downloads the installer from GitHub.
+        ad trackers and no outside scripts, and our code sets no cookies. It
+        saves two things in your browser: the Store's bag and typed name
+        (section 5), and a note that your Download click was already counted.
+        The Store also talks to the services listed in section 5. The download
+        button downloads the installer from GitHub.
+      </p>
+      <p>
+        The site shows how many people have downloaded Origin. When you click
+        Download, it tells our service once. So that one person counts once a
+        day, the service keeps a one-way code made from your IP address and a
+        random value that changes every day. It never keeps the address
+        itself, and it deletes the code and that day's random value the next
+        day. Nothing else about you is sent.
       </p>
 
       <h2>9. Crash Reports</h2>
@@ -253,6 +262,8 @@
         <li>Pings: 1 minute. Party warps: 2 minutes. Party invites: 10
           minutes. Records used to stop spam: 1 hour. You leave a party
           automatically after an hour with Origin closed.</li>
+        <li>The code used to count a Download click once (section 8): until
+          the next day. The download total itself has nothing about you in it.</li>
         <li>Friends, requests and blocks: until you or the other player
           remove them.</li>
         <li>Your name and UUID, your status and last-seen time, your "Appear

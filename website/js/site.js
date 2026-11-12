@@ -131,6 +131,71 @@ async function initDownload() {
   pinMissingDownloads();
 }
 
+// ------------------------------------------------------------------ live download count
+// How many people clicked Download, from the cosmetics service (services/cosmetics/
+// src/downloads.js counts once per address per day, live site only). Here: each
+// browser counts once, and a browser that opened the site with ?me never counts
+// (Will's own, so his testing stays out). Every link to a release file counts
+// (the big button, the hero, the header, the other-systems list): Windows, Mac or
+// Linux. Shown after the hero's meta line and first in the download section's
+// specs; hidden until there's a real number.
+const COUNT_KEYS = { counted: 'origin-download-counted', me: 'origin-download-me' };
+const store = {
+  get: k => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: k => { try { localStorage.setItem(k, '1'); } catch {} },
+};
+let countApi = null;
+let shownCount = 0;
+
+function showCount(n) {
+  if (!Number.isFinite(n) || n < 1 || n === shownCount) return;
+  const from = shownCount;
+  shownCount = n;
+  const word = n === 1 ? 'download' : 'downloads';
+  for (const el of $$('[data-dl-word]')) el.textContent = word;
+  for (const el of $$('[data-dl]')) el.hidden = false;
+  const nums = $$('[data-dl-count]');
+  const fmt = v => Math.round(v).toLocaleString('en-US');
+  // a short roll up to the new number; the first load and reduced motion just set it
+  if (reducedMotion || from === 0) { for (const el of nums) el.textContent = fmt(n); return; }
+  const t0 = performance.now();
+  const step = t => { const k = smooth(clamp((t - t0) / 600)); for (const el of nums) el.textContent = fmt(from + (n - from) * k); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+async function api() {
+  return countApi ??= (await (await fetch('cosmetics/service.json')).json()).api;
+}
+
+async function refreshCount() {
+  try {
+    showCount((await (await fetch(`${await api()}/v1/downloads`)).json()).count);
+  } catch { /* the page reads fine without the number */ }
+}
+
+function initDownloadCount() {
+  if (new URLSearchParams(location.search).has('me')) store.set(COUNT_KEYS.me);
+  refreshCount();
+  // live: re-read every 30 s while the tab is in front, and at once on coming back
+  setInterval(() => { if (!document.hidden) refreshCount(); }, 30_000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshCount(); });
+  if (!DOWNLOAD.live) return;
+  let sending = false;
+  // one listener for every download link, including the list initGet builds later
+  document.addEventListener('click', async e => {
+    if (!e.target.closest?.('a[href*="/releases/latest/download/"]')) return;
+    if (sending || store.get(COUNT_KEYS.counted) || store.get(COUNT_KEYS.me)) return;
+    sending = true;
+    try {
+      // keepalive: the request outlives the page if the download navigates away
+      const r = await (await fetch(`${await api()}/v1/downloads`, { method: 'POST', keepalive: true })).json();
+      store.set(COUNT_KEYS.counted);   // only once the service has it, so a failed send tries again next click
+      showCount(r.count);
+    } catch { /* not counted; the download itself is unaffected */ }
+    sending = false;
+  });
+}
+
 // Every download Origin has. `os` is the system it is for, `id` names the file so the big
 // button can pick it; `badge` marks the Mac beta.
 function allDownloads() {
@@ -376,6 +441,7 @@ function syncHeroZone() {
 // ------------------------------------------------------------------ boot
 async function boot() {
   initDownload();
+  initDownloadCount();
   initVersions();
   initMenu();
   frame();
