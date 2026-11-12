@@ -111,8 +111,8 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
       slow: 1..8                                         // poll this many times slower ("Store reserve"); 1 = normal
     }
 - Presence is per (account, client): launcher and game both open = one online account. Online = synced in
-  the last 150 s. A friend who set appearOffline shows `online:false`, no activity, to friends (party members
-  still get its party state, since they're in a party together).
+  the last 150 s. A friend who set appearOffline shows `online:false`, no activity, to friends (the game sends
+  no party state or server while appearOffline is on: see Privacy under the fair-play guard).
 - `server` is only shown to friends (never to strangers), and `activity/server` are null while appearOffline.
 - Party member `state` is returned only to members of that party, and only for members whose `partyState.server`
   equals the caller's own current server (positions are meaningless across servers).
