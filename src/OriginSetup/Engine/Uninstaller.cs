@@ -23,7 +23,13 @@ public static class Uninstaller
         Shortcuts.DeleteLegacyGroup();
         try { InstallRegistry.SetStartWithWindows(false, ""); }
         catch (Exception ex) when (ex is UnauthorizedAccessException || ex is System.Security.SecurityException) { }
-        Registration.Remove();
+        // A registry refusal must not stop the files going (it used to throw out of here before anything was removed,
+        // and the window then said "mostly removed" over an untouched install).
+        try { Registration.Remove(); }
+        catch (Exception ex) when (ex is UnauthorizedAccessException || ex is System.Security.SecurityException || ex is IOException)
+        {
+            SetupLog.Write("could not remove the Installed apps entry: " + ex.Message);
+        }
 
         report(0.4);
         var plan = UninstallPlan.For(dir);

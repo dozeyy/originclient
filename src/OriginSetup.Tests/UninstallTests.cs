@@ -13,6 +13,9 @@ namespace OriginSetup.Tests;
 [Collection("download")]
 public class UninstallTests
 {
+    // Commit refuses while Origin Launcher is open; the PC running the tests may well have its own launcher open.
+    public UninstallTests() => Installer.LauncherRunning = () => false;
+
     private static string Temp() => TestKit.Temp("uninst");
 
     private static void Put(string dir, string rel, string text = "x")
@@ -246,6 +249,24 @@ public class UninstallTests
         Assert.False(File.Exists(Path.Combine(dir, "Bundled", "OriginClient", "originclient-1.20.jar")), "no new-only file stays");
         Assert.False(Directory.Exists(Path.Combine(dir, "_setup-staging")), "everything went back, so staging is cleared");
         Assert.Equal(2, InstallManifest.Read(dir)!.Files.Count); // the record is unchanged
+    }
+
+    [Fact]
+    public void TheMoveIsRefusedWhileTheLauncherIsOpen()
+    {
+        // Opened during the download (an old desktop shortcut): nothing may be replaced under it.
+        var dir = Temp();
+        Put(dir, "OriginLauncher.App.exe", "old launcher");
+        var staged = Installer.Stage(dir, TestKit.Zip(TestKit.MakeLauncherTree()), null, _ => { }, CancellationToken.None, new FakeServer().Client());
+        Installer.LauncherRunning = () => true;
+        try
+        {
+            var ex = Assert.Throws<SetupException>(() => Installer.Commit(staged, dir, createdFolder: false));
+            Assert.Contains("still open", ex.Message);
+        }
+        finally { Installer.LauncherRunning = () => false; }
+        Assert.Equal("old launcher", File.ReadAllText(Path.Combine(dir, "OriginLauncher.App.exe")));
+        Assert.False(Directory.Exists(Path.Combine(dir, "_setup-staging")));
     }
 
     [Fact]
