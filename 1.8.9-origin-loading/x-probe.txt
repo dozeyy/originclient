@@ -1,0 +1,13 @@
+game pid 4559 DISPLAY=:99 XAUTHORITY= size=1920x1080
+total 8
+drwxrwxrwt  2 root   root   4096 Nov  4 04:47 .
+drwxrwxrwt 14 root   root   4096 Nov  4 04:47 ..
+srwxrwxrwx  1 runner runner    0 Nov  4 04:47 X99
+
+xwininfo: Window id: 0x21f (the root window) (has no name)
+
+  Root window id: 0x21f (the root window) (has no name)
+  Parent window id: 0x0 (none)
+     1 child:
+     0x400002 "Minecraft 1.8.9": ("Minecraft 1.8.9" "Minecraft 1.8.9")  1920x1080+0+0  +0+0
+

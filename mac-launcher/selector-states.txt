@@ -1,0 +1,27 @@
+what the selector says, off the production disk check over fake installs
+card 26: 1 of 5 installed
+card 1.21: 3 of 10 installed
+card 1.20: 2 of 4 installed
+card 1.19: 2 of 3 installed
+card 1.18: Installed
+card 1.17: Update ready
+card 1.16: Not installed
+card 1.8: Finish install
+release 1.21.11: dot
+release 1.21.10: -
+release 1.21.8: -
+release 1.21.7: -
+release 1.21.6: -
+release 1.21.4: -
+release 1.21.3: -
+release 1.21.2: dot
+release 1.21.1: dot
+release 1.21: -
+release 1.20.4: dot
+release 1.20.2: dot
+release 1.20.1: -
+release 1.20: -
+release 1.19.4: dot
+release 1.19.3: dot
+release 1.19.2: -
+home after picking 1.20.4: 1.20.4 (was 1.21.1)

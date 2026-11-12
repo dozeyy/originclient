@@ -1,0 +1,24 @@
+[All versions]
+  OfficialLauncher: Settings=off  Mods=off  ResourcePacks=on  ShaderPacks=off(grey: No shaders in Minecraft Launcher)  Worlds=on  Servers=on  
+  Lunar: Settings=on  Mods=off(grey: Lunar's mods are built in, not files)  ResourcePacks=on  ShaderPacks=on  Worlds=on  Servers=on  
+  Prism: Settings=off  Mods=on  ResourcePacks=on  ShaderPacks=on  Worlds=on  Servers=on  
+  CurseForge: Settings=off  Mods=off  ResourcePacks=on  ShaderPacks=on  Worlds=on  Servers=on  
+  Modrinth: Settings=off  Mods=on  ResourcePacks=on  ShaderPacks=off(grey: No shaders in Modrinth App)  Worlds=on  Servers=on  
+  warning: Mods from different launchers might not work together.
+[1.21.1]
+  OfficialLauncher: Settings=off  Mods=off(grey: No mods to bring from Minecraft Launcher)  ResourcePacks=on  ShaderPacks=off(grey: No shaders in Minecraft Launcher)  Worlds=on  Servers=on  
+  Lunar: Settings=on  Mods=off(grey: Lunar's mods are built in, not files)  ResourcePacks=on  ShaderPacks=off(grey: No shaders in Lunar Client)  Worlds=on  Servers=on  
+  Prism: Settings=off  Mods=on  ResourcePacks=on  ShaderPacks=on  Worlds=on  Servers=on  
+  CurseForge: Settings=off  Mods=off  ResourcePacks=on  ShaderPacks=off(grey: No shaders in CurseForge)  Worlds=on  Servers=on  
+  warning: Mods from different launchers might not work together.
+[1.20.1]
+  Prism: Settings=off  Mods=on  ResourcePacks=on  ShaderPacks=off(grey: No shaders in Prism / MultiMC)  Worlds=on  Servers=on  
+  Modrinth: Settings=off  Mods=on  ResourcePacks=on  ShaderPacks=off(grey: No shaders in Modrinth App)  Worlds=on  Servers=on  
+  warning: Mods from different launchers might not work together.
+[1.19.2]
+  OfficialLauncher: Settings=off  Mods=off  ResourcePacks=on  ShaderPacks=off(grey: No shaders in Minecraft Launcher)  Worlds=on  Servers=on  
+  warning: Mods from different launchers might not work together.
+[1.8.9]
+  Lunar: Settings=on  Mods=off(grey: Lunar's mods are built in, not files)  ResourcePacks=on  ShaderPacks=on  Worlds=on  Servers=on  
+  CurseForge: Settings=off  Mods=off  ResourcePacks=on  ShaderPacks=on  Worlds=on  Servers=on  
+  warning: Mods from different launchers might not work together.

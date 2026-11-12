@@ -1,0 +1,2 @@
+tick: real Tab landed on it (focus frame 40x40, clipped=False)
+footer primary: real Tab landed on it (focus frame 128x44, clipped=False)

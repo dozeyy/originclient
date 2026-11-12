@@ -1,0 +1,10 @@
+16a-pill-microsoft-short: pill=101x36 head=24x24 name=37 storeLabel=True wordmark=True topbar=1180 brand=131 tabs=304 actions=254 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True
+16a2-pill-microsoft-alex: pill=93x36 head=24x24 name=29 storeLabel=True wordmark=True topbar=1180 brand=131 tabs=304 actions=246 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True
+16b-pill-microsoft-long: pill=218x36 head=24x24 name=154 storeLabel=True wordmark=True topbar=1180 brand=131 tabs=304 actions=371 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True
+16c-pill-microsoft-23-letters: pill=224x36 head=24x24 name=160 storeLabel=True wordmark=True topbar=1180 brand=131 tabs=304 actions=377 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True
+16d-pill-offline: pill=108x36 head=24x24 name=44 storeLabel=True wordmark=True topbar=1180 brand=131 tabs=304 actions=261 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True
+16e-pill-signed-out: pill=107x36 head=none (signed out) name=45 storeLabel=True wordmark=True topbar=1180 brand=131 tabs=304 actions=260 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True
+16h-store-focus: frame=margin=-4,-4,-4,-4 thickness=2,2,2,2 at=910, 6 pill=101x36 head=24x24 name=37 storeLabel=True wordmark=True topbar=1180 brand=131 tabs=304 actions=254 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True
+16i-pill-focus: frame=margin=-4,-4,-4,-4 thickness=2,2,2,2 at=1063, 6 pill=101x36 head=24x24 name=37 storeLabel=True wordmark=True topbar=1180 brand=131 tabs=304 actions=254 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True
+16k-bar-960-long-name: pill=218x36 head=24x24 name=154 storeLabel=True wordmark=False topbar=960 brand=44 tabs=304 actions=371 labelExtra=43 labelsHidden=False tabShift=-79 wordmark=False
+16m-pill-150pct: scaling=1.5 pill=102x36 head=24x24 name=37.3 storeLabel=True wordmark=True topbar=1180 brand=131 tabs=305 actions=255 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True

@@ -1,0 +1,3 @@
+15v-scrollbar-rest: bar=8x270 visible=True thumb=4x64 radius=2 colour=#1affffff
+15v-scrollbar-hover: bar=8x270 visible=True thumb=4x64 radius=2 colour=#14ffffff
+15v-scrollbar-scrolled: bar=8x270 visible=True thumb=4x64 radius=2 colour=#1affffff

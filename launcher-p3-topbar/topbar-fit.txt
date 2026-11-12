@@ -1,0 +1,6 @@
+15e-topbar-1440x900: topbar=1404 brand=110 tabs=304 actions=439 labelExtra=92 labelsHidden=False tabShift=0; gaps WebsiteButton->StoreButton 20; StoreButton->ImportButton 20
+15e-topbar-1440x900-update: topbar=1404 brand=110 tabs=304 actions=475 labelExtra=92 labelsHidden=False tabShift=0; gaps UpdateBadge->WebsiteButton 20; WebsiteButton->StoreButton 20; StoreButton->ImportButton 20
+15e-topbar-1280x800: topbar=1244 brand=110 tabs=304 actions=439 labelExtra=92 labelsHidden=False tabShift=0; gaps WebsiteButton->StoreButton 20; StoreButton->ImportButton 20
+15e-topbar-1280x800-update: topbar=1244 brand=110 tabs=304 actions=475 labelExtra=92 labelsHidden=False tabShift=-25; gaps UpdateBadge->WebsiteButton 20; WebsiteButton->StoreButton 20; StoreButton->ImportButton 20
+15e-topbar-1180x740: topbar=1144 brand=110 tabs=304 actions=439 labelExtra=92 labelsHidden=False tabShift=-39; gaps WebsiteButton->StoreButton 20; StoreButton->ImportButton 20
+15e-topbar-1180x740-update: topbar=1144 brand=110 tabs=304 actions=475 labelExtra=92 labelsHidden=False tabShift=-75; gaps UpdateBadge->WebsiteButton 20; WebsiteButton->StoreButton 20; StoreButton->ImportButton 20

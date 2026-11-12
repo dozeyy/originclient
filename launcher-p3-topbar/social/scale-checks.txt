@@ -1,0 +1,9 @@
+100 % 1180x740: window 1044x740 DIP, pictures laid out at 1180x740 DIP, tree DPI 96
+100 % 980x600: window 980x600 DIP, pictures laid out at 980x600 DIP, tree DPI 96
+100 % 1600x1000: window 1044x788 DIP, pictures laid out at 1600x1000 DIP, tree DPI 96
+125 % 1180x740: window 1044x740 DIP, pictures laid out at 1180x740 DIP, tree DPI 120
+125 % 980x600: window 980x600 DIP, pictures laid out at 980x600 DIP, tree DPI 120
+125 % 1600x1000: window 1044x788 DIP, pictures laid out at 1600x1000 DIP, tree DPI 120
+150 % 1180x740: window 1044x740 DIP, pictures laid out at 1180x740 DIP, tree DPI 144
+150 % 980x600: window 980x600 DIP, pictures laid out at 980x600 DIP, tree DPI 144
+150 % 1600x1000: window 1044x788 DIP, pictures laid out at 1600x1000 DIP, tree DPI 144

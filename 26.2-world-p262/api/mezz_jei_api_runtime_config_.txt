@@ -1,0 +1,45 @@
+Compiled from "IJeiConfigCategory.java"
+public interface mezz.jei.api.runtime.config.IJeiConfigCategory {
+  public abstract java.lang.String getName();
+  public abstract java.util.Collection<? extends mezz.jei.api.runtime.config.IJeiConfigValue<?>> getConfigValues();
+}
+Compiled from "IJeiConfigFile.java"
+public interface mezz.jei.api.runtime.config.IJeiConfigFile {
+  public abstract java.nio.file.Path getPath();
+  public abstract java.util.List<? extends mezz.jei.api.runtime.config.IJeiConfigCategory> getCategories();
+}
+Compiled from "IJeiConfigListValueSerializer.java"
+public interface mezz.jei.api.runtime.config.IJeiConfigListValueSerializer<T> extends mezz.jei.api.runtime.config.IJeiConfigValueSerializer<java.util.List<T>> {
+  public abstract mezz.jei.api.runtime.config.IJeiConfigValueSerializer<T> getListValueSerializer();
+}
+Compiled from "IJeiConfigManager.java"
+public interface mezz.jei.api.runtime.config.IJeiConfigManager {
+  public abstract java.util.Collection<mezz.jei.api.runtime.config.IJeiConfigFile> getConfigFiles();
+}
+Compiled from "IJeiConfigValue.java"
+public interface mezz.jei.api.runtime.config.IJeiConfigValue<T> {
+  public abstract java.lang.String getName();
+  public abstract net.minecraft.network.chat.Component getLocalizedName();
+  public abstract net.minecraft.network.chat.Component getLocalizedDescription();
+  public abstract T getValue();
+  public abstract T getDefaultValue();
+  public abstract boolean set(T);
+  public default void addListener(java.util.function.Consumer<T>);
+  public abstract mezz.jei.api.runtime.config.IJeiConfigValueSerializer<T> getSerializer();
+}
+Compiled from "IJeiConfigValueSerializer.java"
+public interface mezz.jei.api.runtime.config.IJeiConfigValueSerializer<T> {
+  public abstract java.lang.String serialize(T);
+  public abstract mezz.jei.api.runtime.config.IJeiConfigValueSerializer$IDeserializeResult<T> deserialize(java.lang.String);
+  public abstract boolean isValid(T);
+  public abstract java.util.Optional<java.util.Collection<T>> getAllValidValues();
+  public abstract java.lang.String getValidValuesDescription();
+}
+Compiled from "IJeiConfigValueSerializer.java"
+public interface mezz.jei.api.runtime.config.IJeiConfigValueSerializer$IDeserializeResult<T> {
+  public abstract java.util.Optional<T> getResult();
+  public abstract java.util.List<java.lang.String> getErrors();
+}
+Compiled from "package-info.java"
+interface mezz.jei.api.runtime.config.package-info {
+}

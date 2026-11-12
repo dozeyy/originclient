@@ -1,0 +1,602 @@
+Picked up JAVA_TOOL_OPTIONS:  -Dmixin.debug.verbose=true
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Essential Loom: 1.3.12
+Could not find Forge run template with name 'client'
+
+> Task :compileJava
+Picked up JAVA_TOOL_OPTIONS:  -Dmixin.debug.verbose=true
+/home/runner/work/originclient/originclient/src/mods/versions/1.8.9/src/main/java/com/origin/client/client/OriginDevShots.java:351: warning: Unsafe is internal proprietary API and may be removed in a future release
+			sun.misc.Unsafe u = (sun.misc.Unsafe) f.get(null);
+			        ^
+/home/runner/work/originclient/originclient/src/mods/versions/1.8.9/src/main/java/com/origin/client/client/OriginDevShots.java:351: warning: Unsafe is internal proprietary API and may be removed in a future release
+			sun.misc.Unsafe u = (sun.misc.Unsafe) f.get(null);
+			                             ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+2 warnings
+
+> Task :processResources
+> Task :classes
+> Task :generateDLIConfig
+> Task :generateLog4jConfig
+> Task :generateRemapClasspath
+> Task :configureLaunch
+> Task :downloadAssets UP-TO-DATE
+> Task :extractNatives
+> Task :configureClientLaunch
+
+> Task :runClient
+Picked up JAVA_TOOL_OPTIONS:  -Dmixin.debug.verbose=true
+[05:49:01] [main/INFO] (LaunchWrapper) Loading tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[05:49:01] [main/INFO] (LaunchWrapper) Using primary tweak class name net.minecraftforge.fml.common.launcher.FMLTweaker
+[05:49:01] [main/INFO] (LaunchWrapper) Loading tweak class name org.spongepowered.asm.launch.MixinTweaker
+[05:49:01] [main/INFO] (mixin) SpongePowered MIXIN Subsystem Version=0.7.11 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/org.spongepowered/mixin/0.7.11-SNAPSHOT/7a670207bdb97db418118ad1e9bb42424ff3776d/mixin-0.7.11-SNAPSHOT.jar Service=LaunchWrapper Env=CLIENT
+/*************************************************************************************************************************************************************************************************************************/
+/*                                                                                    SpongePowered MIXIN (Verbose debugging enabled)                                                                                    */
+/*************************************************************************************************************************************************************************************************************************/
+/*                                         Code source : file:/home/runner/.gradle/caches/modules-2/files-2.1/org.spongepowered/mixin/0.7.11-SNAPSHOT/7a670207bdb97db418118ad1e9bb42424ff3776d/mixin-0.7.11-SNAPSHOT.jar */
+/*                                    Internal Version : 0.7.11                                                                                                                                                          */
+/*                                    Java 8 Supported : true                                                                                                                                                            */
+/*************************************************************************************************************************************************************************************************************************/
+/*                                        Service Name : LaunchWrapper                                                                                                                                                   */
+/*                                       Service Class : org.spongepowered.asm.service.mojang.MixinServiceLaunchWrapper                                                                                                  */
+/*************************************************************************************************************************************************************************************************************************/
+/*                                         mixin.debug : <false>                                                                                                                                                         */
+/*                                  mixin.debug.export : - <false>                                                                                                                                                       */
+/*                           mixin.debug.export.filter : - - <null>                                                                                                                                                      */
+/*                        mixin.debug.export.decompile : - - <false>                                                                                                                                                     */
+/*                  mixin.debug.export.decompile.async : - - - <false>                                                                                                                                                   */
+/* mixin.debug.export.decompile.mergeGenericSignatures : - - - <false>                                                                                                                                                   */
+/*                                  mixin.debug.verify : - <false>                                                                                                                                                       */
+/*                                 mixin.debug.verbose : - <true>                                                                                                                                                        */
+/*                         mixin.debug.countInjections : - <false>                                                                                                                                                       */
+/*                                  mixin.debug.strict : - <false>                                                                                                                                                       */
+/*                           mixin.debug.strict.unique : - - <false>                                                                                                                                                     */
+/*                          mixin.debug.strict.targets : - - <false>                                                                                                                                                     */
+/*                                mixin.debug.profiler : - <false>                                                                                                                                                       */
+/*                           mixin.dumpTargetOnFailure : <false>                                                                                                                                                         */
+/*                                        mixin.checks : <false>                                                                                                                                                         */
+/*                             mixin.checks.interfaces : - <false>                                                                                                                                                       */
+/*                      mixin.checks.interfaces.strict : - - <false>                                                                                                                                                     */
+/*                             mixin.ignoreConstraints : <false>                                                                                                                                                         */
+/*                                       mixin.hotSwap : <false>                                                                                                                                                         */
+/*                                           mixin.env : <false>                                                                                                                                                         */
+/*                                       mixin.env.obf : - <false>                                                                                                                                                       */
+/*                             mixin.env.disableRefMap : - <false>                                                                                                                                                       */
+/*                               mixin.env.remapRefMap : - <true>                                                                                                                                                        */
+/*                       mixin.env.refMapRemappingFile : - <>                                                                                                                                                            */
+/*                        mixin.env.refMapRemappingEnv : - <searge>                                                                                                                                                      */
+/*                      mixin.env.allowPermissiveMatch : - <false>                                                                                                                                                       */
+/*                            mixin.env.ignoreRequired : - <false>                                                                                                                                                       */
+/*                               mixin.env.compatLevel : - <false>                                                                                                                                                       */
+/*                          mixin.env.shiftByViolation : - <warn>                                                                                                                                                        */
+/*                      mixin.initialiserInjectionMode : <default>                                                                                                                                                       */
+/*************************************************************************************************************************************************************************************************************************/
+/*                                       Detected Side : CLIENT                                                                                                                                                          */
+/*************************************************************************************************************************************************************************************************************************/
+[05:49:01] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.common.launcher.FMLTweaker
+[05:49:01] [main/INFO] (FML) Forge Mod Loader version 11.15.1.2318 for Minecraft 1.8.9 loading
+[05:49:01] [main/INFO] (FML) Java is OpenJDK 64-Bit Server VM, version 1.8.0_504, running on Linux:amd64:7.0.0-1017-azure, installed at /usr/lib/jvm/temurin-8-jdk-amd64/jre
+[05:49:01] [main/INFO] (FML) Managed to load a deobfuscated Minecraft name- we are in a deobfuscated environment. Skipping runtime deobfuscation
+[05:49:01] [main/INFO] (LaunchWrapper) Calling tweak class org.spongepowered.asm.launch.MixinTweaker
+[05:49:01] [main/INFO] (mixin) Compatibility level set to JAVA_8
+[05:49:01] [main/INFO] (mixin) Preparing mixins for MixinEnvironment[PREINIT]
+[05:49:01] [main/INFO] (mixin) Initialised Mixin FML Remapper Adapter with net.minecraftforge.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper@415b0b49
+[05:49:01] [main/INFO] (LaunchWrapper) Loading tweak class name net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[05:49:01] [main/INFO] (LaunchWrapper) Loading tweak class name net.minecraftforge.fml.common.launcher.FMLDeobfTweaker
+[05:49:01] [main/INFO] (LaunchWrapper) Loading tweak class name org.spongepowered.asm.mixin.EnvironmentStateTweaker
+[05:49:01] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[05:49:01] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.common.launcher.FMLInjectionAndSortingTweaker
+[05:49:01] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[05:49:01] [main/ERROR] (FML) The binary patch set is missing. Either you are in a development environment, or things are not going to work!
+[05:49:02] [main/ERROR] (FML) FML appears to be missing any signature data. This is not a good thing
+[05:49:02] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.relauncher.CoreModManager$FMLPluginWrapper
+[05:49:02] [main/INFO] (LaunchWrapper) Calling tweak class org.spongepowered.asm.mixin.EnvironmentStateTweaker
+[05:49:02] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.common.launcher.FMLDeobfTweaker
+[05:49:02] [main/INFO] (mixin) Preparing mixins for MixinEnvironment[INIT]
+[05:49:02] [main/INFO] (LaunchWrapper) Loading tweak class name net.minecraftforge.fml.common.launcher.TerminalTweaker
+[05:49:02] [main/INFO] (LaunchWrapper) Calling tweak class net.minecraftforge.fml.common.launcher.TerminalTweaker
+[05:49:02] [main/INFO] (mixin) Preparing mixins for MixinEnvironment[DEFAULT]
+[05:49:02] [main/INFO] (mixin) Selecting config originclient.core.mixins.json
+[05:49:02] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[05:49:02] [main/INFO] (mixin) Selecting config originclient.menus.mixins.json
+[05:49:02] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[05:49:02] [main/INFO] (mixin) Selecting config originclient.hud.mixins.json
+[05:49:02] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[05:49:02] [main/INFO] (mixin) Selecting config originclient.world.mixins.json
+[05:49:02] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[05:49:02] [main/INFO] (mixin) Selecting config originclient.social.mixins.json
+[05:49:02] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[05:49:02] [main/INFO] (mixin) Selecting config originclient.server.mixins.json
+[05:49:02] [main/INFO] (mixin) Remapping refMap mixins.originclient.refmap.json using /home/runner/.gradle/caches/essential-loom/1.8.9/de.oceanlabs.mcp.mcp_stable.1_8_9.22-1.8.9-forge-1.8.9-11.15.1.2318-1.8.9/mappings-srg-named.srg
+[05:49:02] [main/INFO] (mixin) Preparing originclient.core.mixins.json (7)
+[05:49:02] [main/INFO] (mixin) Preparing originclient.menus.mixins.json (21)
+[05:49:02] [main/INFO] (mixin) Preparing originclient.hud.mixins.json (4)
+[05:49:02] [main/INFO] (mixin) Preparing originclient.world.mixins.json (34)
+[05:49:03] [main/INFO] (mixin) Preparing originclient.social.mixins.json (3)
+[05:49:03] [main/INFO] (mixin) Preparing originclient.server.mixins.json (6)
+[05:49:03] [main/INFO] (mixin) Prepared 75 mixins in 0.606 sec (8.1ms avg) (26ms load, 400ms transform, 0ms plugin)
+[05:49:03] [main/INFO] (LaunchWrapper) Launching wrapped minecraft {net.minecraft.client.main.Main}
+[05:49:03] [main/INFO] (mixin) Mixing MinecraftSplashScreenMixin from originclient.menus.mixins.json into net.minecraft.client.Minecraft
+[05:49:03] [main/INFO] (mixin) Mixing MinecraftWorldLoadMixin from originclient.menus.mixins.json into net.minecraft.client.Minecraft
+[05:49:03] [main/INFO] (mixin) Mixing OldAnimationsKeysMixin from originclient.world.mixins.json into net.minecraft.client.Minecraft
+[05:49:03] [main/INFO] (mixin) Mixing MinecraftFramerateMixin from originclient.world.mixins.json into net.minecraft.client.Minecraft
+[05:49:03] [main/INFO] (mixin) Mixing WorldTimeMixin from originclient.world.mixins.json into net.minecraft.world.World
+[05:49:03] [main/INFO] (mixin) Mixing WorldWeatherMixin from originclient.world.mixins.json into net.minecraft.world.World
+[05:49:03] [main/INFO] (mixin) Mixing EntityLivingBaseLookMixin from originclient.core.mixins.json into net.minecraft.entity.EntityLivingBase
+[05:49:03] [main/INFO] (mixin) Mixing FreelookTurnMixin from originclient.world.mixins.json into net.minecraft.entity.Entity
+[05:49:03] [main/INFO] (mixin) Mixing CosmeticCapeMixin from originclient.social.mixins.json into net.minecraft.client.entity.AbstractClientPlayer
+[05:49:03] [main/INFO] (mixin) Mixing GuiScreenAccessor from originclient.menus.mixins.json into net.minecraft.client.gui.GuiScreen
+[05:49:03] [main/INFO] (mixin) Mixing GuiScreenBackgroundMixin from originclient.menus.mixins.json into net.minecraft.client.gui.GuiScreen
+[05:49:03] [main/INFO] (mixin) Mixing InventoryEffectRendererMixin from originclient.menus.mixins.json into net.minecraft.client.renderer.InventoryEffectRenderer
+[05:49:03] [main/INFO] (mixin) Mixing GuiIngameTitleAccessor from originclient.hud.mixins.json into net.minecraft.client.gui.GuiIngame
+[05:49:03] [main/INFO] (mixin) Mixing HypixelBedwarsGuiMixin from originclient.server.mixins.json into net.minecraft.client.gui.GuiIngame
+[05:49:03] [main/INFO] (mixin) Mixing GuiIngameScoreboardMixin from originclient.hud.mixins.json into net.minecraft.client.gui.GuiIngame
+[05:49:03] [main/INFO] (mixin) Mixing GuiIngameForgeTitlesMixin from originclient.hud.mixins.json into net.minecraftforge.client.GuiIngameForge
+[05:49:04] [main/INFO] (STDOUT) [net.minecraft.client.main.Main:main:57]: Completely ignored arguments: [originclient.hud.mixins.json, originclient.social.mixins.json, originclient.menus.mixins.json, , --mixin, originclient.server.mixins.json, originclient.core.mixins.json, ]
+[05:49:04] [main/INFO] (mixin) Mixing MinecraftServerProgressMixin from originclient.menus.mixins.json into net.minecraft.server.MinecraftServer
+[05:49:04] [main/INFO] (Minecraft) Setting user: Player626
+[05:49:04] [main/INFO] (mixin) Mixing IntegratedServerShutdownMixin from originclient.core.mixins.json into net.minecraft.server.integrated.IntegratedServer
+[05:49:04] [main/INFO] (mixin) Mixing IntegratedServerLanMixin from originclient.social.mixins.json into net.minecraft.server.integrated.IntegratedServer
+[05:49:04] [main/WARN] (FML) =============================================================
+[05:49:04] [main/WARN] (FML) MOD HAS DIRECT REFERENCE System.exit() THIS IS NOT ALLOWED REROUTING TO FML!
+[05:49:04] [main/WARN] (FML) Offendor: com/twelvemonkeys/imageio/ImageReaderBase.main([Ljava/lang/String;)V
+[05:49:04] [main/WARN] (FML) Use FMLCommonHandler.exitJava instead
+[05:49:04] [main/WARN] (FML) =============================================================
+[05:49:06] [main/INFO] (mixin) Mixing GameSettingsZoomMixin from originclient.world.mixins.json into net.minecraft.client.settings.GameSettings
+[05:49:06] [main/INFO] (mixin) Mixing KeyBindingMixin from originclient.core.mixins.json into net.minecraft.client.settings.KeyBinding
+[05:49:06] [main/INFO] (mixin) Mixing OldAnimationsKeyBindingMixin from originclient.world.mixins.json into net.minecraft.client.settings.KeyBinding
+[05:49:06] [main/INFO] (Minecraft) LWJGL Version: 2.9.4
+[05:49:07] [main/INFO] (mixin) Mixing SplashProgressMixin from originclient.menus.mixins.json into net.minecraftforge.fml.client.SplashProgress
+[05:49:07] [main/INFO] (mixin) Mixing ReloadProgressMixin from originclient.menus.mixins.json into net.minecraft.client.resources.SimpleReloadableResourceManager
+[05:49:07] [main/INFO] (mixin) Mixing ReloadPumpMixin from originclient.menus.mixins.json into net.minecraftforge.fml.common.ProgressManager$ProgressBar
+[05:49:07] [main/INFO] (mixin) Mixing ForgeLoadingPumpMixin from originclient.menus.mixins.json into net.minecraftforge.fml.client.FMLClientHandler
+[05:49:08] [main/INFO] (mixin) Mixing PackIconMixin from originclient.world.mixins.json into net.minecraft.client.resources.AbstractResourcePack
+[05:49:08] [main/INFO] (FML) Could not load splash.properties, will create a default one
+[05:49:08] [main/INFO] (originclient) Origin startup loading screen is up (FML splash off)
+[05:49:08] [main/INFO] (FML) MinecraftForge v11.15.1.2318 Initialized
+[05:49:08] [main/INFO] (FML) Replaced 229 ore recipies
+[05:49:08] [main/INFO] (FML) Found 0 mods from the command line. Injecting into mod discoverer
+[05:49:08] [main/INFO] (FML) Searching /home/runner/work/originclient/originclient/src/mods/versions/1.8.9/run/mods for mods
+[05:49:09] [main/INFO] (FML) Forge Mod Loader has identified 4 mods to load
+[05:49:09] [main/INFO] (FML) Attempting connection with missing mods [mcp, FML, Forge, originclient] at CLIENT
+[05:49:09] [main/INFO] (FML) Attempting connection with missing mods [mcp, FML, Forge, originclient] at SERVER
+[05:49:10] [main/INFO] (Minecraft) Reloading ResourceManager: Default, FMLFileResourcePack:Forge Mod Loader, FMLFileResourcePack:Minecraft Forge, FMLFileResourcePack:Origin Client
+[05:49:10] [main/INFO] (FML) Processing ObjectHolder annotations
+[05:49:10] [main/INFO] (FML) Found 384 ObjectHolder annotations
+[05:49:10] [main/INFO] (FML) Identifying ItemStackHolder annotations
+[05:49:10] [main/INFO] (FML) Found 0 ItemStackHolder annotations
+[05:49:10] [main/INFO] (FML) Configured a dormant chunk cache size of 0
+[05:49:10] [Forge Version Check/INFO] (ForgeVersionCheck) [Forge] Starting version check at http://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json
+[05:49:10] [main/INFO] (FML) Applying holder lookups
+[05:49:10] [main/INFO] (FML) Holder lookups applied
+[05:49:10] [main/INFO] (FML) Injecting itemstacks
+[05:49:10] [main/INFO] (FML) Itemstack injection complete
+[05:49:10] [main/INFO] (mixin) Mixing TextureManagerDarkWidgetsMixin from originclient.menus.mixins.json into net.minecraft.client.renderer.texture.TextureManager
+[05:49:10] [main/INFO] (STDOUT) [tv.twitch.StandardCoreAPI:<init>:16]: If on Windows, make sure to provide all of the necessary dll's as specified in the twitchsdk README. Also, make sure to set the PATH environment variable to point to the directory containing the dll's.
+[05:49:10] [main/ERROR] (Minecraft) Couldn't initialize twitch stream
+[05:49:10] [main/INFO] (mixin) Mixing SoundChangerMixin from originclient.world.mixins.json into net.minecraft.client.audio.SoundManager
+[05:49:10] [Sound Library Loader/INFO] (Minecraft) Starting up SoundSystem...
+[05:49:10] [Thread-4/INFO] (Minecraft) Initializing LWJGL OpenAL
+[05:49:10] [Thread-4/INFO] (Minecraft) (The LWJGL binding of OpenAL.  For more information, see http://www.lwjgl.org)
+[05:49:10] [main/INFO] (mixin) Mixing FontShadowMixin from originclient.world.mixins.json into net.minecraft.client.gui.FontRenderer
+[05:49:10] [main/INFO] (mixin) Mixing NickHiderTextMixin from originclient.server.mixins.json into net.minecraft.client.gui.FontRenderer
+[05:49:10] [main/INFO] (mixin) Mixing MouseHelperRawMixin from originclient.core.mixins.json into net.minecraft.util.MouseHelper
+[05:49:10] [main/INFO] (mixin) Mixing MouseHelperUngrabMixin from originclient.core.mixins.json into net.minecraft.util.MouseHelper
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+AL lib: (EE) alsa_open_playback: Could not open playback device 'default': No such file or directory
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+AL lib: (EE) alsa_open_playback: Could not open playback device 'default': No such file or directory
+[05:49:10] [Thread-4/ERROR] (Minecraft) Error in class 'LibraryLWJGLOpenAL'
+[05:49:10] [Thread-4/ERROR] (Minecraft) Unable to initialize OpenAL.  Probable cause: OpenAL not supported.
+[05:49:10] [Thread-4/WARN] (Minecraft) ERROR MESSAGE:
+[05:49:10] [Thread-4/INFO] (Minecraft) Could not locate OpenAL library.
+[05:49:10] [Thread-4/WARN] (Minecraft) STACK TRACE:
+[05:49:10] [Thread-4/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:156)
+[05:49:10] [Thread-4/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:102)
+[05:49:10] [Thread-4/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:206)
+[05:49:10] [Thread-4/INFO] (Minecraft) paulscode.sound.libraries.LibraryLWJGLOpenAL.init(LibraryLWJGLOpenAL.java:164)
+[05:49:10] [Thread-4/INFO] (Minecraft) paulscode.sound.SoundSystem.CommandNewLibrary(SoundSystem.java:1576)
+[05:49:10] [Thread-4/INFO] (Minecraft) paulscode.sound.SoundSystem.CommandQueue(SoundSystem.java:2572)
+[05:49:10] [Thread-4/INFO] (Minecraft) paulscode.sound.CommandThread.run(CommandThread.java:121)
+[05:49:10] [Sound Library Loader/WARN] (Minecraft) ERROR MESSAGE:
+[05:49:10] [Sound Library Loader/INFO] (Minecraft) Could not locate OpenAL library.
+[05:49:10] [Sound Library Loader/INFO] (Minecraft) Starting up SoundSystem...
+[05:49:11] [Thread-6/INFO] (Minecraft) Switching to No Sound
+[05:49:11] [Thread-6/INFO] (Minecraft) (Silent Mode)
+[05:49:11] [Sound Library Loader/INFO] (Minecraft) Sound engine started
+[05:49:12] [main/INFO] (FML) Max texture size: 16384
+[05:49:12] [main/INFO] (Minecraft) Created: 16x16 textures-atlas
+[05:49:12] [main/INFO] (mixin) Mixing GlintColorizerMixin from originclient.world.mixins.json into net.minecraft.client.renderer.entity.RenderItem
+[05:49:12] [main/INFO] (mixin) Mixing RenderItemInvoker from originclient.world.mixins.json into net.minecraft.client.renderer.entity.RenderItem
+[05:49:12] [main/INFO] (mixin) Mixing ShinyPotsMixin from originclient.world.mixins.json into net.minecraft.client.renderer.entity.RenderItem
+[05:49:12] [main/INFO] (mixin) Mixing RenderManagerMixin from originclient.world.mixins.json into net.minecraft.client.renderer.entity.RenderManager
+[05:49:12] [main/INFO] (mixin) Mixing NametagLabelMixin from originclient.world.mixins.json into net.minecraft.client.renderer.entity.Render
+[05:49:12] [main/INFO] (mixin) Mixing HitColorMixin from originclient.world.mixins.json into net.minecraft.client.renderer.entity.RendererLivingEntity
+[05:49:12] [main/INFO] (mixin) Mixing LivingNametagMixin from originclient.world.mixins.json into net.minecraft.client.renderer.entity.RendererLivingEntity
+[05:49:12] [main/INFO] (mixin) Mixing OldAnimationsHandLayerMixin from originclient.world.mixins.json into net.minecraft.client.renderer.entity.layers.LayerHeldItem
+[05:49:12] [main/INFO] (mixin) Mixing ArmorGlintMixin from originclient.world.mixins.json into net.minecraft.client.renderer.entity.layers.LayerArmorBase
+[05:49:12] [main/INFO] (mixin) Mixing RenderEntityItemMixin from originclient.world.mixins.json into net.minecraft.client.renderer.entity.RenderEntityItem
+[05:49:12] [main/INFO] (mixin) Mixing TntCountdownMixin from originclient.world.mixins.json into net.minecraft.client.renderer.entity.RenderTNTPrimed
+[05:49:12] [main/INFO] (mixin) Mixing CapePhysicsMixin from originclient.social.mixins.json into net.minecraft.client.renderer.entity.layers.LayerCape
+[05:49:12] [main/INFO] (mixin) Mixing OldAnimationsHandMixin from originclient.world.mixins.json into net.minecraft.client.renderer.ItemRenderer
+[05:49:12] [main/INFO] (mixin) Mixing FreelookCameraMixin from originclient.world.mixins.json into net.minecraft.client.renderer.EntityRenderer
+[05:49:12] [main/INFO] (mixin) Mixing FullbrightMixin from originclient.world.mixins.json into net.minecraft.client.renderer.EntityRenderer
+[05:49:12] [main/INFO] (mixin) Mixing HurtCamMixin from originclient.world.mixins.json into net.minecraft.client.renderer.EntityRenderer
+[05:49:12] [main/INFO] (mixin) Mixing WeatherRenderMixin from originclient.world.mixins.json into net.minecraft.client.renderer.EntityRenderer
+[05:49:12] [main/INFO] (mixin) Mixing ZoomFovMixin from originclient.world.mixins.json into net.minecraft.client.renderer.EntityRenderer
+[05:49:12] [main/INFO] (mixin) Mixing FreelookTerrainMixin from originclient.world.mixins.json into net.minecraft.client.renderer.RenderGlobal
+[05:49:12] [main/INFO] (mixin) Mixing GuiAchievementAccessor from originclient.menus.mixins.json into net.minecraft.client.gui.achievement.GuiAchievement
+[05:49:12] [main/INFO] (mixin) Mixing GuiAchievementMixin from originclient.menus.mixins.json into net.minecraft.client.gui.achievement.GuiAchievement
+[05:49:12] [main/INFO] (mixin) Mixing ParticleSpawnMixin from originclient.world.mixins.json into net.minecraft.client.particle.EffectRenderer
+[05:49:12] [main/INFO] (mixin) Mixing ParticleScaleMixin from originclient.world.mixins.json into net.minecraft.client.particle.EntityFX
+[05:49:13] [main/INFO] (originclient) Origin Client initializing
+[05:49:13] [main/INFO] (mixin) Mixing GuiScreenResourcePacksAccessor from originclient.menus.mixins.json into net.minecraft.client.gui.GuiScreenResourcePacks
+[05:49:13] [main/INFO] (mixin) Mixing GuiScreenWorkingMixin from originclient.menus.mixins.json into net.minecraft.client.gui.GuiScreenWorking
+[05:49:13] [main/INFO] (mixin) Mixing GuiDownloadTerrainMixin from originclient.menus.mixins.json into net.minecraft.client.gui.GuiDownloadTerrain
+[05:49:13] [main/INFO] (mixin) Mixing GuiButtonMixin from originclient.menus.mixins.json into net.minecraft.client.gui.GuiButton
+[05:49:13] [main/INFO] (originclient) Origin hooks registered: MenuHooks
+[05:49:13] [main/INFO] (originclient) Origin hooks registered: ModMenuHooks
+[05:49:13] [main/INFO] (originclient) Origin hooks registered: HudHooks
+[05:49:13] [main/INFO] (originclient) Origin hooks registered: WorldHooks
+[05:49:13] [main/INFO] (mixin) Mixing GuiConnectingMixin from originclient.menus.mixins.json into net.minecraft.client.multiplayer.GuiConnecting
+[05:49:13] [main/INFO] (originclient) Origin hooks registered: SocialHooks
+[05:49:13] [main/INFO] (originclient) Origin hooks registered: ServerHooks
+[05:49:13] [main/INFO] (FML) Injecting itemstacks
+[05:49:13] [main/INFO] (FML) Itemstack injection complete
+[05:49:13] [main/INFO] (mixin) Mixing BiomeSnowMixin from originclient.world.mixins.json into net.minecraft.world.biome.BiomeGenBase
+[05:49:13] [main/INFO] (FML) Forge Mod Loader has successfully loaded 4 mods
+[05:49:13] [main/INFO] (Minecraft) Reloading ResourceManager: Default, FMLFileResourcePack:Forge Mod Loader, FMLFileResourcePack:Minecraft Forge, FMLFileResourcePack:Origin Client
+[05:49:13] [main/INFO] (Minecraft) SoundSystem shutting down...
+[05:49:13] [main/WARN] (Minecraft) Author: Paul Lamb, www.paulscode.com
+[05:49:13] [Sound Library Loader/INFO] (Minecraft) Starting up SoundSystem...
+[05:49:13] [Thread-8/INFO] (Minecraft) Initializing LWJGL OpenAL
+[05:49:13] [Thread-8/INFO] (Minecraft) (The LWJGL binding of OpenAL.  For more information, see http://www.lwjgl.org)
+ALSA lib confmisc.c:855:(parse_card) [05:49:13] [Thread-8/ERROR] (Minecraft) Error in class 'LibraryLWJGLOpenAL'
+[05:49:13] [Thread-8/ERROR] (Minecraft) Unable to initialize OpenAL.  Probable cause: OpenAL not supported.
+[05:49:13] [Thread-8/WARN] (Minecraft) ERROR MESSAGE:
+[05:49:13] [Thread-8/INFO] (Minecraft) Could not locate OpenAL library.
+[05:49:13] [Thread-8/WARN] (Minecraft) STACK TRACE:
+[05:49:13] [Thread-8/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:156)
+[05:49:13] [Thread-8/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:102)
+[05:49:13] [Thread-8/INFO] (Minecraft) org.lwjgl.openal.AL.create(AL.java:206)
+[05:49:13] [Thread-8/INFO] (Minecraft) paulscode.sound.libraries.LibraryLWJGLOpenAL.init(LibraryLWJGLOpenAL.java:164)
+[05:49:13] [Thread-8/INFO] (Minecraft) paulscode.sound.SoundSystem.CommandNewLibrary(SoundSystem.java:1576)
+[05:49:13] [Thread-8/INFO] (Minecraft) paulscode.sound.SoundSystem.CommandQueue(SoundSystem.java:2572)
+[05:49:13] [Thread-8/INFO] (Minecraft) paulscode.sound.CommandThread.run(CommandThread.java:121)
+cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+AL lib: (EE) alsa_open_playback: Could not open playback device 'default': No such file or directory
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+AL lib: (EE) alsa_open_playback: Could not open playback device 'default': No such file or directory
+[05:49:13] [Origin Cosmetics/INFO] (mixin) Mixing NickHiderLobbyMixin from originclient.server.mixins.json into net.minecraft.scoreboard.ScorePlayerTeam
+[05:49:14] [Sound Library Loader/WARN] (Minecraft) ERROR MESSAGE:
+[05:49:14] [Sound Library Loader/INFO] (Minecraft) Could not locate OpenAL library.
+[05:49:14] [Sound Library Loader/INFO] (Minecraft) Starting up SoundSystem...
+[05:49:14] [Thread-10/INFO] (Minecraft) Switching to No Sound
+[05:49:14] [Thread-10/INFO] (Minecraft) (Silent Mode)
+[05:49:14] [Sound Library Loader/INFO] (Minecraft) Sound engine started
+[05:49:14] [main/INFO] (FML) Max texture size: 16384
+[05:49:15] [main/INFO] (Minecraft) Created: 512x512 textures-atlas
+[05:49:15] [main/INFO] (mixin) Mixing GuiNewChatAccessor from originclient.core.mixins.json into net.minecraft.client.gui.GuiNewChat
+[05:49:15] [main/INFO] (mixin) Mixing GuiNewChatMixin from originclient.core.mixins.json into net.minecraft.client.gui.GuiNewChat
+[05:49:15] [main/INFO] (mixin) Mixing ChatTimestampMixin from originclient.server.mixins.json into net.minecraft.client.gui.GuiNewChat
+[05:49:15] [main/INFO] (mixin) Mixing GuiPlayerTabOverlayAccessor from originclient.hud.mixins.json into net.minecraft.client.gui.GuiPlayerTabOverlay
+[05:49:15] [main/INFO] (originclient) Seeded new instance from bundled default-mods-config.json
+[05:49:15] [main/INFO] (mixin) Mixing ShaderGroupAccessor from originclient.world.mixins.json into net.minecraft.client.shader.ShaderGroup
+[05:49:16] [main/INFO] (originclient) Origin dark widgets: GuiButton box hook active
+[05:49:16] [main/INFO] (originclient) Origin: window title "Origin 1.8.9 - Player626"
+[05:49:16] [main/INFO] (originclient) Origin: Discord presence started (always on)
+[05:49:16] [main/INFO] (originclient) [OriginAutosave] unsaved options left out: 4 of 96
+[05:49:18] [main/INFO] (originclient) [dev-shots] creating world OriginDevWorld-1793771357998
+[05:49:18] [Server thread/INFO] (Minecraft) Starting integrated minecraft server version 1.8.9
+[05:49:18] [Server thread/INFO] (Minecraft) Generating keypair
+[05:49:18] [Server thread/INFO] (Minecraft) Converting map!
+[05:49:18] [Server thread/INFO] (Minecraft) Scanning folders...
+[05:49:18] [Server thread/INFO] (Minecraft) Total conversion count is 0
+[05:49:18] [Server thread/INFO] (FML) Injecting existing block and item data into this server instance
+[05:49:18] [Server thread/INFO] (FML) Applying holder lookups
+[05:49:18] [Server thread/INFO] (FML) Holder lookups applied
+[05:49:18] [Server thread/INFO] (FML) Loading dimension 0 (Origin Dev World) (net.minecraft.server.integrated.IntegratedServer@725b6ccd)
+[05:49:18] [Server thread/INFO] (FML) Loading dimension 1 (Origin Dev World) (net.minecraft.server.integrated.IntegratedServer@725b6ccd)
+[05:49:18] [Server thread/INFO] (FML) Loading dimension -1 (Origin Dev World) (net.minecraft.server.integrated.IntegratedServer@725b6ccd)
+[05:49:18] [Server thread/INFO] (Minecraft) Preparing start region for level 0
+[05:49:19] [Server thread/INFO] (Minecraft) Preparing spawn area: 10%
+[05:49:20] [Server thread/INFO] (Minecraft) Preparing spawn area: 29%
+[05:49:21] [Server thread/INFO] (Minecraft) Preparing spawn area: 49%
+[05:49:22] [Server thread/INFO] (Minecraft) Preparing spawn area: 75%
+[05:49:23] [Server thread/INFO] (Minecraft) Preparing spawn area: 94%
+[05:49:24] [Server thread/INFO] (Minecraft) Changing view distance to 12, from 10
+[05:49:28] [Netty Local Client IO #0/INFO] (FML) Server protocol version 2
+[05:49:28] [Netty Server IO #1/INFO] (FML) Client protocol version 2
+[05:49:28] [Netty Server IO #1/INFO] (FML) Client attempting to join with 4 mods : originclient@1.8.9,FML@8.0.99.99,Forge@11.15.1.2318,mcp@9.19
+[05:49:28] [Netty Local Client IO #0/INFO] (FML) [Netty Local Client IO #0] Client side modded connection established
+[05:49:28] [Server thread/INFO] (FML) [Server thread] Server side modded connection established
+[05:49:28] [Server thread/INFO] (Minecraft) Player626[local:E:d0512089] logged in with entity id 934 at (-171.5, 64.0, 206.5)
+[05:49:28] [Server thread/INFO] (Minecraft) Player626 joined the game
+[05:49:29] [main/INFO] (mixin) Mixing ActiveRenderInfoMixin from originclient.world.mixins.json into net.minecraft.client.renderer.ActiveRenderInfo
+[05:49:29] [main/INFO] (mixin) Mixing NickHiderSkinMixin from originclient.server.mixins.json into net.minecraft.client.network.NetworkPlayerInfo
+[05:49:30] [main/INFO] (mixin) Mixing TileEntityDistanceMixin from originclient.world.mixins.json into net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher
+[05:49:30] [main/INFO] (originclient) Origin: window title "Origin 1.8.9 - Player626 - Singleplayer"
+[05:49:30] [Server thread/INFO] (Minecraft) 1682 blocks filled
+[05:49:30] [Server thread/INFO] (Minecraft) 361 blocks filled
+[05:49:30] [Server thread/INFO] (Minecraft) 361 blocks filled
+[05:49:30] [Server thread/INFO] (Minecraft) Replaced slot 103 with 1 * [Diamond Helmet]
+[05:49:30] [Server thread/INFO] (Minecraft) Replaced slot 102 with 1 * [Diamond Chestplate]
+[05:49:30] [Server thread/INFO] (Minecraft) Replaced slot 101 with 1 * [Diamond Leggings]
+[05:49:30] [Server thread/INFO] (Minecraft) Replaced slot 100 with 1 * [Diamond Boots]
+[05:49:30] [Server thread/INFO] (Minecraft) Given Resistance (ID 11) * 0 to Player626 for 600 seconds
+[05:49:30] [Server thread/INFO] (Minecraft) Given Fire Resistance (ID 12) * 0 to Player626 for 600 seconds
+[05:49:30] [Server thread/INFO] (Minecraft) Object successfully summoned
+[05:49:30] [Server thread/INFO] (Minecraft) Object successfully summoned
+[05:49:30] [Server thread/INFO] (Minecraft) Object successfully summoned
+[05:49:31] [Server thread/WARN] (Minecraft) Can't keep up! Did the system time change, or is the server overloaded? Running 2218ms behind, skipping 44 tick(s)
+[05:49:50] [main/INFO] (mixin) Mixing ScreenshotKeyMixin from originclient.server.mixins.json into net.minecraft.util.ScreenShotHelper
+[05:49:50] [main/INFO] (originclient) [dev-shots] captured world_off_1920x1080.png
+[05:49:52] [main/INFO] (originclient) [dev-shots] captured world_sat_1920x1080.png
+[05:49:55] [main/INFO] (originclient) [dev-shots] captured world_bright_1920x1080.png
+[05:50:01] [main/INFO] (originclient) [dev-shots] captured hud_readouts_1920x1080.png
+[05:50:01] [main/INFO] (originclient) [OriginFrame] hitch 258 ms (avg 57 ms) cause=other
+[05:50:03] [main/INFO] (originclient) [dev-shots] captured hitboxes_1920x1080.png
+[05:50:03] [main/INFO] (originclient) [OriginFrame] hitch 258 ms (avg 63 ms) cause=other
+[05:50:08] [main/INFO] (originclient) [dev-shots] captured weather_rain_1920x1080.png
+[05:50:08] [main/INFO] (originclient) [OriginFrame] hitch 248 ms (avg 80 ms) cause=other
+[05:50:12] [main/INFO] (originclient) [dev-shots] captured weather_snow_1920x1080.png
+[05:50:12] [main/INFO] (originclient) [OriginFrame] hitch 261 ms (avg 83 ms) cause=other
+[05:50:15] [main/INFO] (originclient) [dev-shots] captured nametags_f5_1920x1080.png
+[05:50:15] [main/INFO] (originclient) [dev-shots] feature shots done
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Bessie
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Cow
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Origin Tester
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Killed Pig
+[05:50:15] [Server thread/INFO] (Minecraft) Cleared the inventory of Player626, removing 4 items
+[05:50:15] [Server thread/INFO] (Minecraft) Took all effects from Player626
+[05:50:17] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_back_1920x1080.png
+[05:50:19] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_side90_1920x1080.png
+[05:50:20] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_side270_1920x1080.png
+[05:50:22] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_front_1920x1080.png
+[05:50:24] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_back35_1920x1080.png
+[05:50:26] [main/INFO] (originclient) [dev-shots] captured fit_hat-visor_back_1920x1080.png
+[05:50:27] [main/INFO] (originclient) [dev-shots] captured fit_hat-visor_side90_1920x1080.png
+[05:50:29] [main/INFO] (originclient) [dev-shots] captured fit_hat-visor_side270_1920x1080.png
+[05:50:31] [main/INFO] (originclient) [dev-shots] captured fit_hat-visor_front_1920x1080.png
+[05:50:33] [main/INFO] (originclient) [dev-shots] captured fit_hat-visor_back35_1920x1080.png
+[05:50:36] [main/INFO] (originclient) [dev-shots] captured fit_hat-headband_side90-nolayer_1920x1080.png
+[05:50:36] [main/INFO] (originclient) [dev-shots] fit shots done
+[05:50:36] [Server thread/INFO] (Minecraft) Saving and pausing game...
+[05:50:36] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/Overworld
+[05:50:36] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/Nether
+[05:50:36] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/The End
+[05:50:37] [main/INFO] (originclient) [dev-shots] captured pause_1920x1080.png
+[05:50:37] [main/INFO] (mixin) Mixing GuiTextFieldMixin from originclient.menus.mixins.json into net.minecraft.client.gui.GuiTextField
+[05:50:39] [main/INFO] (originclient) [dev-shots] captured inventory_1920x1080.png
+[05:50:41] [main/INFO] (originclient) [dev-shots] captured cosmetics_world_1920x1080.png
+[05:50:44] [main/INFO] (originclient) [dev-shots] captured party_world_1920x1080.png
+[05:50:44] [main/INFO] (originclient) [dev-shots] done — world set in /home/runner/work/_temp/shots
+[05:50:44] [main/INFO] (Minecraft) Stopping!
+[05:50:44] [Server thread/INFO] (Minecraft) Stopping server
+[05:50:44] [Server thread/INFO] (Minecraft) Saving players
+[05:50:44] [Server thread/INFO] (Minecraft) Saving worlds
+[05:50:44] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/Overworld
+[05:50:44] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/Nether
+[05:50:44] [Server thread/INFO] (Minecraft) Saving chunks for level 'Origin Dev World'/The End
+[05:50:45] [Server thread/INFO] (FML) Unloading dimension 0
+[05:50:45] [Server thread/INFO] (FML) Unloading dimension -1
+[05:50:45] [Server thread/INFO] (FML) Unloading dimension 1
+[05:50:45] [Server thread/INFO] (FML) Applying holder lookups
+[05:50:45] [Server thread/INFO] (FML) Holder lookups applied
+[05:50:45] [main/INFO] (Minecraft) SoundSystem shutting down...
+[05:50:45] [main/WARN] (Minecraft) Author: Paul Lamb, www.paulscode.com
+
+BUILD SUCCESSFUL in 2m 13s
+8 actionable tasks: 7 executed, 1 up-to-date

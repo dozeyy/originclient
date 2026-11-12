@@ -1,0 +1,14 @@
+1180x740 no profile: toast stack 704,570,320,150
+    Play 626,356,349,58 overlap = False
+    Home card 601,181,399,412: top clear of the top bar (58) = True ; bottom above the window edge (740) = True
+980x600 no profile: toast stack 640,430,320,150
+    Play 584,285,335,58 overlap = False
+    Home card 567,144,369,354: top clear of the top bar (58) = True ; bottom above the window edge (600) = True
+1180x740 with profile + Join: toast stack 704,570,320,150
+    Play 626,362,349,58 overlap = False
+    Join 626,436,349,40 overlap = False ; gap Play to Join = 16 px
+    Home card 601,119,399,536: top clear of the top bar (58) = True ; bottom above the window edge (740) = True
+980x600 with profile + Join: toast stack 640,430,320,150
+    Play 584,287,335,58 overlap = False
+    Join 584,361,335,40 overlap = False ; gap Play to Join = 16 px
+    Home card 567,86,369,470: top clear of the top bar (58) = True ; bottom above the window edge (600) = True
