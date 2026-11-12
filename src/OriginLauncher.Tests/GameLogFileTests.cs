@@ -23,6 +23,31 @@ public class GameLogFileTests
         Assert.Equal("hello\nworld\n", sink.ToString());
     }
 
+    // Minecraft 1.8.9 prints the session token at start; the saved log must never hold it.
+    [Theory]
+    [InlineData("[Client thread/INFO]: (Session ID is token:eyJhbGciOiJIUzI1NiJ9.payloadpayload.sigsigsig:069a79f444e94726a5befca90e38aaf5)", "payloadpayload")]
+    [InlineData("[main/INFO]: Launching with --accessToken legacyOpaqueToken123 --version 1.8.9", "legacyOpaqueToken123")]
+    [InlineData("Authorization: Bearer abc123.def456-ghi789", "abc123")]
+    [InlineData("{\"access_token\": \"SECRETVALUE123\"}", "SECRETVALUE123")]
+    public void NeverWritesASignInToken(string line, string mustNotSurvive)
+    {
+        var (log, sink) = Open(cap: 10_000);
+        log.WriteLine(line);
+        Assert.DoesNotContain(mustNotSurvive, sink.ToString());
+        Assert.Contains("<redacted>", sink.ToString());
+    }
+
+    [Theory]
+    [InlineData("[Render thread/INFO]: Setting user: Steve")]
+    [InlineData("[Render thread/INFO]: Connecting to play.example.net, 25565")]
+    [InlineData("[Server thread/INFO]: Steve joined the game")]
+    public void LeavesOrdinaryLinesExactlyAsPrinted(string line)
+    {
+        var (log, sink) = Open(cap: 10_000);
+        log.WriteLine(line);
+        Assert.Equal(line + "\n", sink.ToString());
+    }
+
     [Fact]
     public void StopsWithOneCutOffLineAndDropsTheRest()
     {

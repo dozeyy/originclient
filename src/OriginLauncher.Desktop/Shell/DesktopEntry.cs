@@ -82,8 +82,13 @@ public static class DesktopEntry
     {
         try
         {
-            var path = Path.Combine(Path.GetTempPath(), $"origin-launcher-crash_{DateTime.Now:yyyyMMdd_HHmmss}.log");
-            File.WriteAllText(path, report);
+            // /tmp is shared by every user of the PC: a name nobody can guess, and CreateNew refuses a file (or a
+            // link to someone else's file) that is already waiting under it.
+            var path = Path.Combine(Path.GetTempPath(),
+                $"origin-launcher-crash_{DateTime.Now:yyyyMMdd_HHmmss}_{Path.GetRandomFileName()}.log");
+            using var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            using var writer = new StreamWriter(file);
+            writer.Write(report);
             return path;
         }
         catch (Exception) { return null; }

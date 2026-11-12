@@ -9,6 +9,7 @@ namespace OriginLauncher.App.Core.Launch;
 /// (LogRetention only prunes at the NEXT start). Past <see cref="CapBytes"/> the copy stops with one
 /// <see cref="CutOffLine"/>; the game itself keeps running and its output keeps flowing to the launcher's
 /// readers (handoff, server detection), only this file stops growing.
+/// Sign-in tokens are removed from every line before it is written (1.8.9 prints the session token at start).
 /// Not thread-safe: the callers already serialise stdout and stderr under one lock.
 /// Shared by the Windows, Mac and Linux launchers (Core is linked into each).
 /// </summary>
@@ -48,6 +49,8 @@ public sealed class GameLogFile : IDisposable
     public void WriteLine(string line)
     {
         if (IsCutOff) return;
+        // Sign-in tokens never reach this file: players open and share it ("Open log" in the crash window).
+        line = CrashReportBundle.ScrubSecrets(line);
         var bytes = Encoding.UTF8.GetByteCount(line) + _newlineBytes;
         if (_written + bytes > _capBytes)
         {

@@ -71,6 +71,31 @@ public static class CrashReportBundle
         return s;
     }
 
+    // Only the launch arguments that carry a sign-in token (the saved game log keeps names and servers).
+    private static readonly Regex TokenLaunchArg = Rx(@"(--(?:accessToken|session)[ =]+)(\S+)");
+    private static readonly string[] SecretHints = ["token", "eyJ", "bearer", "authorization", "--session", "password", "secret"];
+
+    /// <summary>
+    /// Removes only sign-in secrets (tokens, passwords, Authorization headers) from one console line and leaves
+    /// everything else as the game printed it. The saved game log passes every line through this: Minecraft 1.8.9
+    /// prints "(Session ID is token:&lt;access token&gt;:&lt;uuid&gt;)" at start, and players share that file when asking
+    /// for help. Lines with no hint of a secret return unchanged without running a pattern (this is per console line).
+    /// </summary>
+    public static string ScrubSecrets(string line)
+    {
+        if (string.IsNullOrEmpty(line)) return line ?? "";
+        var hinted = false;
+        foreach (var hint in SecretHints)
+            if (line.Contains(hint, StringComparison.OrdinalIgnoreCase)) { hinted = true; break; }
+        if (!hinted) return line;
+        var s = Jwt.Replace(line, Redacted);
+        s = AuthorizationHeader.Replace(s, "$1" + Redacted);
+        s = Bearer.Replace(s, "Bearer " + Redacted);
+        s = TokenLaunchArg.Replace(s, "$1" + Redacted);
+        s = KeyedSecret.Replace(s, "$1$2" + Redacted);
+        return s;
+    }
+
     // "Authorization: XBL3.0 x=<uhs>;<token>": everything after the header name is the secret.
     private static readonly Regex AuthorizationHeader = Rx(@"(authorization[""']?\s*[:=]\s*)[^\r\n]+");
     // Minecraft logs the server it joins ("Connecting to mc.example.net, 25565"), and crash reports name it.
