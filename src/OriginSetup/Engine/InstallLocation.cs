@@ -168,7 +168,7 @@ public static class InstallLocation
 
     /// <summary>
     /// A drive root or a well-known personal/system folder (profile, Desktop, Documents,
-    /// Downloads, AppData, Programs, Program Files, Windows): never Origin's own, whatever it holds.
+    /// Downloads, Pictures, Music, Videos, OneDrive, AppData, Programs, Program Files, Windows): never Origin's own, whatever it holds.
     /// </summary>
     public static bool IsWellKnownFolder(string dir)
     {
@@ -182,11 +182,15 @@ public static class InstallLocation
                 Environment.SpecialFolder.MyDocuments, Environment.SpecialFolder.LocalApplicationData,
                 Environment.SpecialFolder.ApplicationData, Environment.SpecialFolder.ProgramFiles,
                 Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.Windows,
+                Environment.SpecialFolder.MyPictures, Environment.SpecialFolder.MyMusic, Environment.SpecialFolder.MyVideos,
+                Environment.SpecialFolder.System, Environment.SpecialFolder.CommonApplicationData,
             }.Select(Environment.GetFolderPath)
             .Concat(new[]
             {
                 string.IsNullOrEmpty(profile) ? "" : Path.Combine(profile, "Downloads"),
                 string.IsNullOrEmpty(local) ? "" : Path.Combine(local, "Programs"),
+                Environment.GetEnvironmentVariable("OneDrive") ?? "",
+                string.IsNullOrEmpty(profile) ? "" : Path.GetDirectoryName(Trim(profile)) ?? "", // C:\Users
             });
         return known.Where(p => !string.IsNullOrEmpty(p))
             .Any(p => string.Equals(Trim(p), full, StringComparison.OrdinalIgnoreCase));

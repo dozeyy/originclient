@@ -218,7 +218,7 @@ public partial class App : Application
             {
                 var command = $"/c ping 127.0.0.1 -n 3 > nul & del /f /q \"{_deleteSelfOnExit}\"";
                 if (_removeDirIfEmptyOnExit != null) command += $" & rmdir \"{_removeDirIfEmptyOnExit}\"";
-                Process.Start(new ProcessStartInfo("cmd.exe", command)
+                Process.Start(new ProcessStartInfo(FinishLaunch.CmdExe, command)
                 {
                     CreateNoWindow = true,
                     UseShellExecute = false,

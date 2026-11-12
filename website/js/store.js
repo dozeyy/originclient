@@ -85,6 +85,14 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 let byId = new Map();
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const smoothScroll = () => (reducedMotion() ? 'auto' : 'smooth');
+// Paying only ever happens on Stripe's own checkout page: any other address in the service's answer is refused.
+function stripeCheckout(url) {
+  let u = null;
+  try { u = new URL(url); } catch { /* not an address */ }
+  if (!u || u.protocol !== 'https:' || u.hostname !== 'checkout.stripe.com')
+    throw new Error('Checkout isn’t available right now. Nothing was charged; please try again in a minute.');
+  return u.href;
+}
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
 const state = {
@@ -239,7 +247,7 @@ async function joinPlus() {
       return;
     }
     if (!r.ok || !j.url) throw new Error(j.error || 'Membership isn’t available right now. Nothing was charged; please try again in a minute.');
-    location.href = j.url;
+    location.href = stripeCheckout(j.url);
   } catch (err) {
     state.plusBusy = false;
     state.plusError = err instanceof TypeError ? 'Couldn’t reach checkout. Nothing was charged; please try again.' : err.message;
@@ -259,7 +267,7 @@ async function checkout() {
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.url) throw new Error(j.error || 'Checkout isn’t available right now. Nothing was charged; please try again in a minute.');
-    location.href = j.url;
+    location.href = stripeCheckout(j.url);
   } catch (err) {
     state.busy = false;
     // Service errors are already sentences for the buyer; a network failure isn't.

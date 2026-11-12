@@ -45,7 +45,8 @@ const SIGNATURE_TOLERANCE_S = 300;   // Stripe's own default for webhook replays
 // (cosmetics/FORMAT.md). Every price $5-$10 (Will, 2026-10-12). SALE = what can
 // be bought: on sale and not members-only.
 export { CATALOG };
-export const forSale = id => Object.hasOwn(CATALOG, id) && CATALOG[id].onSale && !CATALOG[id].plusOnly;
+// Ids are plain strings only: ["cape-orbit"] reads as the same key but slips past the bag's duplicate check.
+export const forSale = id => typeof id === 'string' && Object.hasOwn(CATALOG, id) && CATALOG[id].onSale && !CATALOG[id].plusOnly;
 
 // ------------------------------------------------------------------ Origin+
 // Will, 2026-10-17. Every perk is cosmetic, never a gameplay advantage:

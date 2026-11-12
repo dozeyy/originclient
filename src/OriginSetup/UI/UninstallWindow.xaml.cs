@@ -156,7 +156,7 @@ public partial class UninstallWindow : Window
     {
         var dir = _problemPath;
         if (!Directory.Exists(dir)) dir = Path.GetDirectoryName(dir.TrimEnd('\\')) ?? dir;
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", "\"" + dir + "\"") { UseShellExecute = false }); }
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(FinishLaunch.ExplorerExe, "\"" + dir + "\"") { UseShellExecute = false }); }
         catch (System.ComponentModel.Win32Exception ex) { SetupLog.Write("open folder failed: " + ex.Message); }
     }
 

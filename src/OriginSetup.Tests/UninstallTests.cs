@@ -228,6 +228,41 @@ public class UninstallTests
         Assert.Equal(UninstallScope.Nothing, UninstallPlan.For(profile, Temp()).Scope); // only decides; never executed here
         Assert.True(InstallLocation.IsWellKnownFolder(Path.GetPathRoot(Temp())!));
         Assert.False(InstallLocation.IsWellKnownFolder(Temp()));
+        foreach (var personal in new[] { Environment.SpecialFolder.MyPictures, Environment.SpecialFolder.MyMusic, Environment.SpecialFolder.MyVideos })
+        {
+            var path = Environment.GetFolderPath(personal);
+            if (path.Length > 0) Assert.True(InstallLocation.IsWellKnownFolder(path), path);
+        }
+        Assert.True(InstallLocation.IsWellKnownFolder(Path.GetDirectoryName(profile)!)); // C:\Users
+    }
+
+    // A folder link inside the install folder points somewhere that is not Origin's: removing the install
+    // removes the link, and nothing behind it is touched (not even a file's read-only mark).
+    [Fact]
+    public void DeletingAFolderNeverReachesThroughAFolderLink()
+    {
+        var outside = Temp();
+        Put(outside, "keep.txt");
+        var keep = Path.Combine(outside, "keep.txt");
+        File.SetAttributes(keep, FileAttributes.ReadOnly);
+        var dir = Path.Combine(Temp(), "Origin");
+        Put(dir, "own.txt");
+        var own = Path.Combine(dir, "own.txt");
+        File.SetAttributes(own, FileAttributes.ReadOnly);
+        var link = Path.Combine(dir, "link");
+        using (var mk = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                   Path.Combine(Environment.SystemDirectory, "cmd.exe"), $"/c mklink /J \"{link}\" \"{outside}\"")
+               { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true })!)
+            mk.WaitForExit();
+        Assert.True(Directory.Exists(link), "the test could not make a folder link");
+        try
+        {
+            FileOps.DeleteTree(dir);
+            Assert.False(Directory.Exists(dir));
+            Assert.True(File.Exists(keep));
+            Assert.True((File.GetAttributes(keep) & FileAttributes.ReadOnly) != 0, "a file outside the install was changed");
+        }
+        finally { File.SetAttributes(keep, FileAttributes.Normal); }
     }
 
     [Fact]
