@@ -55,7 +55,7 @@
     <AvaloniaResource Include="$(OriginAppDir)Assets\Logos\*.png" Link="Assets\Logos\%(Filename)%(Extension)" />
     <AvaloniaResource Include="$(OriginAppDir)Assets\Promos\*.jpg" Link="Assets\Promos\%(Filename)%(Extension)" />
     <AvaloniaResource Include="$(OriginAppDir)..\..\tools\font-atlas\fonts\Inter-*.ttf" Link="Assets\Fonts\%(Filename)%(Extension)" />
-    <None Include="$(OriginAppDir)..\..\website\assets\fonts\Inter-LICENSE.txt" Link="ThirdParty\Inter-LICENSE.txt"
+    <None Include="$(OriginAppDir)..\..\tools\font-atlas\fonts\OFL-LICENSE.txt" Link="ThirdParty\Inter-LICENSE.txt"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
