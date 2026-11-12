@@ -449,3 +449,13 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
   shots published); Linux + build-check green after reruns through a GitHub/Gradle 504 outage; local builds of all three
   launchers + Linux/Mac test subsets. Review: fix-required -> 5 fixed. UNPROVEN: a Minecraft window on a real Mac (no GPU in CI),
   Cmd+V into Microsoft's page, X11 focus / keyring prompts / second-start on a real Linux desktop.
+
+2026-11-10 — backed up to private GitHub dozeyy/originclient (origin, PUBLIC repo; 24 refs incl. backup/wip-*)
+
+2026-11-10 — moved backup refs from public origin to private dozeyy/originclient-backup (remote backup, 24 refs: wip/detached/unpushed branches); originclient main/tags/releases untouched
+
+## 2026-11-11 - Website live download count
+- Will: show how many people click Download on the site, real downloads only, not his testing. Shipped on main f2d27173d (website + cosmetics Worker).
+- Worker `GET/POST /v1/downloads` (services/cosmetics/src/downloads.js, migration 0009 — main already had a 0008): counts only Origin originclient.org/www, once per IP per day (IPv6 per /64), daily salt deleted next day, 5000 new counts/day cap (shares D1 with Stripe). Site counts each browser once; `?me` once marks Will's browser as never counting. Shown in the hero meta line and the download specs, hidden while 0.
+- Counts from 2026-11-11; GitHub's own asset download_count (Setup.exe 53, win zip 637 incl. updates) was not imported (can't separate Will's tests).
+- claude/review-fixes carried a first copy (787c3adfc) and its revert (82f1cb12d) so a later main merge won't double the migration.
