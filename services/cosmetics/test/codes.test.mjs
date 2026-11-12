@@ -60,6 +60,7 @@ test('a bag code that cannot be used stays unspent: empty bag, not for sale, alr
   for (const [items, status, msg] of [
     [[], 400, /Add the cosmetics/],
     [['sword-of-doom'], 400, /isn’t on sale/],
+    [[['cape-orbit'], ['cape-orbit']], 400, /isn’t on sale/],   // ids are plain strings, never a wrapped copy
     [['cape-plus'], 400, /isn’t on sale/],             // members-only, never given by a bag code
     [['cape-void', 'cape-orbit'], 409, /already owns the Void Cape/],
   ]) {

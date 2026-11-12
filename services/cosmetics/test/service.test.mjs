@@ -109,7 +109,8 @@ test('checkout: makes a Stripe Checkout with our prices, the player on it, and t
 
 test('checkout: refuses bad input, things already owned, and a closed store; Stripe errors say nothing was charged', async () => {
   for (const body of [null, { uuid: 'nope', name: 'Will', items: ['cape-orbit'] }, { uuid: UUID, name: 'bad name!', items: ['cape-orbit'] },
-    { uuid: UUID, name: 'Will', items: [] }, { uuid: UUID, name: 'Will', items: ['sword-of-doom'] }]) {
+    { uuid: UUID, name: 'Will', items: [] }, { uuid: UUID, name: 'Will', items: ['sword-of-doom'] },
+    { uuid: UUID, name: 'Will', items: [['cape-orbit'], ['cape-orbit']] }, { uuid: UUID, name: 'Will', items: ['cape-orbit', { toString: 1 }] }]) {
     assert.equal((await api('POST', '/v1/store/checkout', body)).status, 400, JSON.stringify(body));
   }
   await paid(['cape-void']);
