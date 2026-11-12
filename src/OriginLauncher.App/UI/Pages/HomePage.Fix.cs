@@ -140,6 +140,13 @@ public partial class HomePage
                 id => SettingsStore.Load().ModProfiles.Any(p => p.Id == id),
                 OriginPaths.ProfilesDir));
         }
+        catch (Exception ex)
+        {
+            // Apply reports its own failures; this is the unexpected throw (a cancelled fetch, a locked folder). The
+            // line must not stay on "Making a fixed copy..." forever.
+            System.Diagnostics.Debug.WriteLine($"[HomePage] fixed copy failed: {ex}");
+            result = new RepairCopyResult(null, null, Core.PlainError.Sentence("Couldn't make the fixed copy", ex), null);
+        }
         finally
         {
             _fixRunning = false;
