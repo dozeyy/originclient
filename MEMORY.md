@@ -493,3 +493,10 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
   - No code-signing certificate yet, so SmartScreen shows "Unknown publisher".
   - Zoom's C key clashes with Save Hotbar.
   - Check the firework fix in game.
+
+## 2026-11-12 - Promo video v3 recut (shake, pink flash, menus)
+- Shake root cause: the edit's keep-in-frame clamp switched on and off per frame mid-move; fixed by clamping each zoom key once. Non-integer playback rates (1.5x/1.25x) also juddered; takes now play in whole-number-rate segments with jump cuts.
+- Pink flash: the R11 FPS Coach plate is magenta from 3.5 s to 18.8 s; the cut holds source frame 209 and resumes at 19.0 s. Every render now gets a magenta-area scan (0.000% on both cuts).
+- Menus: new harness takes V3_MENU_TABS, V3_MOD_OPTIONS, V3_MOD_SEARCH, V3_PAUSE (claude/ad-capture 706a49e5a); the cursor glides straight to each target, no idle hovers. Harness needs Clip.allowPause for the pause take and PLAYER_SHADOW=-1.
+- Result: 22 shots, 100.97 s, 142 sound cues (I -26.1 LUFS, TP -2.6 dBTP); phone copies ~26 MB each. Will has not yet judged feel/sound at full speed.
+- Released as launcher-v1.0.99 (merge 5b51c9cec, PR #42). The first release run failed at 'Upload release notes' with GitHub's "The server is busy"; re-running the failed jobs published it.
