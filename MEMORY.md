@@ -459,3 +459,37 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Worker `GET/POST /v1/downloads` (services/cosmetics/src/downloads.js, migration 0009 — main already had a 0008): counts only Origin originclient.org/www, once per IP per day (IPv6 per /64), daily salt deleted next day, 5000 new counts/day cap (shares D1 with Stripe). Site counts each browser once; `?me` once marks Will's browser as never counting. Shown in the hero meta line and the download specs, hidden while 0.
 - Counts from 2026-11-11; GitHub's own asset download_count (Setup.exe 53, win zip 637 incl. updates) was not imported (can't separate Will's tests).
 - claude/review-fixes carried a first copy (787c3adfc) and its revert (82f1cb12d) so a later main merge won't double the migration.
+
+## 2026-11-12 - Promo video v3 ("A first evening with Origin")
+- ~97 s walkthrough, 16:9 2560x1440 + 9:16 1440x2560, 60 fps, UI sounds only (no music, Will). Lives in C:\Users\Will\origin-client-ad (v3/SCRIPT.md, edit/src/v3, audio/mix_v3.py); finals out/v3/origin_client_tour_v3_{1440,9x16}.mp4.
+- Capture (claude/ad-capture, 0d237b900): 1.21.1 toasts don't draw under F1, so toast takes use the HUD with every module off; Copy Image takes ~1.5 s (PowerShell), so wait for "Screenshot copied" before restoring the clipboard. The first take overwrote Will's clipboard with a dev screenshot (old text unrecoverable).
+- Edit: Remotion OffthreadVideo media frame = startFrom + seqFrame x playbackRate; captions over a pushed-in launcher need a mask, not just a darker backing; a real scroll is two renders split at the viewport line, never a crossfade.
+- Sound: one mix serves both cuts (vertical takes share event timing). Clicks peak ~-4 dBFS, rest 6-22 dB under; no LUFS chase on a sparse UI track (-27 LUFS integrated, -3 dBTP). Click peaks land within 3 ms of their frames.
+- Build break found: main's launcher/installer csproj pointed at website/assets/fonts/Inter-LICENSE.txt, deleted by the website redesign 8c5629376 (MSB3030). Fix on claude/launcher-inter-license (pushed, not merged): licence back in tools/font-atlas/fonts, both csproj point there.
+
+## 2026-11-12 - First-impressions pass (safety, privacy, polish before graded testing)
+- Branch claude/first-impressions = main + fi-installer, fi-launcher, fi-website, fi-security, fi-ingame-legacy, fi-ingame-modern, fi-maclinux, fi-privacy.
+- Build break: every csproj/props that copied website/assets/fonts/Inter-LICENSE.txt (deleted by 8c5629376) now points at tools/font-atlas/fonts/OFL-LICENSE.txt. That includes src/OriginLauncher.Desktop/OriginLauncher.Desktop.props, which only the Linux build reaches. The Mac build has its own Inter-OFL-LICENSE.txt.
+- Firework crash (null from createParticle; FireworkParticles$Starter derefs it) fixed in shared + every module (starterSparkHidden).
+- Privacy:
+  - Social.shareWhereabouts() gates the server and party fields when Appear Offline is on, Friends is off, or visibility is unknown; ping/warp short-circuit. tools/social-privacy-check guards this in build-check.
+  - 1.8.9 Session ID log line: not reproducible, Forge's patch drops it.
+  - The launcher GameLogFile scrubs tokens.
+  - CosmeticsService.trustedApi has a host allow-list.
+- Launcher: Core/PlainError keeps ex.Message, paths and user names off screens; full detail goes to logs/errors.log (256 KB cap). Mac/Linux call PlainError.LogTo at startup too.
+- Installer:
+  - One Setup at a time (mutex; an access-denied open counts as "already running").
+  - A crash net replaces raw .NET dialogs.
+  - System programs start by full path (FinishLaunch.CmdExe/ExplorerExe); DLLs load from System32 only.
+  - DeleteTree never follows folder links.
+  - The Windows-only tests (mutex, System32 path, mklink) return early on the Linux CI runner.
+- Smaller fixes:
+  - Hide NPCs acts only when the local player has a v4 UUID.
+  - FPS Coach hint fits the column.
+  - The website hides the download count below 100; island/text overlap fixed; 404 page added.
+  - GameRunningProbeTests normalizes its path (Windows GetFullPath).
+- Left for Will:
+  - Microsoft sign-in still uses the borrowed client id 00000000402b5328; it needs Origin's own Azure app, approved by Mojang.
+  - No code-signing certificate yet, so SmartScreen shows "Unknown publisher".
+  - Zoom's C key clashes with Save Hotbar.
+  - Check the firework fix in game.
