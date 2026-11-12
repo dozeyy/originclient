@@ -13,6 +13,14 @@ public class BulkModelsTests
     };
 
     [Fact]
+    public void LabelNamesTheLauncherOnce()
+    {
+        Assert.Equal("Prism: Survival", I("Survival", SourceKind.Prism).BulkLabel());
+        // A setup already named after its launcher is not "Lunar: Lunar 1.21.1".
+        Assert.Equal("Lunar 1.21.1", I("Lunar 1.21.1", SourceKind.Lunar).BulkLabel());
+    }
+
+    [Fact]
     public void AllCoversEverythingExceptUnticked()
     {
         var a = I("a", SourceKind.Prism);

@@ -181,7 +181,7 @@ public sealed class ModrinthDependencyFetcher : IDependencyFetcher
         error = null;
         if (offer.Sha512 == null)
         {
-            error = "Modrinth gave no checksum for that file, so it was not downloaded.";
+            error = "Modrinth couldn't confirm that file is genuine, so it was not downloaded.";
             return false;
         }
         var folder = Path.Combine(Path.GetDirectoryName(destinationPath)!, ".fetch-" + Guid.NewGuid().ToString("N")[..8]);
@@ -193,7 +193,7 @@ public sealed class ModrinthDependencyFetcher : IDependencyFetcher
             if (result != ModrinthDownloadResult.Installed)
             {
                 error = result == ModrinthDownloadResult.HashMismatch
-                    ? "The download didn't match Modrinth's checksum, so it was not added."
+                    ? "The download didn't match the file Modrinth lists (it may be damaged), so it was not added."
                     : "Couldn't download that mod from Modrinth.";
                 return false;
             }
@@ -202,7 +202,7 @@ public sealed class ModrinthDependencyFetcher : IDependencyFetcher
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            error = "Couldn't download that mod - " + ex.Message;
+            error = PlainError.Sentence("Couldn't save that mod", ex);
             return false;
         }
         finally

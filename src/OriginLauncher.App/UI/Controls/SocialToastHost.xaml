@@ -69,7 +69,7 @@
                                 <TextBlock Text="{Binding Title}" Style="{StaticResource Text.BodyStrong}" LineHeight="18"
                                            TextTrimming="CharacterEllipsis"/>
                                 <TextBlock Text="{Binding Body}" Style="{StaticResource Social.Caption}"
-                                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="36"/>
+                                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="48"/>
                             </StackPanel>
                             <Button Grid.Column="2" Content="{Binding ActionText}" Style="{StaticResource Toast.Join}"
                                     Visibility="{Binding HasAction, Converter={StaticResource BoolToVis}}"

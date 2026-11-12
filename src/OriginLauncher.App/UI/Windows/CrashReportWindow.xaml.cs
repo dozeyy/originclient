@@ -66,7 +66,7 @@ public partial class CrashReportWindow : Window
         ReasonText.Text = finding.WhatHappened;
         LikelyCauseText.Text = finding.LikelyCause;
         RecommendedText.Text = finding.RecommendedFix;
-        ConfidenceText.Text = finding.Confidence.Word();
+        ConfidenceText.Text = finding.Confidence.Label();
         // The confidence word's soft hue (Workbench: small accents on the neutral chip, never a colour fill).
         var hue = finding.Confidence switch
         {

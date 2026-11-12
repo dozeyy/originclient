@@ -131,7 +131,7 @@ public sealed class ModrinthUpdatesTests : IDisposable
 
         (path, error) = await ModrinthUpdates.DownloadAsync(Serving(same), Offer(other), installed, downloads, CancellationToken.None);
         Assert.Null(path);
-        Assert.Contains("checksum", error);
+        Assert.Contains("didn't match the file Modrinth lists", error);
 
         // Nothing was ever written next to the installed jar, and it is untouched.
         Assert.Equal(new[] { "litematica-0.19.jar" }, Directory.GetFiles(Path.GetDirectoryName(installed)!).Select(Path.GetFileName));

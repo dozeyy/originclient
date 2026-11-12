@@ -125,7 +125,7 @@ public static partial class RepairExecutor
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
             DeleteOwnPart(part);
-            return Fail(step, "Couldn't add that mod - " + ex.Message);
+            return Fail(step, PlainError.Sentence("Couldn't add that mod", ex));
         }
         catch (OperationCanceledException)
         {

@@ -31,12 +31,12 @@ public partial class CrashWindow : Window
             ? "Origin Launcher has to close"
             : "Origin Launcher ran into a problem";
         Summary.Text = fatal
-            ? "An unexpected error means the launcher can't keep running. The details below explain exactly what happened. Click Copy details, then paste them into a search or send them along so it can be fixed."
-            : "Something went wrong, but the launcher recovered and is still open. The details below explain exactly what happened. Click Copy details, then paste them into a search or send them along so it can be fixed.";
+            ? "Something went wrong and Origin has to close. Your worlds, mods and settings are safe: open Origin again to keep playing. If it keeps happening, press Copy details and include them when you ask for help."
+            : "Something went wrong, but Origin recovered and is still open. Your worlds, mods and settings are safe. If it keeps happening, press Copy details and include them when you ask for help.";
         CloseButton.Content = fatal ? "Close" : "Continue";
 
         if (!string.IsNullOrEmpty(savedPath))
-            SavedTo.Text = $"A copy of this report was saved to:\n{savedPath}";
+            SavedTo.Text = $"A copy is saved in Origin's logs folder ({System.IO.Path.GetFileName(savedPath)}).";
         else
             SavedTo.Visibility = Visibility.Collapsed;
     }
@@ -67,7 +67,7 @@ public partial class CrashWindow : Window
         try
         {
             Clipboard.SetText(DetailsBox.Text);
-            CopyButton.Content = "Copied!";
+            CopyButton.Content = "Copied";
         }
         catch
         {

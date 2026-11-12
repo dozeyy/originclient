@@ -449,6 +449,17 @@ More details:
         Assert.Equal(c, CrashConfidenceWords.Parse(word));
     }
 
+    // The chip on the crash window: sentence case and plain, while Word() stays the stable key for reports and the corpus.
+    [Theory]
+    [InlineData(CrashConfidence.Confirmed, "Confirmed")]
+    [InlineData(CrashConfidence.Strong, "Very likely")]
+    [InlineData(CrashConfidence.Possible, "Possible")]
+    [InlineData(CrashConfidence.Unknown, "Not sure")]
+    public void Confidence_chip_labels_read_as_plain_words(CrashConfidence c, string label)
+    {
+        Assert.Equal(label, c.Label());
+    }
+
     [Theory]
     [InlineData(4096, 16384, 6144)]
     [InlineData(1024, 16384, 3072)]

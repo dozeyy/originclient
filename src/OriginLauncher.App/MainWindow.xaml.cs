@@ -127,7 +127,8 @@ public partial class MainWindow : Window
 
         // Push-to-update: light the corner badge whenever a newer release
         // appears, and start the poll loop (startup + every 10 minutes).
-        UpdateService.AvailableChanged += (_, _) => Dispatcher.Invoke(() =>
+        // BeginInvoke: the check runs off the UI thread, and a blocking Invoke would hold it until the UI is free.
+        UpdateService.AvailableChanged += (_, _) => Dispatcher.BeginInvoke(() =>
         {
             UpdateBadge.Visibility = Visibility.Visible;
             _homePage.RefreshUpdateGate();
@@ -150,7 +151,9 @@ public partial class MainWindow : Window
             var now = DateTime.UtcNow;
             if (now - _lastFocusCheck < TimeSpan.FromSeconds(30)) return;
             _lastFocusCheck = now;
-            await UpdateService.CheckAsync();
+            // async void: a throw here would reach the crash window over a background check. The poll retries.
+            try { await UpdateService.CheckAsync(); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Update] focus check failed: {ex.GetType().Name}"); }
         };
     }
 
@@ -194,7 +197,9 @@ public partial class MainWindow : Window
     {
         while (true)
         {
-            await UpdateService.CheckAsync();
+            // One failed check (disk busy at startup cleanup, a network blip) must not end the loop for the session.
+            try { await UpdateService.CheckAsync(); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Update] check failed: {ex.GetType().Name}"); }
             await Task.Delay(TimeSpan.FromMinutes(2));
         }
     }
@@ -320,6 +325,9 @@ public partial class MainWindow : Window
             UpdateBadge.IsEnabled = true;
             UpdateBadge.Visibility = Visibility.Collapsed;
             _homePage.RefreshUpdateGate();
+            // The player pressed Update: say why the chip went away instead of it silently vanishing.
+            Toasts.Show(new SocialToast(SocialToastKind.Notice, "Update",
+                "The update didn't download properly, so it wasn't installed. Keep playing - Origin will try again later."));
         }
         catch (Exception)
         {

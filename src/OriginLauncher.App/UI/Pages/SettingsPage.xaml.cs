@@ -237,6 +237,8 @@ public partial class SettingsPage : UserControl
     {
         PresetButton.IsEnabled = false;
         PresetStatusText.Text = "Checking this PC...";
+        try
+        {
         var (summary, applied, total) = await Task.Run(() =>
         {
             var hardware = HardwareProbe.Current;
@@ -258,7 +260,17 @@ public partial class SettingsPage : UserControl
         PresetStatusText.Text = total == 0
             ? $"{summary}. New versions start with these settings."
             : $"{summary}. Applied to {applied} of {total} game folder{(total == 1 ? "" : "s")}.";
-        PresetButton.IsEnabled = true;
+        }
+        catch (Exception ex)
+        {
+            // async void: a locked options.txt or a failed hardware probe must not reach the crash window.
+            System.Diagnostics.Debug.WriteLine($"[Settings] preset failed: {ex}");
+            PresetStatusText.Text = "Couldn't apply the recommended settings. Close Minecraft and try again.";
+        }
+        finally
+        {
+            PresetButton.IsEnabled = true;
+        }
     }
 
     private void ShaderCacheToggle_Checked(object sender, RoutedEventArgs e)

@@ -35,7 +35,7 @@ public static class LegacyForgeInstaller
         var jsonPath = Path.Combine(versionDir, build.VersionId + ".json");
         if (!File.Exists(jsonPath))
         {
-            progress?.Report("Installing Forge loader...");
+            progress?.Report("Setting up Origin for this version...");
             Directory.CreateDirectory(versionDir);
             var bundled = Path.Combine(AppContext.BaseDirectory, "Bundled", "Forge", build.JsonAsset);
             File.Copy(bundled, jsonPath, overwrite: true);
@@ -48,7 +48,7 @@ public static class LegacyForgeInstaller
         var libPath = Path.Combine(path.Library, build.UniversalLibPath);
         if (!File.Exists(libPath))
         {
-            progress?.Report("Downloading Forge...");
+            progress?.Report("Downloading game files...");
             Directory.CreateDirectory(Path.GetDirectoryName(libPath)!);
             using var response = await Http.GetAsync(build.UniversalUrl, HttpCompletionOption.ResponseHeadersRead, ct);
             response.EnsureSuccessStatusCode(); // offline: the HttpRequestException reaches OfflineLaunch as before

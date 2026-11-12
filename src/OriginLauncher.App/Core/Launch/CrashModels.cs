@@ -47,6 +47,16 @@ public static class CrashConfidenceWords
         _ => "unknown",
     };
 
+    /// <summary>The chip label the crash window shows the player. Word() stays the stable key for the Copy report,
+    /// logs and the corpus; this is only the on-screen wording ("strong" alone reads like jargon).</summary>
+    public static string Label(this CrashConfidence c) => c switch
+    {
+        CrashConfidence.Confirmed => "Confirmed",
+        CrashConfidence.Strong => "Very likely",
+        CrashConfidence.Possible => "Possible",
+        _ => "Not sure",
+    };
+
     public static CrashConfidence Parse(string word) => word.Trim().ToLowerInvariant() switch
     {
         "confirmed" => CrashConfidence.Confirmed,
