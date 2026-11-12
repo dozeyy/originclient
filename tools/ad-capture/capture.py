@@ -83,7 +83,11 @@ CLIP_ENV = {"R2": {"ORIGIN_AD_FLIGHTS": "hero,peaks,cherry,coast,jungle,badlands
             "R12": {}}
 # Film v3 (2026-11-12, v3/SCRIPT.md shots 7-17): golden hour (10800) at the hero vantage; each clip's script lives in
 # OriginDevAdV3. V3_LOAD runs twice (a stage run parks the player at the hero view, then the take records the join).
-V3 = ["V3_LOAD", "V3_TITLE", "V3_HUD", "V3_ITEMSIZE", "V3_WAYPOINT", "V3_SNAPLOOK", "V3_FRIENDS", "V3_SCREENSHOT"]
+V3 = ["V3_LOAD", "V3_TITLE", "V3_HUD", "V3_ITEMSIZE", "V3_WAYPOINT", "V3_SNAPLOOK", "V3_FRIENDS", "V3_SCREENSHOT",
+      "V3_MENU_TABS", "V3_MOD_OPTIONS", "V3_MOD_SEARCH", "V3_PAUSE"]
+# The menu tours (2026-11-12 recut): Origin's menus as a player's setup shows them (every mod at its shipped default,
+# like V3_TITLE), HUD modules without backgrounds (the Right Shift screen draws them).
+V3_TOURS = ("V3_MENU_TABS", "V3_MOD_OPTIONS", "V3_MOD_SEARCH", "V3_PAUSE")
 for _c in V3:
     CLIP_ENV[_c] = {"ORIGIN_AD_TIME": "10800", "ORIGIN_AD_RUN_HERO": "1292,1268,1340,1268,66.2,4"}
     LIMIT[_c] = 1500   # opening origin-ad took 5 min on a busy machine (2026-11-12)
@@ -99,6 +103,9 @@ R11_HUD = {"fps": [0, 10, 10, 4.0, 0]}
 # Complementary settings per clip on top of the base ones. R2: clearer air for the landscapes (the default fog turned
 # the first cut's peaks into a beige haze): less atmospheric fog, pushed further out.
 SHADER_OPTS = {"R2": "ATM_FOG_MULT=0.65\nATM_FOG_DISTANCE=200\n"}
+# Menu tours: the creative player (Cosmetics needs a body) casts its shadow on the shore under the menu window;
+# Complementary's PLAYER_SHADOW=-1 drops the player from the shadow pass.
+SHADER_OPTS.update({c: "PLAYER_SHADOW=-1\n" for c in ("V3_MENU_TABS", "V3_MOD_OPTIONS", "V3_MOD_SEARCH", "V3_PAUSE")})
 # R9: where each HUD module sits in the keyed take (the edit crops them by these, see v2/capture/key_hud.py)
 R9_HUD = {"fps": [0, 10, 10, 2.0, 0], "cps": [0, 10, 40, 2.0, 0], "clock": [0, 10, 70, 2.0, 0], "memory": [0, 10, 100, 2.0, 0],
           "coords": [0, 10, 140, 2.0, 0], "potionhud": [0, 330, 10, 2.0, 0], "armorhud": [0, 330, 150, 2.0, 0]}
@@ -206,7 +213,7 @@ def prepare(clip, far=0, gui=2):
         if clip == "V3_HUD":
             for mid, opts in V3_HUD_OPTS.items():
                 cfg["mods"].setdefault(mid, {}).update(opts, enabled=True, showBackground=False)
-        if clip in ("R6", "R12", "V3_TITLE"):
+        if clip in ("R6", "R12", "V3_TITLE") + V3_TOURS:
             # The menu as a player's setup shows it: every mod at its shipped default (Mods.java), plus the HUD modules
             # shot 11 stacks and 1.7 Animations / Block Outline on. A dev run left from older takes has them all off,
             # which reads as a wall of red DISABLED. R6 hides the HUD (F1), so none of these draw over the menu.
@@ -215,6 +222,10 @@ def prepare(clip, far=0, gui=2):
             defaults = dict(re.findall(r'add\("(\w+)",\s*"[^"]*",\s*"[^"]*",\s*(true|false)', src))
             for mid, on in defaults.items():
                 cfg["mods"].setdefault(mid, {})["enabled"] = on == "true" or mid in R6_ON
+            if clip in V3_TOURS:
+                for block in src.split('add("')[1:]:
+                    if '"showBackground"' in block:
+                        cfg["mods"].setdefault(block.split('"')[0], {})["showBackground"] = False
         json.dump(cfg, open(mods, "w", encoding="utf-8"), indent=2)
     open(os.path.join(RUN, "options.txt"), "w", encoding="utf-8").write(
         "version:3955\nonboardAccessibility:false\npauseOnLostFocus:false\nrenderDistance:20\nsimulationDistance:8\n"
@@ -319,12 +330,14 @@ def encode(out, dest, tag="", crf=15):
         print(f"encode: {dst}")
 
 
-def encode_v3(out, dest, crf=12):
+def encode_v3(out, dest, crf=12, only=()):
     """Film v3: raw V3_*.mp4 -> the edit's v3 footage at 60 fps (no frame drop: smooth pointer and scrolls), x264
     CRF 12, plus each take's V3_*.json pointer/event sidecar next to it."""
     os.makedirs(dest, exist_ok=True)
     for f in sorted(os.listdir(out)):
         if not (f.startswith("V3_") and f.endswith(".mp4")):
+            continue
+        if only and f[:-4] not in only:
             continue
         dst = os.path.join(dest, f)
         subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", os.path.join(out, f), "-r", "60",
@@ -360,8 +373,8 @@ def main():
     if a.clips == ["encode"]:
         encode(a.out, os.path.join(AD, "edit", "public", "footage"), a.tag, a.crf)
         return
-    if a.clips == ["encode-v3"]:
-        encode_v3(a.out, os.path.join(AD, "edit", "public", "v3", "footage"), 12)
+    if a.clips[0] == "encode-v3":   # encode-v3 [V3_X ...]: only those takes (all V3_* when none named)
+        encode_v3(a.out, os.path.join(AD, "edit", "public", "v3", "footage"), 12, a.clips[1:])
         return
     extra = dict(PACK_FLIGHTS) if a.packs else {}
     extra.update(s.split("=", 1) for s in a.set)

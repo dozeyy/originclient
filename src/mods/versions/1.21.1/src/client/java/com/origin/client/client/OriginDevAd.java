@@ -172,7 +172,7 @@ public final class OriginDevAd {
 					if (clip.failed != null) {
 						throw new IllegalStateException(clip.failed);
 					}
-					if (mc.screen instanceof PauseScreen) {
+					if (mc.screen instanceof PauseScreen && !clip.allowPause) {
 						mc.setScreen(null);
 					}
 					if (clip.serverReady && clip.tick(mc, now - phaseFrom)) {
@@ -436,6 +436,8 @@ public final class OriginDevAd {
 	/** One clip's script. tick() runs at 20 Hz until it returns true (done); frame() runs every rendered frame. */
 	abstract static class Clip {
 		volatile boolean serverReady;
+		/** A take that opens the pause menu itself; otherwise a stray pause screen is closed while the take runs. */
+		boolean allowPause;
 		volatile String failed;
 		long takeFrom = -1;
 

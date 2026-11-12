@@ -46,6 +46,10 @@ final class OriginDevAdV3 {
 			case "V3_SNAPLOOK" -> new Snap();
 			case "V3_FRIENDS" -> new Friends();
 			case "V3_SCREENSHOT" -> new ShotChat();
+			case "V3_MENU_TABS" -> new MenuTabs();
+			case "V3_MOD_OPTIONS" -> new ModOptions();
+			case "V3_MOD_SEARCH" -> new ModSearch();
+			case "V3_PAUSE" -> new Pause();
 			default -> null;
 		};
 	}
@@ -938,6 +942,682 @@ final class OriginDevAdV3 {
 		String extra() {
 			return String.format(Locale.ROOT, ",\n  \"copyButton\": [%.1f, %.1f],\n  \"feedbackAt\": %.4f,\n  \"feedback\": \"%s\"",
 					copyX, copyY, feedbackAt, feedback == null ? "" : feedback.replace("\"", "'"));
+		}
+	}
+
+	// ================================================================ menu tours (Will, 2026-11-12: "go thru more menus")
+
+	/**
+	 * Base for the menu tours. The pointer goes straight to what it clicks (glide time from the distance), settles and
+	 * clicks; it never wanders and never rests on a mod card (a card hovered 650 ms pops its description). Each step
+	 * waits for the screen it needs (polled), so a slow screen open never puts the pointer out of step with the UI, and
+	 * every position is read from the live screen: Origin's recorded hit boxes or vanilla's widgets.
+	 */
+	abstract static class Tour extends V3 {
+		final StringBuilder beats = new StringBuilder();
+
+		/** A sidecar beat: from take time t on, this is what is on screen. */
+		void beat(String what) {
+			beats.append(beats.length() == 0 ? "" : ", ").append(String.format(Locale.ROOT, "[%.3f, \"%s\"]", Math.max(0, t()), what));
+			log(String.format(Locale.ROOT, "beat %.2f s: %s", t(), what));
+		}
+
+		/** Polls ready every 50 ms until it holds, then runs then (after a short settle, so the screen has drawn). */
+		void waitFor(String what, double maxSecs, java.util.function.Predicate<Minecraft> ready, Consumer<Minecraft> then) {
+			poll(what, now() + maxSecs, ready, then);
+		}
+
+		private void poll(String what, double until, java.util.function.Predicate<Minecraft> ready, Consumer<Minecraft> then) {
+			later(0.05, mc -> {
+				boolean ok;
+				try {
+					ok = ready.test(mc);
+				} catch (RuntimeException e) {
+					ok = false;
+				}
+				if (ok) {
+					later(0.1, then);
+				} else if (now() > until) {
+					throw new IllegalStateException("timed out waiting for " + what + " (screen " + mc.screen + ")");
+				} else {
+					poll(what, until, ready, then);
+				}
+			});
+		}
+
+		/** Glides straight from the pointer to (x, y) window px; returns the arrival, seconds from now. */
+		double go(Minecraft mc, double x, double y) {
+			double d = Math.hypot(x - mx(mc), y - my(mc));
+			double dur = Math.max(0.3, Math.min(0.8, 0.26 + d / mc.getWindow().getWidth() * 0.85));
+			glides.add(new G(t(), t() + dur, mx(mc), my(mc), x, y));
+			return dur;
+		}
+
+		/** Glide onto (x, y), settle, click; next runs `after` seconds after the release. */
+		void clickAt(Minecraft mc, double x, double y, double after, Consumer<Minecraft> next) {
+			double arrive = go(mc, x, y);
+			later(arrive + 0.11, m -> button(m, GLFW.GLFW_MOUSE_BUTTON_LEFT, true));
+			later(arrive + 0.18, m -> button(m, GLFW.GLFW_MOUSE_BUTTON_LEFT, false));
+			if (next != null) {
+				later(arrive + 0.18 + after, next);
+			}
+		}
+
+		void clickWidget(Minecraft mc, AbstractWidget w, double after, Consumer<Minecraft> next) {
+			if (w == null) {
+				logWidgets(mc.screen);
+				throw new IllegalStateException("no such button on " + mc.screen);
+			}
+			double s = mc.getWindow().getGuiScale();
+			clickAt(mc, (w.getX() + w.getWidth() / 2.0) * s, (w.getY() + w.getHeight() / 2.0) * s, after, next);
+		}
+
+		/** The open screen is exactly cls and has drawn at least one frame of hit boxes. */
+		static boolean deckReady(Minecraft mc, Class<?> cls) {
+			return mc.screen != null && mc.screen.getClass() == cls && !ItemSize.hits(mc.screen).isEmpty();
+		}
+
+		/** Hits of exactly this design-px height whose top is at y, left to right. */
+		static List<float[]> row(Screen s, float y, float h) {
+			List<float[]> out = new ArrayList<>();
+			for (float[] r : ItemSize.hits(s)) {
+				if (Math.abs(r[1] - y) < 0.5f && Math.abs(r[3] - r[1] - h) < 0.5f) {
+					out.add(r);
+				}
+			}
+			out.sort(Comparator.comparingDouble(r -> r[0]));
+			return out;
+		}
+
+		static double cx(float[] h) {
+			return ItemSize.wx(h, (h[0] + h[2]) / 2);
+		}
+
+		static double cy(float[] h) {
+			return ItemSize.wy(h, (h[1] + h[3]) / 2);
+		}
+
+		/** Window px of a design point on a 920x580 Origin window centred in the take (before any screen is open). */
+		static double[] deckPx(double dx, double dy) {
+			float s = com.origin.client.client.gui.OriginDeck.scale(WIN_W, WIN_H, 920, 580);
+			return new double[]{WIN_W / 2.0 + (dx - 460) * s, WIN_H / 2.0 + (dy - 290) * s};
+		}
+
+		static Object field(Object o, String name) {
+			try {
+				for (Class<?> k = o.getClass(); k != null; k = k.getSuperclass()) {
+					for (java.lang.reflect.Field f : k.getDeclaredFields()) {
+						if (f.getName().equals(name)) {
+							f.setAccessible(true);
+							return f.get(o);
+						}
+					}
+				}
+			} catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("can't read " + name + " on " + o, e);
+			}
+			throw new IllegalStateException("no field " + name + " on " + o.getClass().getName());
+		}
+
+		static Object call(Object o, String name, Class<?>[] types, Object... args) {
+			try {
+				for (Class<?> k = o.getClass(); k != null; k = k.getSuperclass()) {
+					try {
+						java.lang.reflect.Method m = k.getDeclaredMethod(name, types);
+						m.setAccessible(true);
+						return m.invoke(o, args);
+					} catch (NoSuchMethodException ignored) {
+					}
+				}
+			} catch (ReflectiveOperationException e) {
+				throw new IllegalStateException("can't call " + name + " on " + o, e);
+			}
+			throw new IllegalStateException("no method " + name + " on " + o.getClass().getName());
+		}
+
+		/** The library's card grid: {cols, colW} and the card for mod id: {x, y} design px, or null if it isn't listed. */
+		static double[] card(Screen s, String id) {
+			@SuppressWarnings("unchecked") List<Mods.Mod> visible = (List<Mods.Mod>) field(s, "visible");
+			int i = -1;
+			for (int k = 0; k < visible.size(); k++) {
+				if (visible.get(k).id().equals(id)) {
+					i = k;
+				}
+			}
+			if (i < 0) {
+				return null;
+			}
+			int cols = (Integer) call(s, "columns", new Class<?>[0]);
+			double colW = (872 - (cols - 1) * 16.0) / cols;
+			double scroll = (Double) field(s, "scroll");
+			return new double[]{24 + (i % cols) * (colW + 16), 128 + (i / cols) * 200.0 - scroll, colW, i};
+		}
+
+		/** Restores what the take changed (Mods writes to disk at once: the next take starts from the same state). */
+		void restore() {
+		}
+
+		@Override
+		void finish(Minecraft mc) {
+			restore();
+			super.finish(mc);
+		}
+
+		@Override
+		String extra() {
+			return ",\n  \"beats\": [" + beats + "]";
+		}
+
+		@Override
+		void frame(Minecraft mc) {
+			if (creative && mc.player != null) {
+				mc.player.getAbilities().flying = true;
+				mc.player.yBodyRot = mc.player.getYRot();
+				mc.player.yBodyRotO = mc.player.getYRot();
+			}
+			super.frame(mc);
+		}
+
+		/** Creative (flying) instead of spectator: Cosmetics' preview draws the player, and a spectator draws as nothing. */
+		boolean creative;
+
+		/** Spectator (or creative) at the hero vantage, slow drift: the F1-clean world behind every menu. */
+		void hero(MinecraftServer server, ServerLevel level, ServerPlayer p) {
+			cmd(server, creative ? "gamemode creative @a" : "gamemode spectator @a");
+			cmd(server, "clear @a");
+			if (creative) {
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+			}
+			double[] v = heroAt(level, 0.35);
+			place(p, v);
+			view(v);
+			drift = 0.4;
+		}
+	}
+
+	// ---------------------------------------------------------------- V3_MENU_TABS: Right Shift, MODS, then every tab
+
+	/**
+	 * Right Shift opens the quick screen, MODS opens Origin's menu, then its tabs: Settings, Cosmetics (back), Friends
+	 * (back), Waypoints last: the menu opens Waypoints with no parent, so its Back leaves the menu for the world.
+	 */
+	static final class MenuTabs extends Tour {
+		private volatile int homeY;
+		private static final int HOME_X = 1180;
+
+		@Override
+		void options(Minecraft mc) {
+			length = 1e9;
+			mc.options.hideGui = true;
+			Mods.setMetaBool("menuListView", false);
+			Mods.setOn("waypoints", true);   // the Waypoints tab without its "Waypoints are off" banner
+			creative = true;
+		}
+
+		@Override
+		void server(MinecraftServer server, ServerLevel level, ServerPlayer p) {
+			load(level, HOME_X, 1268, 16);
+			homeY = level.getHeight(Heightmap.Types.WORLD_SURFACE, HOME_X, 1268);
+			hero(server, level, p);
+			// Minecraft centres the pointer whenever a menu opens over the world
+			startPointer = new double[]{WIN_W / 2.0, WIN_H / 2.0};
+			when(0.0, mc -> {
+				// A Home for the Waypoints tab, BEHIND the camera (the hero looks east): V3_WAYPOINT's Home at x 1420
+				// sits straight ahead and its beam would stand in every frame. V3_WAYPOINT re-makes its own Home.
+				boolean home = false;
+				for (var w : new java.util.ArrayList<>(com.origin.client.client.waypoints.Waypoints.all())) {
+					if (Waypoint.NAME.equals(w.name) && w.x != HOME_X) {
+						com.origin.client.client.waypoints.Waypoints.remove(w);
+					} else {
+						home |= Waypoint.NAME.equals(w.name);
+					}
+				}
+				if (!home && homeY != 0) {
+					com.origin.client.client.waypoints.Waypoints.create(Waypoint.NAME, HOME_X, homeY, 1268,
+							com.origin.client.client.waypoints.Waypoints.currentDim(), Mods.color("waypoints", "editColor"));
+				}
+				log("waypoints: " + com.origin.client.client.waypoints.Waypoints.all().size());
+			});
+			tapKey(0.9, GLFW.GLFW_KEY_RIGHT_SHIFT);
+			when(0.95, mc -> waitFor("the Right Shift screen", 5,
+					m -> m.screen instanceof com.origin.client.client.hud.HudEditorScreen, this::quick));
+		}
+
+		private void quick(Minecraft mc) {
+			beat("Right Shift screen");
+			float s = com.origin.client.client.gui.OriginDeck.scale(mc.getWindow().getWidth(), mc.getWindow().getHeight(), 920, 580);
+			double x = mc.getWindow().getWidth() / 2.0, y = mc.getWindow().getHeight() / 2.0 + 39 * s;   // MODS: y 17, h 44
+			later(0.55, m -> clickAt(m, x, y, 0, m2 -> waitFor("Origin's menu", 5,
+					m3 -> deckReady(m3, com.origin.client.client.gui.OriginModMenuScreen.class), this::mods)));
+		}
+
+		private List<float[]> tabs(Minecraft mc) {
+			List<float[]> t = row(mc.screen, 17, 30);
+			if (t.size() != 5) {
+				logHits(mc.screen);
+				throw new IllegalStateException(t.size() + " tabs, expected 5");
+			}
+			return t;
+		}
+
+		private void mods(Minecraft mc) {
+			beat("MODS tab");
+			// the Friends tab's made-up demo friends; only now, so the party HUD isn't on the Right Shift screen
+			com.origin.client.client.social.SocialDemo.install(false);
+			float[] m = tabs(mc).get(0);
+			go(mc, cx(m), cy(m));   // off the cards at once: rest on the MODS tab
+			later(1.5, this::settings);
+		}
+
+		private void settings(Minecraft mc) {
+			float[] h = tabs(mc).get(1);
+			clickAt(mc, cx(h), cy(h), 0.05, m -> {
+				beat("SETTINGS tab");
+				later(1.5, this::cosmetics);
+			});
+		}
+
+		private void cosmetics(Minecraft mc) {
+			float[] h = tabs(mc).get(3);
+			clickAt(mc, cx(h), cy(h), 0, m -> waitFor("Cosmetics", 5,
+					m2 -> deckReady(m2, com.origin.client.client.gui.CosmeticsScreen.class), m3 -> {
+						beat("COSMETICS");
+						later(1.8, m4 -> back(m4, this::friends));
+					}));
+		}
+
+		/** The window's back chevron (OriginWindow: 24, 16, 32x32), then Origin's menu again. */
+		private void back(Minecraft mc, Consumer<Minecraft> then) {
+			float[] any = ItemSize.hits(mc.screen).get(0);
+			clickAt(mc, ItemSize.wx(any, 40), ItemSize.wy(any, 32), 0, m -> waitFor("Origin's menu again", 5,
+					m2 -> deckReady(m2, com.origin.client.client.gui.OriginModMenuScreen.class), m3 -> {
+						beat("menu (back)");
+						later(0.15, then);
+					}));
+		}
+
+		private void friends(Minecraft mc) {
+			float[] h = tabs(mc).get(4);
+			clickAt(mc, cx(h), cy(h), 0, m -> waitFor("Friends", 5,
+					m2 -> deckReady(m2, com.origin.client.client.gui.FriendsScreen.class), m3 -> {
+						beat("FRIENDS");
+						later(1.9, m4 -> back(m4, this::waypoints));
+					}));
+		}
+
+		private void waypoints(Minecraft mc) {
+			float[] h = tabs(mc).get(2);
+			clickAt(mc, cx(h), cy(h), 0, m -> waitFor("Waypoints", 5,
+					m2 -> deckReady(m2, com.origin.client.client.waypoints.WaypointScreen.class), m3 -> {
+						beat("WAYPOINTS");
+						length = now() + 2.1;
+					}));
+		}
+	}
+
+	// ---------------------------------------------------------------- V3_MOD_OPTIONS: HUD filter, Minimap's page, two settings
+
+	/**
+	 * MODS, the HUD chip, a scroll to Minimap, its OPTIONS: the switch on, Map Height 8 -> 4 (the live preview turns into
+	 * a wide strip), Shape Square -> Circle (the preview turns round), then Back. Minimap is reset before and after.
+	 */
+	static final class ModOptions extends Tour {
+		static final String MOD = "minimap";
+		static final String HEIGHT = "mapHeight";
+
+		@Override
+		void options(Minecraft mc) {
+			length = 1e9;
+			mc.options.hideGui = true;
+			Mods.setMetaBool("menuListView", false);
+			restore();
+		}
+
+		@Override
+		void restore() {
+			Mods.setOn(MOD, false);
+			Mods.reset(MOD, "shape");
+			Mods.reset(MOD, HEIGHT);
+		}
+
+		@Override
+		void server(MinecraftServer server, ServerLevel level, ServerPlayer p) {
+			hero(server, level, p);
+			startPointer = deckPx(470, 119);   // the empty strip between the toolbar and the cards
+			when(0.3, mc -> mc.setScreen(new com.origin.client.client.gui.OriginModMenuScreen()));
+			when(0.35, mc -> waitFor("Origin's menu", 5,
+					m -> deckReady(m, com.origin.client.client.gui.OriginModMenuScreen.class), this::chip));
+		}
+
+		private void chip(Minecraft mc) {
+			beat("MODS grid");
+			later(0.7, m -> {
+				List<float[]> chips = row(m.screen, 80, 32);   // profile, ALL, NEW, HUD, VISUAL, GAMEPLAY, SERVER
+				if (chips.size() != 7) {
+					logHits(m.screen);
+					throw new IllegalStateException(chips.size() + " toolbar targets, expected 7");
+				}
+				float[] hud = chips.get(3);
+				clickAt(m, cx(hud), cy(hud), 0.35, this::scrollTo);
+			});
+		}
+
+		private void scrollTo(Minecraft mc) {
+			beat("HUD filter");
+			double[] c = card(mc.screen, MOD);
+			if (c == null) {
+				throw new IllegalStateException("Minimap is not in the HUD list");
+			}
+			int notches = (int) Math.ceil(Math.max(0, c[1] - 150) / 48);
+			log("minimap is card " + (int) c[3] + " at design y " + c[1] + ": " + notches + " wheel notches");
+			if (notches == 0) {
+				later(0.3, this::openOptions);
+				return;
+			}
+			float[] any = ItemSize.hits(mc.screen).get(0);
+			double rx = ItemSize.wx(any, 907), ry = ItemSize.wy(any, 330);   // the panel's right margin, beside the cards
+			double arrive = go(mc, rx, ry);
+			for (int i = 0; i < notches; i++) {
+				later(arrive + 0.12 + i * 0.11, m -> {
+					scroll(m, -1);
+					trackEvent("scroll", "wheel-1", mx(m), my(m));
+				});
+			}
+			later(arrive + 0.12 + notches * 0.11, m -> waitFor("the scroll", 3, m2 -> {
+				double s = (Double) field(m2.screen, "scroll"), st = (Double) field(m2.screen, "scrollTarget");
+				return Math.abs(s - st) < 0.5;
+			}, m3 -> {
+				beat("scrolled to Minimap");
+				later(0.25, this::openOptions);
+			}));
+		}
+
+		private void openOptions(Minecraft mc) {
+			double[] c = card(mc.screen, MOD);
+			float[] any = ItemSize.hits(mc.screen).get(0);
+			double y = c[1] + 106 + 15;
+			if (y < 128 || y > 560) {
+				throw new IllegalStateException("Minimap's OPTIONS is off screen at design y " + y);
+			}
+			clickAt(mc, ItemSize.wx(any, c[0] + c[2] / 2), ItemSize.wy(any, y), 0, m -> waitFor("Minimap's page", 3,
+					m2 -> MOD.equals(field(m2.screen, "page")) && !row(m2.screen, 80, 32).isEmpty(), this::page));
+		}
+
+		private void page(Minecraft mc) {
+			beat("Minimap page");
+			later(0.6, m -> {
+				float[] sw = null;
+				for (float[] h : row(m.screen, 80, 32)) {
+					if (Math.abs(h[2] - h[0] - 44) < 0.5f) {
+						sw = h;   // the page's on/off switch (W - M - 40, 44 wide); Back is 32 wide
+					}
+				}
+				if (sw == null) {
+					logHits(m.screen);
+					throw new IllegalStateException("no switch on Minimap's page");
+				}
+				clickAt(m, cx(sw), cy(sw), 0.75, this::height);
+			});
+		}
+
+		/** Map Height's slider: the third slider target (Scale, Map Width, Map Height, Map Zoom), dragged 8 -> 4. */
+		private void height(Minecraft mc) {
+			beat("Minimap on: live preview");
+			logHits(mc.screen);
+			List<float[]> sliders = new ArrayList<>();
+			for (float[] h : ItemSize.hits(mc.screen)) {
+				if (Math.abs(h[2] - h[0] - 126) < 0.5f && Math.abs(h[3] - h[1] - 24) < 0.5f) {
+					sliders.add(h);
+				}
+			}
+			if (sliders.size() < 3) {
+				throw new IllegalStateException(sliders.size() + " sliders on Minimap's page");
+			}
+			float[] h = sliders.get(2);
+			double tx = h[0] + 8, y = cy(h);
+			double from = ItemSize.wx(h, tx + 110 * (Mods.num(MOD, HEIGHT) - 1) / 15), to = ItemSize.wx(h, tx + 110 * (4 - 1) / 15.0);
+			double arrive = go(mc, from, y);
+			later(arrive + 0.12, m -> button(m, GLFW.GLFW_MOUSE_BUTTON_LEFT, true));
+			later(arrive + 0.2, m -> glides.add(new G(t(), t() + 0.55, from, y, to, y)));
+			later(arrive + 0.85, m -> {
+				button(m, GLFW.GLFW_MOUSE_BUTTON_LEFT, false);
+				beat(String.format(Locale.ROOT, "Map Height %.0f", Mods.num(MOD, HEIGHT)));
+			});
+			later(arrive + 1.6, this::shape);
+		}
+
+		/** Shape's dropdown: its right half (the first pair of 26-tall targets) steps Square -> Circle. */
+		private void shape(Minecraft mc) {
+			List<float[]> drops = new ArrayList<>();
+			for (float[] h : ItemSize.hits(mc.screen)) {
+				if (Math.abs(h[3] - h[1] - 26) < 0.5f) {
+					drops.add(h);
+				}
+			}
+			if (drops.size() < 2) {
+				throw new IllegalStateException("no Shape dropdown");
+			}
+			float[] right = drops.get(0)[0] > drops.get(1)[0] ? drops.get(0) : drops.get(1);
+			clickAt(mc, ItemSize.wx(right, right[0] + (right[2] - right[0]) * 0.55), cy(right), 0.1, m -> {
+				beat("Shape " + Mods.mode(MOD, "shape"));
+				later(1.4, this::backOut);
+			});
+		}
+
+		private void backOut(Minecraft mc) {
+			float[] any = ItemSize.hits(mc.screen).get(0);
+			clickAt(mc, ItemSize.wx(any, 40), ItemSize.wy(any, 96), 0, m -> waitFor("the library", 3,
+					m2 -> field(m2.screen, "page") == null, m3 -> {
+						beat("back to the grid");
+						length = now() + 1.4;
+					}));
+		}
+	}
+
+	// ---------------------------------------------------------------- V3_MOD_SEARCH: type "zoom", the grid filters, Zoom on
+
+	static final class ModSearch extends Tour {
+		static final String MOD = "zoom";
+		static final String QUERY = "zoom";
+
+		@Override
+		void options(Minecraft mc) {
+			length = 1e9;
+			mc.options.hideGui = true;
+			Mods.setMetaBool("menuListView", false);
+			Mods.setOn(MOD, false);   // the take switches it on (its shipped default)
+		}
+
+		@Override
+		void restore() {
+			Mods.setOn(MOD, true);
+		}
+
+		@Override
+		void server(MinecraftServer server, ServerLevel level, ServerPlayer p) {
+			hero(server, level, p);
+			startPointer = deckPx(470, 119);
+			when(0.3, mc -> mc.setScreen(new com.origin.client.client.gui.OriginModMenuScreen()));
+			when(0.35, mc -> waitFor("Origin's menu", 5,
+					m -> deckReady(m, com.origin.client.client.gui.OriginModMenuScreen.class), this::search));
+		}
+
+		private void search(Minecraft mc) {
+			beat("MODS grid");
+			later(0.7, m -> {
+				List<float[]> box = row(m.screen, 81, 30);
+				if (box.isEmpty()) {
+					logHits(m.screen);
+					throw new IllegalStateException("no search box");
+				}
+				float[] b = box.get(box.size() - 1);
+				clickAt(m, ItemSize.wx(b, b[0] + (b[2] - b[0]) * 0.8), cy(b), 0.2, this::type);   // right end: the typed word stays clear of the pointer
+			});
+		}
+
+		private void type(Minecraft mc) {
+			for (int i = 0; i < QUERY.length(); i++) {
+				char ch = QUERY.charAt(i);
+				later(i * 0.13, m -> {
+					m.screen.charTyped(ch, 0);
+					trackEvent("char", String.valueOf(ch), mx(m), my(m));
+				});
+			}
+			later(QUERY.length() * 0.13 + 0.55, this::toggle);
+		}
+
+		/**
+		 * Zoom's ENABLED/DISABLED bar. The pointer comes in through the gap under the card and hops up onto the bar, so
+		 * it is over the card for well under the 650 ms that would pop the card's description.
+		 */
+		private void toggle(Minecraft mc) {
+			@SuppressWarnings("unchecked") List<Mods.Mod> vis = (List<Mods.Mod>) field(mc.screen, "visible");
+			StringBuilder names = new StringBuilder();
+			for (Mods.Mod m : vis) {
+				names.append(names.length() == 0 ? "" : ", ").append(m.name());
+			}
+			beat("filtered: " + names);
+			double[] c = card(mc.screen, MOD);
+			if (c == null) {
+				throw new IllegalStateException("Zoom is not in the results");
+			}
+			float[] any = ItemSize.hits(mc.screen).get(0);
+			double x = ItemSize.wx(any, c[0] + c[2] / 2);
+			double gapY = ItemSize.wy(any, c[1] + 184 + 8), barY = ItemSize.wy(any, c[1] + 146 + 15);
+			double arrive = go(mc, x, gapY);
+			later(arrive, m -> glides.add(new G(t(), t() + 0.2, x, gapY, x, barY)));
+			later(arrive + 0.27, m -> button(m, GLFW.GLFW_MOUSE_BUTTON_LEFT, true));
+			later(arrive + 0.34, m -> {
+				button(m, GLFW.GLFW_MOUSE_BUTTON_LEFT, false);
+				beat("Zoom " + (Mods.on(MOD) ? "ENABLED" : "DISABLED"));
+			});
+			later(arrive + 0.42, m -> glides.add(new G(t(), t() + 0.22, x, barY, x, gapY)));
+			later(arrive + 0.42, m -> length = now() + 2.0);
+		}
+	}
+
+	// ---------------------------------------------------------------- V3_PAUSE: Esc, Mods (Mod Menu + a mod's settings), Origin
+
+	static final class Pause extends Tour {
+		/** The mod whose settings Mod Menu opens: the first of these that has a config screen in the list. */
+		static final String[] TARGETS = {"sodium", "iris"};
+		private String target;
+
+		@Override
+		void options(Minecraft mc) {
+			length = 1e9;
+			mc.options.hideGui = true;
+			allowPause = true;   // the harness closes stray pause screens; this take opens it on purpose
+		}
+
+		@Override
+		void server(MinecraftServer server, ServerLevel level, ServerPlayer p) {
+			hero(server, level, p);
+			startPointer = new double[]{WIN_W / 2.0, WIN_H / 2.0};   // where Minecraft puts it when the menu opens
+			tapKey(0.8, GLFW.GLFW_KEY_ESCAPE);
+			when(0.85, mc -> waitFor("the pause menu", 4,
+					m -> m.screen instanceof net.minecraft.client.gui.screens.PauseScreen && exact(m.screen, "Mods") != null,
+					this::pause));
+		}
+
+		private void pause(Minecraft mc) {
+			beat("pause menu");
+			later(0.8, m -> clickWidget(m, exact(m.screen, "Mods"), 0, m2 -> waitFor("Mod Menu", 5,
+					m3 -> m3.screen != null && m3.screen.getClass().getSimpleName().equals("ModsScreen"), this::list)));
+		}
+
+		private int scrolls;
+
+		/** Finds the target's row in Mod Menu's list (gui px), scrolling the list a few notches if it is below. */
+		private void list(Minecraft mc) {
+			if (scrolls == 0) {
+				beat("Mod Menu list");
+			}
+			Screen s = mc.screen;
+			if (target == null) {
+				for (String id : TARGETS) {
+					if ((Boolean) call(s, "getModHasConfigScreen", new Class<?>[]{String.class}, id)) {
+						target = id;
+						break;
+					}
+				}
+				if (target == null) {
+					throw new IllegalStateException("none of " + String.join(", ", TARGETS) + " has a config screen");
+				}
+				log("Mod Menu target: " + target);
+			}
+			Object list = field(s, "modList");
+			AbstractWidget w = (AbstractWidget) list;
+			double gx = w.getX() + w.getWidth() / 2.0;
+			int top = -1, bottom = -1;
+			for (int gy = w.getY() + 1; gy < w.getY() + w.getHeight() - 1; gy++) {
+				Object e = call(list, "getEntryAtPos", new Class<?>[]{double.class, double.class}, gx, gy + 0.5);
+				if (e == null) {
+					continue;
+				}
+				Object mod = call(e, "getMod", new Class<?>[0]);
+				if (target.equals(call(mod, "getId", new Class<?>[0]))) {
+					top = top < 0 ? gy : top;
+					bottom = gy;
+				}
+			}
+			double sc = mc.getWindow().getGuiScale();
+			if (top < 0 || bottom - top < 20) {
+				if (++scrolls > 4) {
+					throw new IllegalStateException(target + " never showed in Mod Menu's list");
+				}
+				double arrive = go(mc, gx * sc, (w.getY() + w.getHeight() * 0.6) * sc);
+				for (int i = 0; i < 3; i++) {
+					later(arrive + 0.1 + i * 0.1, m -> {
+						scroll(m, -1);
+						trackEvent("scroll", "wheel-1", mx(m), my(m));
+					});
+				}
+				later(arrive + 0.75, this::list);
+				return;
+			}
+			double ex = (w.getX() + w.getWidth() * 0.35) * sc, ey = (top + bottom + 1) / 2.0 * sc;
+			later(0.45, m -> clickAt(m, ex, ey, 0, m2 -> waitFor(target + " selected", 3, m3 -> {
+				AbstractWidget cfg = (AbstractWidget) field(m3.screen, "configureButton");
+				return cfg != null && cfg.visible && cfg.active;
+			}, this::configure)));
+		}
+
+		private void configure(Minecraft mc) {
+			beat(target + " selected");
+			later(0.6, m -> {
+				Screen list = m.screen;
+				clickWidget(m, (AbstractWidget) field(list, "configureButton"), 0, m2 -> waitFor(target + "'s settings", 5,
+						m3 -> m3.screen != null && m3.screen != list, m4 -> {
+							beat(target + " settings: " + m4.screen.getClass().getSimpleName());
+							later(2.3, this::leave);
+						}));
+			});
+		}
+
+		/** Esc twice: the settings, then Mod Menu, back to the pause menu. */
+		private void leave(Minecraft mc) {
+			tapKey(now(), GLFW.GLFW_KEY_ESCAPE);
+			waitFor("Mod Menu again", 3, m -> m.screen != null && m.screen.getClass().getSimpleName().equals("ModsScreen"), m2 -> {
+				beat("Mod Menu list (Esc)");
+				later(0.35, m3 -> {
+					tapKey(now(), GLFW.GLFW_KEY_ESCAPE);
+					waitFor("the pause menu again", 3, m4 -> m4.screen instanceof net.minecraft.client.gui.screens.PauseScreen
+							&& exact(m4.screen, "Origin") != null, this::origin);
+				});
+			});
+		}
+
+		private void origin(Minecraft mc) {
+			beat("pause menu (Esc)");
+			later(0.45, m -> clickWidget(m, exact(m.screen, "Origin"), 0, m2 -> waitFor("Origin's menu", 5,
+					m3 -> deckReady(m3, com.origin.client.client.gui.OriginModMenuScreen.class), m4 -> {
+						beat("Origin menu");
+						float[] t = row(m4.screen, 17, 30).get(0);
+						go(m4, cx(t), cy(t));   // off the cards: rest on the MODS tab
+						length = now() + 2.2;
+					})));
 		}
 	}
 }

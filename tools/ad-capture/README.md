@@ -51,9 +51,13 @@ Put `ComplementaryReimagined_r5.9.3.zip` (sha512 in `tools/panorama/spots.json`)
 | V3_SNAPLOOK | Creative + F1 (spectator's front view is a floating head), a dolly; the Snaplook key is held 4.2-6.9 s (`DevAdKeysMixin` answers `InputConstants.isKeyDown` from the script's held keys). |
 | V3_FRIENDS | Hero view, the friend request and party invite toasts (made-up players). HUD on with every module off in spectator, not F1: 1.21.1's toast pass draws nothing under F1. |
 | V3_SCREENSHOT | HUD on with every module off, chat visible: F2, T, the pointer clicks the line's Copy Image (a real copy to the clipboard); the take ends 2.5 s after the copy's own "Screenshot copied" line shows, and only then is the clipboard's text put back. |
+| V3_MENU_TABS | Menu tour (`Tour`: the pointer goes straight to each target, settles, clicks; every step waits for its screen; a `beats` list in the sidecar). Right Shift opens the quick screen, MODS opens Origin's menu, then SETTINGS, COSMETICS (Back), FRIENDS (Back, made-up demo friends), WAYPOINTS last (its Back leaves the menu). Mods at shipped defaults, HUD modules without backgrounds (`V3_TOURS`). |
+| V3_MOD_OPTIONS | Origin's menu, the HUD chip, wheel-scroll to Minimap, its OPTIONS: switch on, Map Height 8 -> 4, Shape Square -> Circle (the live preview changes each time), Back. Minimap reset before and after. |
+| V3_MOD_SEARCH | Origin's menu, a click in search, "zoom" typed, the grid filters, Zoom's DISABLED bar clicked to ENABLED (Zoom starts off, put back on after). |
+| V3_PAUSE | Esc, the pause menu's "Mods": Mod Menu's list, Sodium (else Iris) selected, its settings opened; Esc twice, then "Origin" opens Origin's menu. |
 
-`--suffix _9x16` names a V3 take `V3_<clip>_9x16` (the portrait takes: `--size 1440x2560`). `capture.py encode-v3` turns
-every raw `V3_*.mp4` into `origin-client-ad/edit/public/v3/footage/` at 60 fps (x264 CRF 12) and copies each sidecar.
+`--suffix _9x16` names a V3 take `V3_<clip>_9x16` (the portrait takes: `--size 1440x2560`). `capture.py encode-v3 [V3_X ...]` turns
+every raw (or only the named) `V3_*.mp4` into `origin-client-ad/edit/public/v3/footage/` at 60 fps (x264 CRF 12) and copies each sidecar.
 
 Scouting: `ORIGIN_AD_SCOUT=list` with `ORIGIN_AD_SCOUT_LIST=name:sx,sz,ex,ez,y,p;...` flies to each run and saves one
 still per run (`footage/scout/screenshots/scout_<name>.png`); pick by eye, then pin the winners as `RUN_<NAME>`.
