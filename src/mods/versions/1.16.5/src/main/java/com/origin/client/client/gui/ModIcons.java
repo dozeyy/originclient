@@ -72,10 +72,117 @@ public final class ModIcons {
 		// 1 down at a quarter of the tint (what Font.drawShadow does), drawn under the icon. Same
 		// alpha, so hover/disabled/fade tints carry over; the offset is in GUI px so it tracks
 		// GUI scale like text. Always on, no setting.
+		// Sizes here are GUI px: the crisp bake is made at size x guiScale device px.
+		drawShadowed(g, id, x, y, size, (int) Math.round(size * Minecraft.getInstance().getWindow().getGuiScale()), argb);
+	}
+
+	/**
+	 * {@link #draw(Gfx, String, int, int, int, int)} for a caller whose pose is already in
+	 * device pixels (OriginDeck scales by 1/guiScale): `size` IS the pixel size, so the crisp
+	 * bake must not multiply it by the GUI scale again.
+	 */
+	public static void drawDevice(Gfx g, String id, int x, int y, int size, int argb) {
+		drawShadowed(g, id, x, y, size, size, argb);
+	}
+
+	private static void drawShadowed(Gfx g, String id, int x, int y, int size, int px, int argb) {
 		if (((argb >>> 24) & 0xFF) > 2) {
-			drawRaw(g, id, x + 1, y + 1, size, ((argb >>> 24) << 24) | (((argb >> 18) & 0x3F) << 16) | (((argb >> 10) & 0x3F) << 8) | ((argb >> 2) & 0x3F));
+			drawCrisp(g, id, x + 1, y + 1, size, px, ((argb >>> 24) << 24) | (((argb >> 18) & 0x3F) << 16) | (((argb >> 10) & 0x3F) << 8) | ((argb >> 2) & 0x3F));
 		}
-		drawRaw(g, id, x, y, size, argb);
+		drawCrisp(g, id, x, y, size, px, argb);
+	}
+
+	// Pixel-exact menu icons. 1.16.5 has no icon SDF shader, and the 192 px mask cell sampled
+	// GL_LINEAR at ~14x minification reads only 4 texels per pixel, so thin strokes aliased
+	// (the mod menu's Options gear read as a diamond, the Edit HUD glyph lost its inner lines --
+	// dev shots 2026-11-12 vs 1.21.1). Icons are instead area-averaged on the CPU to their exact
+	// device-pixel size, once per (id, size), and drawn 1:1 (1.8.9 uses the same bake).
+	private static NativeImage atlasImg;   // owned by the ATLAS DynamicTexture; read only here
+	private static final int CRISP_MAX_PX = 256;
+	// Baked icons per id, indexed by device size (an array: a frame's lookup allocates nothing).
+	private static final Map<String, ResourceLocation[]> CRISP = new HashMap<>();
+	private static boolean crispBroken = false;
+
+	private static void drawCrisp(Gfx g, String id, int x, int y, int size, int px, int argb) {
+		int a = (argb >>> 24) & 0xFF;
+		if (a <= 2) {
+			return;
+		}
+		if (crispBroken || pxHas(id)) {
+			drawRaw(g, id, x, y, size, argb);
+			return;
+		}
+		try {
+			ensureLoaded();
+			int[] c = ok ? CELLS.get(id) : null;
+			px = Math.max(1, px);
+			if (c == null || atlasImg == null || px > CRISP_MAX_PX) {
+				drawRaw(g, id, x, y, size, argb);   // large icons minify little: the atlas is fine
+				return;
+			}
+			ResourceLocation[] sizes = CRISP.get(id);
+			if (sizes == null) {
+				sizes = new ResourceLocation[CRISP_MAX_PX + 1];
+				CRISP.put(id, sizes);
+			}
+			ResourceLocation rl = sizes[px];
+			if (rl == null) {
+				rl = bake(id, c, px);
+				sizes[px] = rl;
+			}
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			RenderSystem.color4f(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f,
+					(argb & 0xFF) / 255f, a / 255f);
+			g.blit(rl, x, y, size, size, 0f, 0f, px, px, px, px);
+			RenderSystem.color4f(1f, 1f, 1f, 1f);
+		} catch (Throwable t) {
+			// e.g. the atlas image was freed: the linear atlas path for the rest of the session
+			crispBroken = true;
+			RenderSystem.color4f(1f, 1f, 1f, 1f);
+			drawRaw(g, id, x, y, size, argb);
+		}
+	}
+
+	private static ResourceLocation bake(String id, int[] c, int px) {
+		int cw = Math.min(cell, atlasW - c[0]), ch = Math.min(cell, atlasH - c[1]);
+		int[] al0 = new int[cw * ch];
+		NativeImage src = atlasImg;
+		for (int y = 0; y < ch; y++) {
+			for (int x = 0; x < cw; x++) {
+				al0[y * cw + x] = src.getPixelRGBA(c[0] + x, c[1] + y) >>> 24;   // ABGR: alpha on top
+			}
+		}
+		NativeImage out = new NativeImage(px, px, false);
+		double step = cell / (double) px;
+		for (int oy = 0; oy < px; oy++) {
+			for (int ox = 0; ox < px; ox++) {
+				double x0 = ox * step, x1 = x0 + step, y0 = oy * step, y1 = y0 + step;
+				double sum = 0, wsum = 0;
+				for (int sy = (int) Math.floor(y0); sy < y1; sy++) {
+					double wy = Math.min(sy + 1, y1) - Math.max(sy, y0);
+					int row = Math.min(sy, ch - 1) * cw;
+					for (int sx = (int) Math.floor(x0); sx < x1; sx++) {
+						double w = wy * (Math.min(sx + 1, x1) - Math.max(sx, x0));
+						sum += w * al0[row + Math.min(sx, cw - 1)];
+						wsum += w;
+					}
+				}
+				int al = wsum > 0 ? (int) Math.round(sum / wsum) : 0;
+				out.setPixelRGBA(ox, oy, (al << 24) | 0xFFFFFF);
+			}
+		}
+		ResourceLocation rl = new ResourceLocation("originclient", "ui_mod_icon_" + id.replaceAll("[^a-z0-9_]", "_") + "_" + px);
+		DynamicTexture tex;
+		try {
+			tex = new DynamicTexture(out);
+		} catch (Throwable t) {
+			out.close();
+			throw t;
+		}
+		tex.setFilter(true, false);
+		Minecraft.getInstance().getTextureManager().register(rl, tex);
+		return rl;
 	}
 
 	/**
@@ -228,6 +335,7 @@ public final class ModIcons {
 				}
 				tex.setFilter(true, false);
 				Minecraft.getInstance().getTextureManager().register(ATLAS, tex);
+				atlasImg = img;   // the texture keeps its pixels: the crisp bake reads them
 				ok = true;
 			} catch (Throwable t) {
 				ok = false;
