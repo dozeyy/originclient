@@ -63,7 +63,7 @@ public static partial class RepairExecutor
         }
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
         {
-            return Fail(step, "Couldn't save the change - " + ex.Message);
+            return Fail(step, PlainError.Sentence("Couldn't save the change", ex));
         }
         return error == null ? new AppliedStep(step, true, null, step.Old.Arguments, "") : Fail(step, error);
     }
