@@ -124,6 +124,10 @@ public sealed class BugRun8Tests : IDisposable
         // The host is named (a Modrinth outage is not Mojang's); the mod is not: it would name the loader (mandate 1).
         Assert.DoesNotContain("Fabric", failure.Message);
         Assert.Contains("Modrinth", failure.Message);
+        // ...while the launcher_error log names the mod, so a support question can still be answered.
+        Assert.StartsWith("Required mod that couldn't be downloaded: Fabric API",
+            RequiredModMissingException.LogText(new InvalidOperationException("Install failed", new RequiredModMissingException("Fabric API"))));
+        Assert.StartsWith("System.Exception: plain", RequiredModMissingException.LogText(new Exception("plain")));
         Assert.DoesNotContain("Minecraft's download servers", failure.Message);
         Assert.EndsWith(PlayFailure.RetryLine, failure.Message);
     }

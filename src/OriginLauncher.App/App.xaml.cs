@@ -166,6 +166,8 @@ public partial class App : Application
     private void StartLauncher(string mutexName)
     {
         OriginPaths.EnsureScaffold();
+        // Plain error lines on screen; their full exception goes to logs/errors.log (Core/PlainError).
+        PlainError.LogTo(OriginPaths.Logs);
         StartupTrace.Mark("EnsureScaffold");
 
         // The offline test switch is a dev-build tool (Core/DeveloperAccess): a release build clears a

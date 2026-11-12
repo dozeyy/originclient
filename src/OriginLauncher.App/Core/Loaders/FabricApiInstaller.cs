@@ -166,4 +166,16 @@ public sealed class RequiredModMissingException : Exception
     {
         ModName = modName;
     }
+
+    /// <summary>
+    /// The launcher_error log's text for any launch failure: the exception, led by the missing mod's name when one is
+    /// in the chain (the screen never names it, the log must).
+    /// </summary>
+    public static string LogText(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException)
+            if (e is RequiredModMissingException missing)
+                return $"Required mod that couldn't be downloaded: {missing.ModName}{Environment.NewLine}{ex}";
+        return ex.ToString();
+    }
 }
