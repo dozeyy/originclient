@@ -579,6 +579,10 @@ public final class CosmeticsService {
 		try {
 			JsonObject o = getJson(Cosmetics.SERVICE_POINTER);
 			String a = o != null && o.has("api") && !o.get("api").isJsonNull() ? o.get("api").getAsString().trim() : "";
+			if (!a.isEmpty() && !trustedApi(a)) {
+				// Handled below like an unreachable pointer: the last good address, else the built-in one.
+				throw new IllegalStateException("the service pointer names a server that is not Origin's");
+			}
 			api = a.isEmpty() ? null : trimSlash(a);
 			status = a.isEmpty() ? Status.OFF : Status.READY;
 			viaFallback = false;
@@ -860,6 +864,24 @@ public final class CosmeticsService {
 
 	private static String undashed(UUID u) {
 		return u.toString().replace("-", "");
+	}
+
+	/**
+	 * The website's pointer may only name Origin's own service: https, and either the built-in host or
+	 * originclient.org. The mod sends this server the player's Origin sign-in and which server they are on, so
+	 * an address from a tampered pointer is never used. Moving the service to a new host outside
+	 * originclient.org needs a mod update (DEFAULT_API).
+	 */
+	static boolean trustedApi(String address) {
+		try {
+			java.net.URI u = new java.net.URI(address);
+			String host = u.getHost() == null ? "" : u.getHost().toLowerCase(java.util.Locale.ROOT);
+			return "https".equalsIgnoreCase(u.getScheme()) && u.getUserInfo() == null
+					&& (host.equals(java.net.URI.create(DEFAULT_API).getHost())
+							|| host.equals("originclient.org") || host.endsWith(".originclient.org"));
+		} catch (Exception e) {
+			return false;
+		}
 	}
 
 	private static String trimSlash(String s) {

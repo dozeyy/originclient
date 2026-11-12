@@ -416,11 +416,44 @@ def check_linux_wm_class() -> list[str]:
     return []
 
 
+def check_cosmetics_pointer() -> list[str]:
+    """The mod only follows website/cosmetics/service.json to Origin's own service (CosmeticsService.trustedApi):
+    every live module must carry that guard, and the pointer the site ships must pass it, or cosmetics, friends
+    and parties silently fall back to the built-in address."""
+    from urllib.parse import urlsplit
+    problems = []
+    default_host = None
+    for m in json.loads((REPO / "src/mods/live-modules.json").read_text(encoding="utf-8"))["modules"]:
+        found = list((REPO / "src/mods/versions" / m["module"] / "src").glob("*/java/com/origin/client/client/cosmetics/CosmeticsService.java"))
+        if len(found) != 1:
+            problems.append(f"mod {m['module']}: expected one CosmeticsService.java, found {len(found)}")
+            continue
+        src = found[0].read_text(encoding="utf-8")
+        if "if (!a.isEmpty() && !trustedApi(a))" not in src or "static boolean trustedApi(String address)" not in src:
+            problems.append(f"mod {m['module']}: CosmeticsService.discover() no longer checks the service pointer with trustedApi")
+        d = re.search(r'DEFAULT_API\s*=\s*"https://([^"/]+)"', src)
+        if not d:
+            problems.append(f"mod {m['module']}: CosmeticsService.DEFAULT_API is not a plain https address")
+        elif default_host not in (None, d.group(1)):
+            problems.append(f"mod {m['module']}: DEFAULT_API host {d.group(1)} differs from {default_host}")
+        else:
+            default_host = d.group(1)
+    api = json.loads((REPO / "website/cosmetics/service.json").read_text(encoding="utf-8")).get("api") or ""
+    if api:
+        u = urlsplit(api)
+        host = (u.hostname or "").lower()
+        if u.scheme != "https" or u.username or not (host == default_host or host == "originclient.org" or host.endswith(".originclient.org")):
+            problems.append(f"website/cosmetics/service.json api {api!r} is not an address the mod trusts "
+                            f"(https on {default_host} or originclient.org); the mod would ignore it")
+    return problems
+
+
 def main() -> int:
     problems = (check_versions() + check_handoff() + check_theme_parity() + check_release_feed()
                 + check_update_hash() + check_update_delta() + check_mac_release() + check_picker()
                 + check_linux_assets() + check_site_downloads())
     problems += check_linux_wm_class()
+    problems += check_cosmetics_pointer()
     for p in problems:
         print(f"::error::{p}")
     if not problems:
