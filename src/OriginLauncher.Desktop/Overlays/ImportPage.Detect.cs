@@ -66,7 +66,7 @@ internal sealed partial class ImportPage
             SetHeader("Bring it all over", "Nothing found to import. Add a setup's folder, or play once in your other launcher first.", checkedLine);
         else
             SetHeader("Bring it all over",
-                (launchers > 0 ? $"Found {ImportLogic.Plural(launchers, "launcher", "launchers")} on this PC. " : "Found the folder you picked. ")
+                (launchers > 0 ? $"Found {ImportLogic.Plural(launchers, "launcher", "launchers")} on {BulkSummary.ThisComputer}. " : "Found the folder you picked. ")
                 + "Pick the one to bring over. Each setup with mods becomes its own Origin profile; the other launcher is never changed.",
                 checkedLine);
 
@@ -105,7 +105,7 @@ internal sealed partial class ImportPage
         head.Children.Add(ImportParts.Go().At(2));
 
         var stats = new UniformGrid { Columns = 3, Margin = new Thickness(0, 14, -8, 0) };
-        stats.Children.Add(TileStat(N(mine.Count), tile.Caption.ToUpperInvariant()));
+        stats.Children.Add(TileStat(N(mine.Count), SetupsLabel(tile.Kind, mine.Count)));
         stats.Children.Add(TileStat(counted ? N(_model.Total(mine, ImportCategories.Worlds)) : "...", "WORLDS"));
         stats.Children.Add(TileStat(counted ? N(_model.Total(mine, ImportCategories.Mods)) : "...", "MODS"));
 
@@ -125,6 +125,15 @@ internal sealed partial class ImportPage
         stat.Margin = new Thickness(0, 0, 8, 0);
         stat.Padding = new Thickness(10, 8);
         return stat;
+    }
+
+    // The label under the setups count, the WPF tile's SetupsLabel: launchers that call them instances say INSTANCES,
+    // the rest SETUPS, singular for 1. (Before, this showed the tile's whole summary, cut to "2 VERSIONS,".)
+    private static string SetupsLabel(SourceKind kind, int count)
+    {
+        var word = kind is SourceKind.CurseForge or SourceKind.Modrinth or SourceKind.Prism or SourceKind.OfficialLauncher
+            ? "INSTANCE" : "SETUP";
+        return count == 1 ? word : word + "S";
     }
 
     // "Feather Client, LabyMod and 3 more have nothing to import on this PC", their logos, and Locate folder.
@@ -165,9 +174,9 @@ internal sealed partial class ImportPage
         var many = missing.Count > 1;
         var allNot = !installedKnown || missing.All(t => t.State == TileState.NotInstalled);
         var allEmpty = installedKnown && missing.All(t => t.State == TileState.Empty);
-        var verb = allNot ? (many ? "weren't found on this PC" : "wasn't found on this PC")
+        var verb = allNot ? (many ? $"weren't found on {BulkSummary.ThisComputer}" : $"wasn't found on {BulkSummary.ThisComputer}")
             : allEmpty ? (many ? "have nothing to import" : "has nothing to import")
-            : "have nothing to import on this PC";
+            : $"have nothing to import on {BulkSummary.ThisComputer}";
         return $"{list} {verb}";
     }
 

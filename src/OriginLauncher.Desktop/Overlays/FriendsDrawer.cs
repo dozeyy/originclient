@@ -325,7 +325,7 @@ public sealed class FriendsDrawer : Panel
             }),
         SocialStatus.SignInFailed => Pane(Icons.Friends, "Couldn't sign in to friends",
             s.StatusMessage ?? "Origin couldn't confirm your Minecraft account.", false, "Try again", () => Service.ResetAccount()),
-        SocialStatus.Unreachable => Pane(Icons.Friends, "Friends are offline",
+        SocialStatus.Unreachable => Pane(Icons.Friends, "Can't reach friends right now",
             s.StatusMessage ?? "Origin can't reach its friends service. It keeps trying in the background.", false, "Try again",
             () => Service.Poke()),
         _ => Pane(Icons.Friends, "Connecting...", "Signing in to Origin friends.", false, null, null),

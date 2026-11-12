@@ -94,6 +94,16 @@ public final class ParticleFilter {
 	/** Set while a Multiplier&gt;1 extra copy is being spawned, so it can't multiply again. */
 	private static boolean spawningExtra;
 
+	/**
+	 * Set when the firework starter has just decided to SHOW a spark
+	 * (starterSparkHidden returned false). The starter then calls createParticle
+	 * once and dereferences the result with no null check, so that one call must
+	 * get the SAME answer: without this, the Multiplier&lt;1 random roll in hidden()
+	 * re-rolled, returned null and crashed the game on any firework ("Ticking
+	 * Particle" NPE) whenever a Particles multiplier sat below 1.0. Render thread only.
+	 */
+	private static boolean starterApproved;
+
 	private ParticleFilter() {
 	}
 
@@ -157,8 +167,27 @@ public final class ParticleFilter {
 		return key == null ? null : key.getPath();
 	}
 
+	/**
+	 * The firework starter's one decision per spark (FireworkStarterMixin). A
+	 * "show" answer is remembered so the createParticle call that follows can't
+	 * flip it to hidden (see starterApproved).
+	 */
+	public static boolean starterSparkHidden(double x, double y, double z) {
+		starterApproved = false;
+		boolean hide = hidden(ParticleTypes.FIREWORK, x, y, z);
+		starterApproved = !hide;
+		return hide;
+	}
+
 	/** Whether a spawn of this particle type at this position should be dropped. */
 	public static boolean hidden(ParticleOptions options, double x, double y, double z) {
+		if (starterApproved) {
+			// consume the starter's pass on the very next spawn; it is always that spark
+			starterApproved = false;
+			if (options.getType() == ParticleTypes.FIREWORK) {
+				return false;
+			}
+		}
 		if (!Mods.on("particles")) {
 			return false;
 		}

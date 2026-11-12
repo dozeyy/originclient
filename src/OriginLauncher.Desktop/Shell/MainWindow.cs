@@ -234,6 +234,7 @@ public sealed class MainWindow : Window
         _sheet.Children.Add(content);
         _sheet.IsVisible = true;
         _onSheetClosed = onClosed;
+        SyncHomeScene();
     }
 
     public bool SheetOpen => _sheet.IsVisible;
@@ -243,6 +244,7 @@ public sealed class MainWindow : Window
         if (!_sheet.IsVisible) return;
         _sheet.IsVisible = false;
         _sheet.Children.Clear();
+        SyncHomeScene();
         var cb = _onSheetClosed;
         _onSheetClosed = null;
         cb?.Invoke();
@@ -266,6 +268,7 @@ public sealed class MainWindow : Window
         _cover.IsVisible = !underBar || Page == PageKey.Home;
         Art.SetLaunching(true);
         SetBarHidden(!underBar);
+        SyncHomeScene();
     }
 
     public bool CoverOpen => _coverOpen;
@@ -282,12 +285,19 @@ public sealed class MainWindow : Window
         _cover.IsHitTestVisible = false;
         Art.SetLaunching(false);
         SetBarHidden(false);
+        SyncHomeScene();
         _coverMotion.To(Motion.Exit, opacity: 0);
         AfterExit(Motion.Exit, () => _coverGen, () =>
         {
             _cover.IsVisible = false;
             _cover.Children.Clear();
         });
+    }
+
+    // Home's strip steps aside under the version picker (the sheet) and under any cover (launch or update scene).
+    private void SyncHomeScene()
+    {
+        if (_pages.TryGetValue(PageKey.Home, out var home)) ((HomePage)home).SetSceneOpen(_sheet.IsVisible || _coverOpen);
     }
 
     // Under the launch screen the bar fades away and stops taking clicks; it returns with the screen's exit.

@@ -35,7 +35,8 @@ public final class WeatherOverride {
 		// JVM and is also a World, so the mixin would hit it too. Restricting to
 		// the client's own world is what keeps this client-side and cosmetic --
 		// the server's real weather is never touched.
-		return Mods.on("weather") && level == Minecraft.getMinecraft().theWorld;
+		// Level check first: Mods.on reads the config map, which must never happen on the integrated server thread.
+		return level == Minecraft.getMinecraft().theWorld && Mods.on("weather");
 	}
 
 	/** Forced rain level, or null to let vanilla answer. */

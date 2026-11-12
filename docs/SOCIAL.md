@@ -111,8 +111,8 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
       slow: 1..8                                         // poll this many times slower ("Store reserve"); 1 = normal
     }
 - Presence is per (account, client): launcher and game both open = one online account. Online = synced in
-  the last 150 s. A friend who set appearOffline shows `online:false`, no activity, to friends (party members
-  still get its party state, since they're in a party together).
+  the last 150 s. A friend who set appearOffline shows `online:false`, no activity, to friends (the game sends
+  no party state or server while appearOffline is on: see Privacy under the fair-play guard).
 - `server` is only shown to friends (never to strangers), and `activity/server` are null while appearOffline.
 - Party member `state` is returned only to members of that party, and only for members whose `partyState.server`
   equals the caller's own current server (positions are meaningless across servers).
@@ -386,6 +386,11 @@ So the free plan carries a few dozen all-day players (more who play a few hours)
   192.168.x, 127.x, or the integrated server). On every other multiplayer server none of it is sent
   (`partyState` is null) or drawn; the Party HUD shows names + online status only. One central check in the mod
   (`social/FairPlay`). Party chat, warp, friends, DMs and join still work everywhere.
+- Privacy (security audit F3, 2026-11-12): while you appear offline, while the Friends & Party mod is off, and
+  before the first sync has said which you chose, the game sends NO server field at all: `presence.server`
+  is null and `partyState` / `stateServer` are left out (so LAN party positions pause too). Party ping and
+  warp, the two actions that carry a server, refuse while you appear offline and say so. One check in the
+  mod (`Social.shareWhereabouts`, `SocialClient.knownVisible`); `tools/social-privacy-check` guards it in CI.
 
 ## Service notes (what the Worker actually does; services/cosmetics/src/social.js + party.js)
 Everything here is additive to the contract above; client authors rely on these details. Limits live in one

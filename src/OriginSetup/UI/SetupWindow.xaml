@@ -251,7 +251,7 @@
                 <StackPanel>
                     <TextBlock Text="Close Origin Launcher?" Style="{StaticResource Text.Title}"/>
                     <TextBlock Style="{StaticResource Text.BodyDim}" Margin="{StaticResource Top.2}"
-                               Text="It needs to close so setup can replace it. A game that's already running keeps going."/>
+                               Text="It needs to close so Setup can replace it. A game that's already running keeps going."/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="{StaticResource Top.6}">
                         <Button x:Name="RunningCancelButton" Style="{StaticResource Button.Ghost}" Content="Not now"
                                 Click="RunningCancel_Click"/>

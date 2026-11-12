@@ -226,7 +226,7 @@ public static partial class ModManager
         {
             // The checker must never make adding a mod impossible: a bug there is an error line, not a crash.
             return new ImportReport(0, Array.Empty<ReplaceOffer>(), Array.Empty<string>(), Array.Empty<string>(),
-                "Couldn't check that mod: " + ex.Message);
+                PlainError.Sentence("Couldn't check that mod", ex));
         }
     }
 
@@ -332,7 +332,7 @@ public static partial class ModManager
         }
         catch (Exception ex)
         {
-            return ModActionResult.Fail($"Couldn't open the folder: {ex.Message}");
+            return ModActionResult.Fail(PlainError.Sentence("Couldn't open the folder", ex));
         }
     }
 

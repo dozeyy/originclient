@@ -148,7 +148,7 @@ public sealed class DownloadStallTests : IDisposable
         Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
         Assert.Contains("f1", error.Message);
         Assert.Contains("files.test", error.Message);
-        Assert.Contains("The download server refused a file (404).", PlayFailure.From(thrown, "1.21.1").Message);
+        Assert.Contains("The download server turned down a file (error 404).", PlayFailure.From(thrown, "1.21.1").Message);
     }
 
     private static Exception Unwrap(Exception e)

@@ -60,10 +60,28 @@ public final class ModIcons {
 		// 1 down at a quarter of the tint (what Font.drawShadow does), drawn under the icon. Same
 		// alpha, so hover/disabled/fade tints carry over; the offset is in GUI px so it tracks
 		// GUI scale like text. Always on, no setting.
+		// Sizes here are GUI px: the crisp bake is made at size x guiScale device px.
+		drawShadowed(g, id, x, y, size, size * Gfx.guiScale(), argb);
+	}
+
+	/**
+	 * {@link #draw(Gfx, String, int, int, int, int)} for a caller whose pose is already in
+	 * device pixels (OriginDeck scales by 1/guiScale): `size` IS the pixel size, so the crisp
+	 * bake must not multiply it by the GUI scale again.
+	 */
+	public static void drawDevice(Gfx g, String id, int x, int y, int size, int argb) {
+		drawShadowed(g, id, x, y, size, size, argb);
+	}
+
+	private static void drawShadowed(Gfx g, String id, int x, int y, int size, int px, int argb) {
+		// 1.8.9 has no icon SDF shader. The 192 px mask cell sampled GL_LINEAR at ~14x
+		// minification aliased thin strokes (the mod menu's Options gear read as a diamond,
+		// the Edit HUD glyph lost its inner lines -- dev shots 2026-11-12 vs 1.21.1), so menu
+		// icons use the CPU area-averaged bake, the same path the title buttons already use.
 		if (((argb >>> 24) & 0xFF) > 2) {
-			drawRaw(g, id, x + 1, y + 1, size, ((argb >>> 24) << 24) | (((argb >> 18) & 0x3F) << 16) | (((argb >> 10) & 0x3F) << 8) | ((argb >> 2) & 0x3F));
+			drawCrispPx(g, id, x + 1, y + 1, size, px, ((argb >>> 24) << 24) | (((argb >> 18) & 0x3F) << 16) | (((argb >> 10) & 0x3F) << 8) | ((argb >> 2) & 0x3F));
 		}
-		drawRaw(g, id, x, y, size, argb);
+		drawCrispPx(g, id, x, y, size, px, argb);
 	}
 
 	// --- Colour pixel icons (Will, 2026-10-20) -------------------------------------------
@@ -185,6 +203,11 @@ public final class ModIcons {
 	}
 
 	private static void drawCrispRaw(Gfx g, String id, int x, int y, int size, int argb) {
+		drawCrispPx(g, id, x, y, size, size * Gfx.guiScale(), argb);
+	}
+
+	/** The crisp bake of `id` at `px` device pixels, drawn into a size x size box at (x,y). */
+	private static void drawCrispPx(Gfx g, String id, int x, int y, int size, int px, int argb) {
 		try {
 			int a = (argb >>> 24) & 0xFF;
 			if (a <= 2) {
@@ -199,7 +222,7 @@ public final class ModIcons {
 			if (c == null || atlasImg == null) {
 				return;
 			}
-			int px = Math.max(1, size * Gfx.guiScale());
+			px = Math.max(1, px);
 			if (px > CRISP_MAX_PX) {
 				drawRaw(g, id, x, y, size, argb);
 				return;
@@ -212,16 +235,30 @@ public final class ModIcons {
 			ResourceLocation rl = sizes[px];
 			if (rl == null) {
 				java.awt.image.BufferedImage out = new java.awt.image.BufferedImage(px, px, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+				// The whole cell's alpha in one bulk read (the mod menu bakes dozens of icons on
+				// its first open; a getRGB per sample made that open hitch).
+				int cw = Math.min(cell, atlasW - c[0]), ch = Math.min(cell, atlasH - c[1]);
+				int[] al0 = new int[cw * ch];
+				java.awt.image.BufferedImage src = atlasImg;
+				if (src.getAlphaRaster() != null) {
+					src.getAlphaRaster().getPixels(c[0], c[1], cw, ch, al0);
+				} else {
+					src.getRGB(c[0], c[1], cw, ch, al0, 0, cw);
+					for (int i = 0; i < al0.length; i++) {
+						al0[i] = al0[i] >>> 24;
+					}
+				}
 				double step = cell / (double) px;
 				for (int oy = 0; oy < px; oy++) {
 					for (int ox = 0; ox < px; ox++) {
-						double x0 = c[0] + ox * step, x1 = x0 + step, y0 = c[1] + oy * step, y1 = y0 + step;
+						double x0 = ox * step, x1 = x0 + step, y0 = oy * step, y1 = y0 + step;
 						double sum = 0, wsum = 0;
 						for (int sy = (int) Math.floor(y0); sy < y1; sy++) {
 							double wy = Math.min(sy + 1, y1) - Math.max(sy, y0);
+							int row = Math.min(sy, ch - 1) * cw;
 							for (int sx = (int) Math.floor(x0); sx < x1; sx++) {
 								double w = wy * (Math.min(sx + 1, x1) - Math.max(sx, x0));
-								sum += w * (atlasImg.getRGB(Math.min(sx, atlasW - 1), Math.min(sy, atlasH - 1)) >>> 24);
+								sum += w * al0[row + Math.min(sx, cw - 1)];
 								wsum += w;
 							}
 						}

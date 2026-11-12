@@ -398,10 +398,13 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
 
   // The island floats: it hangs from a pivot at its own centre, so the slow
   // bob and sway turn it about the middle rather than swinging it round the origin.
-  const bounds = new THREE.Sphere().setFromPoints([...island.map.keys()].map(k => {
+  const blockCentres = [...island.map.keys()].map(k => {
     const [x, y, z] = k.split(',').map(Number);
     return new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5);
-  }));
+  });
+  const bounds = new THREE.Sphere().setFromPoints(blockCentres);
+  // the island's box, one block wider all round (block edges + its bob and lean): fitSide() projects it
+  const islandBox = new THREE.Box3().setFromPoints(blockCentres).expandByScalar(1);
   const pivot = new THREE.Group();
   pivot.position.copy(bounds.center);
   blocks.position.copy(bounds.center).negate();
@@ -504,6 +507,42 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     fit.sy = (H / 2 - fa.y * H / 2 - cy) / H;   // positive offset lifts the picture
     return fit;
   }
+  // The versions shot (desktop): the island beside the spec sheet must stay right of it. site.js
+  // reports the free strip (zone.sideL..zone.sideR, px). Where the pose's own framing already
+  // clears the sheet (wide windows) it is used as is; otherwise the island is pulled back until it
+  // fits the strip (never closer than the pose) and centred in it, at the pose's own height.
+  const side = { rev: 0, pos: [0, 0, 0], sx: 0, sy: 0 };
+  const sbox = { l: 0, r: 0, t: 0, b: 0 };
+  // the island's on-screen box (px, before any framing shift) for the pose camera pulled back by k
+  function boxAt(q, k) {
+    project(q, k, W, H);   // places fitCam
+    sbox.l = sbox.t = Infinity; sbox.r = sbox.b = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      fb.set(i & 1 ? islandBox.max.x : islandBox.min.x, i & 2 ? islandBox.max.y : islandBox.min.y, i & 4 ? islandBox.max.z : islandBox.min.z).project(fitCam);
+      const x = W / 2 + fb.x * W / 2, y = H / 2 - fb.y * H / 2;
+      sbox.l = Math.min(sbox.l, x); sbox.r = Math.max(sbox.r, x); sbox.t = Math.min(sbox.t, y); sbox.b = Math.max(sbox.b, y);
+    }
+    return sbox;
+  }
+  function fitSide(q) {
+    if (side.rev === rev) return side;
+    side.rev = rev;
+    let k = 1;
+    const b = boxAt(q, 1), cy = (b.t + b.b) / 2 - q.shiftY * H;   // the pose's own vertical place
+    const free = (zone.sideR || 0) - (zone.sideL || 0);
+    if (!(free > 0) || b.l + q.shiftX * W >= zone.sideL) {   // no sheet reported, or the pose already clears it
+      side.pos[0] = q.pos[0]; side.pos[1] = q.pos[1]; side.pos[2] = q.pos[2]; side.sx = q.shiftX; side.sy = q.shiftY;
+      return side;
+    }
+    for (let i = 0; i < 4; i++) { const w = boxAt(q, k); k = Math.min(Math.max(k * (w.r - w.l) / free, 1), 2.6); }
+    const f = boxAt(q, k);
+    side.pos[0] = q.target[0] + (q.pos[0] - q.target[0]) * k;
+    side.pos[1] = q.target[1] + (q.pos[1] - q.target[1]) * k;
+    side.pos[2] = q.target[2] + (q.pos[2] - q.target[2]) * k;
+    side.sx = ((zone.sideL + zone.sideR) / 2 - (f.l + f.r) / 2) / W;
+    side.sy = ((f.t + f.b) / 2 - cy) / H;
+    return side;
+  }
   // Writes the 10 camera numbers of pose `name` into `out` (no allocation per frame).
   const poseValues = (name, out) => {
     const phone = isMobile();
@@ -512,6 +551,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     const q = name === 'hero' && heroPhone ? (window.innerWidth > 600 ? POSES.heroTablet : POSES.heroMobile) : POSES[name];
     let pos = phone && q.posPhone ? q.posPhone : q.pos, sx = phone ? 0 : q.shiftX, sy = phone && q.shiftYPhone !== undefined ? q.shiftYPhone : q.shiftY;
     if (name === 'hero') { const f = fitHero(q, heroPhone); pos = f.pos; sx = f.sx; sy = f.sy; }
+    else if (name === 'versions' && !phone) { const f = fitSide(q); pos = f.pos; sx = f.sx; sy = f.sy; }
     out[0] = pos[0]; out[1] = pos[1]; out[2] = pos[2];
     out[3] = q.target[0]; out[4] = q.target[1]; out[5] = q.target[2];
     out[6] = q.fov; out[7] = sx;

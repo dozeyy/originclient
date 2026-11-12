@@ -13,6 +13,9 @@ namespace OriginSetup.Tests;
 [Collection("download")]
 public class UninstallTests
 {
+    // Commit refuses while Origin Launcher is open; the PC running the tests may well have its own launcher open.
+    public UninstallTests() => Installer.LauncherRunning = () => false;
+
     private static string Temp() => TestKit.Temp("uninst");
 
     private static void Put(string dir, string rel, string text = "x")
@@ -225,6 +228,42 @@ public class UninstallTests
         Assert.Equal(UninstallScope.Nothing, UninstallPlan.For(profile, Temp()).Scope); // only decides; never executed here
         Assert.True(InstallLocation.IsWellKnownFolder(Path.GetPathRoot(Temp())!));
         Assert.False(InstallLocation.IsWellKnownFolder(Temp()));
+        foreach (var personal in new[] { Environment.SpecialFolder.MyPictures, Environment.SpecialFolder.MyMusic, Environment.SpecialFolder.MyVideos })
+        {
+            var path = Environment.GetFolderPath(personal);
+            if (path.Length > 0) Assert.True(InstallLocation.IsWellKnownFolder(path), path);
+        }
+        Assert.True(InstallLocation.IsWellKnownFolder(Path.GetDirectoryName(profile)!)); // C:\Users
+    }
+
+    // A folder link inside the install folder points somewhere that is not Origin's: removing the install
+    // removes the link, and nothing behind it is touched (not even a file's read-only mark).
+    [Fact]
+    public void DeletingAFolderNeverReachesThroughAFolderLink()
+    {
+        if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) return; // Windows-only: mklink /J junctions
+        var outside = Temp();
+        Put(outside, "keep.txt");
+        var keep = Path.Combine(outside, "keep.txt");
+        File.SetAttributes(keep, FileAttributes.ReadOnly);
+        var dir = Path.Combine(Temp(), "Origin");
+        Put(dir, "own.txt");
+        var own = Path.Combine(dir, "own.txt");
+        File.SetAttributes(own, FileAttributes.ReadOnly);
+        var link = Path.Combine(dir, "link");
+        using (var mk = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                   Path.Combine(Environment.SystemDirectory, "cmd.exe"), $"/c mklink /J \"{link}\" \"{outside}\"")
+               { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true })!)
+            mk.WaitForExit();
+        Assert.True(Directory.Exists(link), "the test could not make a folder link");
+        try
+        {
+            FileOps.DeleteTree(dir);
+            Assert.False(Directory.Exists(dir));
+            Assert.True(File.Exists(keep));
+            Assert.True((File.GetAttributes(keep) & FileAttributes.ReadOnly) != 0, "a file outside the install was changed");
+        }
+        finally { File.SetAttributes(keep, FileAttributes.Normal); }
     }
 
     [Fact]
@@ -246,6 +285,24 @@ public class UninstallTests
         Assert.False(File.Exists(Path.Combine(dir, "Bundled", "OriginClient", "originclient-1.20.jar")), "no new-only file stays");
         Assert.False(Directory.Exists(Path.Combine(dir, "_setup-staging")), "everything went back, so staging is cleared");
         Assert.Equal(2, InstallManifest.Read(dir)!.Files.Count); // the record is unchanged
+    }
+
+    [Fact]
+    public void TheMoveIsRefusedWhileTheLauncherIsOpen()
+    {
+        // Opened during the download (an old desktop shortcut): nothing may be replaced under it.
+        var dir = Temp();
+        Put(dir, "OriginLauncher.App.exe", "old launcher");
+        var staged = Installer.Stage(dir, TestKit.Zip(TestKit.MakeLauncherTree()), null, _ => { }, CancellationToken.None, new FakeServer().Client());
+        Installer.LauncherRunning = () => true;
+        try
+        {
+            var ex = Assert.Throws<SetupException>(() => Installer.Commit(staged, dir, createdFolder: false));
+            Assert.Contains("still open", ex.Message);
+        }
+        finally { Installer.LauncherRunning = () => false; }
+        Assert.Equal("old launcher", File.ReadAllText(Path.Combine(dir, "OriginLauncher.App.exe")));
+        Assert.False(Directory.Exists(Path.Combine(dir, "_setup-staging")));
     }
 
     [Fact]

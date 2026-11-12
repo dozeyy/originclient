@@ -136,8 +136,8 @@ public sealed class SettingsPage : Panel, IPage
         _shaderCache.IsOn = s.ShaderCacheNvidia || s.ShaderCacheAmd;
         _shaderCache.Toggled += on => LauncherState.Write(x => { x.ShaderCacheNvidia = on; x.ShaderCacheAmd = on; });
 
-        var presetText = SettingsUi.TitleWhy("Recommended for this PC",
-            "Picks render distance, particles, clouds and graphics to match your PC. Changes video settings in every version you have played.");
+        var presetText = SettingsUi.TitleWhy("Recommended for this computer",
+            "Picks render distance, particles, clouds and graphics to match your computer. Changes video settings in every version you have played.");
         _presetStatus = SettingsUi.Why("");
         _presetStatus.Margin = new Thickness(0, 6, 0, 0);
         _presetStatus.IsVisible = false; // an empty line still took space under the card's text
@@ -421,7 +421,7 @@ public sealed class SettingsPage : Panel, IPage
     private async Task ApplyPresetAsync()
     {
         _preset.IsEnabled = false;
-        ShowPresetStatus("Checking this PC...");
+        ShowPresetStatus("Checking this computer...");
         try
         {
             var (summary, applied, total) = await Task.Run(() =>

@@ -59,7 +59,8 @@
     <Resource Include="..\..\tools\font-atlas\fonts\Inter-600.ttf" Link="Assets\Fonts\Inter-600.ttf" />
     <Resource Include="..\..\tools\font-atlas\fonts\Inter-700.ttf" Link="Assets\Fonts\Inter-700.ttf" />
     <Resource Include="..\..\tools\font-atlas\fonts\Inter-800.ttf" Link="Assets\Fonts\Inter-800.ttf" />
-    <Content Include="..\..\website\assets\fonts\Inter-LICENSE.txt" Link="ThirdParty\Inter-LICENSE.txt"
+    <!-- Inter's OFL notice sits beside the TTFs it covers (the website no longer ships Inter). -->
+    <Content Include="..\..\tools\font-atlas\fonts\OFL-LICENSE.txt" Link="ThirdParty\Inter-LICENSE.txt"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\..\tools\font-atlas\fonts\Monocraft-LICENSE.txt" Link="ThirdParty\Monocraft-LICENSE.txt"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

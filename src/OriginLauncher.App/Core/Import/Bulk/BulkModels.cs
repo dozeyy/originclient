@@ -25,8 +25,12 @@ public static class InstanceIds
     /// </summary>
     public static string BulkId(this DetectedInstance setup) => setup.SetupId;
 
-    /// <summary>How a setup is named to the player in a bulk import: "Prism: Survival" (the launcher, then its own name).</summary>
-    public static string BulkLabel(this DetectedInstance setup) => $"{setup.SourceLabel}: {setup.Name}";
+    /// <summary>
+    /// How a setup is named to the player in a bulk import: "Prism: Survival" (the launcher, then its own name). A name that
+    /// already starts with the launcher's ("Lunar 1.21.1") stands alone, never "Lunar: Lunar 1.21.1".
+    /// </summary>
+    public static string BulkLabel(this DetectedInstance setup) =>
+        setup.Name.StartsWith(setup.SourceLabel, StringComparison.OrdinalIgnoreCase) ? setup.Name : $"{setup.SourceLabel}: {setup.Name}";
 }
 
 public enum BulkSelectionKind

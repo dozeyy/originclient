@@ -75,6 +75,12 @@ public static class Installer
     public const string StagingFolder = "_setup-staging";
 
     /// <summary>
+    /// "Is Origin Launcher open?" for the run and the move. Tests swap it: on a PC whose real launcher is open (Will's)
+    /// every Commit test was refused with "still open" (6 failures that had nothing to do with the change tested).
+    /// </summary>
+    internal static Func<bool> LauncherRunning { get; set; } = LauncherProcess.IsRunning;
+
+    /// <summary>
     /// Disk space to ask for before the real size is known: the download
     /// (~130 MB) plus the unpacked launcher (~230 MB), with headroom. Checked
     /// again with exact numbers once the download is in.
@@ -103,7 +109,7 @@ public static class Installer
                       ?? InstallLocation.ProbeWritable(dir)
                       ?? InstallLocation.SpaceProblem(dir, SpaceEstimate);
         if (problem != null) throw new SetupException(problem);
-        if (LauncherProcess.IsRunning())
+        if (LauncherRunning())
             throw new SetupException("Origin Launcher is still open. Close it and try again.");
 
         var staged = Stage(dir, options.SourceZip, release, report, ct, http, setupExePath);
@@ -224,7 +230,7 @@ public static class Installer
         var backup = Path.Combine(staged.StagingDir, "replaced");
         try
         {
-            if (LauncherProcess.IsRunning())
+            if (LauncherRunning())
                 throw new SetupException("Origin Launcher is still open. Close it and try again.");
             FileOps.MoveTree(staged.FilesDir, dir, backup);
         }
@@ -342,6 +348,14 @@ public static class Installer
             }
             if (setupExePath != null)
                 StageUninstaller(setupExePath, dir, stagedFiles, release, http, ct);
+            // Antivirus can quarantine a file the moment it is written (after its CRC checked out). Moving on would
+            // install a launcher without its exe: "Origin is installed", then Open Origin does nothing.
+            var missing = MissingFiles(zip.Files, stagedFiles);
+            if (missing.Count > 0)
+            {
+                SetupLog.Write($"{missing.Count} unpacked file(s) gone before the move, first: {missing[0]}");
+                throw new SetupException(FilesRemoved);
+            }
             ct.ThrowIfCancellationRequested(); // the last chance before the point of no return
             var version = release?.Version ?? StagedVersion(Path.Combine(stagedFiles, InstallLocation.LauncherExe)) ?? "0.0.0";
             return new StagedInstall(staging, stagedFiles, version);
@@ -352,6 +366,27 @@ public static class Installer
             if (!existed) FileOps.DeleteIfEmpty(dir);
             throw;
         }
+    }
+
+    /// <summary>The Problem page's words when unpacked files vanish before the move (antivirus quarantine).</summary>
+    public const string FilesRemoved =
+        "Part of Origin went missing right after Setup unpacked it. Antivirus software usually does this: allow Origin in it, then try again.";
+
+    /// <summary>The zip's files that are not in <paramref name="dir"/> at their full size ('/'-separated names).</summary>
+    public static List<string> MissingFiles(IEnumerable<LauncherZip.Entry> files, string dir)
+    {
+        var missing = new List<string>();
+        foreach (var f in files)
+        {
+            var path = Path.Combine(dir, f.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            try
+            {
+                var info = new FileInfo(path);
+                if (!info.Exists || info.Length != f.Size) missing.Add(f.RelativePath);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { missing.Add(f.RelativePath); }
+        }
+        return missing;
     }
 
     // "1.0.40" from the launcher exe's file version (a local --source zip has

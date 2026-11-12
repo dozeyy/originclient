@@ -290,8 +290,8 @@ public sealed class SignInPanel : Panel
     {
         _verificationUri = verificationUri;
         _userCode.Text = userCode;
-        var where = $"Go to {DeviceCodeFlow.ShortAddress(verificationUri)} on this PC or your phone and type:";
-        _codeHint.Text = pageFailed ? "Microsoft's sign-in page can't open in Origin on this PC. " + where : where;
+        var where = $"Go to {DeviceCodeFlow.ShortAddress(verificationUri)} on {OriginLauncher.App.Core.Import.Bulk.BulkSummary.ThisComputer} or your phone and type:";
+        _codeHint.Text = pageFailed ? $"Microsoft's sign-in page can't open in Origin on {OriginLauncher.App.Core.Import.Bulk.BulkSummary.ThisComputer}. " + where : where;
         _loadingText.IsVisible = false;
         _message.IsVisible = false;
         _code.IsVisible = true;

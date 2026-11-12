@@ -14,6 +14,14 @@ public partial class UninstallWindow : Window
     private readonly FrameworkElement[] _pages;
     private bool _working;
 
+    /// <summary>Removing files right now: closing would leave half an install (App's crash net keeps the window).</summary>
+    internal bool Busy => _working;
+
+    /// <summary>The uninstall itself ran (Uninstall pressed and past the game check), whatever it left behind.</summary>
+    /// <summary>This uninstaller's own path when it runs from inside the folder it removes (see App.RunUninstall).</summary>
+    internal string? RunningExe { get; set; }
+    internal bool Ran { get; private set; }
+
     public UninstallWindow(string installDir)
     {
         InitializeComponent();
@@ -41,7 +49,15 @@ public partial class UninstallWindow : Window
         // stay on this page (pressing Uninstall again re-checks). Uninstaller.Run refuses too, as a backstop.
         if (removeData)
         {
-            var open = await Task.Run(() => RunningGames.In(Handoff.DataRoot));
+            IReadOnlyList<string> open;
+            try { open = await Task.Run(() => RunningGames.In(Handoff.DataRoot)); }
+            catch (Exception ex)
+            {
+                // Couldn't look: carry on, Uninstaller.Run checks again and keeps the data if it still can't tell.
+                // (Throwing here left the button dead: _working stayed set and the crash net let it go while Busy.)
+                SetupLog.Write("running-game check failed: " + ex.Message);
+                open = Array.Empty<string>();
+            }
             ShowRunningNote(open);
             if (open.Count > 0)
             {
@@ -57,10 +73,11 @@ public partial class UninstallWindow : Window
         RenderProgress(0, removeData);
 
         UninstallResult result;
+        Ran = true;
         try
         {
             result = await Task.Run(() => Uninstaller.Run(_dir, removeData,
-                f => Dispatcher.BeginInvoke(new Action(() => RenderProgress(f, removeData)))));
+                f => Dispatcher.BeginInvoke(new Action(() => RenderProgress(f, removeData))), runningExe: RunningExe));
         }
         catch (Exception ex)
         {
@@ -93,7 +110,7 @@ public partial class UninstallWindow : Window
     private void ShowDone(bool keptData)
     {
         DoneBody.Text = keptData
-            ? "Your accounts, settings and worlds were kept. Reinstall any time to pick up where you left off."
+            ? "Your accounts, settings and worlds were kept, ready for when you reinstall."
             : "Everything is gone, including your Origin data. Thanks for playing.";
         var visible = keptData ? Visibility.Visible : Visibility.Collapsed;
         KeptCaption.Visibility = visible;
@@ -116,6 +133,7 @@ public partial class UninstallWindow : Window
     {
         ProblemBody.Text = result.ProblemText(_dir);
         _problemPath = result.DataLeft ? Handoff.DataRoot : _dir;
+        OpenFolderButton.Visibility = Directory.Exists(_problemPath) ? Visibility.Visible : Visibility.Collapsed;
         ShowPage(ProblemPage);
         Dispatcher.BeginInvoke(new Action(() => WindowFrame.FitPath(ProblemPath, _problemPath)),
             System.Windows.Threading.DispatcherPriority.Loaded);
@@ -142,6 +160,15 @@ public partial class UninstallWindow : Window
     private void ShowPage(FrameworkElement page) => PageMotion.Show(page, _pages);
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    // "Delete the folder yourself" needs the folder: open it in Explorer.
+    private void OpenFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dir = _problemPath;
+        if (!Directory.Exists(dir)) dir = Path.GetDirectoryName(dir.TrimEnd('\\')) ?? dir;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(FinishLaunch.ExplorerExe, "\"" + dir + "\"") { UseShellExecute = false }); }
+        catch (System.ComponentModel.Win32Exception ex) { SetupLog.Write("open folder failed: " + ex.Message); }
+    }
 
     private void Bar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -177,8 +204,16 @@ public partial class UninstallWindow : Window
 
     internal void TourDone(bool keptData) => ShowDone(keptData);
 
-    internal void TourProblem() => ShowProblem(new UninstallResult(installFolderLeft: true, dataLeft: false));
+    // The tour's folders may not exist on the machine that renders it: show Open folder as a real leftover would.
+    internal void TourProblem()
+    {
+        ShowProblem(new UninstallResult(installFolderLeft: true, dataLeft: false));
+        OpenFolderButton.Visibility = Visibility.Visible;
+    }
 
-    internal void TourProblemGameOpen() =>
+    internal void TourProblemGameOpen()
+    {
         ShowProblem(new UninstallResult(installFolderLeft: false, dataLeft: true, new[] { "1.21.1" }));
+        OpenFolderButton.Visibility = Visibility.Visible;
+    }
 }

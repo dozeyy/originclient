@@ -29,7 +29,7 @@ public static class ProfileFolders
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return "Couldn't copy the mods: " + ex.Message;
+            return PlainError.Sentence("Couldn't copy the mods", ex);
         }
     }
 

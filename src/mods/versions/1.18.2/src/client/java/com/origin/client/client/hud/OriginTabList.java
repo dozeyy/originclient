@@ -114,7 +114,9 @@ public final class OriginTabList {
 
 		// filter + reorder (customize only)
 		List<PlayerInfo> list = new ArrayList<>(allInfos);
-		if (customize && Mods.bool("tablist", "hideNpcs")) {
+		// Only on online-mode servers (your own UUID is version 4): on offline-mode servers every real
+		// player has a version-3 UUID, so this filter used to empty the whole list.
+		if (customize && Mods.bool("tablist", "hideNpcs") && self != null && self.version() == 4) {
 			// Real Mojang accounts use version-4 UUIDs; offline/NPC entities (Citizens
 			// etc.) use version-2/3 offline UUIDs — a reliable "fake player" tell.
 			list.removeIf(p -> p.getProfile().getId().version() != 4);

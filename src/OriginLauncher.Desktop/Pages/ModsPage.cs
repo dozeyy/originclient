@@ -209,6 +209,10 @@ public sealed class ModsPage : Panel, IPage
     private void SyncMyMods() => _myMods.IsOn = LauncherState.Settings.PlayWithExternalMods;
 
     // A selected profile owns the mods list for ITS version: adds, toggles and removals go to that profile's folder.
+    // "built-in" with a non-breaking hyphen (U+2011, an escape so the source stays ASCII): Avalonia breaks a line after a
+    // plain hyphen (UAX #14), WPF doesn't, so the intro wrapped as "built-" / "in" (the Mac twin's fix).
+    private const string BuiltIn = "built\u2011in";
+
     // On any other version the page keeps managing the version's normal mods.
     private void ResolveProfile()
     {
@@ -216,10 +220,10 @@ public sealed class ModsPage : Panel, IPage
         _profile = ProfileRules.Active(settings.ModProfiles, settings.SelectedProfileId, _version);
         var selected = settings.ModProfiles.FirstOrDefault(p => p.Id == settings.SelectedProfileId && ProfileRules.IsUsable(p));
         _intro.Text = _profile != null
-            ? $"Mods for your profile \"{_profile.Name}\". Only this profile loads them; Origin's built-in mods stay up to date on their own."
+            ? $"Mods for your profile \"{_profile.Name}\". Only this profile loads them; Origin's {BuiltIn} mods stay up to date on their own."
             : selected != null && _version != null
                 ? $"Your profile \"{selected.Name}\" is for {selected.Version}, so these are your normal mods for this version, shared by all your accounts."
-                : "Your own .jar mods for this version, shared by all your accounts. Origin's built-in mods stay up to date on their own.";
+                : $"Your own .jar mods for this version, shared by all your accounts. Origin's {BuiltIn} mods stay up to date on their own.";
     }
 
     private bool _warming; // Origin's jars are being checked by their bytes (off the UI thread)

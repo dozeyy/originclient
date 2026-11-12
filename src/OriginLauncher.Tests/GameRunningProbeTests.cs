@@ -18,7 +18,9 @@ public sealed class GameRunningProbeTests
     [Fact]
     public void The_game_dir_argument_is_matched_as_one_exact_argument()
     {
-        var dir = "/home/p/OriginLauncher/instances/1.21.1/accounts/abc";
+        // The probe compares against an already-normalized folder (its caller normalizes once), so the
+        // test does too: on Windows GetFullPath turns this into C:\home\..., which is what argv matches.
+        var dir = GameRunningProbe.Normalize("/home/p/OriginLauncher/instances/1.21.1/accounts/abc");
         string[] argv = ["/usr/bin/java", "-Xmx4G", "net.fabricmc.loader.impl.launch.knot.KnotClient", "--gameDir", dir, "--assetsDir", "x"];
         Assert.True(GameRunningProbe.ArgvNamesGameDir(argv, dir, Exact));
         Assert.True(GameRunningProbe.ArgvNamesGameDir(["java", "--gameDir", dir + "/"], dir, Exact));

@@ -139,7 +139,9 @@
                                Margin="{StaticResource Top.2}" SizeChanged="ProblemPath_SizeChanged"/>
                 </StackPanel>
                 <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="ProblemCloseButton" Style="{StaticResource Button.Primary}" Content="Close" Click="Close_Click"/>
+                    <Button x:Name="OpenFolderButton" Content="Open folder" Click="OpenFolder_Click"/>
+                    <Button x:Name="ProblemCloseButton" Style="{StaticResource Button.Primary}" Margin="{StaticResource Left.2}"
+                            Content="Close" Click="Close_Click"/>
                 </StackPanel>
             </Grid>
         </Grid>

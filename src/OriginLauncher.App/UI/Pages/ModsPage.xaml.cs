@@ -631,6 +631,11 @@ public partial class ModsPage : UserControl
         {
             decided = await Task.Run(() => ModManager.WarmOwnership(folder));
         }
+        catch (Exception ex)
+        {
+            // async void: an unreadable mods folder leaves the rows as they are, never the crash window.
+            System.Diagnostics.Debug.WriteLine($"[Mods] ownership check failed: {ex.GetType().Name}");
+        }
         finally
         {
             _warming = false;

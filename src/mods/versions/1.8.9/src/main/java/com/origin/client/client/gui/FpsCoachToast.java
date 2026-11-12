@@ -88,7 +88,7 @@ public final class FpsCoachToast {
 		OriginUi.logo(g, 16, 16, 16, 1f);
 		String title = "FPS Coach has " + count + (count == 1 ? " tip" : " tips");
 		String hint = key != null ? "Press " + key + " to see " + (count == 1 ? "it" : "them")
-				: "Open it from the Origin mod menu";
+				: "Find " + (count == 1 ? "it" : "them") + " in the Origin menu"; // at most 138 px of the 152 px text column, never cut off (shown when K is unbound)
 		OriginText.drawBold(g, font, OriginText.ellipsize(font, title, W - 38), 30, 7, OriginTheme.TEXT, false);
 		OriginText.draw(g, font, OriginText.ellipsize(font, hint, W - 38), 30, 19, OriginTheme.TEXT_DIM, false);
 	}

@@ -26,8 +26,10 @@ public sealed record BulkDoneView(
 
 public static class BulkSummary
 {
-    /// <summary>The player's computer as the import's words name it: "this Mac" in the Mac launcher, "this PC" on Windows.</summary>
-    public static readonly string ThisComputer = OperatingSystem.IsMacOS() ? "this Mac" : "this PC";
+    /// <summary>The player's computer as the launcher's words name it: "this Mac" in the Mac launcher, "this computer" on
+    /// Linux (a Linux player doesn't call it a PC), "this PC" on Windows.</summary>
+    public static readonly string ThisComputer =
+        OperatingSystem.IsMacOS() ? "this Mac" : OperatingSystem.IsLinux() ? "this computer" : "this PC";
 
     public static readonly string FilesTitle = $"Files Minecraft needs (already on {ThisComputer})";
     public const string TerrainTitle = "Distant Horizons / Voxy terrain";

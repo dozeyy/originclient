@@ -1177,7 +1177,7 @@ public partial class HomePage : UserControl
         }
         catch (Exception ex)
         {
-            Note(key, await LaunchFailureTextAsync(ex, $"Launch failed: {DescribeError(ex)}"), LaunchTone.Error);
+            Note(key, await LaunchFailureTextAsync(ex, DescribeError(ex)), LaunchTone.Error);
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed: {ex}");
             WriteLaunchErrorLog(ex);
             if (provisioning) failure = PlayFailure.From(ex, version);
@@ -1552,7 +1552,7 @@ public partial class HomePage : UserControl
             OriginPaths.EnsureScaffold();
             File.WriteAllText(
                 Path.Combine(OriginPaths.Logs, $"launcher_error_{DateTime.Now:yyyyMMdd_HHmmss}.log"),
-                ex.ToString());
+                Core.Loaders.RequiredModMissingException.LogText(ex));
         }
         catch
         {
@@ -1573,29 +1573,13 @@ public partial class HomePage : UserControl
     // never waits on GitHub.
     private static Task<string> LaunchFailureTextAsync(Exception ex, string upToDateMessage) =>
         LaunchFailureText.ForAsync(ex, upToDateMessage,
-            "Launch failed - please update the launcher (press Update at the top). This is very likely already fixed in the newest version.",
+            "This is fixed in the newest Origin. Press Update at the top, then Play.",
             UpdateService.CheckAsync, () => UpdateService.UpdateRequired);
 
-    // A concise, reportable error string for an up-to-date build: the top-level
-    // message plus the innermost cause (for wrapped failures like a TLS reset,
-    // that inner message is the part that matters), tagged with a short code the
-    // user can quote. Full detail still goes to the launcher_error log.
-    private static string DescribeError(Exception ex)
-    {
-        var inner = ex;
-        while (inner.InnerException != null) inner = inner.InnerException;
-
-        var code = ex is System.Net.Http.HttpRequestException http
-                   && http.HttpRequestError != System.Net.Http.HttpRequestError.Unknown
-            ? http.HttpRequestError.ToString()
-            : inner.GetType().Name;
-
-        var detail = ReferenceEquals(inner, ex) || inner.Message == ex.Message
-            ? ex.Message
-            : $"{ex.Message} - {inner.Message}";
-
-        return $"{detail} [{code}]";
-    }
+    // The line under Play for an up-to-date build: the cause in plain words and what to do (Core/PlainError).
+    // .NET's own text (paths with the Windows user name, type names like Win32Exception) never reaches the
+    // screen; the full error, inner causes included, goes to the launcher_error log (WriteLaunchErrorLog).
+    private static string DescribeError(Exception ex) => PlainError.Sentence("Couldn't start Minecraft", ex);
 
     // Starts one game: redirects its stdout/stderr to a per-launch log file
     // (named for the version AND the account — several games can run at once)

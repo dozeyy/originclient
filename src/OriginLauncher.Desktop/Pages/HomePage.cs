@@ -42,6 +42,8 @@ public sealed class HomePage : Panel, IPage
     private readonly TextBlock _runningLabel;
     private readonly LoadingSpinner _spinner = new(20) { IsVisible = false };
     private (string Text, Tone Tone)? _statusOverride;
+    private readonly Tween _stripMotion;
+    private bool _sceneOpen;
 
     public LaunchController Launches { get; }
 
@@ -165,6 +167,8 @@ public sealed class HomePage : Panel, IPage
         _strip.Children.Add(right.At(2));
         Children.Add(_strip);
         Children.Add(_cardSlot);
+        _stripMotion = new Tween(_strip, transform: true, opacityEasing: Motion.Out, transformEasing: Motion.Out);
+        _stripMotion.Jump(opacity: 1, transform: "none");
 
         SizeChanged += (_, _) => Layout();
         LauncherState.SettingsChanged += Refresh;
@@ -206,6 +210,19 @@ public sealed class HomePage : Panel, IPage
     {
         if (count is { } n) _playersText.Text = App.Core.Social.SocialText.PlayersOnline(n);
         _playersPill.IsVisible = count != null;
+    }
+
+    /// <summary>
+    /// The strip steps aside (fades out and drops 16 px, no clicks) while the version picker, the launch screen or the
+    /// update scene is over Home, and comes back when they close: WPF HomePage.OnSceneVisibilityChanged. Without it the
+    /// version card, MY MODS and Play showed through the launch screen's scrim, under its own corner text.
+    /// </summary>
+    public void SetSceneOpen(bool open)
+    {
+        if (open == _sceneOpen) return;
+        _sceneOpen = open;
+        _strip.IsHitTestVisible = !open;
+        _stripMotion.To(Motion.Ms(open ? 200 : 260), opacity: open ? 0 : 1, transform: open ? "translateY(16px)" : "none");
     }
 
     public void Shown()

@@ -371,7 +371,7 @@ internal sealed partial class ImportPage
         var page = ImportRows.List();
         page.Children.Add(ImportParts.Section("VERSION"));
         (box.Parent as Panel)?.Children.Remove(box); // one picker for the setup: it keeps its state across re-renders
-        box.MaxWidth = 320;
+        box.Width = 320; // one steady field whatever it shows ("Pick a version", "1.21.1"), never a bare chevron
         box.HorizontalAlignment = HorizontalAlignment.Left;
         box.Margin = new Thickness(0, 2, 0, 0);
         page.Children.Add(box);
@@ -619,8 +619,8 @@ internal sealed partial class ImportPage
         page.Children.Add(ImportParts.Section("SETTINGS, PACKS AND MORE", count));
         if (reusedFiles.Count > 0)
             page.Children.Add(ImportRows.Report(
-                $"{ImportLogic.Plural(reusedFiles.Count, "file", "files")} Minecraft needs (already on this PC)",
-                $"Copied from another launcher on this PC ({ImportSummary.Megabytes(reusedFiles.Sum(l => l.Bytes))}), checked before use.",
+                $"{ImportLogic.Plural(reusedFiles.Count, "file", "files")} Minecraft needs (already on {BulkSummary.ThisComputer})",
+                $"Copied from another launcher on {BulkSummary.ThisComputer} ({ImportSummary.Megabytes(reusedFiles.Sum(l => l.Bytes))}), checked before use.",
                 null, "Reused", Palette.Info));
         foreach (var l in other)
             page.Children.Add(ImportRows.Report(l.Name, l.Reason, null, SectionStatus(l.Section), SectionBrush(l.Section)));

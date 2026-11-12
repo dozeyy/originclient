@@ -45,7 +45,7 @@ public static class RenderTour
                                                Snap(setup, outDir, "05-ready-long-path");
         setup.TourEditingPath(@"D:\Games\Minecraft\Launchers\Origin Launcher\A Very Long Folder Name For A Player Who Likes Order\OriginLauncher");
                                                Snap(setup, outDir, "21-ready-editing-path");
-        setup.TourLocationProblem("Origin can't go in Program Files or Windows. It updates itself, which needs a folder you own.");
+        setup.TourLocationProblem(InstallLocation.Problem(@"C:\Program Files\OriginLauncher", new[] { @"C:\Program Files" })!);
                                                Snap(setup, outDir, "06-ready-folder-problem");
         setup.TourInstalling(new InstallProgress(InstallStage.Downloading, 0.42, 53 * mb, 126 * mb, "1.0.40"), "Installing Origin");
                                                Snap(setup, outDir, "07-installing-download");
@@ -67,6 +67,27 @@ public static class RenderTour
         setup.TourCustomize(changed: true);    Snap(setup, outDir, "19-ready-customize-changed");
         setup.TourCustomize(changed: false, keyboardFocusOnSlider: true);
                                                Snap(setup, outDir, "20-ready-customize-keyboard-focus");
+        // The worst cases for room and wording (added 2026-11-12): every finishing step refused, the tallest Ready, a
+        // non-English user name in the path (glyphs outside Inter fall back to Segoe UI), and the failure pages.
+        setup.TourDone("Origin is installed", "Installed, version 1.0.40", new[]
+        {
+            "Windows didn't let Setup add Origin to Installed apps. Run Setup again later to add it.",
+            "Couldn't add Origin to the Start menu.",
+            "Couldn't add a desktop shortcut: Windows protects your desktop from new files.",
+            "Couldn't change Start with Windows. You can set it in Origin's Settings.",
+            "Your Customize choices weren't saved. You can set them in Origin's Settings.",
+        }, onDesktop: false);                  Snap(setup, outDir, "23-done-every-step-refused");
+        setup.TourCustomizeWithProblem(InstallLocation.Problem(@"C:\Program Files\OriginLauncher", new[] { @"C:\Program Files" })!);
+                                               Snap(setup, outDir, "24-ready-customize-folder-problem");
+        setup.TourReady(null, "C:\\Users\\\uAE40\uBBFC\uC900 \u0410\u043D\u043D\u0430 \u3086\u3046\u3053\\AppData\\Local\\Programs\\OriginLauncher");
+                                               Snap(setup, outDir, "25-ready-non-english-path");
+        setup.TourProblem(InstallFailure.Describe(new SetupException("Origin Launcher is still open. Close it and try again."), updating: true)!);
+                                               Snap(setup, outDir, "26-problem-update-not-done");
+        setup.TourProblem(InstallFailure.Describe(new SetupException(Installer.FilesRemoved), updating: false)!);
+                                               Snap(setup, outDir, "27-problem-antivirus");
+        setup.TourProblem(InstallFailure.Describe(new IOException("disk full", unchecked((int)0x80070070)), updating: false)!);
+                                               Snap(setup, outDir, "28-problem-disk-full");
+        setup.TourLaunchFailed();              Snap(setup, outDir, "29-problem-launch-failed");
         setup.Close();
 
         var uninstall = new UninstallWindow(InstallLocation.Default) { ShowActivated = false };

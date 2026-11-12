@@ -276,7 +276,7 @@ public static class ModImporter
     public static ImportReport Apply(IReadOnlyList<ImportItem> items, ImportContext context)
     {
         try { Directory.CreateDirectory(context.Folder); }
-        catch (Exception ex) { return Failed($"Couldn't open the mods folder: {ex.Message}"); }
+        catch (Exception ex) { return Failed(PlainError.Sentence("Couldn't open the mods folder", ex)); }
 
         int added = 0, already = 0, skipped = 0;
         var turnedOn = new List<string>();

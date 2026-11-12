@@ -81,7 +81,7 @@ public static class LegacyStackInstaller
             var destPath = Path.Combine(modsFolder, mod.FileName);
             if (File.Exists(destPath) || File.Exists(destPath + ".disabled")) continue;
 
-            progress?.Report($"Downloading {mod.FileName}...");
+            progress?.Report("Downloading Origin's mods...");
             // A perf mod is an enhancement, not a requirement: a failed or refused (hash mismatch) download
             // leaves the game launching without it, and the next launch retries.
             await PinnedDownload.TryDownloadAsync(Http, mod.Url, destPath, mod.Sha256, ct);

@@ -84,14 +84,17 @@ public sealed record PlayFailure(string Title, string Message)
                 case IOException io when IsDiskFull(io):
                     return "Your disk is full. Free up some space.";
                 case UnauthorizedAccessException:
-                    return "Origin can't write to its game folder. Close anything using it.";
-                case HttpRequestException { StatusCode: not null } http:
-                    return $"The download server refused a file ({(int)http.StatusCode}).";
+                    return "Something blocked Origin from saving game files - often an antivirus. Allow Origin in it, or close Minecraft.";
+                // A busy server (429, 5xx) clears on its own; anything else gets its code for a support question.
+                case HttpRequestException { StatusCode: { } status } when (int)status is 429 or >= 500:
+                    return "Minecraft's download server is busy. Wait a minute.";
+                case HttpRequestException { StatusCode: { } status }:
+                    return $"The download server turned down a file (error {(int)status}).";
                 case HttpRequestException:
                     return "Can't reach Minecraft's download servers. Check your internet connection.";
                 case TimeoutException:
                 case TaskCanceledException:
-                    return "A download took too long.";
+                    return "A download took too long. Check your internet connection.";
             }
         }
         return "Something went wrong while downloading the game.";

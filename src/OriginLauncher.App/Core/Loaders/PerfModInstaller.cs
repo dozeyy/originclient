@@ -39,7 +39,7 @@ public static class PerfModInstaller
                 || Mods.ModManager.TryRestoreOriginsJar(modsFolder, mod.FileName, mod.Matches)
                 || File.Exists(destPath + ".disabled")) continue;
 
-            progress?.Report($"Downloading {mod.FileName}...");
+            progress?.Report("Downloading Origin's mods...");
             try
             {
                 // The same tries as Mojang's game files (DownloadRetry): one stalled Sodium/Iris download on a shaky
@@ -50,7 +50,7 @@ public static class PerfModInstaller
                                        || (ex is OperationCanceledException && !ct.IsCancellationRequested))
             {
                 if (!HasOriginsCopyOfFamily(modsFolder, mod.FileName)) throw;
-                progress?.Report($"Couldn't update {mod.FileName} right now - playing with the one installed");
+                progress?.Report("Couldn't update one of Origin's mods right now - playing with the one you have");
             }
         }
     }

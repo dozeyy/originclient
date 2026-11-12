@@ -59,6 +59,9 @@ public partial class SetupWindow : Window
     private InstallOptions? _pendingOptions;
     private string? _installedDir;
 
+    /// <summary>Installing right now (App's crash net keeps the window open then: closing would stop the move halfway).</summary>
+    internal bool Busy => _installing;
+
     // Progress arrives from a worker thread; the UI samples it on a timer.
     private readonly DispatcherTimer _progressTimer;
     private volatile InstallProgress _progress = new InstallProgress(InstallStage.Preparing, 0);
@@ -73,6 +76,8 @@ public partial class SetupWindow : Window
         _pages = new FrameworkElement[] { ReadyPage, InstallingPage, DonePage, ProblemPage };
         _existing = Registration.FindExisting();
 
+        // The taskbar button mirrors the bar, so a minimised install still shows how far it is.
+        TaskbarItemInfo = new System.Windows.Shell.TaskbarItemInfo();
         _progressTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _progressTimer.Tick += (_, _) => RenderProgress();
         // Typing in the folder box: re-check 250 ms after the last keystroke, not on every one.
@@ -227,11 +232,29 @@ public partial class SetupWindow : Window
     private void FitHeight(bool onReady)
     {
         double h = (double)FindResource(onReady && _customizeOpen ? "Size.WindowHeightOpen" : "Size.WindowHeight");
+        h += Overflow(h);
         if (Math.Abs(Height - h) < 0.5) return;
         Height = h;
         // Growing must not push the footer below the screen: slide the window up instead.
         var work = SystemParameters.WorkArea;
         if (!double.IsNaN(Top) && Top + h > work.Bottom) Top = Math.Max(work.Top, work.Bottom - h);
+    }
+
+    // How much taller the visible page needs to be at window height h. A Done page listing every refused finishing
+    // step (or a long problem) pushes the footer down instead of running its last lines under the buttons.
+    private double Overflow(double h)
+    {
+        if (Array.Find(_pages, p => p.Visibility == Visibility.Visible) is not Grid page || page.Children.Count == 0)
+            return 0;
+        Height = h;
+        UpdateLayout();
+        var content = (FrameworkElement)page.Children[0];
+        content.Measure(new Size(page.ActualWidth, double.PositiveInfinity));
+        double room = page.RowDefinitions.Count > 0 ? page.RowDefinitions[0].ActualHeight : page.ActualHeight;
+        // Only a real overrun grows the window (the designed sizes stay exact); then the footer gets the usual gap.
+        if (content.DesiredSize.Height <= room) return 0;
+        double gap = ((Thickness)FindResource("Top.4")).Top;
+        return Math.Ceiling(content.DesiredSize.Height + gap - room);
     }
 
     private void RamSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -434,6 +457,7 @@ public partial class SetupWindow : Window
         {
             _installing = false;
             Bar.CanClose = true;
+            TaskbarItemInfo.ProgressState = System.Windows.Shell.TaskbarItemProgressState.None;
         }
     }
 
@@ -443,6 +467,8 @@ public partial class SetupWindow : Window
         double f = Math.Max(0, Math.Min(1, p.Fraction));
         PageMotion.Width(ProgressFill, ProgressTrack.ActualWidth * f);
         PercentText.Text = $"{f * 100:0}%";
+        TaskbarItemInfo.ProgressState = System.Windows.Shell.TaskbarItemProgressState.Normal;
+        TaskbarItemInfo.ProgressValue = f;
         StageText.Text = _cts?.IsCancellationRequested == true && p.Stage <= InstallStage.Unpacking ? "Cancelling" : p.Stage switch
         {
             InstallStage.Preparing => "Getting ready",
@@ -467,10 +493,9 @@ public partial class SetupWindow : Window
 
     private void HandleInstallFailure(Exception ex)
     {
-        var all = ex is AggregateException agg ? agg.Flatten().InnerExceptions.ToList() : new List<Exception> { ex };
         SetupLog.Write("install failed: " + ex);
-
-        if (all.Any(e => e is OperationCanceledException))
+        var failure = InstallFailure.Describe(ex, updating: _existing != null);
+        if (failure == null)
         {
             _noteOverride = "Install cancelled. Nothing was changed.";
             FillReady();
@@ -484,18 +509,7 @@ public partial class SetupWindow : Window
             _release = null;
             LookUpRelease();
         }
-        var first = all[0];
-        if (first is DownloadException de)
-            ShowProblem("Couldn't download Origin", de.Message, canRetry: true);
-        else if (first is SetupException se)
-            ShowProblem("Origin wasn't installed", se.Message, canRetry: true);
-        else if (first is InvalidDataException || first is EndOfStreamException)
-            // Only a local --source zip gets here; a damaged download is a DownloadException.
-            ShowProblem("This package is damaged", "The launcher package Setup was given is incomplete or corrupted.", canRetry: false);
-        else if (first is UnauthorizedAccessException || first is IOException)
-            ShowProblem("Origin wasn't installed", "A file couldn't be written. Close anything that might be using Origin's folder (or pause your antivirus scan), then try again.", canRetry: true);
-        else
-            ShowProblem("Something went wrong", "Setup hit an unexpected error. Try again. If it keeps happening, use Copy details and send it to us.", canRetry: true);
+        ShowProblem(failure.Title, failure.Body, failure.CanRetry);
     }
 
     // ---------- Done / Problem ----------
@@ -515,15 +529,24 @@ public partial class SetupWindow : Window
                 Shortcuts.Create(shortcut, exe, "Origin Launcher", start.Arguments);
                 start = FinishLaunch.UnelevatedStartInfo(shortcut);
             }
+            if (!File.Exists(exe)) throw new FileNotFoundException("launcher missing after install", exe);
             Process.Start(start);
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is FileNotFoundException
                                    || ex is System.Runtime.InteropServices.COMException || ex is UnauthorizedAccessException)
         {
+            // Closing as if it worked left the player with nothing on screen and no idea why (antivirus removing the
+            // fresh exe is the usual cause). Say so; Try again reinstalls over it.
             SetupLog.Write("launch failed: " + ex.Message);
+            _existing = Registration.FindExisting();
+            ShowProblem("Origin couldn't open", LaunchFailed, canRetry: true);
+            return;
         }
         Close();
     }
+
+    public const string LaunchFailed =
+        "Windows didn't start Origin. If your antivirus removed or blocked it, allow Origin in it, then try again.";
 
     private static bool IsElevated()
     {
@@ -584,7 +607,13 @@ public partial class SetupWindow : Window
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape && RunningOverlay.Visibility == Visibility.Visible) HideRunningDialog();
+        if (e.Key != Key.Escape) return;
+        if (RunningOverlay.Visibility == Visibility.Visible) HideRunningDialog();
+        // Typing a folder: Esc only leaves the box (back to the shortened path), it doesn't close Setup.
+        else if (LocationBox.IsKeyboardFocused) { if (!InstallButton.Focus()) Keyboard.ClearFocus(); }
+        // Esc closes Setup like its Cancel/Close buttons, except while installing (Cancel is the way out then) and
+        // inside the open version list (Esc closes the list first).
+        else if (!_installing && !VersionCombo.IsDropDownOpen && InstallingPage.Visibility != Visibility.Visible) Close();
     }
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -677,6 +706,18 @@ public partial class SetupWindow : Window
 
     internal void TourProblem() =>
         ShowProblem("Couldn't download Origin", DownloadException.CantConnect, canRetry: true);
+
+    internal void TourProblem(InstallFailure failure) => ShowProblem(failure.Title, failure.Body, failure.CanRetry);
+
+    internal void TourLaunchFailed() => ShowProblem("Origin couldn't open", LaunchFailed, canRetry: true);
+
+    /// <summary>Customize open with a two-line folder problem: the tallest Ready can get.</summary>
+    internal void TourCustomizeWithProblem(string problem)
+    {
+        TourCustomize(changed: false);
+        ShowLocationStatus(problem, isProblem: true);
+        UpdateLayout();
+    }
 
     internal void TourOriginOpen()
     {

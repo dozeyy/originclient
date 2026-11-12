@@ -42,7 +42,12 @@
       "mcp__Claude_Browser__find",
       "mcp__ccd_session_mgmt__search_session_transcripts",
       "mcp__visualize__read_me",
-      "mcp__terminal__read_terminal"
+      "mcp__terminal__read_terminal",
+      "Bash(unzip -Z1 *)",
+      "PowerShell(ConvertFrom-Json)",
+      "PowerShell(ConvertFrom-Json *)",
+      "PowerShell(ConvertTo-Json *)",
+      "mcp__ccd_session_mgmt__get_session"
     ]
   },
   "enabledPlugins": {

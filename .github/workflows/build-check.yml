@@ -32,6 +32,7 @@ on:
       - "tools/waypoint-scope-check/**"
       - "tools/hud-layout-tests/**"
       - "tools/locraw-tests/**"
+      - "tools/social-privacy-check/**"
       - "tools/glyph-coverage-tests/**"
       - "tools/compat-gates/**"
       - "tools/shader-hook-tests/**"
@@ -65,6 +66,7 @@ on:
       - "tools/waypoint-scope-check/**"
       - "tools/hud-layout-tests/**"
       - "tools/locraw-tests/**"
+      - "tools/social-privacy-check/**"
       - "tools/glyph-coverage-tests/**"
       - "tools/compat-gates/**"
       - "tools/shader-hook-tests/**"
@@ -174,6 +176,11 @@ jobs:
       # /locraw reply -> /play id, one ask per world, only Origin's own answer hidden from chat.
       - name: Test Hypixel /locraw reader
         run: python3 tools/locraw-tests/run.py
+      # Where you are never reaches Origin's service while you appear offline or Friends & Party is
+      # off (security audit F3): no server address, LAN key or party position in a sync, and party
+      # pings/warps refuse; checked as source in every live module (social/Social + SocialClient).
+      - name: Check social privacy
+        run: python3 tools/social-privacy-check/run.py
       # Origin's Inter text never leaves a letter it lacks as a blank gap (gui/GlyphCoverage, LOC-1):
       # accented, Cyrillic or Chinese strings are drawn in Minecraft's font; checked against the real atlas.
       - name: Test Inter glyph fallback

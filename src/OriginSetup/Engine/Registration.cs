@@ -60,7 +60,8 @@ public static class Registration
         key.SetValue("InstallLocation", installDir + "\\");
         key.SetValue("UninstallString", $"\"{uninstaller}\" --uninstall");
         key.SetValue("QuietUninstallString", $"\"{uninstaller}\" --uninstall --silent");
-        key.SetValue("URLInfoAbout", "https://github.com/dozeyy/originclient");
+        // Installed apps' "Support link": the player-facing site (the code host means nothing to a player).
+        key.SetValue("URLInfoAbout", "https://originclient.org/");
         key.SetValue("InstallDate", DateTime.Now.ToString("yyyyMMdd"));
         key.SetValue("EstimatedSize", (int)Math.Min(int.MaxValue, DirectorySizeKb(installDir)), RegistryValueKind.DWord);
         key.SetValue("NoModify", 1, RegistryValueKind.DWord);

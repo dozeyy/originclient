@@ -91,7 +91,7 @@ public static partial class RepairExecutor
             // Where it stopped is in the journal: RecoverCopies (run before the next fix) keeps the copy if settings
             // name it and removes the folders otherwise. Only the staging folder is cleared now.
             ProfileFolders.Delete(staging);
-            return Failed("Couldn't make the fixed copy - " + ex.Message);
+            return Failed(PlainError.Sentence("Couldn't make the fixed copy", ex));
         }
     }
 
@@ -178,7 +178,7 @@ public static partial class RepairExecutor
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return "Couldn't copy the mods: " + ex.Message;
+            return PlainError.Sentence("Couldn't copy the mods", ex);
         }
     }
 

@@ -2,6 +2,7 @@ package com.origin.client.client.mixin;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -34,7 +35,7 @@ public class IrisWatermarkMixin {
 	// irisTextComponent is declared final in Iris; @Mutable strips that at apply
 	// so the constructor-TAIL write is legal (a plain @Shadow write to a final
 	// field throws IllegalAccessError — it's only allowed from the real <init>).
-	@Mutable @Shadow private MutableComponent irisTextComponent;
+	@Final @Mutable @Shadow private MutableComponent irisTextComponent;
 	@Shadow private MutableComponent developmentComponent;
 	@Shadow private MutableComponent updateComponent;
 
