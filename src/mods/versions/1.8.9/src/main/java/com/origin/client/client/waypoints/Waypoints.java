@@ -226,7 +226,7 @@ public final class Waypoints {
 	public static synchronized void save() {
 		ensureLoaded();
 		if (loadedKey == null) {
-			com.origin.client.OriginClient.LOGGER.warn("Origin waypoints: save skipped, not in a world");
+			com.origin.client.OriginClient.LOGGER.debug("Origin waypoints: save skipped, not in a world"); // normal when the screen closes from the title
 			return;
 		}
 		write(loadedKey, ALL);

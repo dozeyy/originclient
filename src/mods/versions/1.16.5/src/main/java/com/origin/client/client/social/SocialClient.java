@@ -453,6 +453,22 @@ public final class SocialClient {
 		return me != null && me.appearOffline();
 	}
 
+	/**
+	 * Appear Offline is known to be off (a sync said so, or you just switched it off).
+	 * Unknown counts as hidden, so where you are never leaves before the first sync.
+	 */
+	public static boolean knownVisible() {
+		Boolean p = appearOfflinePending;
+		if (p != null) {
+			return !p;
+		}
+		Me me = state.me();
+		return me != null && !me.appearOffline();
+	}
+
+	/** Why a party ping or warp (both carry where you are) isn't sent while you appear offline. */
+	public static final String HIDDEN = "You appear offline, so pings and warps are off";
+
 	/** Active pings, including ones you just sent. */
 	public static List<Ping> pings() {
 		List<Ping> out = new ArrayList<>(state.pings());
@@ -611,6 +627,9 @@ public final class SocialClient {
 	}
 
 	public static CompletableFuture<String> ping(String server, String dim, double x, double y, double z, String label) {
+		if (!knownVisible()) {
+			return CompletableFuture.completedFuture(HIDDEN);   // never sends where you are
+		}
 		Me me = state.me();
 		LOCAL_PINGS.add(new Ping("local-" + System.nanoTime(), me != null ? me.uuid() : "", me != null ? me.name() : "You",
 				server, dim, x, y, z, label, System.currentTimeMillis() + 60_000));
@@ -631,6 +650,9 @@ public final class SocialClient {
 	}
 
 	public static CompletableFuture<String> warp(String server, String version) {
+		if (!knownVisible()) {
+			return CompletableFuture.completedFuture(HIDDEN);   // never sends where you are
+		}
 		JsonObject b = new JsonObject();
 		b.addProperty("server", server);
 		b.addProperty("version", version);

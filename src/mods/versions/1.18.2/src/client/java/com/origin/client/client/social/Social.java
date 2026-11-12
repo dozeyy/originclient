@@ -79,6 +79,15 @@ public final class Social {
 		return Mods.on(MOD) && Mods.bool(MOD, key);
 	}
 
+	/**
+	 * May the service learn where you are (the server's address, a LAN world's key, your
+	 * party position)? Only with Friends & Party on and Appear Offline known to be off:
+	 * before the first sync says which you chose, the answer is no (docs/SOCIAL.md, Privacy).
+	 */
+	static boolean shareWhereabouts() {
+		return Mods.on(MOD) && SocialClient.knownVisible();
+	}
+
 	public static String version() {
 		try {
 			return SharedConstants.getCurrentVersion().getName();
@@ -133,16 +142,18 @@ public final class Social {
 
 	private static SocialClient.Presence presence(Minecraft mc) {
 		String version = version();
+		// Appear Offline or Friends & Party off: no server field of any kind leaves the game.
+		boolean share = shareWhereabouts();
 		if (mc.level == null) {
 			return new SocialClient.Presence("menu", null, version, null);
 		}
 		if (mc.hasSingleplayerServer()) {
-			return new SocialClient.Presence("singleplayer", null, version, partyState(mc));
+			return new SocialClient.Presence("singleplayer", null, version, share ? partyState(mc) : null);
 		}
-		String server = currentServer(mc);
+		String server = share ? currentServer(mc) : null;
 		// A private LAN address means nothing to a friend elsewhere: "Playing online".
 		String shown = server != null && FairPlay.isPrivate(FairPlay.host(server)) ? null : server;
-		return new SocialClient.Presence("server", shown, version, partyState(mc));
+		return new SocialClient.Presence("server", shown, version, share ? partyState(mc) : null);
 	}
 
 	/** Your position for the party: only in a LAN world (FairPlay), only while in a party. */
@@ -276,6 +287,10 @@ public final class Social {
 		}
 		if (!SocialClient.state().inParty()) {
 			mc.player.displayClientMessage(new TextComponent("Join a party to ping"), true);
+			return;
+		}
+		if (!SocialClient.knownVisible()) {
+			mc.player.displayClientMessage(new TextComponent(SocialClient.HIDDEN), true);
 			return;
 		}
 		String server = FairPlay.positionKey(mc);
