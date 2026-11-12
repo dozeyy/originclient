@@ -42,7 +42,7 @@ public class FireworkStarterMixin {
 												double xSpeed, double ySpeed, double zSpeed,
 												IntList colors, IntList fadeColors,
 												boolean trail, boolean twinkle, CallbackInfo ci) {
-		if (ParticleFilter.hidden(ParticleTypes.FIREWORK, x, y, z)) {
+		if (ParticleFilter.starterSparkHidden(x, y, z)) {
 			ci.cancel();
 		}
 	}
