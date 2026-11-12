@@ -300,6 +300,9 @@ figcaption { margin-top: 14px; color: var(--text); font-size: 15px; font-weight:
 .specs { list-style: none; display: flex; flex-wrap: wrap; row-gap: 4px; margin: 26px 0 0 -22px; padding: 0; clip-path: inset(0 0 0 22px); color: var(--muted); font: 400 13px/1.5 var(--mono); }
 .specs[hidden], .specs li[hidden] { display: none; }
 .specs li::before { content: "·"; display: inline-block; width: 22px; text-align: center; color: var(--stroke); }
+/* the live download count (site.js initDownloadCount): digits keep their width as it rolls */
+[data-dl-count] { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+[data-dl][hidden] { display: none; }
 
 /* ---------- footer ---------- */
 .foot { position: relative; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 20px 40px; padding: 36px var(--pad) 40px; border-top: 1px solid var(--soft); color: var(--muted); font-size: 14px; }
