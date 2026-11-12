@@ -35,6 +35,9 @@ public class PlainErrorTests
         { new PathTooLongException(UserPath), "too long" },
         { new InvalidDataException("End of Central Directory record could not be found."), "damaged" },
         { new HttpRequestException("No such host is known. (api.modrinth.com:443)"), "internet connection" },
+        { new HttpRequestException("503", null, System.Net.HttpStatusCode.ServiceUnavailable), "busy" },
+        { new HttpRequestException("429", null, System.Net.HttpStatusCode.TooManyRequests), "busy" },
+        { new HttpRequestException("404", null, System.Net.HttpStatusCode.NotFound), "error 404" },
         { new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout of 100 seconds"), "too slow" },
         { new Win32Exception(5, "Access is denied"), "antivirus" },
         { new InvalidOperationException($"Sequence contains no elements at {UserPath}"), "something unexpected" },
@@ -63,6 +66,76 @@ public class PlainErrorTests
         var wrapped = new InvalidOperationException("Install failed", new AggregateException(Win32Io(112)));
         Assert.Equal("Couldn't start Minecraft: the disk is full - free up some space and try again.",
             PlainError.Sentence("Couldn't start Minecraft", wrapped));
+    }
+
+    [Fact]
+    public void A_server_that_answered_is_not_blamed_on_the_internet_connection()
+    {
+        var forbidden = new HttpRequestException("403", null, System.Net.HttpStatusCode.Forbidden);
+        Assert.DoesNotContain("internet", PlainError.Reason(forbidden));
+        Assert.Contains("error 403", PlainError.Reason(forbidden));
+    }
+
+    [Fact]
+    public void The_full_error_goes_to_the_log_while_the_screen_gets_plain_words()
+    {
+        var logged = new System.Collections.Concurrent.ConcurrentBag<string>();
+        var before = PlainError.Log;
+        PlainError.Log = logged.Add;
+        try
+        {
+            NullReferenceException thrown;
+            try { throw new NullReferenceException("Object reference not set to an instance of an object."); }
+            catch (NullReferenceException ex) { thrown = ex; }
+
+            var line = PlainError.Sentence("Couldn't check that mod", thrown);
+
+            Assert.Equal("Couldn't check that mod: something unexpected went wrong - try again.", line);
+            // Other tests may call Sentence meanwhile (the sink is static): find this one's entry.
+            var entry = Assert.Single(logged, e => e.StartsWith(line, StringComparison.Ordinal) && e.Contains("NullReferenceException"));
+            Assert.Contains(nameof(The_full_error_goes_to_the_log_while_the_screen_gets_plain_words), entry); // the stack
+        }
+        finally
+        {
+            PlainError.Log = before;
+        }
+    }
+
+    [Fact]
+    public void A_log_that_throws_never_reaches_the_caller()
+    {
+        var before = PlainError.Log;
+        PlainError.Log = _ => throw new IOException("log locked");
+        try
+        {
+            Assert.Equal("Couldn't save the change: the disk is full - free up some space and try again.",
+                PlainError.Sentence("Couldn't save the change", Win32Io(112)));
+        }
+        finally
+        {
+            PlainError.Log = before;
+        }
+    }
+
+    [Fact]
+    public void LogTo_writes_one_entry_per_error_into_errors_log()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "origin-plainerror-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var before = PlainError.Log;
+        try
+        {
+            PlainError.LogTo(dir);
+            PlainError.Sentence("Couldn't copy the mods", Win32Io(32));
+            var text = File.ReadAllText(Path.Combine(dir, "errors.log"));
+            Assert.Contains("Couldn't copy the mods: a file is in use", text);
+            Assert.Contains("System.IO.IOException", text);
+        }
+        finally
+        {
+            PlainError.Log = before;
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Fact]

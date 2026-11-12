@@ -1552,7 +1552,7 @@ public partial class HomePage : UserControl
             OriginPaths.EnsureScaffold();
             File.WriteAllText(
                 Path.Combine(OriginPaths.Logs, $"launcher_error_{DateTime.Now:yyyyMMdd_HHmmss}.log"),
-                ex.ToString());
+                Core.Loaders.RequiredModMissingException.LogText(ex));
         }
         catch
         {
