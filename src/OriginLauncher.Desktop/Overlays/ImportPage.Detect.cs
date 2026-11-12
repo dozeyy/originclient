@@ -66,7 +66,7 @@ internal sealed partial class ImportPage
             SetHeader("Bring it all over", "Nothing found to import. Add a setup's folder, or play once in your other launcher first.", checkedLine);
         else
             SetHeader("Bring it all over",
-                (launchers > 0 ? $"Found {ImportLogic.Plural(launchers, "launcher", "launchers")} on this PC. " : "Found the folder you picked. ")
+                (launchers > 0 ? $"Found {ImportLogic.Plural(launchers, "launcher", "launchers")} on {BulkSummary.ThisComputer}. " : "Found the folder you picked. ")
                 + "Pick the one to bring over. Each setup with mods becomes its own Origin profile; the other launcher is never changed.",
                 checkedLine);
 
@@ -165,9 +165,9 @@ internal sealed partial class ImportPage
         var many = missing.Count > 1;
         var allNot = !installedKnown || missing.All(t => t.State == TileState.NotInstalled);
         var allEmpty = installedKnown && missing.All(t => t.State == TileState.Empty);
-        var verb = allNot ? (many ? "weren't found on this PC" : "wasn't found on this PC")
+        var verb = allNot ? (many ? $"weren't found on {BulkSummary.ThisComputer}" : $"wasn't found on {BulkSummary.ThisComputer}")
             : allEmpty ? (many ? "have nothing to import" : "has nothing to import")
-            : "have nothing to import on this PC";
+            : $"have nothing to import on {BulkSummary.ThisComputer}";
         return $"{list} {verb}";
     }
 
