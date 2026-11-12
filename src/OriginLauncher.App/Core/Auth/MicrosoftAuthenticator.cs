@@ -436,7 +436,10 @@ public sealed partial class MicrosoftAuthenticator
             var message = xErr?.XErr switch
             {
                 2148916233 => "This Microsoft account has no Xbox Live profile. Sign in at xbox.com once, then try again.",
-                2148916238 => "This account is a child account and needs to be added to a Microsoft Family group first.",
+                2148916238 => "This is a child account: a parent needs to add it to a family at family.microsoft.com first.",
+                2148916227 => "Xbox has suspended this account, so it can't play online.",
+                2148916229 => "A parent's Xbox settings block online play for this account. A parent can change it at family.microsoft.com.",
+                2148916236 or 2148916237 => "This account needs an age check before it can play. Finish it at xbox.com, then try again.",
                 2148916235 => "Xbox Live is not available in this account's region.",
                 null => "Xbox Live refused this sign-in. Please try again in a moment.",
                 _ => $"Xbox Live refused this sign-in (code {xErr.XErr})."
@@ -487,7 +490,7 @@ public sealed partial class MicrosoftAuthenticator
         var json = await response.Content.ReadAsStringAsync(ct);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
-            throw new MicrosoftAuthException("profile", "This Microsoft account does not own a copy of Minecraft.");
+            throw new MicrosoftAuthException("profile", "This Microsoft account doesn't own Minecraft Java Edition. With Game Pass, open the official Minecraft Launcher once with it, then try again.");
         if (!response.IsSuccessStatusCode)
             throw Failure("profile", response, json, "Couldn't load your Minecraft profile. Please try again in a moment.");
 

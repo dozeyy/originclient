@@ -92,7 +92,7 @@ public static class JvmArgLine
 
         var notAFlag = tokens.FirstOrDefault(t => !t.StartsWith('-'));
         if (notAFlag != null)
-            return $"\"{notAFlag}\" doesn't look like a JVM flag (they start with -).";
+            return $"\"{notAFlag}\" isn't a Java option (they start with -).";
 
         return null;
     }

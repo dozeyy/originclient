@@ -99,7 +99,7 @@
                     <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Sky}"/><controls:TrackedText Text="GAME" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecJvm" Checked="Rail_Checked" Click="Rail_Click">
-                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Server}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Lilac}"/><controls:TrackedText Text="JVM ARGUMENTS" Tracking="0.16"/></StackPanel>
+                    <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Server}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Lilac}"/><controls:TrackedText Text="JAVA ARGUMENTS" Tracking="0.16"/></StackPanel>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecStartup" Checked="Rail_Checked" Click="Rail_Click">
                     <StackPanel Orientation="Horizontal"><Path Data="{StaticResource Icon.Home}" Style="{StaticResource Icon.Small}" Margin="0,0,10,0" Stroke="{StaticResource Brush.Hue.Gold}"/><controls:TrackedText Text="STARTUP" Tracking="0.16"/></StackPanel>
@@ -269,7 +269,7 @@
 
                 <!-- JVM arguments (per version: the lineup spans Java 8 to 25, so a
                      flag that is valid on one version aborts startup on another) -->
-                <TextBlock x:Name="SecJvm" Text="JVM ARGUMENTS" Style="{StaticResource SectionTitle}"/>
+                <TextBlock x:Name="SecJvm" Text="JAVA ARGUMENTS" Style="{StaticResource SectionTitle}"/>
                 <Border Style="{StaticResource SettingCard}">
                     <StackPanel>
                         <Grid>

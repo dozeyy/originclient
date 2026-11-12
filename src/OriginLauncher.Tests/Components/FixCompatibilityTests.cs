@@ -512,7 +512,7 @@ public sealed class FixCompatibilityTests : IDisposable
         Assert.Equal("voicechat", add.Offer.Id);
         Assert.True(add.Offer.FromOrigin);
         // Its name, not its id; its build string ("fabric-1.21.1-2.6.22") is no use to a player and is left out.
-        Assert.Contains("Add Simple Voice Chat, the copy Origin itself uses (its checksum is checked).", proposal.Changes);
+        Assert.Contains("Add Simple Voice Chat, the copy Origin itself uses (checked to be the genuine file).", proposal.Changes);
     }
 
     [Theory]

@@ -40,8 +40,8 @@ public sealed record FixProposal(
             {
                 lines.Add(step switch
                 {
-                    AddModStep { Offer.FromOrigin: true } a => $"Add {Named(a.Offer)}, the copy Origin itself uses (its checksum is checked).",
-                    AddModStep a => $"Add {Named(a.Offer)} from Modrinth (its checksum is checked).",
+                    AddModStep { Offer.FromOrigin: true } a => $"Add {Named(a.Offer)}, the copy Origin itself uses (checked to be the genuine file).",
+                    AddModStep a => $"Add {Named(a.Offer)} from Modrinth (checked to be the genuine file).",
                     DisableModStep d => $"Turn off {d.Mod.DisplayName}: {d.Why}",
                     _ => step.Why,
                 });

@@ -216,7 +216,7 @@ public static class ModrinthUpdates
             {
                 Discard(folder);
                 return (null, result == ModrinthDownloadResult.HashMismatch
-                    ? "The download didn't match Modrinth's checksum, so nothing was changed."
+                    ? "The download didn't match the file Modrinth lists (it may be damaged), so nothing was changed."
                     : "Couldn't download the update from Modrinth. Check your internet and try again.");
             }
             var path = Path.Combine(folder, offer.NewFileName);
@@ -232,7 +232,7 @@ public static class ModrinthUpdates
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             if (folder != null) Discard(folder);
-            return (null, "Couldn't save the update - " + ex.Message);
+            return (null, PlainError.Sentence("Couldn't save the update", ex));
         }
     }
 
