@@ -35,6 +35,9 @@ public sealed class Dropdown : Panel
     public Dropdown(double height = Sizes.ControlLg, Control? leading = null, string placeholder = "")
     {
         _leading = leading;
+        // The placeholder argument IS the Placeholder: before, only the first paint used it, so a list set with nothing
+        // chosen blanked the box (Import's "Pick a version" collapsed to a bare chevron when the version isn't supported).
+        Placeholder = placeholder;
         _value = Ui.Text(placeholder, height < Sizes.ControlMd ? TypeScale.ControlSm : TypeScale.Body, FontWeight.SemiBold);
         _value.TextTrimming = TextTrimming.CharacterEllipsis;
         _chevron = Ui.Icon(Icons.ChevronDown, 12, Palette.TextDim);
