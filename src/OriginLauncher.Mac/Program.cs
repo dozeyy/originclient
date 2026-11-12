@@ -68,6 +68,8 @@ internal static class Program
     private static int StartApp(string[] args)
     {
         OriginPaths.EnsureScaffold();
+        // Plain error lines on screen; the full exception goes to logs/errors.log (as on Windows).
+        PlainError.LogTo(OriginPaths.Logs);
         // One launcher at a time (the Windows launcher's single-instance mutex): an exclusive lock on a file in the data
         // folder, released by the OS when this process ends (a crash included). Finder already brings an open app to the
         // front; this covers a second start from the terminal or an update's relaunch racing the old process.

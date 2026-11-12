@@ -114,6 +114,8 @@ public static class DesktopEntry
         }
 
         OriginPaths.EnsureScaffold();
+        // Plain error lines on screen; the full exception goes to logs/errors.log (as on Windows).
+        PlainError.LogTo(OriginPaths.Logs);
         // One launcher at a time (the Windows launcher's single-instance mutex): an exclusive lock on a file in the
         // data folder. A second start asks the open one to come to the front (Shell/SingleInstance) and exits.
         var socketPath = SingleInstance.SocketPath(OriginPaths.Root, Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR"));
