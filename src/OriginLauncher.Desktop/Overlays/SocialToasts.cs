@@ -129,7 +129,7 @@ internal sealed class SocialToasts : StackPanel
         Border card = null!;
         var text = Ui.Column(1,
             Ui.Ellipsis(Ui.Text(toast.Title, TypeScale.Body, FontWeight.SemiBold, Palette.Text)),
-            Wrap2(Ui.Caption(toast.Body)));
+            Wrap2(Ui.Caption(toast.Body), toast.Kind == SocialToastKind.Notice));
         text.VerticalAlignment = VerticalAlignment.Center;
         var g = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto"), ColumnSpacing = 10 };
         g.Children.Add(Ui.Tile(glyph, tile, ink).At(0));
@@ -216,12 +216,13 @@ internal sealed class SocialToasts : StackPanel
         foreach (var t in toasts) Show(t);
     }
 
-    // The body wraps to two lines at most, then ends in dots (WPF: Wrap + CharacterEllipsis, MaxHeight 36).
-    private static TextBlock Wrap2(TextBlock t)
+    // The body wraps to two lines at most, then ends in dots (WPF: Wrap + CharacterEllipsis, MaxHeight 36). A notice
+    // ("Can't join" + why) is the launcher's own instruction, so it shows in full instead of losing the reason.
+    private static TextBlock Wrap2(TextBlock t, bool full = false)
     {
         t.TextWrapping = TextWrapping.Wrap;
         t.TextTrimming = TextTrimming.CharacterEllipsis;
-        t.MaxLines = 2;
+        if (!full) t.MaxLines = 2;
         return t;
     }
 }

@@ -714,12 +714,20 @@ internal sealed class ProfileForm : Grid
             pair,
             Field("Server to join (optional)", _address),
             hint, _formError);
-        Children.Add(new ScrollViewer
+        var scroll = new ScrollViewer
         {
             Content = fields,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-        }.At(0, 1));
+        };
+        // Avalonia's scroll bar floats over the content, so on a short window (980x600) it ran through the Name and
+        // Server name boxes. The fields make room for it only while it shows; a form that fits keeps its full width.
+        scroll.ScrollChanged += (_, _) =>
+        {
+            var gutter = scroll.Extent.Height > scroll.Viewport.Height + 0.5 ? Space.S3 : 0;
+            if (fields.Margin.Right != gutter) fields.Margin = new Thickness(0, 0, gutter, 0);
+        };
+        Children.Add(scroll.At(0, 1));
 
         // Footer.
         var cancelButton = Ui.Button("Cancel", Look.Ghost, height: Sizes.ControlLg).Margin(0, 0, Space.S2, 0);

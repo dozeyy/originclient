@@ -118,6 +118,10 @@ public static class ShotRunner
     private static void Render(Shot shot, string path)
     {
         Demo.Reset();
+        // An import shot that starts an apply leaves it awaiting forever (no real work in a render run), so its busy
+        // guard never ends and every later shot read "Importing - Play is back when it finishes" with Play off.
+        while (OriginLauncher.App.Core.Import.Launcher.ImportRunState.IsApplying)
+            OriginLauncher.App.Core.Import.Launcher.ImportRunState.End();
         shot.Seed?.Invoke();
         LauncherState.Reset();
         var window = new MainWindow { Width = shot.Width, Height = shot.Height };

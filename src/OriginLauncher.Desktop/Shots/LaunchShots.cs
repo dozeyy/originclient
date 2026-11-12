@@ -91,7 +91,8 @@ public static class LaunchShots
         yield return new Shot("42-crash-strong", w => Report(w, Diagnose(MixinLine, whileStarting: true)));
         yield return new Shot("42-crash-strong-details", w => Report(w, Diagnose(MixinLine, whileStarting: true), openDetails: true));
         yield return new Shot("43-crash-possible", w => Report(w, Diagnose(null, hsErr:
-            "# A fatal error has been detected by the Java Runtime Environment:\n#\n#  EXCEPTION_ACCESS_VIOLATION (0xc0000005)\n# Problematic frame:\n# C  [nvoglv64.dll+0x9a1f2c]\n")));
+            // A Linux hs_err (the Windows twin's nvoglv64.dll would read as Windows wording on a Linux screen).
+            "# A fatal error has been detected by the Java Runtime Environment:\n#\n#  SIGSEGV (0xb) at pc=0x00007f3a9a1f2c, pid=4242, tid=4243\n# Problematic frame:\n# C  [libnvidia-glcore.so.550.54.14+0x9a1f2c]\n")));
         yield return new Shot("44-crash-unknown", w => Report(w, Diagnose(null, crash:
             "---- Minecraft Crash Report ----\nDescription: Unexpected error\n\njava.lang.IllegalStateException: example\n\tat net.minecraft.client.Minecraft.run(Minecraft.java:1)\n")));
     }
