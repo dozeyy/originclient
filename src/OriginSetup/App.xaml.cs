@@ -119,7 +119,7 @@ public partial class App : Application
         {
             try
             {
-                Process.Start(new ProcessStartInfo("cmd.exe",
+                Process.Start(new ProcessStartInfo(FinishLaunch.CmdExe,
                     $"/c ping 127.0.0.1 -n 3 > nul & del /f /q \"{_deleteSelfOnExit}\"")
                 {
                     CreateNoWindow = true,

@@ -76,10 +76,20 @@ public static class FileOps
         if (!Directory.Exists(dir)) return;
         Retry(() =>
         {
-            foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
-                File.SetAttributes(f, FileAttributes.Normal);
+            ClearReadOnly(dir);
             Directory.Delete(dir, recursive: true);
         });
+    }
+
+    // Read-only files block Directory.Delete. A folder link (junction or symlink) inside the tree is never
+    // walked into: Directory.Delete removes the link itself, and files it points at elsewhere are not Origin's
+    // to touch.
+    private static void ClearReadOnly(string dir)
+    {
+        foreach (var f in Directory.EnumerateFiles(dir))
+            File.SetAttributes(f, FileAttributes.Normal);
+        foreach (var d in Directory.EnumerateDirectories(dir))
+            if ((File.GetAttributes(d) & FileAttributes.ReparsePoint) == 0) ClearReadOnly(d);
     }
 
     /// <summary>Best effort: false if anything could not be removed (e.g. Minecraft still running).</summary>

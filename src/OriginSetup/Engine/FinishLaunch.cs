@@ -1,4 +1,10 @@
+using System;
 using System.Diagnostics;
+using System.IO;
+
+// Windows libraries Setup calls (dwmapi, shell32) load from System32 only, never from the folder Setup was
+// downloaded to, where a planted DLL of the same name would otherwise be picked up first.
+[assembly: System.Runtime.InteropServices.DefaultDllImportSearchPaths(System.Runtime.InteropServices.DllImportSearchPath.System32)]
 
 namespace OriginSetup.Engine;
 
@@ -32,5 +38,13 @@ public static class FinishLaunch
     /// signed-in user, not elevated. The shortcut carries the arguments because Explorer passes none.
     /// </summary>
     public static ProcessStartInfo UnelevatedStartInfo(string shortcut) =>
-        new ProcessStartInfo("explorer.exe", "\"" + shortcut + "\"") { UseShellExecute = false };
+        new ProcessStartInfo(ExplorerExe, "\"" + shortcut + "\"") { UseShellExecute = false };
+
+    // Windows' own programs are always started by full path. A bare "explorer.exe" or "cmd.exe" is looked up in
+    // Setup's own folder first, and Setup usually runs from Downloads: a file of that name dropped there by a
+    // website would run instead (as administrator, when Setup was started that way).
+    public static string ExplorerExe =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+
+    public static string CmdExe => Path.Combine(Environment.SystemDirectory, "cmd.exe");
 }

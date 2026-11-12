@@ -73,4 +73,29 @@ public class FinishLaunchTests
         var app = File.ReadAllText(Path.Combine(TestKit.Repo, "src", "OriginLauncher.App", "App.xaml.cs"));
         Assert.Contains("\"" + FinishLaunch.ImportArgument + "\"", app);
     }
+
+    // Setup runs from Downloads; a bare program name would be looked up there first.
+    [Fact]
+    public void WindowsProgramsAreStartedByFullPath()
+    {
+        var start = FinishLaunch.UnelevatedStartInfo(@"C:\Origin\Origin.lnk");
+        Assert.True(Path.IsPathRooted(start.FileName), start.FileName);
+        Assert.EndsWith(@"\explorer.exe", start.FileName, System.StringComparison.OrdinalIgnoreCase);
+        Assert.True(Path.IsPathRooted(FinishLaunch.CmdExe), FinishLaunch.CmdExe);
+
+        var bare = new System.Text.RegularExpressions.Regex(@"ProcessStartInfo\(\s*""[^""\\:]+\.exe""");
+        foreach (var file in Directory.EnumerateFiles(SetupFile(), "*.cs", SearchOption.AllDirectories))
+        {
+            if (file.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar)) continue;
+            Assert.False(bare.IsMatch(File.ReadAllText(file)), "bare program name in " + file);
+        }
+    }
+
+    [Fact]
+    public void NativeLibrariesLoadFromSystem32Only()
+    {
+        var attr = typeof(FinishLaunch).Assembly.GetCustomAttributes(typeof(System.Runtime.InteropServices.DefaultDllImportSearchPathsAttribute), false)
+            .Cast<System.Runtime.InteropServices.DefaultDllImportSearchPathsAttribute>().Single();
+        Assert.Equal(System.Runtime.InteropServices.DllImportSearchPath.System32, attr.Paths);
+    }
 }
