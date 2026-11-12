@@ -18,6 +18,8 @@ public partial class UninstallWindow : Window
     internal bool Busy => _working;
 
     /// <summary>The uninstall itself ran (Uninstall pressed and past the game check), whatever it left behind.</summary>
+    /// <summary>This uninstaller's own path when it runs from inside the folder it removes (see App.RunUninstall).</summary>
+    internal string? RunningExe { get; set; }
     internal bool Ran { get; private set; }
 
     public UninstallWindow(string installDir)
@@ -47,7 +49,15 @@ public partial class UninstallWindow : Window
         // stay on this page (pressing Uninstall again re-checks). Uninstaller.Run refuses too, as a backstop.
         if (removeData)
         {
-            var open = await Task.Run(() => RunningGames.In(Handoff.DataRoot));
+            IReadOnlyList<string> open;
+            try { open = await Task.Run(() => RunningGames.In(Handoff.DataRoot)); }
+            catch (Exception ex)
+            {
+                // Couldn't look: carry on, Uninstaller.Run checks again and keeps the data if it still can't tell.
+                // (Throwing here left the button dead: _working stayed set and the crash net let it go while Busy.)
+                SetupLog.Write("running-game check failed: " + ex.Message);
+                open = Array.Empty<string>();
+            }
             ShowRunningNote(open);
             if (open.Count > 0)
             {
@@ -67,7 +77,7 @@ public partial class UninstallWindow : Window
         try
         {
             result = await Task.Run(() => Uninstaller.Run(_dir, removeData,
-                f => Dispatcher.BeginInvoke(new Action(() => RenderProgress(f, removeData)))));
+                f => Dispatcher.BeginInvoke(new Action(() => RenderProgress(f, removeData))), runningExe: RunningExe));
         }
         catch (Exception ex)
         {
