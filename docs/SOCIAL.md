@@ -386,6 +386,11 @@ So the free plan carries a few dozen all-day players (more who play a few hours)
   192.168.x, 127.x, or the integrated server). On every other multiplayer server none of it is sent
   (`partyState` is null) or drawn; the Party HUD shows names + online status only. One central check in the mod
   (`social/FairPlay`). Party chat, warp, friends, DMs and join still work everywhere.
+- Privacy (security audit F3, 2026-11-12): while you appear offline, while the Friends & Party mod is off, and
+  before the first sync has said which you chose, the game sends NO server field at all: `presence.server`
+  is null and `partyState` / `stateServer` are left out (so LAN party positions pause too). Party ping and
+  warp, the two actions that carry a server, refuse while you appear offline and say so. One check in the
+  mod (`Social.shareWhereabouts`, `SocialClient.knownVisible`); `tools/social-privacy-check` guards it in CI.
 
 ## Service notes (what the Worker actually does; services/cosmetics/src/social.js + party.js)
 Everything here is additive to the contract above; client authors rely on these details. Limits live in one
