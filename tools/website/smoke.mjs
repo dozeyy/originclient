@@ -22,7 +22,7 @@ const opt = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] 
 const SITE = path.resolve(opt('--site') || path.join(path.dirname(fileURLToPath(import.meta.url)), '../../website'));
 const SHOTS = opt('--shots');
 const WIDTHS = [[320, 640], [390, 844], [768, 1024], [1366, 768], [1440, 900]];
-const PAGES = ['/', '/store', '/terms', '/privacy', '/ad/banner'];
+const PAGES = ['/', '/store', '/terms', '/privacy', '/ad/banner', '/404'];
 
 // ---- a tiny Vercel: cleanUrls + vercel.json headers (each source is a path-to-regexp pattern
 // that is also a valid JavaScript regex, matched against the whole path).
@@ -38,7 +38,11 @@ const server = http.createServer((req, res) => {
   for (const rule of vercel.headers || []) {
     if (new RegExp('^' + rule.source + '$').test(url.pathname)) for (const h of rule.headers) res.setHeader(h.key, h.value);
   }
-  if (!fs.existsSync(file)) { res.writeHead(404).end('not found'); return; }
+  if (!fs.existsSync(file)) {   // like Vercel: a missing page gets 404.html (status 404), a missing file a bare 404
+    const page = path.join(SITE, '404.html');
+    if (!path.extname(url.pathname) && fs.existsSync(page)) { res.writeHead(404, { 'Content-Type': 'text/html' }).end(fs.readFileSync(page)); return; }
+    res.writeHead(404).end('not found'); return;
+  }
   res.setHeader('Content-Type', TYPES[path.extname(file)] || 'application/octet-stream');
   res.end(fs.readFileSync(file));
 });

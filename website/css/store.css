@@ -90,7 +90,7 @@ body.no-webgl .fit__hint { display: none; }
 .adjust__note b { color: var(--dim); font-weight: 600; }
 .field__label { display: block; margin-bottom: 8px; font: 600 13px/1 var(--sans); color: var(--dim); }
 .name { display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 16px; background: rgba(241, 233, 210, .05); border: 1px solid var(--soft); border-radius: 8px; transition: border-color .2s; }
-.name:focus-within { border-color: var(--stroke); }
+.name:focus-within { border-color: var(--stroke); outline: 2px solid var(--acc); outline-offset: 2px; }   /* the input itself has no outline; the field shows the ring */
 .name[data-state="ok"] { border-color: var(--acc-border); }
 .name[data-state="bad"], .name[data-state="missing"] { border-color: rgba(230, 120, 106, .7); }
 .name__head { width: 30px; height: 30px; image-rendering: pixelated; border-radius: 6px; flex: none; }
@@ -142,7 +142,7 @@ body.no-webgl .fit__hint { display: none; }
 .terms-line a { color: var(--text); text-underline-offset: 3px; }
 .code__row input { width: 100%; min-width: 0; height: 50px; padding: 0 16px; background: rgba(241, 233, 210, .05); border: 1px solid var(--soft); border-radius: 8px; color: var(--text); font: 600 15px/1 var(--sans); letter-spacing: .03em; text-transform: uppercase; outline: none; }
 .code__row input::placeholder { color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; }
-.code__row input:focus { border-color: var(--stroke); }
+.code__row input:focus { border-color: var(--stroke); outline: 2px solid var(--acc); outline-offset: 2px; }
 .code__go { --bh: 50px; width: 100%; }
 .code__go:disabled { opacity: .5; cursor: not-allowed; }
 .code__note { min-height: 0; margin: 10px 0 0; color: var(--dim); font-size: 13px; line-height: 1.4; text-align: center; }
@@ -171,7 +171,7 @@ body.no-webgl .fit__hint { display: none; }
 .item__art .item__mark { width: 42%; height: 42%; object-fit: contain; opacity: .9; }   /* beats .item__art img (cover) */
 .item__kind, .item__tryon { position: absolute; top: 12px; padding: 6px 10px; border-radius: 999px; font: 600 12px/1 var(--sans); }
 .item__kind { left: 12px; background: rgba(10, 10, 11, .72); color: var(--dim); }
-.item__anim { position: absolute; left: 12px; bottom: 12px; padding: 6px 10px; border-radius: 999px; background: rgba(241, 233, 210, .14); color: var(--text); font: 600 12px/1 var(--sans); }
+.item__anim { position: absolute; left: 12px; bottom: 12px; padding: 6px 10px; border-radius: 999px; background: rgba(10, 10, 11, .72); box-shadow: inset 0 0 0 1px rgba(241, 233, 210, .14); color: var(--text); font: 600 12px/1 var(--sans); }   /* dark like .item__kind: it sits over busy art (flames, stars) */
 .item__anim::before { content: "\2726  "; }
 .item__tryon { right: 12px; background: rgba(10, 10, 11, .72); color: var(--text); opacity: 0; transition: opacity .2s; }
 .item__try:hover .item__tryon, .item__try:focus-visible .item__tryon, .item.is-trying .item__tryon { opacity: 1; }
