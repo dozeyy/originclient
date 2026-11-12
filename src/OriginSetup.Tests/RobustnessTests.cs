@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using OriginSetup.Engine;
 using Xunit;
@@ -8,6 +9,7 @@ namespace OriginSetup.Tests;
 
 // The 2026-11-12 installer pass: one Setup at a time, failures worded for what really happened, and a launcher that
 // antivirus emptied out never reported as installed.
+[Collection("download")] // stages through FakeServer like UninstallTests
 public class RobustnessTests
 {
     [Fact]
@@ -38,6 +40,77 @@ public class RobustnessTests
         t.Start();
         t.Join();
         Assert.NotNull(again);
+    }
+
+    // An elevated Setup's mutex is out of a normal copy's reach. Stand-in: a mutex whose DACL denies everyone, so
+    // opening it fails with access denied exactly as it does across the elevation boundary.
+    [Fact]
+    public void ASetupThatCantReachTheRunningOnesLockStillHandsOver()
+    {
+        var name = @"Local\OriginSetupTest." + Guid.NewGuid().ToString("N");
+        Assert.True(ConvertStringSecurityDescriptorToSecurityDescriptorW("D:(D;;GA;;;WD)", 1, out var sd, IntPtr.Zero));
+        var sa = new SecurityAttributes { Length = Marshal.SizeOf<SecurityAttributes>(), Descriptor = sd };
+        var locked = CreateMutexW(ref sa, false, name);
+        try
+        {
+            Assert.NotEqual(IntPtr.Zero, locked);
+            Assert.Throws<UnauthorizedAccessException>(() => new Mutex(false, name)); // the case being covered
+            Assert.Null(SingleInstance.TryClaim(TimeSpan.Zero, name));
+        }
+        finally
+        {
+            CloseHandle(locked);
+            LocalFree(sd);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SecurityAttributes
+    {
+        public int Length;
+        public IntPtr Descriptor;
+        public bool Inherit;
+    }
+
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool ConvertStringSecurityDescriptorToSecurityDescriptorW(string sddl, int revision, out IntPtr sd, IntPtr size);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CreateMutexW(ref SecurityAttributes sa, bool initialOwner, string name);
+    [DllImport("kernel32.dll")]
+    private static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr LocalFree(IntPtr mem);
+
+    // The in-place uninstall (temp hand-off failed) runs as the uninstall.exe inside the folder it removes. That exe
+    // can't go while it runs; the exit script removes it and the folder. It must not turn the result into "left".
+    [Fact]
+    public void TheRunningUninstallerIsNotCountedAsLeftOver()
+    {
+        foreach (var ownsFolder in new[] { true, false })
+        {
+            var dir = ownsFolder ? Path.Combine(TestKit.Temp("inplace"), "Origin") : TestKit.Temp("inplace");
+            var prev = Installer.LauncherRunning;
+            Installer.LauncherRunning = () => false;
+            try
+            {
+                var setupExe = Path.Combine(TestKit.Temp("inplace-setup"), "OriginLauncher-Setup.exe");
+                File.WriteAllBytes(setupExe, new byte[] { (byte)'M', (byte)'Z', 0, 0 }); // copied in as uninstall.exe
+                var staged = Installer.Stage(dir, TestKit.Zip(TestKit.MakeLauncherTree()), null, _ => { }, CancellationToken.None,
+                                             new FakeServer().Client(), setupExePath: setupExe);
+                Installer.Commit(staged, dir, createdFolder: ownsFolder);
+            }
+            finally { Installer.LauncherRunning = prev; }
+            var self = Path.Combine(dir, InstallLocation.UninstallerExe);
+            Assert.True(File.Exists(self));
+
+            using (new FileStream(self, FileMode.Open, FileAccess.Read, FileShare.Read)) // held like a running exe
+            {
+                var plan = UninstallPlan.For(dir, TestKit.Temp("inplace-data"));
+                Assert.True(plan.Execute(keep: self), $"scope {plan.Scope}");
+            }
+            Assert.True(File.Exists(self));
+            Assert.Equal(new[] { self }, Directory.GetFileSystemEntries(dir));
+        }
     }
 
     [Fact]

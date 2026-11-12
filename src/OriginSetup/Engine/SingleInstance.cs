@@ -19,14 +19,33 @@ public sealed class SingleInstance : IDisposable
     private SingleInstance(string name)
     {
         _mutex = new Mutex(false, name);
-        _show = new EventWaitHandle(false, EventResetMode.AutoReset, name + ".Show");
+        try { _show = new EventWaitHandle(false, EventResetMode.AutoReset, name + ".Show"); }
+        catch
+        {
+            _mutex.Dispose();
+            throw;
+        }
     }
 
     /// <summary>Null when another Setup in this session already runs (it has been asked to come forward).</summary>
     /// <param name="wait">How long to wait for the other one to finish (silent installs wait; windows don't).</param>
     public static SingleInstance? TryClaim(TimeSpan wait, string name = DefaultName)
     {
-        var instance = new SingleInstance(name);
+        SingleInstance instance;
+        try { instance = new SingleInstance(name); }
+        catch (UnauthorizedAccessException)
+        {
+            // The running Setup is elevated and this copy isn't: Windows keeps its mutex out of reach, which itself
+            // says one is running. Hand over the same way (this used to reach the crash net's "has to close" box).
+            AllowForeground();
+            try
+            {
+                using var show = EventWaitHandle.OpenExisting(name + ".Show");
+                show.Set();
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException || ex is WaitHandleCannotBeOpenedException) { }
+            return null;
+        }
         bool owned;
         try { owned = instance._mutex.WaitOne(wait); }
         catch (AbandonedMutexException) { owned = true; } // the other one crashed: its run is over
@@ -35,11 +54,16 @@ public sealed class SingleInstance : IDisposable
             instance._owned = true;
             return instance;
         }
-        // Let the running copy take the foreground (Windows only lets the app the player just started do that).
-        try { AllowSetForegroundWindow(AsfwAny); } catch (EntryPointNotFoundException) { } catch (DllNotFoundException) { }
+        AllowForeground();
         instance._show.Set();
         instance.Dispose();
         return null;
+    }
+
+    // Let the running copy take the foreground (Windows only lets the app the player just started do that).
+    private static void AllowForeground()
+    {
+        try { AllowSetForegroundWindow(AsfwAny); } catch (EntryPointNotFoundException) { } catch (DllNotFoundException) { }
     }
 
     /// <summary>Calls <paramref name="bringToFront"/> (on a pool thread) each time a second copy is started.</summary>

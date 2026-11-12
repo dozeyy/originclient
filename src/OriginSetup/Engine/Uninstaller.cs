@@ -10,7 +10,10 @@ public static class Uninstaller
 {
     /// <summary>What was left behind (it is logged); <see cref="UninstallResult.Ok"/> when nothing.</summary>
     /// <param name="dataRoot">Origin's data folder; null = the real one. Tests pass their own.</param>
-    public static UninstallResult Run(string dir, bool removeUserData, Action<double> report, string? dataRoot = null)
+    /// <param name="runningExe">This uninstaller when it runs from inside the folder (the temp hand-off failed): it
+    /// can't delete itself while running, so it is left for the exit script and not counted as left over.</param>
+    public static UninstallResult Run(string dir, bool removeUserData, Action<double> report, string? dataRoot = null,
+                                      string? runningExe = null)
     {
         dataRoot ??= Handoff.DataRoot;
         SetupLog.Write($"uninstall {dir} (removeUserData={removeUserData})");
@@ -34,7 +37,7 @@ public static class Uninstaller
         report(0.4);
         var plan = UninstallPlan.For(dir);
         SetupLog.Write($"install folder: {plan.Scope} ({plan.Reason})");
-        bool ok = plan.Execute();
+        bool ok = plan.Execute(runningExe);
 
         report(0.75);
         bool dataOk = true, dataUnchecked = false;
@@ -172,16 +175,19 @@ public sealed class UninstallPlan
         && File.Exists(Path.Combine(dir, InstallLocation.LauncherExe));
 
     /// <summary>Deletes what the plan covers. False when something could not be removed (logged).</summary>
-    public bool Execute()
+    /// <param name="keep">The running uninstaller when it sits inside <see cref="Dir"/>: left in place (the exit
+    /// script removes it and the then-empty folder) and not a failure.</param>
+    public bool Execute(string? keep = null)
     {
+        keep = keep != null && IsInside(keep, Dir) ? Path.GetFullPath(keep) : null;
         switch (Scope)
         {
             case UninstallScope.WholeFolder:
-                return FileOps.TryDeleteTree(Dir);
+                return keep == null ? FileOps.TryDeleteTree(Dir) : DeleteTreeExcept(Dir, keep);
             case UninstallScope.ListedFiles:
                 bool ok = true;
                 foreach (var file in Files.Concat(new[] { Path.Combine(Dir, InstallManifest.FileName) }))
-                    ok &= TryDeleteFile(file);
+                    if (keep == null || !SamePath(file, keep)) ok &= TryDeleteFile(file);
                 ok &= FileOps.TryDeleteTree(Path.Combine(Dir, Installer.StagingFolder));
                 // Then the folders those files were in, deepest first, if nothing else is left in them.
                 var root = Path.GetFullPath(Dir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -194,6 +200,34 @@ public sealed class UninstallPlan
             default:
                 return true;
         }
+    }
+
+    // Everything under dir except the one file keep (and the folders leading to it).
+    private static bool DeleteTreeExcept(string dir, string keep)
+    {
+        try
+        {
+            bool ok = true;
+            foreach (var sub in Directory.GetDirectories(dir))
+                ok &= IsInside(keep, sub) ? DeleteTreeExcept(sub, keep) : FileOps.TryDeleteTree(sub);
+            foreach (var file in Directory.GetFiles(dir))
+                if (!SamePath(file, keep)) ok &= TryDeleteFile(file);
+            return ok;
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+        {
+            SetupLog.Write($"could not fully remove {dir}: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static bool SamePath(string a, string b) =>
+        string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsInside(string path, string folder)
+    {
+        var root = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        return Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase);
     }
 
     // The folder and its parents, up to (not including) the install folder.

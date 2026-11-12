@@ -161,14 +161,14 @@ public partial class App : Application
         if (args.Silent)
         {
             bool ok;
-            try { ok = Uninstaller.Run(dir, args.RemoveData, _ => { }).Ok; }
+            try { ok = Uninstaller.Run(dir, args.RemoveData, _ => { }, runningExe: inPlace ? self : null).Ok; }
             catch (Exception ex) { SetupLog.Write("silent uninstall failed: " + ex); ok = false; }
             AfterRun();
             Shutdown(ok ? 0 : 1);
             return;
         }
 
-        var window = new UninstallWindow(dir);
+        var window = new UninstallWindow(dir) { RunningExe = inPlace ? self : null };
         window.Closed += (_, _) =>
         {
             if (window.Ran) AfterRun();
