@@ -70,9 +70,11 @@ const SCENES = [
   { id: 'top', pose: 'hero', cover: 0 },
   { id: 'why', pose: 'why', cover: 1 },
   { id: 'band', pose: 'band', cover: 0, start: 0.44, span: 0.14, phoneOnly: true },
-  { id: 'versions', pose: 'versions', cover: 0.1, left: 0.94, phone: { cover: 1, start: 0.72, span: 0.1 } },
+  // (desktop: versions waits until the feature list above it has left the island's side of the screen)
+  { id: 'versions', pose: 'versions', cover: 0.1, left: 0.94, start: 0.42, span: 0.22, phone: { cover: 1, start: 0.72, span: 0.1 } },
   { id: 'cosmetics', pose: 'cosmetics', cover: 1, left: 0.94, start: 0.55 },
-  { id: 'get', pose: 'get', cover: 0.08, start: 0.7 },
+  // (phone: the island shows above the download panel only once the Store teaser has scrolled past it)
+  { id: 'get', pose: 'get', cover: 0.08, start: 0.7, phone: { start: 0.3, span: 0.2 } },
 ];
 // From this cover on so little of the island shows that it is frozen instead of drawn
 // (the last frame stays on screen).
@@ -413,7 +415,7 @@ function requestFrame() {
 // without the scrollbar); y is taken at scroll 0, where the hero is, so scrolling never
 // moves it.
 function heroZone() {
-  const hero = $('.hero'), copy = $('.hero__copy'), head = $('.top'), act = $('.top__action');
+  const hero = $('.hero'), copy = $('.hero__copy'), head = $('.top'), act = $('.top__action'), spec = $('.versions__main');
   if (!hero || !copy) return null;
   const vw = document.documentElement.clientWidth, vh = innerHeight, pad = parseFloat(getComputedStyle(hero).paddingLeft) || 0;
   const c = copy.getBoundingClientRect(), top = c.top + scrollY;
@@ -428,6 +430,8 @@ function heroZone() {
     cx: (l + r) / 2, cy: vh * 0.52, w: Math.max(0, r - l), maxH: 0.42, kMin: 0.35, grow: 1.35, drop: 6, bandW: vw - 2 * pad,
     // (the header may be slid away when resized mid-page, hence the floor)
     top: Math.max(head ? head.getBoundingClientRect().bottom : 0, 62) + 4, bottom: top - 14,
+    // the versions shot: the free strip right of the spec sheet (world.js fitSide keeps the island in it)
+    sideL: spec ? spec.getBoundingClientRect().right + 32 : 0, sideR: r,
   };
 }
 // Resize storms and font loads only mark the zone dirty; it is measured once, on the next frame.
