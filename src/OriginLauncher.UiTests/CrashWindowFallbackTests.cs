@@ -64,7 +64,9 @@ public class CrashWindowFallbackTests
             Assert.NotNull(plain.Content);
             Assert.Equal("Origin Launcher has to close", plain.Heading.Text);
             Assert.Equal("REPORT BODY", plain.DetailsBox.Text);
-            Assert.Contains(@"C:\logs\crash.txt", plain.SavedTo.Text);
+            // The screen names the file only; the full path (which holds the Windows user name) stays off it.
+            Assert.Contains("crash.txt", plain.SavedTo.Text);
+            Assert.DoesNotContain(@"C:\logs", plain.SavedTo.Text);
             Assert.Equal(new[] { "Copy details", "Close" }, ButtonLabels(plain));
 
             var recovered = new CrashWindow("X", null, fatal: false);
@@ -86,14 +88,14 @@ public class CrashWindowFallbackTests
             Assert.Equal(Visibility.Visible, report.WhoText.Visibility);
             Assert.Equal(Visibility.Visible, report.CulpritPanel.Visibility);
             Assert.Single(report.CulpritList.Children);
-            Assert.Equal("strong", report.ConfidenceText.Text);
+            Assert.Equal("Very likely", report.ConfidenceText.Text); // CrashConfidence.Label: player words, not the enum name
             Assert.Equal(strong.Finding.Headline, report.HeadlineText.Text);
             Assert.Contains("mixin-apply", report.DetailsBox.Text);
             Assert.Equal(Visibility.Collapsed, report.DetailsPanel.Visibility); // technical detail starts folded away
 
-            // unknown: no fix button, the one-time try without added mods instead, and the word "unknown".
+            // unknown: no fix button, the one-time try without added mods instead, and the words "Not sure".
             var unknown = new CrashReportWindow(Diagnose(null, "---- Minecraft Crash Report ----\nDescription: x\n\njava.lang.IllegalStateException: x\n"), null);
-            Assert.Equal("unknown", unknown.ConfidenceText.Text);
+            Assert.Equal("Not sure", unknown.ConfidenceText.Text);
             Assert.Equal(Visibility.Collapsed, unknown.ActionButton.Visibility);
             Assert.Equal(Visibility.Visible, unknown.TryButton.Visibility);
             Assert.Empty(unknown.CulpritList.Children);
@@ -117,7 +119,7 @@ public class CrashWindowFallbackTests
             var themedReport = new CrashReportWindow(strong, null);
             Assert.False(themedReport.UsingFallbackLayout);
             Assert.Equal(reportButtons, ButtonLabels(themedReport));
-            Assert.Equal("strong", themedReport.ConfidenceText.Text);
+            Assert.Equal("Very likely", themedReport.ConfidenceText.Text); // CrashConfidence.Label: player words, not the enum name
 
             // Same Application, so the Home blank-after-picker regression runs here (HomeSceneRegression.cs).
             HomeSceneRegression.Run();
