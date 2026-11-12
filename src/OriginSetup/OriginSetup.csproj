@@ -60,7 +60,7 @@
     <Resource Include="..\..\tools\font-atlas\fonts\Inter-600.ttf" Link="Assets\Fonts\Inter-600.ttf" />
     <Resource Include="..\..\tools\font-atlas\fonts\Inter-700.ttf" Link="Assets\Fonts\Inter-700.ttf" />
     <Resource Include="..\..\tools\font-atlas\fonts\Inter-800.ttf" Link="Assets\Fonts\Inter-800.ttf" />
-    <EmbeddedResource Include="..\..\website\assets\fonts\Inter-LICENSE.txt" LogicalName="Inter-LICENSE.txt" />
+    <EmbeddedResource Include="..\..\tools\font-atlas\fonts\Inter-LICENSE.txt" LogicalName="Inter-LICENSE.txt" />
     <Resource Include="..\OriginLauncher.App\Assets\origin.ico" Link="Assets\origin.ico" />
     <EmbeddedResource Include="..\mods\live-modules.json" LogicalName="live-modules.json" />
   </ItemGroup>
