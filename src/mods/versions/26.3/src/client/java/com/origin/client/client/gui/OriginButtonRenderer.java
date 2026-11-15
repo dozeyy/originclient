@@ -295,7 +295,7 @@ public final class OriginButtonRenderer {
 
 	// The title dock's icons (Will, 2026-10-27, from 1.21.1: the title buttons are "the same ones" as every other
 	// menu -- Minecraft's dark button, Minecraft's font -- with premade icons, words only on the big buttons).
-	// Cosmetics, Realms and Quit come from free icon packs, rebuilt by tools/title-icons/make_icons.py into one
+	// Cosmetics (cape) and Realms (castle) are Origin's own pixel icons and Quit is Kenney's X, built by tools/title-icons/origin_icons.py into one
 	// sheet (credits shipped beside it as title_icons_CREDITS.txt). Origin's Friends is vanilla's own social-
 	// interactions sprite drawn from the game's atlas; Mojang's own Friends button (26.2+, FriendsButton) keeps its
 	// single-person "@user" glyph; Language / Accessibility stay vanilla's own sprite buttons (not registered).
