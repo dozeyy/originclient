@@ -500,3 +500,10 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 - Menus: new harness takes V3_MENU_TABS, V3_MOD_OPTIONS, V3_MOD_SEARCH, V3_PAUSE (claude/ad-capture 706a49e5a); the cursor glides straight to each target, no idle hovers. Harness needs Clip.allowPause for the pause take and PLAYER_SHADOW=-1.
 - Result: 22 shots, 100.97 s, 142 sound cues (I -26.1 LUFS, TP -2.6 dBTP); phone copies ~26 MB each. Will has not yet judged feel/sound at full speed.
 - Released as launcher-v1.0.99 (merge 5b51c9cec, PR #42). The first release run failed at 'Upload release notes' with GitHub's "The server is busy"; re-running the failed jobs published it.
+
+## 2026-11-14 - New title-dock icons (Realms, Cosmetics)
+- Will kept Quit/Friends/Language/Accessibility and asked for new Realms and Cosmetics icons with uniform pixel size. Realms = castle keep with pennant, Cosmetics = cape on a rod; concepts from Recraft (recraftv4_1_raster, ~2 credits each; v3 "Pixel art" style ignored prompts, nano_banana_pro edits were messy at 20 credits), then set by hand in tools/title-icons/origin_icons.py.
+- Lesson: 1-bit white + (+1,+1) shadow turns 1 px interior holes into shadow and the icon reads as a blob; draw detail in vanilla accessibility's grey tones (214/170/110) instead.
+- Sheet contract unchanged (48x16, body sizes 14x12 / 15x13 / 12x12), so only the PNG + credits changed in all 20 modules; no code changes. Not seen in game yet (CI dev-shots); gated deploy left.
+- Same day, Will's second pass ("whatever this cape is, I don't like it"; "all centered"; "more shading or detail"): Cosmetics is now a t-shirt, Realms got windows, arrow slits and brick marks; both bodies went 14x14 (ICON_RECTS {0,0,15,15,14,14} / {16,0,15,15,14,14} in all 20 modules). Even body sizes centre exactly under `x + w/2 - body/2`; the old 15x13 Realms sat half a pixel off. Vanilla Language (13 px body) is half a pixel off by Mojang's own art.
+- Third pass: Will found the 10 px-wide t-shirt "too bulky"; now a slim 8 px body with flat shoulders, 14x12 drawn in rows 1-12 of its 14x14 body so it stays centred (blank rows pad it).
