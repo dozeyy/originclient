@@ -524,7 +524,7 @@ public final class OriginButtonRenderer {
 
 	// ---- the title dock's icons (Will, 2026-10-27: the title buttons are "the same ones" as every other menu --
 	// Minecraft's dark button, Minecraft's font -- with premade icons, words only on the big buttons) ----
-	// Cosmetics and Quit come from free icon packs, rebuilt by tools/title-icons/make_icons.py into one sheet
+	// Cosmetics (t-shirt, Origin's own) and Quit (Kenney's X) are built by tools/title-icons/origin_icons.py into one sheet
 	// (credits shipped beside it as title_icons_CREDITS.txt), copied verbatim from 1.21.1. Realms does not exist
 	// on 1.8.9's title. 1.8.9 has no toast/social_interactions sprite (no social interactions screen, no sprite
 	// atlas): Friends and Language keep Origin's own crisp glyphs, white like a label.
@@ -532,7 +532,7 @@ public final class OriginButtonRenderer {
 			new net.minecraft.util.ResourceLocation("originclient", "textures/gui/title_icons.png");
 	private static final int ICONS_W = 48, ICONS_H = 16;
 	// {u, v, w, h} of the art with its 1 px shadow, then the white body's own w, h: the body is what is centred.
-	private static final int[] ICON_COSMETICS = {0, 0, 15, 13, 14, 12};
+	private static final int[] ICON_COSMETICS = {0, 0, 15, 15, 14, 14};
 	private static final int[] ICON_QUIT = {32, 0, 13, 13, 12, 12};
 	private static final int GLYPH = 12;
 	private static volatile boolean iconBroken = false;

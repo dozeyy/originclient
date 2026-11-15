@@ -3,7 +3,7 @@ Origin title-screen icons - art and licences
 
 textures/gui/title_icons.png is built by tools/title-icons/origin_icons.py (2026-11-14).
 
-Cosmetics - a cape on its rod
+Cosmetics - a t-shirt
 Realms    - a castle keep with a pennant
   Origin's own icons. The designs were generated with Recraft and then set by hand, pixel by
   pixel, on the sheet's 1:1 grid in Minecraft's icon tones (white 252, greys 214/170/110, a 1 px

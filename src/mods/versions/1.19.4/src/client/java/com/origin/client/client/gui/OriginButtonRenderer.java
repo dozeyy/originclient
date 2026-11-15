@@ -154,8 +154,8 @@ public final class OriginButtonRenderer {
 	// over the vanilla sprite it replaces.
 	private static final int GLYPH = 12, LEAD_ICON = 8, LEAD_GAP = 6;
 
-	// The title dock's icons (Will, 2026-10-27, ported from 1.21.1): Cosmetics, Realms and Quit come from free
-	// icon packs, rebuilt by tools/title-icons/make_icons.py into one sheet (credits shipped beside it as
+	// The title dock's icons (Will, 2026-10-27, ported from 1.21.1): Cosmetics (t-shirt) and Realms (castle) are
+	// Origin's own pixel icons and Quit is Kenney's X, built by tools/title-icons/origin_icons.py into one sheet (credits shipped beside it as
 	// title_icons_CREDITS.txt). Friends is vanilla's own social-interactions art: before 1.20.2 there is no
 	// toast/social_interactions sprite, but the same 20 x 20 bubble is TutorialToast.Icons.SOCIAL_INTERACTIONS
 	// in Mojang's textures/gui/toasts.png (javap: Icons(2, 1) -> u 176 + 2 * 20 = 216, v 1 * 20 = 20), drawn
@@ -165,7 +165,7 @@ public final class OriginButtonRenderer {
 	private static final ResourceLocation TITLE_ICONS = new ResourceLocation("originclient", "textures/gui/title_icons.png");
 	private static final int ICONS_W = 48, ICONS_H = 16;
 	// {u, v, w, h} of the art with its 1 px shadow, then the white body's own w, h: the body is what is centred
-	private static final int[] ICON_COSMETICS = {0, 0, 15, 13, 14, 12}, ICON_REALMS = {16, 0, 16, 14, 15, 13},
+	private static final int[] ICON_COSMETICS = {0, 0, 15, 15, 14, 14}, ICON_REALMS = {16, 0, 15, 15, 14, 14},
 			ICON_QUIT = {32, 0, 13, 13, 12, 12};
 	private static final ResourceLocation TOASTS = new ResourceLocation("textures/gui/toasts.png");
 

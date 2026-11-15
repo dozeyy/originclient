@@ -3,7 +3,7 @@
 
   origin_icons.py <old_sheet.png> <out.png> [--preview <vanilla_sprites_dir> <preview.png>]
 
-Realms (castle keep with a pennant) and Cosmetics (a cape hanging from its rod) are Origin's own icons:
+Realms (castle keep with a pennant) and Cosmetics (a t-shirt) are Origin's own icons:
 the designs were generated with Recraft (recraftv4_1_raster, 2026-11-14) and are set here on the real
 pixel grid, one texture pixel per pixel, so they match the other dock icons pixel for pixel. Quit is the
 Kenney X, copied unchanged from the old sheet (cell x=32). Friends, Language and Accessibility are still
@@ -13,8 +13,9 @@ Style = vanilla's accessibility icon (the dock's neighbour): white 252 body, no 
 its own grey tones 214 / 170 / 110 (holes would fill with shadow), 1 px dark 42 drop shadow at (+1,+1)
 on empty pixels.
 
-Sheet contract is UNCHANGED (so no module's code changes): 48 x 16, one 16 x 16 cell per icon,
-cosmetics x=0 body 14 x 12, realms x=16 body 15 x 13, quit x=32 body 12 x 12; body at the cell's top-left.
+Sheet contract (each module's ICON_RECTS / ICON_* must match): 48 x 16, one 16 x 16 cell per icon,
+cosmetics x=0 body 14 x 14, realms x=16 body 14 x 14, quit x=32 body 12 x 12; body at the cell's top-left.
+Even body sizes so `x + w/2 - body/2` centres them exactly on the 20 x 20 button (an odd size sits half a pixel off).
 """
 import sys
 from PIL import Image
@@ -24,38 +25,41 @@ SHADOW = (42, 42, 42, 255)
 # vanilla accessibility icon's own tones: W white, L light shade, M mid, D dark detail
 TONES = {"W": WHITE, "L": (214, 214, 214, 255), "M": (170, 170, 170, 255), "D": (110, 110, 110, 255)}
 
-COSMETICS = [   # 14 x 12: the rod, the cape hanging from it with a diamond crest, two folds, a solid hem
+COSMETICS = [   # 14 x 14: a t-shirt -- dark back-of-collar, shaded right side, armpit and fold creases, sleeve hems, a gem on the chest
+    "...WWMDDMWL...",
+    "..WWWWMMWWLL..",
+    ".WWWWWWWWWWLL.",
+    "WWWWWWWWWWWLLL",
+    "WWWWWWWWWWWLLL",
+    "MMMLWWWWWWLMMM",
+    "..MWWWWWWLLM..",
+    "..WWWWDDWWLL..",
+    "..WWWDDDDWLL..",
+    "..WWWWDDWWLL..",
+    "..WWWWWWWWLL..",
+    "..WLWWWWWWLL..",
+    "..WLWWWWWLLL..",
+    "..MMMMMMMMMM..",
+]
+
+REALMS = [      # 14 x 14: a keep with a pennant and two windows, side walls with arrow slits and brick marks, a ledge, the gate
+    "......MWWL....",
+    "......MWL.....",
+    "......M.......",
+    "....W.WL.L....",
+    "....WWWWWL....",
+    "....WDWWDL....",
+    "W.W.WDWWDL.W.L",
+    "WWWWWWWWWWWWLL",
     "MMMMMMMMMMMMMM",
-    "..WWWWWWWWWL..",
-    "..WWWWWWWWWL..",
-    "..WWWWDWWWWL..",
-    "..WWWDDDWWWL..",
-    "..WWDDDDDWWL..",
-    "..WWWDDDWWWL..",
-    ".WWWWWDWWWWLL.",
-    ".WWWLWWWWLWLL.",
-    ".WWWLWWWWLWLL.",
-    ".WWWLWWWWLWLL.",
-    ".LLLLLLLLLLLL.",
+    "WLWWWMDDMWWLLL",
+    "WWDWWDDDDWWDLL",
+    "WWDWWDDDDWWDLL",
+    "WWWLWDDDDWLWLL",
+    "LLLLLDDDDLLLLL",
 ]
 
-REALMS = [      # 15 x 13: pennant on a pole, three merlons, the keep, an arched gate
-    ".......WWW.....",
-    ".......WW......",
-    ".......M.......",
-    "WWL...WWL...WWL",
-    "WWWWWWWWWWWWWWL",
-    "MMMMMMMMMMMMMMM",
-    ".WWWWWWWWWWWWL.",
-    ".WWWWWWWWWWWWL.",
-    ".WWWWWDDDWWWWL.",
-    ".WWWWDDDDDWWWL.",
-    ".WWWWDDDDDWWWL.",
-    ".WWWWDDDDDWWWL.",
-    ".LLLLDDDDDLLLL.",
-]
-
-EXPECT = {"cosmetics": (14, 12), "realms": (15, 13)}
+EXPECT = {"cosmetics": (14, 14), "realms": (14, 14)}
 
 
 def stamp(sheet, rows, ox):
@@ -90,7 +94,7 @@ def preview(sheet, sprites, out, scale=8):
         b.paste(btn.crop((0, 0, w // 2, h)), (0, 0))
         b.paste(btn.crop((200 - w // 2, 0, 200, h)), (w // 2, 0))
         return b
-    rects = {"cosmetics": (0, 0, 15, 13, 14, 12), "realms": (16, 0, 16, 14, 15, 13), "quit": (32, 0, 13, 13, 12, 12)}
+    rects = {"cosmetics": (0, 0, 15, 15, 14, 14), "realms": (16, 0, 15, 15, 14, 14), "quit": (32, 0, 13, 13, 12, 12)}
     order = ["realms", "friends", "cosmetics", "language", "accessibility", "quit"]
     gap, pad = 4, 6
     W = pad * 2 + len(order) * 20 + (len(order) - 1) * gap

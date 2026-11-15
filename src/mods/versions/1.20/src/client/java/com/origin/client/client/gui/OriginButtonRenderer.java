@@ -155,7 +155,7 @@ public final class OriginButtonRenderer {
 
 	// The title dock's icons (Will, 2026-10-27: the title buttons are "the same ones" as every other menu --
 	// Minecraft's dark button, Minecraft's font -- with premade icons, words only on the big buttons).
-	// Cosmetics (cape) and Realms (castle) are Origin's own pixel icons and Quit is Kenney's X, built by tools/title-icons/origin_icons.py into one
+	// Cosmetics (t-shirt) and Realms (castle) are Origin's own pixel icons and Quit is Kenney's X, built by tools/title-icons/origin_icons.py into one
 	// sheet (credits in tools/title-icons/CREDITS.txt, shipped beside the sheet as title_icons_CREDITS.txt). Friends is vanilla's own social-
 	// interactions sprite ("minecraft chat thing"), drawn from the game's atlas, and Language / Accessibility
 	// stay vanilla's own sprite buttons.
@@ -163,8 +163,8 @@ public final class OriginButtonRenderer {
 	private static final int ICONS_W = 48, ICONS_H = 16;
 	private static final Map<String, int[]> ICON_RECTS = Map.of(
 			// {u, v, w, h} of the art with its 1 px shadow, then the white body's own w, h: the body is what is centred
-			"cosmetics", new int[]{0, 0, 15, 13, 14, 12},
-			"realms", new int[]{16, 0, 16, 14, 15, 13},
+			"cosmetics", new int[]{0, 0, 15, 15, 14, 14},
+			"realms", new int[]{16, 0, 15, 15, 14, 14},
 			"quit", new int[]{32, 0, 13, 13, 12, 12});
 	// 1.20 has no sprite atlas (javap 1.20: no GuiGraphics.blitSprite, no toast/social_interactions): the dock's
 	// Friends icon is vanilla's own TutorialToast SOCIAL_INTERACTIONS (20 x 20 in toasts.png, the art 1.20.2 split
