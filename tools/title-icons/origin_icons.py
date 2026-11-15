@@ -3,7 +3,7 @@
 
   origin_icons.py <old_sheet.png> <out.png> [--preview <vanilla_sprites_dir> <preview.png>]
 
-Realms (castle keep with a pennant) and Cosmetics (a t-shirt) are Origin's own icons:
+Realms (castle keep with a pennant) and Cosmetics (a slim t-shirt) are Origin's own icons:
 the designs were generated with Recraft (recraftv4_1_raster, 2026-11-14) and are set here on the real
 pixel grid, one texture pixel per pixel, so they match the other dock icons pixel for pixel. Quit is the
 Kenney X, copied unchanged from the old sheet (cell x=32). Friends, Language and Accessibility are still
@@ -25,21 +25,22 @@ SHADOW = (42, 42, 42, 255)
 # vanilla accessibility icon's own tones: W white, L light shade, M mid, D dark detail
 TONES = {"W": WHITE, "L": (214, 214, 214, 255), "M": (170, 170, 170, 255), "D": (110, 110, 110, 255)}
 
-COSMETICS = [   # 14 x 14: a t-shirt -- dark back-of-collar, shaded right side, armpit and fold creases, sleeve hems, a gem on the chest
-    "...WWMDDMWL...",
-    "..WWWWMMWWLL..",
-    ".WWWWWWWWWWLL.",
+COSMETICS = [   # 14 x 14 cell, the shirt 14 x 12 in rows 1-12 so it stays centred: flat shoulders, dark back
+    # of the collar, short sleeves with hems, a slim 8 px body shaded on the right and under the arms
+    "..............",
+    "..WWWMDDMWLL..",
+    ".WWWWWMMWWWLL.",
     "WWWWWWWWWWWLLL",
-    "WWWWWWWWWWWLLL",
-    "MMMLWWWWWWLMMM",
-    "..MWWWWWWLLM..",
-    "..WWWWDDWWLL..",
-    "..WWWDDDDWLL..",
-    "..WWWWDDWWLL..",
-    "..WWWWWWWWLL..",
-    "..WLWWWWWWLL..",
-    "..WLWWWWWLLL..",
-    "..MMMMMMMMMM..",
+    "WWWLWWWWWWLLLL",
+    "MMMLWWWWWLLMMM",
+    "...LWWWWWLL...",
+    "...WWWWWWLL...",
+    "...WWWWWWLL...",
+    "...WWWWWLLL...",
+    "...WWWWWLLL...",
+    "...WWWWWWLL...",
+    "...MMMMMMMM...",
+    "..............",
 ]
 
 REALMS = [      # 14 x 14: a keep with a pennant and two windows, side walls with arrow slits and brick marks, a ledge, the gate
