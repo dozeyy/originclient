@@ -33,7 +33,10 @@ public final class MotionBlur {
 
 	public static void tick(Minecraft mc) {
 		ticks++;
-		double amount = (!broken && Mods.on("motionblur")) ? Mods.num("motionblur", "amount") : 0;
+		// Vulkan mode: the PostChain in the post-effect slot is OpenGL-only, so the blur stays off there and the
+		// Mod Menu says so (compat-gates `opengl`; always on without VulkanMod).
+		double amount = (!broken && Mods.on("motionblur") && com.origin.client.client.compat.CompatGates.on("motionblur"))
+				? Mods.num("motionblur", "amount") : 0;
 		frameAmount = amount;
 		boolean want = amount >= 0.5 && mc.level != null;
 

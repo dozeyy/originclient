@@ -11,16 +11,27 @@
 # upgradePendingUpdate / isBoxVisibleDirect, other culler visitors), so the sodiumWalk group, and with it
 # Half-Rate Shadows, Off-Map Shadows and Smart Terrain, switches off there before its mixins apply, with one
 # log line; Shader Performance Mode and the rest of Origin keep working. Iris 1.8.1 matches every Iris target.
-group iris | Origin's Iris hooks | iris ~1.8.1 | IrisShadowDirectivesMixin
+#
+# VULKAN MODE (launcher's opt-in Vulkan graphics, 2026-11-16): VulkanMod 0.6.7 replaces the OpenGL renderer,
+# Origin's VulkaIris fork stands in for Sodium (it provides `sodium` 0.8.12) and rewrites Iris internals, and
+# raw OpenGL beyond VulkanMod's GL11/14/15/30 shims is broken. `vulkanmod absent` comes FIRST in every group
+# that must not run there, so the Mod Menu says "Off with Vulkan graphics" (not "needs a supported Sodium").
+# Without VulkanMod that need is met and changes nothing: every OpenGL decision stays what it was (proved by
+# src/gateTest, `gradlew build` runs it). The `opengl` group carries the vanilla-target hooks and effects that
+# only work on OpenGL: the after-shaders overlay pass (it hooks Iris's composite timing; without it the overlays
+# draw at WorldRenderEvents.LAST, the shaders-off path), the cull-frustum fingerprint (collides with
+# VulkanMod's FrustumMixin; only Smart Terrain reads it), Color Saturation (own TextureTarget + core shader
+# blit into the main target) and Motion Blur (PostChain in the post-effect slot).
+group iris | Origin's Iris hooks | vulkanmod absent; iris ~1.8.1 | IrisShadowDirectivesMixin
 sig iris | net.irisshaders.iris.shaderpack.properties.PackShadowDirectives | getDistance()F
-group irisHalfRate | Half-Rate Shadows' Iris hooks | iris ~1.8.1 | IrisPipelineHalfRateMixin IrisShadowRendererHalfRateMixin
+group irisHalfRate | Half-Rate Shadows' Iris hooks | vulkanmod absent; iris ~1.8.1 | IrisPipelineHalfRateMixin IrisShadowRendererHalfRateMixin
 sig irisHalfRate | net.irisshaders.iris.pipeline.IrisRenderingPipeline | beginLevelRendering()V
 sig irisHalfRate | net.irisshaders.iris.shadows.ShadowRenderer | renderShadows(Lnet/irisshaders/iris/mixin/LevelRendererAccessor;Lnet/minecraft/class_4184;)V
 sig irisHalfRate | net.irisshaders.iris.shadows.ShadowRenderer | createShadowModelView(FFFF)Lnet/minecraft/class_4587;
-group sodium | Origin's Sodium hooks | sodium ~0.8.13 or ~0.6.5 | SodiumSortedRenderListsAccessor SodiumWorldRendererReuseMixin
+group sodium | Origin's Sodium hooks | vulkanmod absent; sodium ~0.8.13 or ~0.6.5 | SodiumSortedRenderListsAccessor SodiumWorldRendererReuseMixin
 sig sodium | net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer | setupTerrain(Lnet/minecraft/class_4184;Lnet/caffeinemc/mods/sodium/client/render/viewport/Viewport;ZZ)V
 sig sodium | net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer | isEntityVisible(Lnet/minecraft/class_1297;)Z
-group sodiumWalk | Origin's Sodium 0.8 walk hooks | sodium ~0.8.13 or ~0.6.5 | SodiumRenderSectionManagerAccessor SodiumGraphReuseMixin SodiumWalkEndMixin SodiumOcclusionStampMixin SodiumViewportShadowMapMixin
+group sodiumWalk | Origin's Sodium 0.8 walk hooks | vulkanmod absent; sodium ~0.8.13 or ~0.6.5 | SodiumRenderSectionManagerAccessor SodiumGraphReuseMixin SodiumWalkEndMixin SodiumOcclusionStampMixin SodiumViewportShadowMapMixin
 sig sodiumWalk | net.caffeinemc.mods.sodium.client.render.chunk.RenderSectionManager | createTerrainRenderList(Lnet/minecraft/class_4184;Lnet/caffeinemc/mods/sodium/client/render/viewport/Viewport;IZ)Z
 sig sodiumWalk | net.caffeinemc.mods.sodium.client.render.chunk.RenderSectionManager | update(Lnet/minecraft/class_4184;Lnet/caffeinemc/mods/sodium/client/render/viewport/Viewport;Z)V
 sig sodiumWalk | net.caffeinemc.mods.sodium.client.render.chunk.RenderSectionManager | finalizeRenderLists(Lnet/caffeinemc/mods/sodium/client/render/viewport/Viewport;)V
@@ -38,7 +49,7 @@ sig sodiumWalk | net.caffeinemc.mods.sodium.client.render.chunk.occlusion.Occlus
 sig sodiumWalk | net.caffeinemc.mods.sodium.client.render.viewport.Viewport | getBoxIntersectionDirect(FFFF)I
 sig sodiumWalk | net.caffeinemc.mods.sodium.client.render.viewport.Viewport | isBoxVisibleDirect(FFFF)Z
 sig sodiumWalk | net.caffeinemc.mods.sodium.client.render.viewport.Viewport | isBoxVisible(III)Z
-group smartTerrainPair | Smart Terrain's Sodium + Iris pair | sodium 0.8.13; iris 1.8.14-beta.1 |
+group smartTerrainPair | Smart Terrain's Sodium + Iris pair | vulkanmod absent; sodium 0.8.13; iris 1.8.14-beta.1 |
 group jei | Origin's JEI show/hide switch | jei >=19.51.0.418 <20.0.0- | JeiGuiEventHandlerMixin JeiClientInputHandlerMixin
 # JEI signature table: every JEI method the two Jei*Mixins inject into, owner + name + descriptor from
 # javap -s on the pinned JEI jar (EO4u1E2G). A miss turns the jei group off before its mixins apply.
@@ -58,3 +69,6 @@ feature shaderPerformanceMode | Shader Performance Mode | iris
 feature halfRateShadows | Half-Rate Shadows | iris irisHalfRate sodium sodiumWalk
 feature offMapShadows | Off-Map Shadows | iris sodium sodiumWalk
 feature smartTerrainUpdates | Smart Terrain Updates | iris sodium sodiumWalk smartTerrainPair
+group opengl | Origin's OpenGL-only hooks | vulkanmod absent | GameRendererPostShadersMixin LevelRendererCullFrustumMixin
+feature colorsaturation | Color Saturation | opengl
+feature motionblur | Motion Blur | opengl

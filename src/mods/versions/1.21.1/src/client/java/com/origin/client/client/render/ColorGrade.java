@@ -43,7 +43,10 @@ public final class ColorGrade {
 	private static boolean broken = false;
 
 	public static void process(float partialTick) {
-		if (broken || OriginShaders.GRADE == null || !Mods.on("colorsaturation")) {
+		// Vulkan mode: its own TextureTarget + core-shader blit into the main target is OpenGL-only, so the
+		// feature is off there and the Mod Menu says so (compat-gates `opengl`; always on without VulkanMod).
+		if (broken || OriginShaders.GRADE == null || !Mods.on("colorsaturation")
+				|| !com.origin.client.client.compat.CompatGates.on("colorsaturation")) {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();

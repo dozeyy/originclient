@@ -46,6 +46,13 @@ import net.fabricmc.loader.api.metadata.version.VersionPredicate;
  * Ids of groups and features share one namespace. An id the data doesn't name is on: modules that have
  * no hook for it never gate it.
  *
+ * <p>A need may also be {@code <mod> absent}: met only while that mod is NOT loaded. Vulkan mode (VulkanMod
+ * replaces Minecraft's OpenGL renderer; the launcher's opt-in Vulkan graphics) uses it: a group listing
+ * {@code vulkanmod absent} first switches off, mixins included, before Mixin applies anything, and the Mod
+ * Menu says "Off with Vulkan graphics". With the mod absent the need is met and leaves no trace, so every
+ * other decision is exactly what it was without the line. {@link #VULKANMOD} is also a built-in id:
+ * {@code on(VULKANMOD)} / {@link #vulkan()} is true while VulkanMod is loaded, in every module, data or not.
+ *
  * <p>Runs during Mixin's config load, before any game class: nothing here may touch a Minecraft or
  * Origin class (only Fabric Loader, the JDK and log4j). Any failure reading the data turns every group
  * OFF (the safe direction: hooks skipped, the game runs vanilla-plus-Origin without them).
@@ -66,6 +73,8 @@ public final class CompatGates {
 		String why;
 		/** The mod and version that turned it off (for the Mod Menu page note), or null. */
 		String offMod, offVersion;
+		/** Off because offMod IS loaded (an {@code absent} need), not because it is missing or the wrong version. */
+		boolean offPresent;
 		Group(String id, String label) { this.id = id; this.label = label; }
 	}
 
@@ -75,6 +84,45 @@ public final class CompatGates {
 		boolean on;
 		String note;
 		Feature(String id, String label) { this.id = id; this.label = label; }
+	}
+
+	/** Built-in condition id: true while VulkanMod (Origin's opt-in Vulkan graphics) is loaded. */
+	public static final String VULKANMOD = "vulkanmod";
+	/** The range word of a need that is met only while its mod is NOT loaded ({@code vulkanmod absent}). */
+	static final String ABSENT = "absent";
+
+	/** Which mods are loaded, at which version (null = not loaded). Fabric Loader in game; a fixed set in tests. */
+	interface ModLookup {
+		Version version(String mod);
+	}
+
+	private static final ModLookup FABRIC = new ModLookup() {
+		@Override
+		public Version version(String mod) {
+			ModContainer c = FabricLoader.getInstance().getModContainer(mod).orElse(null);
+			return c == null ? null : c.getMetadata().getVersion();
+		}
+	};
+
+	private static volatile Boolean vulkan;
+
+	/**
+	 * True while VulkanMod is loaded (Vulkan mode): raw OpenGL beyond its shims, and the internals of the
+	 * renderer it replaces, are off limits there. Safe during Mixin's config phase (Fabric Loader only).
+	 */
+	public static boolean vulkan() {
+		Boolean v = vulkan;
+		if (v == null) {
+			boolean loaded;
+			try {
+				loaded = FabricLoader.getInstance().isModLoaded(VULKANMOD);
+			} catch (Throwable t) {
+				loaded = false;
+			}
+			v = loaded;
+			vulkan = v;
+		}
+		return v;
 	}
 
 	private static final Map<String, Group> GROUPS = new LinkedHashMap<>();
@@ -94,10 +142,10 @@ public final class CompatGates {
 		try {
 			read();
 			for (Group g : GROUPS.values()) {
-				evaluate(g);
+				evaluate(g, FABRIC, true);
 			}
 			for (Feature f : FEATURES.values()) {
-				evaluate(f);
+				evaluate(f, GROUPS);
 			}
 			for (Feature f : FEATURES.values()) {
 				if (!f.on) {
@@ -127,8 +175,14 @@ public final class CompatGates {
 		}
 	}
 
-	/** True when group or feature {@code id} may run. Unknown ids are on (see class doc). */
+	/**
+	 * True when group or feature {@code id} may run. Unknown ids are on (see class doc). The built-in
+	 * {@link #VULKANMOD} is a condition, not a hook: true while VulkanMod is loaded.
+	 */
 	public static boolean on(String id) {
+		if (VULKANMOD.equals(id)) {
+			return vulkan();
+		}
 		if (!ready) {
 			init();
 		}
@@ -182,6 +236,11 @@ public final class CompatGates {
 		if (g == null || g.offMod == null) {
 			return label + " is off: Origin could not check it against your mods.";
 		}
+		if (g.offPresent) {
+			return VULKANMOD.equals(g.offMod)
+					? label + " is off with Vulkan graphics. It works again with Vulkan graphics turned off."
+					: label + " is off while " + displayName(g.offMod) + " is installed.";
+		}
 		String mod = displayName(g.offMod);
 		if (g.offVersion == null) {
 			return label + " is off: it needs " + mod + ", which is not installed.";
@@ -217,12 +276,19 @@ public final class CompatGates {
 	// ---- data ------------------------------------------------------------------------------------
 
 	private static void read() throws Exception {
-		List<String[]> sigLines = new ArrayList<>();
 		InputStream in = CompatGates.class.getClassLoader().getResourceAsStream(RESOURCE);
 		if (in == null) {
 			throw new IllegalStateException("resource missing");
 		}
 		try (BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+			parse(r, GROUPS, FEATURES, BY_MIXIN);
+		}
+	}
+
+	private static void parse(BufferedReader r, Map<String, Group> groups, Map<String, Feature> features,
+			Map<String, Group> byMixin) throws Exception {
+		List<String[]> sigLines = new ArrayList<>();
+		{
 			String line;
 			while ((line = r.readLine()) != null) {
 				line = line.trim();
@@ -247,10 +313,10 @@ public final class CompatGates {
 					for (String m : p[3].trim().split("\\s+")) {
 						if (!m.isEmpty()) {
 							g.mixins.add(m);
-							BY_MIXIN.put(m, g);
+							byMixin.put(m, g);
 						}
 					}
-					GROUPS.put(g.id, g);
+					groups.put(g.id, g);
 				} else if ("feature".equals(head[0]) && p.length == 3) {
 					Feature f = new Feature(head[1], p[1].trim());
 					for (String alt : p[2].split("/")) {
@@ -262,7 +328,7 @@ public final class CompatGates {
 						}
 						f.alternatives.add(ids);
 					}
-					FEATURES.put(f.id, f);
+					features.put(f.id, f);
 				} else if ("sig".equals(head[0]) && p.length == 3 && !p[1].trim().isEmpty()
 						&& p[2].trim().indexOf('(') > 0) {
 					sigLines.add(new String[] {head[1], p[1].trim(), p[2].trim()});
@@ -272,16 +338,16 @@ public final class CompatGates {
 			}
 		}
 		for (String[] s : sigLines) {
-			Group g = GROUPS.get(s[0]);
+			Group g = groups.get(s[0]);
 			if (g == null) {
 				throw new IllegalArgumentException("sig names unknown group " + s[0]);
 			}
 			g.sigs.add(new String[] {s[1], s[2]});
 		}
-		for (Feature f : FEATURES.values()) {
+		for (Feature f : features.values()) {
 			for (List<String> alt : f.alternatives) {
 				for (String gid : alt) {
-					if (!GROUPS.containsKey(gid)) {
+					if (!groups.containsKey(gid)) {
 						throw new IllegalArgumentException(f.id + " names unknown group " + gid);
 					}
 				}
@@ -289,18 +355,29 @@ public final class CompatGates {
 		}
 	}
 
-	private static void evaluate(Group g) {
+	/** {@code sigs}: run the signature check (false only in tests, which have no Sodium/Iris/JEI classes). */
+	private static void evaluate(Group g, ModLookup mods, boolean sigs) {
 		g.on = true;
 		for (Map.Entry<String, String> need : g.needs.entrySet()) {
 			String mod = need.getKey();
-			ModContainer c = FabricLoader.getInstance().getModContainer(mod).orElse(null);
+			Version v = mods.version(mod);
 			g.offMod = mod;
-			if (c == null) {
+			if (ABSENT.equals(need.getValue())) {
+				if (v != null) {
+					g.on = false;
+					g.offPresent = true;
+					g.offVersion = v.getFriendlyString();
+					g.why = mod + " " + g.offVersion + " is loaded";
+					return;
+				}
+				g.offMod = null;
+				continue;
+			}
+			if (v == null) {
 				g.on = false;
 				g.why = mod + " not installed";
 				return;
 			}
-			Version v = c.getMetadata().getVersion();
 			if (!matches(need.getValue(), v)) {
 				g.on = false;
 				g.offVersion = v.getFriendlyString();
@@ -309,8 +386,11 @@ public final class CompatGates {
 			}
 			g.offMod = null;
 		}
+		if (!sigs) {
+			return;
+		}
 		try {
-			checkSignatures(g);
+			checkSignatures(g, mods);
 		} catch (Throwable t) {
 			// Only this group goes off: a throw reaching init's catch would turn off every hook (Sodium, Iris too).
 			g.on = false;
@@ -322,7 +402,7 @@ public final class CompatGates {
 	 * The version range passed; now every method the group's mixins inject into must exist with the exact
 	 * descriptor. Off on the first group with a miss, naming every missing method in its one log line.
 	 */
-	private static void checkSignatures(Group g) {
+	private static void checkSignatures(Group g, ModLookup mods) {
 		if (g.sigs.isEmpty()) {
 			return;
 		}
@@ -348,9 +428,15 @@ public final class CompatGates {
 		g.why = "signature check failed against " + versions(g) + ": " + misses;
 		// The Mod Menu note: "made for another JEI than the one installed (x)". True here too: this JEI
 		// build moved or changed a method Origin's switch hooks.
-		g.offMod = g.needs.isEmpty() ? null : g.needs.keySet().iterator().next();
-		ModContainer c = g.offMod == null ? null : FabricLoader.getInstance().getModContainer(g.offMod).orElse(null);
-		g.offVersion = c == null ? null : c.getMetadata().getVersion().getFriendlyString();
+		g.offMod = null;
+		for (Map.Entry<String, String> need : g.needs.entrySet()) {
+			if (!ABSENT.equals(need.getValue())) {
+				g.offMod = need.getKey();
+				break;
+			}
+		}
+		Version v = g.offMod == null ? null : mods.version(g.offMod);
+		g.offVersion = v == null ? null : v.getFriendlyString();
 	}
 
 	/** The class file of {@code binaryName} as the game will load it, or null when it is not on the classpath. */
@@ -386,7 +472,11 @@ public final class CompatGates {
 	/** "jei 19.51.0.418" for the group's mods as loaded (for the log line). */
 	private static String versions(Group g) {
 		StringBuilder sb = new StringBuilder();
-		for (String mod : g.needs.keySet()) {
+		for (Map.Entry<String, String> need : g.needs.entrySet()) {
+			if (ABSENT.equals(need.getValue())) {
+				continue;
+			}
+			String mod = need.getKey();
 			ModContainer c = FabricLoader.getInstance().getModContainer(mod).orElse(null);
 			sb.append(sb.length() == 0 ? "" : ", ").append(mod).append(' ')
 					.append(c == null ? "?" : c.getMetadata().getVersion().getFriendlyString());
@@ -407,25 +497,29 @@ public final class CompatGates {
 		return false;
 	}
 
-	private static void evaluate(Feature f) {
+	private static void evaluate(Feature f, Map<String, Group> groups) {
 		f.on = false;
 		for (List<String> alt : f.alternatives) {
 			boolean all = true;
 			for (String gid : alt) {
-				all &= GROUPS.get(gid).on;
+				all &= groups.get(gid).on;
 			}
 			if (all) {
 				f.on = true;
 				return;
 			}
 		}
-		Group off = firstOff(f);
+		Group off = firstOff(f, groups);
 		f.note = off == null ? "Off: not supported here" : noteFor(off);
 	}
 
 	private static Group firstOff(Feature f) {
+		return firstOff(f, GROUPS);
+	}
+
+	private static Group firstOff(Feature f, Map<String, Group> groups) {
 		for (String gid : f.alternatives.get(0)) {
-			Group g = GROUPS.get(gid);
+			Group g = groups.get(gid);
 			if (!g.on) {
 				return g;
 			}
@@ -439,7 +533,13 @@ public final class CompatGates {
 	}
 
 	private static String noteFor(Group g) {
-		return g.offMod == null ? "Off: not supported here" : "Off: needs a supported " + displayName(g.offMod);
+		if (g.offMod == null) {
+			return "Off: not supported here";
+		}
+		if (g.offPresent) {
+			return VULKANMOD.equals(g.offMod) ? "Off with Vulkan graphics" : "Off with " + displayName(g.offMod) + " installed";
+		}
+		return "Off: needs a supported " + displayName(g.offMod);
 	}
 
 	private static String displayName(String mod) {
@@ -448,6 +548,7 @@ public final class CompatGates {
 			case "iris": return "Iris";
 			case "jei": return "JEI";
 			case "indium": return "Indium";
+			case "vulkanmod": return "VulkanMod";
 			default: return mod;
 		}
 	}
@@ -461,6 +562,35 @@ public final class CompatGates {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Test seam (no game, no Fabric Loader): every decision {@code data} makes for the mods in {@code mods},
+	 * without the signature check. Group and feature ids map to "on" or their Mod Menu note; each listed
+	 * mixin maps ("mixin <name>") to "on" or "off". The in-game path runs the same parse and evaluate.
+	 */
+	static Map<String, String> decide(String data, ModLookup mods) throws Exception {
+		Map<String, Group> groups = new LinkedHashMap<>();
+		Map<String, Feature> features = new LinkedHashMap<>();
+		Map<String, Group> byMixin = new LinkedHashMap<>();
+		parse(new BufferedReader(new java.io.StringReader(data)), groups, features, byMixin);
+		for (Group g : groups.values()) {
+			evaluate(g, mods, false);
+		}
+		for (Feature f : features.values()) {
+			evaluate(f, groups);
+		}
+		Map<String, String> out = new LinkedHashMap<>();
+		for (Group g : groups.values()) {
+			out.put(g.id, g.on ? "on" : noteFor(g));
+		}
+		for (Feature f : features.values()) {
+			out.put(f.id, f.on ? "on" : f.note);
+		}
+		for (Map.Entry<String, Group> m : byMixin.entrySet()) {
+			out.put("mixin " + m.getKey(), m.getValue().on ? "on" : "off");
+		}
+		return out;
 	}
 
 	/** One line in latest.log, prefixed so CI can grep it ("Origin compat gate: ..."). */

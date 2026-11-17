@@ -133,11 +133,46 @@ loom {
 			// `-PextraMods=<folder>`: also load every mod jar in that folder (Fabric
 			// Loader's fabric.addMods), without copying anything into run/mods.
 			// The frame log's "with mods" scenario (tools/frame-log/fetch_mods.py).
+			// Vulkan mode (the launcher's opt-in Vulkan graphics; the CI Vulkan job's contract, keep the names):
+			// `-PrendererJars=<folder>`: also load every mod jar there (VulkanMod, VulkaIris, flywheel-vulkan);
+			// `-PdisableModIds=<ids>`: comma list Fabric Loader switches off (fabric.debug.disableModIds), as the
+			// launcher does with `sodium,immediatelyfast` so the bundled Sodium/ImmediatelyFast step aside.
+			def addMods = []
 			if (project.hasProperty("extraMods")) {
-				property "fabric.addMods", file(project.property("extraMods").toString()).absolutePath
+				addMods << file(project.property("extraMods").toString()).absolutePath
+			}
+			if (project.hasProperty("rendererJars")) {
+				addMods << file(project.property("rendererJars").toString()).absolutePath
+			}
+			if (!addMods.isEmpty()) {
+				property "fabric.addMods", addMods.join(File.pathSeparator)
+			}
+			if (project.hasProperty("disableModIds")) {
+				property "fabric.debug.disableModIds", project.property("disableModIds").toString()
 			}
 		}
 	}
+}
+
+// Compat-gate test (Vulkan mode, 2026-11-16): the gate table must make every decision it made before Vulkan
+// mode when VulkanMod is absent, and switch the OpenGL-only hooks off when it is loaded
+// (src/gateTest/.../VulkanGateTest.java). Plain Java main, no test framework; `build` runs it via `check`.
+sourceSets {
+	gateTest {
+		compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
+		runtimeClasspath += sourceSets.gateTest.output + sourceSets.client.output + sourceSets.client.compileClasspath
+	}
+}
+
+tasks.register("compatGateTest", JavaExec) {
+	group = "verification"
+	description = "Proves the Vulkan-mode compat gates leave every OpenGL decision unchanged."
+	classpath = sourceSets.gateTest.runtimeClasspath
+	mainClass = "com.origin.client.client.compat.VulkanGateTest"
+}
+
+tasks.named("check") {
+	dependsOn "compatGateTest"
 }
 
 dependencies {
@@ -243,6 +278,13 @@ tasks.register("prodClient", net.fabricmc.loom.task.prod.ClientProductionRunTask
 	mods.from(tasks.named("remapJar"))
 	if (project.hasProperty("extraMods")) {
 		mods.from(fileTree(project.property("extraMods").toString()) { include "*.jar" })
+	}
+	// Vulkan mode, same contract as runClient: `-PrendererJars=<folder>` + `-PdisableModIds=<ids>`.
+	if (project.hasProperty("rendererJars")) {
+		mods.from(fileTree(project.property("rendererJars").toString()) { include "*.jar" })
+	}
+	if (project.hasProperty("disableModIds")) {
+		jvmArgs.add("-Dfabric.debug.disableModIds=" + project.property("disableModIds").toString())
 	}
 	runDir = file("run-prod")
 	// Same launcher boot flags as runClient above.

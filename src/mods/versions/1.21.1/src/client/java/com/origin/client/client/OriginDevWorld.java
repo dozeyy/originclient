@@ -905,6 +905,10 @@ final class OriginDevWorld {
 
 	/** Dev only: Iris's shadow depth texture (shadowtex0) read back as floats; null if anything is missing. */
 	private static float[] omReadShadowDepth() {
+		// Raw GL11 depth readback: no GL context under VulkanMod, so Vulkan mode skips it (the check reports no data).
+		if (com.origin.client.client.compat.CompatGates.vulkan()) {
+			return null;
+		}
 		try {
 			Object pm = Class.forName("net.irisshaders.iris.Iris").getMethod("getPipelineManager").invoke(null);
 			Object pipe = pm.getClass().getMethod("getPipelineNullable").invoke(pm);

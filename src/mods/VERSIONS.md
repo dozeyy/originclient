@@ -293,6 +293,18 @@ exists since 1.20 (before that it's `PoseStack` draws — a much bigger port).
   case. (This is the safety net, never the intended shipped state — see the
   mandate in the root CLAUDE.md.)
 
+### 1.21.1 Vulkan mode (opt-in, 2026-11-16)
+Same `originclient-1.21.1.jar`. The launcher adds VulkanMod 0.6.7 + Origin's VulkaIris fork +
+flywheel-vulkan and starts with `-Dfabric.debug.disableModIds=sodium,immediatelyfast`. The jar
+gates itself on the built-in `vulkanmod` id (`CompatGates.vulkan()`; data need `vulkanmod absent`
+in `originclient.compat-gates.txt`): every Sodium/Iris hook group, Shader Performance Mode,
+Half-Rate / Off-Map Shadows, Smart Terrain, the after-shaders overlay pass, the cull-frustum
+fingerprint, Color Saturation and Motion Blur are OFF there (mixins never apply; Mod Menu: "Off with
+Vulkan graphics"). Without VulkanMod every gate decision is unchanged (`gradlew build` runs
+`compatGateTest`). CI boots it with `-PrendererJars=<dir> -PdisableModIds=<ids>` on runClient /
+prodClient. Kept and still to prove in a Vulkan CI shot: GL11 skin-size read (baked head), minimap
+REPEAT wrap, Hit Color texture-unit upload, MSDF/icon/round core shaders, Menu Blur, glint/blend.
+
 ## Menus fit each version automatically
 
 Origin restyles **in place** and never defines menu contents. Whatever
