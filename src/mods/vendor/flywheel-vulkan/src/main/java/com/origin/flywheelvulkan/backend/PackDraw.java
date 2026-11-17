@@ -47,6 +47,13 @@ final class PackDraw {
 	private static final long UBO_ALIGN = 256;
 	private static final int SETS_PER_POOL = 64;
 	private static final int ALL_STAGES = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	/**
+	 * How many begin() calls a refused role waits before asking Vulkairis again. prepare() returns null
+	 * both for a refusal (cached for the pack) and for "programs not registered yet", which does not
+	 * move the generation, so a refusal can't simply wait for the generation; this keeps the retry
+	 * (a string key and a map lookup in Vulkairis) to once every couple of seconds instead of per frame.
+	 */
+	static final int RETRY_FRAMES = 120;
 
 	private record PipelineKey(RenderPassFormats pass, VkShaders.ProgramKey program, VkPipelines.StateKey state) {
 	}
@@ -57,9 +64,12 @@ final class PackDraw {
 		ByteBuffer[] views;
 		final List<Long> pools = new ArrayList<>();
 		int poolIndex;
-		// Set cache for this frame: diffuse view -> set (almost always just the block atlas).
-		long[] keys = new long[8];
-		long[] sets = new long[8];
+		// Set cache for this frame: diffuse (view, sampler) -> set (almost always just the block atlas).
+		// The sampler is part of the key, as in phase 1's SetKey: two materials on one atlas view can
+		// differ in blur/mipmap filtering.
+		long[] setViews = new long[8];
+		long[] setSamplers = new long[8];
+		long[] setHandles = new long[8];
 		int count;
 	}
 
@@ -68,6 +78,10 @@ final class PackDraw {
 		final boolean shadow;
 		Object program;
 		boolean failed;
+		/** prepare() returned null at {@link #refusedGeneration}; ask again only every RETRY_FRAMES. */
+		boolean refused;
+		int refusedGeneration;
+		int retryIn;
 		long setLayout;
 		long layout;
 		long fragment;
@@ -121,8 +135,13 @@ final class PackDraw {
 			if (role.failed) {
 				return false;
 			}
-			if (role.program == null && !build(role)) {
-				return false;
+			if (role.program == null) {
+				if (role.refused && role.refusedGeneration == generation && --role.retryIn > 0) {
+					return false;
+				}
+				if (!build(role)) {
+					return false;
+				}
 			}
 			if (renderPass != role.lastPass) {
 				RenderPassFormats f = VkPipelines.formats(renderPass);
@@ -156,9 +175,14 @@ final class PackDraw {
 		String name = ROLE_NAMES[role.index];
 		Object program = PackBridge.prepare(name, SET);
 		if (program == null) {
-			// Not ready yet (pack still registering) or refused (Vulkairis logged why): try again next pack.
+			// Not ready yet (pack still registering) or refused (Vulkairis logged why): begin() asks again
+			// after RETRY_FRAMES, or at once when the generation moves.
+			role.refused = true;
+			role.refusedGeneration = generation;
+			role.retryIn = RETRY_FRAMES;
 			return false;
 		}
+		role.refused = false;
 		VkDevice dev = Vulkan.getVkDevice();
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			int[] ub = PackBridge.uboBindings(program);
@@ -219,15 +243,34 @@ final class PackDraw {
 		}
 	}
 
-	private void disableRole(int roleIndex, String why) {
+	/**
+	 * Switches a role off for the current pack: its draws go back to phase 1 (main) or cast nothing
+	 * (shadow). The next pack change or reload ({@link #retireAll}) turns it back on.
+	 */
+	void disableRole(int roleIndex, String why) {
 		Role role = roles[roleIndex];
+		if (role.failed) {
+			return;
+		}
 		role.failed = true;
 		role.epoch++;
 		FlywheelVulkanClient.LOGGER.warn("[flywheel-vulkan] {} role switched off for this pack: {}", ROLE_NAMES[roleIndex], why);
 		try {
 			PackBridge.markFailed(ROLE_NAMES[roleIndex], SET, why);
-		} catch (Throwable ignored) {
+		} catch (Throwable t) {
+			// Only a courtesy to Vulkairis (so it stops offering the role); the role is already off here.
+			FlywheelVulkanClient.LOGGER.debug("[flywheel-vulkan] markFailed not delivered: {}", t.toString());
 		}
+	}
+
+	/** The role was switched off for this pack (build or draw failure). */
+	boolean failed(int roleIndex) {
+		return roles[roleIndex].failed;
+	}
+
+	/** Vulkairis's pack generation as of the last {@link #begin}. */
+	int generation() {
+		return generation;
 	}
 
 	private void writeUniforms(Role role, Retirement retirement, int slot) {
@@ -326,18 +369,33 @@ final class PackDraw {
 	/**
 	 * The set-1 descriptors for a draw in this slot: the pack's uniform buffers, its images, the
 	 * draw's diffuse texture for atlas samplers and the lightmap. 0 when the program has none.
+	 *
+	 * <p>Never throws: a pack image lookup, a descriptor allocation error or a layout transition that
+	 * fails switches the role off for this pack ({@link #disableRole}) and returns 0. The caller checks
+	 * {@link #failed} and draws on phase 1 (main) or stops casting (shadow); a throw here would reach
+	 * VkEngine's catch, which turns origin:vulkan off for the whole session.</p>
 	 */
 	long descriptorSet(int roleIndex, int slot, VulkanImage diffuse, VulkanImage lightmap, VulkanImage white) {
+		try {
+			return descriptorSetOrThrow(roleIndex, slot, diffuse, lightmap, white);
+		} catch (Throwable t) {
+			disableRole(roleIndex, "descriptor set: " + t);
+			return 0;
+		}
+	}
+
+	private long descriptorSetOrThrow(int roleIndex, int slot, VulkanImage diffuse, VulkanImage lightmap, VulkanImage white) {
 		Role role = roles[roleIndex];
 		int bindings = role.uboBindings.length + role.samplerBindings.length;
 		if (bindings == 0) {
 			return 0;
 		}
 		SlotRole s = role.slots[slot];
-		long key = diffuse.getImageView();
+		long view = diffuse.getImageView();
+		long sampler = diffuse.getSampler();
 		for (int i = 0; i < s.count; i++) {
-			if (s.keys[i] == key) {
-				return s.sets[i];
+			if (s.setViews[i] == view && s.setSamplers[i] == sampler) {
+				return s.setHandles[i];
 			}
 		}
 		long set = allocate(role, s);
@@ -366,12 +424,14 @@ final class PackDraw {
 			}
 			vkUpdateDescriptorSets(Vulkan.getVkDevice(), writes, null);
 		}
-		if (s.count == s.keys.length) {
-			s.keys = java.util.Arrays.copyOf(s.keys, s.count * 2);
-			s.sets = java.util.Arrays.copyOf(s.sets, s.count * 2);
+		if (s.count == s.setViews.length) {
+			s.setViews = java.util.Arrays.copyOf(s.setViews, s.count * 2);
+			s.setSamplers = java.util.Arrays.copyOf(s.setSamplers, s.count * 2);
+			s.setHandles = java.util.Arrays.copyOf(s.setHandles, s.count * 2);
 		}
-		s.keys[s.count] = key;
-		s.sets[s.count] = set;
+		s.setViews[s.count] = view;
+		s.setSamplers[s.count] = sampler;
+		s.setHandles[s.count] = set;
 		s.count++;
 		return set;
 	}
@@ -441,6 +501,7 @@ final class PackDraw {
 	/** Pack change: everything built for the old pack goes through retirement (a frame may still use it). */
 	void retireAll(Retirement retirement, int slot) {
 		for (Role role : roles) {
+			role.refused = false;
 			if (role.program == null && !role.failed && role.layout == 0) {
 				role.epoch++;
 				continue;

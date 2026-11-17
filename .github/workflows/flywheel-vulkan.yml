@@ -16,6 +16,7 @@ on:
     paths:
       - ".github/workflows/flywheel-vulkan.yml"
       - "src/mods/vendor/flywheel-vulkan/**"
+      - "src/mods/vendor/vulkairis/**"
 
 concurrency:
   group: flywheel-vulkan-${{ github.ref }}

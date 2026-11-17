@@ -154,6 +154,8 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 	// ---- shader pack (null without Origin's VulkaIris fork: phase 1 only)
 	private final PackDraw pack;
 	private final Runnable shadowCaster = this::castShadows;
+	/** PackDraw's generation when the caster was last (re-)registered. */
+	private int casterGeneration = Integer.MIN_VALUE;
 	/** The slot the shadow pass already began this frame (it runs before Flywheel's render), or -1. */
 	private int pendingEarlySlot = -1;
 	// Last frame's unculled instances + draws, for the next frame's shadow pass (which runs first).
@@ -183,7 +185,15 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		ensureSlots();
 		pack = PackBridge.AVAILABLE ? new PackDraw(pipelines) : null;
 		if (pack != null) {
+			registerShadowCaster();
+		}
+	}
+
+	private void registerShadowCaster() {
+		try {
 			PackBridge.addShadowCaster(shadowCaster);
+		} catch (Throwable t) {
+			FlywheelVulkanClient.LOGGER.warn("[flywheel-vulkan] could not register the shadow caster: {}", t.toString());
 		}
 	}
 
@@ -399,6 +409,12 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 			}
 		}
 		boolean packMain = pack != null && pack.begin(PackDraw.MAIN, retirement, slotIndex, renderPass);
+		if (pack != null && pack.generation() != casterGeneration) {
+			// New pack or reload: make sure the shadow caster is registered (idempotent in Vulkairis), so
+			// shadows come back even if an earlier pack's shadow pass dropped it.
+			casterGeneration = pack.generation();
+			registerShadowCaster();
+		}
 		int packDraws = 0;
 
 		VkCommandBuffer cb = Renderer.getCommandBuffer();
@@ -432,9 +448,17 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 					// The pack's gbuffers_block; a draw whose pack pipeline won't build keeps phase 1.
 					pipeline = packPipeline(draw, PackDraw.MAIN, renderPass);
 					if (pipeline != 0) {
-						layout = pack.layout(PackDraw.MAIN);
+						// Never throws; a set that can't be built switches the role off for this pack and
+						// this draw and the rest of the frame go back to phase 1 (origin:vulkan stays on).
 						packSet = pack.descriptorSet(PackDraw.MAIN, slotIndex, diffuse, lightImage, white);
-						packDraws++;
+						if (pack.failed(PackDraw.MAIN)) {
+							packMain = false;
+							pipeline = 0;
+							packSet = 0;
+						} else {
+							layout = pack.layout(PackDraw.MAIN);
+							packDraws++;
+						}
 					}
 				}
 				if (pipeline == 0) {
@@ -564,6 +588,18 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 	 * relative to the snapshot's render origin, which is what the splice subtracts.
 	 */
 	private void castShadows() {
+		try {
+			castShadowsOrThrow();
+		} catch (Throwable t) {
+			// Never throw into Vulkairis's shadow pass: it drops a throwing caster for the session. The
+			// shadow role goes off for this pack instead; a pack change or reload turns it back on.
+			if (pack != null) {
+				pack.disableRole(PackDraw.SHADOW, "shadow pass: " + t);
+			}
+		}
+	}
+
+	private void castShadowsOrThrow() {
 		if (deleted || pack == null || snapCount == 0 || !Renderer.isRecording() || slots == null
 				|| slots.length != Renderer.getFramesNum() || meshPool.vertexBuffer() == 0) {
 			return;
@@ -621,8 +657,11 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 				if (pipeline == 0) {
 					continue;
 				}
-				long set = descriptorSet(slot.shadowUbo, slot.shadowInstances.buffer, diffuse, white);
 				long packSet = pack.descriptorSet(PackDraw.SHADOW, k, diffuse, lightImage, white);
+				if (pack.failed(PackDraw.SHADOW)) {
+					break; // switched off for this pack (logged); never draw a pack pipeline without its set
+				}
+				long set = descriptorSet(slot.shadowUbo, slot.shadowInstances.buffer, diffuse, white);
 				if (pipeline != boundPipeline) {
 					vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 					boundPipeline = pipeline;
