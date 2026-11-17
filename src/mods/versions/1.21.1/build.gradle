@@ -344,7 +344,9 @@ def syncIrisOverride = { File gameDir ->
 		f.delete()
 	}
 }
-tasks.matching { it.name == "runClient" }.configureEach { t -> t.doFirst { syncIrisOverride(t.workingDir) } }
+// Loom's run folder setting, not the task's workingDir: Loom only sets that inside exec(), so a doFirst sees the
+// module folder (CI run 44054371875 wrote 1.21.1/config/ and Iris still failed "requires sodium").
+tasks.matching { it.name == "runClient" }.configureEach { t -> t.doFirst { syncIrisOverride(file(loom.runs.client.runDir)) } }
 tasks.named("prodClient") { doFirst { syncIrisOverride(file("run-prod")) } }
 
 processResources {
