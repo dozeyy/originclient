@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using OriginLauncher.App.Core.Renderers;
 using OriginLauncher.App.Core.Net;
 using System.Threading;
 using CmlLib.Core;
@@ -344,7 +345,8 @@ public sealed class VersionManager
         string? profileId = null,
         IProgress<string>? progress = null, CancellationToken ct = default,
         string? overrideSetKey = null,
-        string? componentPins = null, Action<string>? configurationPicked = null)
+        string? componentPins = null, Action<string>? configurationPicked = null,
+        bool vulkan = false, Action<bool>? vulkanUsed = null)
     {
         // A mod profile only ever applies with the player's mods on, and only
         // by an id this launcher made (it becomes a folder name).
@@ -363,7 +365,7 @@ public sealed class VersionManager
             var built = await InstallSession.RunAsync(
                 InstalledVersions.Shared, InstallJournal.Shared, version, progress,
                 () => InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct, overrideSetKey,
-                    componentPins, configurationPicked),
+                    componentPins, configurationPicked, vulkan, vulkanUsed),
                 v => InstallVerification.Invalidate(OriginPaths.VersionRoot(v)),
                 // A first install needs room: refused up front with the drive and the numbers (JL-11).
                 () => DiskSpace.EnsureRoomForInstall(OriginPaths.Root));
@@ -443,6 +445,44 @@ public sealed class VersionManager
         }
     }
 
+    // A Vulkan launch's folder (Core/Renderers): (mods-vulkan, null) when it can run, (null, the Home line) when it
+    // can't. Off the UI thread (this whole install runs on a worker). Fail-soft: any file problem means normal graphics.
+    private static async Task<(string? Folder, string? Notice)> PrepareVulkanAsync(
+        string version, string gameDir, string baseFolder, CancellationToken ct)
+    {
+        try
+        {
+            var baseJars = VulkanRendererFiles.JarsIn(baseFolder).ToList();
+            // A mod of the player's that only works with OpenGL (Will, 2026-11-16): normal graphics, and Home names it.
+            var blockers = VulkanRendererFiles.ScanBlockers(baseJars, ModManager.IsManagedFile);
+            if (blockers.Count > 0)
+            {
+                AppendCompatLog(version, "Vulkan graphics kept off by: "
+                    + string.Join(", ", blockers.Select(b => $"{b.FileName} ({b.NeedsId})")));
+                return (null, VulkanMode.BlockedHomeLine(blockers));
+            }
+            var files = await VulkanRendererFiles.EnsureAsync(VulkanHttp.Value, ManagedPins.VulkanMod,
+                OriginPaths.BundledVulkanDir, OriginPaths.RendererDir(version, VulkanMode.RendererName), ct);
+            if (!files.Ready)
+            {
+                AppendCompatLog(version, "Vulkan graphics unavailable: " + files.Problem);
+                // A build without the Vulkan jars: Settings already says so; Home stays quiet about it.
+                return (null, files.Problem == VulkanMode.MissingJarsLine ? null : files.Problem);
+            }
+            // Hard links where the volume allows (instant, no extra disk), else copies; never a jar rewritten in place.
+            var folder = Path.Combine(gameDir, VulkanMode.LaunchFolderName);
+            LaunchModFolder.Sync(folder, VulkanMode.FolderPlan(baseJars, files.Jars!), static _ => true);
+            return (folder, null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AppendCompatLog(version, $"Couldn't prepare {VulkanMode.LaunchFolderName} ({ex.Message}); normal graphics.");
+            return (null, VulkanMode.SetupFailedLine);
+        }
+    }
+
+    private static readonly Lazy<HttpClient> VulkanHttp = new(() => DownloadHttp.Create());
+
     // One line in the version's compatibility log (logs/mod-compat-<version>.log). Best-effort.
     private static void AppendCompatLog(string version, string line)
     {
@@ -513,7 +553,8 @@ public sealed class VersionManager
         string version, string accountKey, MLaunchOption option,
         bool externalMods, string? profileId,
         IProgress<string>? progress, CancellationToken ct, string? overrideSetKey,
-        string? componentPins = null, Action<string>? configurationPicked = null)
+        string? componentPins = null, Action<string>? configurationPicked = null,
+        bool vulkan = false, Action<bool>? vulkanUsed = null)
     {
         var path = new GameFolderPath(version, accountKey);
         // The shared root: where the install stamp and the loader profile live.
@@ -781,17 +822,38 @@ public sealed class VersionManager
             gameModsFolder = launchFolder;
         }
 
+        // Vulkan graphics (Settings -> Performance, 1.21.1 only, off by default; Core/Renderers/VulkanMode): the same
+        // set of jars plus VulkanMod and Origin's Vulkan jars, in the account's own mods-vulkan folder (hard links).
+        // Any reason it can't run (one of the player's mods needs normal graphics, the files couldn't be set up) keeps
+        // this launch on normal graphics and becomes the first notice Home shows. Every other version never gets here.
+        var notices = playerPlan.Notices;
+        var onVulkan = false;
+        if (VulkanMode.Wanted(vulkan, version))
+        {
+            progress?.Report("Preparing Vulkan graphics...");
+            var (folder, notice) = await PrepareVulkanAsync(version, path.BasePath, gameModsFolder, ct);
+            if (folder != null)
+            {
+                gameModsFolder = folder;
+                onVulkan = true;
+            }
+            if (notice != null) notices = new[] { notice }.Concat(notices).ToList();
+        }
+        vulkanUsed?.Invoke(onVulkan);
+
         // Fabric Loader's own supported switch for the folder it loads mods
         // from (checked above: the installed loader reads it).
         var extraJvm = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).ToList();
         extraJvm.Add(new MArgument(SharedMods.JvmArgument(gameModsFolder)));
         // What the crash check reads if this game stops, and what Home tells the player once it runs (the plan's
         // notices: one of Origin's mods kept out for theirs, shaders off, a copy of theirs not used).
-        LaunchedMods.Record(path.BasePath, gameModsFolder, playerPlan.Notices);
+        LaunchedMods.Record(path.BasePath, gameModsFolder, notices);
         // Copies nested in Origin's own jar that must not load next to the player's (e.g. Origin's Iris beside the
         // player's Sodium): the loader's own switch (fabric.debug.disableModIds, Fabric Loader 0.15.0+).
-        // Applies to a profile and to a shared-folder launch alike (the plan is empty for Origin-only).
-        if (playerPlan.JvmArgument is { } disableIds) extraJvm.Add(new MArgument(disableIds));
+        // Applies to a profile and to a shared-folder launch alike (the plan is empty for Origin-only). A Vulkan game
+        // adds sodium and immediatelyfast to the same one argument (the loader reads only one).
+        if (VulkanMode.DisableModIdsArgument(playerPlan.DisabledIds, onVulkan) is { } disableIds)
+            extraJvm.Add(new MArgument(disableIds));
         option.ExtraJvmArguments = extraJvm;
         LaunchTimeline.Mark("mods");
 

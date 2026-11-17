@@ -47,6 +47,7 @@ internal static class SettingsStatesShots
                 RenderShots.Snap(window, dir, name);
             });
 
+        Step(dir, "vulkan", () => Vulkan(window, page, dir));
         Step(dir, "jvm-undo", () => JvmUndo(window, page, dir));
         Step(dir, "inputs", () => Inputs(window, page, dir));
         Step(dir, "dropdown", () => Dropdown(window, page, dir));
@@ -55,6 +56,30 @@ internal static class SettingsStatesShots
 
         page.ShowFromTop();
         RenderShots.Pump(200);
+    }
+
+    /// <summary>
+    /// Settings -> Performance -> Vulkan graphics in its three states, shown directly (no files read, nothing saved):
+    /// available and on, blocked by two of the player's mods, and a build without the Vulkan jars. The page's real
+    /// state comes back afterwards from a fresh refresh when the page is shown again.
+    /// </summary>
+    private static void Vulkan(MainWindow window, Pages.SettingsPage page, string dir)
+    {
+        page.TourClickRail("SecPerformance");
+        RenderShots.Pump(400);
+        page.TourShowVulkan(Core.Renderers.VulkanState.Available, Array.Empty<Core.Renderers.VulkanBlocker>(), on: true);
+        RenderShots.Pump(300);
+        RenderShots.Snap(window, dir, "14ja-settings-vulkan-on");
+        page.TourShowVulkan(Core.Renderers.VulkanState.Blocked,
+        [
+            new Core.Renderers.VulkanBlocker("sodium-extra-0.6.0+mc1.21.1.jar", "Sodium Extra", "sodium"),
+            new Core.Renderers.VulkanBlocker("distanthorizons-2.3.0.jar", "Distant Horizons", "distanthorizons"),
+        ], on: false);
+        RenderShots.Pump(300);
+        RenderShots.Snap(window, dir, "14jb-settings-vulkan-blocked");
+        page.TourShowVulkan(Core.Renderers.VulkanState.MissingJars, Array.Empty<Core.Renderers.VulkanBlocker>(), on: false);
+        RenderShots.Pump(300);
+        RenderShots.Snap(window, dir, "14jc-settings-vulkan-missing");
     }
 
     /// <summary>

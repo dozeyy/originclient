@@ -8,6 +8,7 @@ using OriginLauncher.App.Core.GameFolders.Launcher;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Models;
 using OriginLauncher.App.Core.Performance;
+using OriginLauncher.App.Core.Renderers;
 using OriginLauncher.App.Core.Install;
 using OriginLauncher.App.Core.Updates;
 using OriginLauncher.App.Core.Versions;
@@ -79,6 +80,8 @@ public partial class SettingsPage : UserControl
                 var fresh = SettingsStore.Load();
                 ReloadRamFromStore(fresh);
                 ReloadJvmFromStore(fresh);
+                // The Vulkan boot fallback may have turned it off, or the player added a mod that blocks it.
+                _ = RefreshVulkanAsync(fresh);
             }
         };
 
@@ -94,6 +97,8 @@ public partial class SettingsPage : UserControl
         ResolutionHeightTextBox.Text = _settings.ResolutionHeight.ToString();
 
         ShaderCacheToggle.IsChecked = _settings.ShaderCacheNvidia || _settings.ShaderCacheAmd;
+        VulkanToggle.IsChecked = _settings.VulkanRenderer;
+        _ = RefreshVulkanAsync(_settings);
         if (DeveloperVisible) OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
         SettingsSyncToggle.IsChecked = _settings.SyncSettingsAcrossVersions;
         StartWithWindowsToggle.IsChecked = InstallRegistry.IsStartWithWindows();
@@ -295,6 +300,116 @@ public partial class SettingsPage : UserControl
             s.ShaderCacheNvidia = false;
             s.ShaderCacheAmd = false;
         });
+    }
+
+    // ---- Vulkan graphics (Core/Renderers/VulkanMode) ---------------------------------------------------------------
+    // The switch writes VulkanRenderer and nothing else (one control, one job). It can't be turned ON while this build
+    // carries no Vulkan jars or while the player's own 1.21.1 mods include one that only works with normal graphics;
+    // the line under the caption says which. Already on and then blocked: it stays on (the launch uses normal graphics
+    // and Home names the mod), and the switch can still be turned off.
+
+    private VulkanState _vulkanState = VulkanState.MissingJars;
+    private bool _vulkanApplying;
+    private int _vulkanRefresh;
+
+    // Off the UI thread: reads the bundled folder and opens the player's 1.21.1 jars (top-level metadata only).
+    private async Task RefreshVulkanAsync(LauncherSettings settings)
+    {
+        var token = ++_vulkanRefresh;
+        var on = settings.VulkanRenderer;
+        var externalMods = settings.PlayWithExternalMods;
+        var profile = Core.Profiles.ProfileRules.ForLaunch(settings.ModProfiles, settings.SelectedProfileId, VulkanMode.Version, externalMods);
+        (VulkanState State, IReadOnlyList<VulkanBlocker> Blockers) result;
+        try
+        {
+            result = await Task.Run(() =>
+            {
+                var jarsPresent = VulkanRendererFiles.BundledJars(OriginPaths.BundledVulkanDir) != null;
+                IReadOnlyList<VulkanBlocker> blockers = Array.Empty<VulkanBlocker>();
+                if (jarsPresent && externalMods)
+                {
+                    // What a 1.21.1 Play loads of the player's: the shared folder's own jars (a profile replaces them).
+                    var jars = profile != null
+                        ? VulkanRendererFiles.JarsIn(OriginPaths.ProfileModsDir(VulkanMode.Version, profile.Id))
+                        : VulkanRendererFiles.JarsIn(OriginPaths.ModsDir(VulkanMode.Version));
+                    blockers = VulkanRendererFiles.ScanBlockers(jars, Core.Mods.ModManager.IsManagedFile);
+                }
+                return (VulkanMode.StateOf(jarsPresent, blockers.Count), blockers);
+            });
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            result = (VulkanState.MissingJars, Array.Empty<VulkanBlocker>());
+        }
+        if (token != _vulkanRefresh) return; // a newer refresh owns the row
+        ApplyVulkanView(result.State, result.Blockers, on);
+    }
+
+    private void ApplyVulkanView(VulkanState state, IReadOnlyList<VulkanBlocker> blockers, bool on)
+    {
+        _vulkanState = state;
+        _vulkanApplying = true;
+        try
+        {
+            switch (state)
+            {
+                case VulkanState.MissingJars:
+                    VulkanToggle.IsChecked = false; // shown off: there is nothing to run it with (the setting is untouched)
+                    VulkanToggle.IsEnabled = false;
+                    VulkanStatusText.Text = VulkanMode.MissingJarsLine;
+                    break;
+                case VulkanState.Blocked:
+                    VulkanToggle.IsChecked = on;
+                    VulkanToggle.IsEnabled = on; // only to turn it off
+                    VulkanStatusText.Text = VulkanMode.BlockedSettingsLine(blockers);
+                    break;
+                default:
+                    VulkanToggle.IsChecked = on;
+                    VulkanToggle.IsEnabled = true;
+                    VulkanStatusText.Text = "";
+                    break;
+            }
+        }
+        finally
+        {
+            _vulkanApplying = false;
+        }
+    }
+
+    /// <summary>Render-shots: show the row in one state without reading any files.</summary>
+    internal void TourShowVulkan(VulkanState state, IReadOnlyList<VulkanBlocker> blockers, bool on)
+    {
+        ++_vulkanRefresh; // a refresh still running must not overwrite the shown state
+        ApplyVulkanView(state, blockers, on);
+    }
+
+    private void VulkanToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading || _vulkanApplying) return;
+        if (_vulkanState != VulkanState.Available)
+        {
+            _vulkanApplying = true;
+            VulkanToggle.IsChecked = false;
+            _vulkanApplying = false;
+            return;
+        }
+        _settings.VulkanRenderer = true;
+        if (!SettingsStore.TryUpdate(s => s.VulkanRenderer = true))
+        {
+            _settings.VulkanRenderer = false;
+            _vulkanApplying = true;
+            VulkanToggle.IsChecked = false;
+            _vulkanApplying = false;
+        }
+    }
+
+    private void VulkanToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading || _vulkanApplying) return;
+        _settings.VulkanRenderer = false;
+        SettingsStore.TryUpdate(s => s.VulkanRenderer = false);
+        // Blocked and now off: it can't come back on until the mods change.
+        if (_vulkanState == VulkanState.Blocked) VulkanToggle.IsEnabled = false;
     }
 
     private void OfflineTestToggle_Checked(object sender, RoutedEventArgs e)
