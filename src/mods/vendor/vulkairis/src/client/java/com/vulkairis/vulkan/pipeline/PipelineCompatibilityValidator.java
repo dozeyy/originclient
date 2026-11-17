@@ -55,8 +55,14 @@ public final class PipelineCompatibilityValidator {
         List<ShaderReflection.StageOutput> vertexOutputs = vertex.getStageOutputs();
         List<ShaderReflection.StageInput> fragmentInputs = fragment.getStageInputs();
 
-        if (vertexOutputs.isEmpty() || fragmentInputs.isEmpty()) {
-            problems.add("cannot verify stage interface: reflection incomplete/empty");
+        // Origin (step 3b): a fragment stage with no inputs (Iris's centerDepthSmooth reads only
+        // samplers) has nothing to match, which is a valid program; upstream refused it. Inputs with
+        // no vertex outputs at all still fail below, per input.
+        if (fragmentInputs.isEmpty()) {
+            // nothing to verify
+        } else if (vertexOutputs.isEmpty()) {
+            problems.add("cannot verify stage interface: fragment reads " + fragmentInputs.size()
+                    + " input(s) but the vertex stage writes none");
         } else {
             for (ShaderReflection.StageInput input : fragmentInputs) {
                 ShaderReflection.StageOutput match = null;

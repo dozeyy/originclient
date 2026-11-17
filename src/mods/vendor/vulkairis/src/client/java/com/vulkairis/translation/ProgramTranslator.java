@@ -58,7 +58,7 @@ public final class ProgramTranslator {
     }
 
     /** Translator version baked into every program cache key; bump on any logic change. */
-    public static final String TRANSLATOR_VERSION = "phaseB-3";
+    public static final String TRANSLATOR_VERSION = "phaseB-4-origin";
 
     /** Shared block name, identical to the per-stage path so reflection tooling keeps working. */
     public static final String UNIFORM_BLOCK_NAME = ShaderTranslator.UNIFORM_BLOCK_NAME;
@@ -223,9 +223,15 @@ public final class ProgramTranslator {
         }
 
         // Finalize each stage against the fixed union.
+        Map<String, String> finalizedBodies = new LinkedHashMap<>();
+        for (StageDraft draft : drafts) {
+            finalizedBodies.put(draft.stage(),
+                    finalizeStage(draft, blockMembers, fragOutputs, splitBases));
+        }
+        locateVaryings(finalizedBodies);
         Map<String, TranslatedStage> stages = new LinkedHashMap<>();
         for (StageDraft draft : drafts) {
-            String finalized = finalizeStage(draft, blockMembers, fragOutputs, splitBases);
+            String finalized = finalizedBodies.get(draft.stage());
             List<String> stageNotes = new ArrayList<>(draft.notes());
             com.vulkairis.iris.SourceProvenance.recordTranslation(
                     packId, name, draft.stage(), finalized);
@@ -238,6 +244,70 @@ public final class ProgramTranslator {
                 Map.copyOf(unionVaryings), generation, translationKey, List.copyOf(notes));
         storeCache(translationKey, generation, result);
         return result;
+    }
+
+    /**
+     * Origin (step 3b): numbers every vertex {@code out} and fragment {@code in} with ONE location per
+     * varying NAME, shared by both stages. Upstream left varyings bare for Shaderc's
+     * {@code auto_map_locations}, which numbers each stage on its own in declaration order: as soon as
+     * the two stages declare their varyings in a different order (or one side declares extras), the
+     * reflected interface disagrees (MakeUp's composite: "fragment input 'volumetricLightColor' expects
+     * 3 components but vertex output 'exposure' provides 1") and the linker refuses the program. The
+     * numbering is the same split-aware assignment the pipeline build uses
+     * ({@link #varyingLocations}), so validation and the real pipeline see identical locations.
+     * Only plain vertex+fragment programs are touched; anything with another stage keeps auto-mapping.
+     */
+    private static void locateVaryings(Map<String, String> bodies) {
+        String vertex = bodies.get("VERTEX");
+        String fragment = bodies.get("FRAGMENT");
+        if (vertex == null || fragment == null || bodies.size() != 2) {
+            return;
+        }
+        Map<String, Integer> varyings = varyingLocations(vertex, fragment);
+        if (varyings.isEmpty()) {
+            return;
+        }
+        bodies.put("VERTEX", ShaderTranslator.injectLayoutLocations(vertex, true, Map.of(), varyings));
+        bodies.put("FRAGMENT", ShaderTranslator.injectLayoutLocations(fragment, false, Map.of(), varyings));
+    }
+
+    public static Map<String, Integer> varyingLocations(String vertSrc, String fragSrc) {
+        List<LegacyGlsl.VaryingDecl> vertDecls = LegacyGlsl.collectVaryingDecls(vertSrc, "out");
+        List<LegacyGlsl.VaryingDecl> fragDecls = LegacyGlsl.collectVaryingDecls(fragSrc, "in");
+        List<LegacyGlsl.VaryingDecl> ordered = new ArrayList<>();
+        Set<String> seenBases = new java.util.HashSet<>();
+        for (LegacyGlsl.VaryingDecl decl : vertDecls) {
+            if (decl != null && seenBases.add(decl.name())) {
+                ordered.add(decl);
+            }
+        }
+        for (LegacyGlsl.VaryingDecl decl : fragDecls) {
+            if (decl != null && seenBases.add(decl.name())) {
+                ordered.add(decl);
+            }
+        }
+        List<LegacyGlsl.SplitLeaf> leaves = new ArrayList<>();
+        for (LegacyGlsl.VaryingDecl decl : ordered) {
+            leaves.addAll(LegacyGlsl.expandVaryingLeaves(
+                    decl.type(), decl.name(), decl.arrayLength(), decl.structMembers()));
+        }
+        Map<String, Integer> leafLocations = LegacyGlsl.assignDenseLocations(leaves);
+        Map<String, Integer> varyings = new LinkedHashMap<>();
+        for (LegacyGlsl.VaryingDecl decl : ordered) {
+            List<LegacyGlsl.SplitLeaf> declLeaves = LegacyGlsl.expandVaryingLeaves(
+                    decl.type(), decl.name(), decl.arrayLength(), decl.structMembers());
+            if (declLeaves.isEmpty() || !leafLocations.containsKey(declLeaves.get(0).name())) {
+                continue;
+            }
+            varyings.putIfAbsent(decl.name(), leafLocations.get(declLeaves.get(0).name()));
+            for (LegacyGlsl.SplitLeaf leaf : declLeaves) {
+                Integer location = leafLocations.get(leaf.name());
+                if (location != null) {
+                    varyings.putIfAbsent(leaf.name(), location);
+                }
+            }
+        }
+        return varyings;
     }
 
     // ------------------------------------------------------------------

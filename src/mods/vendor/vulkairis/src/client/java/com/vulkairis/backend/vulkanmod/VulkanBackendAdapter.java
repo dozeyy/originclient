@@ -35,9 +35,39 @@ public class VulkanBackendAdapter {
         }
     }
 
-    public static VkDevice getDevice() { return device; }
+    /**
+     * Origin (step 3b): nothing ever called {@link #init}, so upstream's device was always null and every
+     * Iris program failed with "Vulkan device not ready" (no shader module, no pipeline, every post pass
+     * skipped). The device is VulkanMod's own, so it is read from {@code DeviceManager} once it exists.
+     */
+    public static VkDevice getDevice() {
+        if (device == null) {
+            adoptVulkanModDevice();
+        }
+        return device;
+    }
+
     public static VkQueue getQueue() { return graphicsQueue; }
-    public static VkPhysicalDevice getPhysicalDevice() { return physicalDevice; }
+
+    public static VkPhysicalDevice getPhysicalDevice() {
+        if (physicalDevice == null) {
+            adoptVulkanModDevice();
+        }
+        return physicalDevice;
+    }
+
+    private static void adoptVulkanModDevice() {
+        try {
+            VkDevice dev = net.vulkanmod.vulkan.device.DeviceManager.vkDevice;
+            if (dev != null) {
+                device = dev;
+                physicalDevice = net.vulkanmod.vulkan.device.DeviceManager.physicalDevice;
+                observeDevice(dev.address());
+            }
+        } catch (Throwable ignored) {
+            // VulkanMod absent (unit tests) or not initialised yet: stay null, callers fail soft.
+        }
+    }
 
     public static boolean isLive(VkDevice dev) {
         return dev != null;
@@ -59,6 +89,7 @@ public class VulkanBackendAdapter {
 
     public static void destroy() {
         device = null;
+        // getDevice() re-adopts VulkanMod's next device; the generation bump marks old modules stale.
         graphicsQueue = null;
         physicalDevice = null;
         lastObservedDeviceAddress = 0L;

@@ -247,10 +247,13 @@ public class FullscreenDepthRootsTest {
         Assertions.assertTrue(frag.contains("mat4 projection;"), frag);
         Assertions.assertEquals("both", program.unionVaryings().get("vUv"), program.toString());
 
-        // Binding policy: no bindings, no vertex locations, one fragment output location.
+        // Binding policy: no bindings, bare vertex inputs, the varying located by name on both
+        // sides (Origin, step 3b), one fragment output location.
         Assertions.assertFalse(vert.contains("layout(binding"), vert);
         Assertions.assertFalse(frag.contains("layout(binding"), frag);
-        Assertions.assertFalse(vert.contains("layout(location"), vert);
+        Assertions.assertFalse(vert.contains(") in "), vert);
+        Assertions.assertTrue(vert.contains("layout(location = 0) out vec2 vUv;"), vert);
+        Assertions.assertTrue(frag.contains("layout(location = 0) in vec2 vUv;"), frag);
         Assertions.assertEquals(Map.of("fragColor", 0), program.fragmentOutputLocations());
 
         assertCompiles("composite_copy.vsh", vert, Shaderc.shaderc_glsl_vertex_shader);

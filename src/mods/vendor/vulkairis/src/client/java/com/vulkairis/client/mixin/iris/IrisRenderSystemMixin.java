@@ -127,7 +127,9 @@ public class IrisRenderSystemMixin {
     public static void initRenderer() {
         dsaState = VULKAN_DSA;
         hasMultibind = false;
-        supportsCompute = com.vulkairis.backend.vulkanmod.VulkanBackendAdapter.isLive(com.vulkairis.backend.vulkanmod.VulkanBackendAdapter.getDevice());
+        // Origin: compute, SSBOs and image load/store are recorded but never executed on Vulkan yet, so
+        // they are not advertised (they used to follow device liveness, which was always false).
+        supportsCompute = false;
         supportsTesselation = false;
         samplers = new int[SamplerLimits.get().getMaxTextureUnits()];
         com.vulkairis.iris.StateUpdateNotifierManager.ensureInitialized();
@@ -146,17 +148,17 @@ public class IrisRenderSystemMixin {
 
     @Overwrite
     public static boolean supportsSSBO() {
-        return com.vulkairis.backend.vulkanmod.VulkanBackendAdapter.isLive(com.vulkairis.backend.vulkanmod.VulkanBackendAdapter.getDevice());
+        return false; // Origin: see initRenderer; not executed on Vulkan yet
     }
 
     @Overwrite
     public static boolean supportsImageLoadStore() {
-        return com.vulkairis.backend.vulkanmod.VulkanBackendAdapter.isLive(com.vulkairis.backend.vulkanmod.VulkanBackendAdapter.getDevice());
+        return false; // Origin: see initRenderer; not executed on Vulkan yet
     }
 
     @Overwrite
     public static boolean supportsCompute() {
-        return com.vulkairis.backend.vulkanmod.VulkanBackendAdapter.isLive(com.vulkairis.backend.vulkanmod.VulkanBackendAdapter.getDevice());
+        return false; // Origin: see initRenderer; not executed on Vulkan yet
     }
 
     @Overwrite

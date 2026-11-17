@@ -637,19 +637,14 @@ public final class VulkanModProgramBridge {
      * failure-count disabling behaviour.
      */
     private static boolean failLink(String name, String reason, Throwable cause) {
+        // Origin (step 3b): upstream switched ALL linking off for the session after 3 consecutive
+        // failures, so three unsupported gbuffers programs also killed the post chain that does link.
+        // Each program now fails on its own (one line each; a pack links each program once per load).
         int n = CONSECUTIVE_FAILURES.incrementAndGet();
-        if (n <= MAX_FAILURES) {
-            if (cause != null) {
-                LOGGER.warn("[Vulkairis/ProgramBridge] Program linking failed for '{}': {}", name, reason, cause);
-            }
-            StageDiagnostics.warn("Program linking", name + ": " + reason);
+        if (cause != null && n <= MAX_FAILURES) {
+            LOGGER.warn("[Vulkairis/ProgramBridge] Program linking failed for '{}': {}", name, reason, cause);
         }
-        if (n == MAX_FAILURES) {
-            disabled = true;
-            StageDiagnostics.warn("Program linking",
-                    "disabling Iris pipeline linking for this session after " + n
-                            + " failures; VulkanMod's SPIR-V compiler currently rejects this pack's GLSL");
-        }
+        StageDiagnostics.warn("Program linking", name + ": " + reason);
         return false;
     }
 
@@ -778,42 +773,7 @@ public final class VulkanModProgramBridge {
      * declarations) inject from the same dense assignment.</p>
      */
     private static Map<String, Integer> buildVaryingLocations(String vertSrc, String fragSrc) {
-        List<LegacyGlsl.VaryingDecl> vertDecls = LegacyGlsl.collectVaryingDecls(vertSrc, "out");
-        List<LegacyGlsl.VaryingDecl> fragDecls = LegacyGlsl.collectVaryingDecls(fragSrc, "in");
-        List<LegacyGlsl.VaryingDecl> ordered = new ArrayList<>();
-        Set<String> seenBases = new HashSet<>();
-        for (LegacyGlsl.VaryingDecl decl : vertDecls) {
-            if (decl != null && seenBases.add(decl.name())) {
-                ordered.add(decl);
-            }
-        }
-        for (LegacyGlsl.VaryingDecl decl : fragDecls) {
-            if (decl != null && seenBases.add(decl.name())) {
-                ordered.add(decl);
-            }
-        }
-        List<LegacyGlsl.SplitLeaf> leaves = new ArrayList<>();
-        for (LegacyGlsl.VaryingDecl decl : ordered) {
-            leaves.addAll(LegacyGlsl.expandVaryingLeaves(
-                    decl.type(), decl.name(), decl.arrayLength(), decl.structMembers()));
-        }
-        Map<String, Integer> leafLocations = LegacyGlsl.assignDenseLocations(leaves);
-        Map<String, Integer> varyings = new LinkedHashMap<>();
-        for (LegacyGlsl.VaryingDecl decl : ordered) {
-            List<LegacyGlsl.SplitLeaf> declLeaves = LegacyGlsl.expandVaryingLeaves(
-                    decl.type(), decl.name(), decl.arrayLength(), decl.structMembers());
-            if (declLeaves.isEmpty() || !leafLocations.containsKey(declLeaves.get(0).name())) {
-                continue;
-            }
-            varyings.putIfAbsent(decl.name(), leafLocations.get(declLeaves.get(0).name()));
-            for (LegacyGlsl.SplitLeaf leaf : declLeaves) {
-                Integer location = leafLocations.get(leaf.name());
-                if (location != null) {
-                    varyings.putIfAbsent(leaf.name(), location);
-                }
-            }
-        }
-        return varyings;
+        return ProgramTranslator.varyingLocations(vertSrc, fragSrc);
     }
 
     /**

@@ -18,8 +18,9 @@ import java.util.Map;
  * {@code texture2D*}/{@code texture2DLod}&#8594;{@code texture*}/{@code textureLod},
  * {@code shadow2D*} wrapping, {@code gl_FragData[n]}/{@code gl_FragColor} indexed outputs,
  * {@code gl_TextureMatrix}/{@code ftransform}/{@code gl_Color}/{@code gl_Normal} mappings and
- * depth/volume conversion. Each translated stage must carry no {@code layout(binding =)},
- * no {@code layout(location =)} except fragment outputs, and must compile to SPIR-V — the
+ * depth/volume conversion. Each translated stage must carry no {@code layout(binding =)}, no
+ * located vertex input, one location per varying NAME shared by both stages (Origin, step 3b),
+ * dense fragment-output locations, and must compile to SPIR-V — the
  * fix5 legacy errors go to zero before anything touches the driver.</p>
  */
 public class ProgramTranslatorTest {
@@ -184,11 +185,35 @@ public class ProgramTranslatorTest {
             String vertex, String fragment, int expectedFragmentOutputs) {
         Assertions.assertFalse(vertex.contains("layout(binding"), vertex);
         Assertions.assertFalse(fragment.contains("layout(binding"), fragment);
-        Assertions.assertFalse(vertex.contains("layout(location"), vertex);
+        Map<String, Integer> vertexIns = located(vertex, "in");
+        Assertions.assertTrue(vertexIns.isEmpty(), "vertex inputs stay bare:\n" + vertex);
 
-        int fragmentLocations = countOccurrences(fragment, "layout(location = ");
-        Assertions.assertEquals(expectedFragmentOutputs, fragmentLocations,
-                "Only fragment outputs may carry locations, one each:\n" + fragment);
+        Assertions.assertEquals(expectedFragmentOutputs, located(fragment, "out").size(),
+                "one location per fragment output:\n" + fragment);
+
+        // Origin (step 3b): a varying has the same location on both sides, matched by name.
+        Map<String, Integer> vertexOuts = located(vertex, "out");
+        located(fragment, "in").forEach((name, location) -> {
+            if (vertexOuts.containsKey(name)) {
+                Assertions.assertEquals(vertexOuts.get(name), location,
+                        "varying '" + name + "' location differs between stages:\n" + vertex + "\n" + fragment);
+            }
+        });
+    }
+
+    private static final java.util.regex.Pattern LOCATED = java.util.regex.Pattern.compile(
+            "layout\\(location = (\\d+)\\)\\s+(?:(?:flat|smooth|noperspective|centroid)\\s+)*(in|out)\\s+\\w+\\s+(\\w+)");
+
+    /** Name to location for every located declaration in {@code direction}. */
+    private static Map<String, Integer> located(String source, String direction) {
+        Map<String, Integer> found = new java.util.LinkedHashMap<>();
+        java.util.regex.Matcher m = LOCATED.matcher(source);
+        while (m.find()) {
+            if (direction.equals(m.group(2))) {
+                found.put(m.group(3), Integer.parseInt(m.group(1)));
+            }
+        }
+        return found;
     }
 
     private static void assertCompiles(String name, String glsl, int shadercKind) {
@@ -352,16 +377,18 @@ public class ProgramTranslatorTest {
         String vert = program.stages().get("VERTEX").glsl();
         String frag = program.stages().get("FRAGMENT").glsl();
 
-        // The vertex stage keeps no locations at all: nothing can collide there.
-        Assertions.assertFalse(vert.contains("layout(location"), vert);
+        // Vertex inputs stay bare (nothing can collide there); the varying is located by name.
+        Assertions.assertFalse(vert.contains(") in vec3"), vert);
+        Assertions.assertTrue(vert.contains("layout(location = 0) out vec3 bridge;"), vert);
+        Assertions.assertTrue(frag.contains("layout(location = 0) in vec3 bridge;"), frag);
         Assertions.assertTrue(vert.contains("in vec3 first;"), vert);
         Assertions.assertTrue(vert.contains("in vec3 second;"), vert);
 
         // Fragment outputs are renumbered densely from the stripped sources.
         Assertions.assertEquals(Map.of("targetA", 0, "targetB", 1),
                 program.fragmentOutputLocations());
-        Assertions.assertEquals(1, countOccurrences(frag, "layout(location = 0)"), frag);
-        Assertions.assertEquals(1, countOccurrences(frag, "layout(location = 1)"), frag);
+        Assertions.assertEquals(1, countOccurrences(frag, "layout(location = 0) out"), frag);
+        Assertions.assertEquals(1, countOccurrences(frag, "layout(location = 1) out"), frag);
         Assertions.assertTrue(frag.contains("layout(location = 0) out vec4 targetA;"), frag);
         Assertions.assertTrue(frag.contains("layout(location = 1) out vec4 targetB;"), frag);
         Assertions.assertFalse(frag.contains("layout(binding"), frag);

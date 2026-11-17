@@ -69,3 +69,17 @@ Root causes (CI probe run 44002823904, MakeUp Ultra Fast 9.6 on): the pack never
   so texcoord, gl_FragCoord and depth reconstruction agree as on OpenGL; the world copy-in flips, the
   final pass renders into a GL-style scratch image and is copied out unflipped through VulkanMod's
   inverted main viewport. Post passes get Iris's quad matrices (identity model-view, 0..1 ortho, z = 0).
+
+## 2026-11-16 programs link (step 3b)
+Probe evidence (run 44005321098): every Iris program failed to link, so the post chain only copied.
+- `VulkanBackendAdapter`: nothing ever called `init`, so the device was always null and every program
+  logged "Vulkan device not ready" / "Cannot create VkShaderModule: VkDevice is not live". It now adopts
+  VulkanMod's own `DeviceManager.vkDevice`. `IrisRenderSystemMixin` no longer ties the compute / SSBO /
+  image-load-store capability flags to device liveness (they are recorded, not executed, on Vulkan).
+- `ProgramTranslator`: varyings were left to Shaderc auto-mapping, which numbers each stage separately,
+  so MakeUp's composite (different declaration order per stage) failed "stage interface mismatch".
+  Vertex outs and fragment ins now get one location per name (same split-aware assignment the pipeline
+  build uses, `ProgramTranslator.varyingLocations`). Translator version `phaseB-4-origin`.
+- `PipelineCompatibilityValidator`: a fragment stage with no inputs (centerDepthSmooth) is valid.
+- `VulkanModProgramBridge`: no session-wide link kill switch after 3 failures; each program fails alone.
+Tests: `origin/VaryingLocationTest`; the translator policy tests now assert by-name varying locations.
