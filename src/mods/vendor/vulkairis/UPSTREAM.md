@@ -94,3 +94,11 @@ Tests: `origin/VaryingLocationTest`; the translator policy tests now assert by-n
   backs with Vulkan images. Raw/lightmap custom textures stay white (logged once). Freed on pack change.
 - Not done: mipmapped targets (every target is single-level), shadow samplers (white until step 6).
   Iris's blit/copy needs are covered by the chain's own copy draws.
+
+## 2026-11-16 union block reflects by name (step 3c)
+- `translation/SpirvReflector`: an anonymous uniform block (the translator's `VulkairisUniformBlock {...};`)
+  reflected with an empty name, and the dense binding remap had already moved it off raw binding 100, so
+  `buildDescriptorConfig` found no block for the descriptor and every Iris post program failed to link
+  ("Descriptor 'VulkairisUniformBlock' (binding 0, raw 100) has no reflected block", probe run 44008144043).
+  Anonymous blocks now reflect under their block type name; member names are unchanged.
+  Test: `origin/UnionBlockReflectionTest`.

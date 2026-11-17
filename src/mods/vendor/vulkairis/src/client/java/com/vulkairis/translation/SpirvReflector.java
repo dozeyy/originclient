@@ -277,9 +277,18 @@ public final class SpirvReflector {
                         if (storageClass == SC_UNIFORM) {
                             reflection.setUboBlockSize(Math.max(reflection.getUboBlockSize(), size));
                         }
+                        // Origin (step 3b): an anonymous block (`uniform VulkairisUniformBlock { ... };`,
+                        // the shape the union translator injects) has an EMPTY instance name, so it was
+                        // reflected as "" and the pipeline build could not find the union block ("has no
+                        // reflected block"), failing every Iris program. Fall back to the block's type
+                        // name, which is also the name GL code uses for it.
+                        String blockName = name;
+                        if (blockName == null || blockName.isBlank()) {
+                            blockName = state.names.getOrDefault(pointeeType, "block_" + variable.id);
+                        }
                         List<ShaderReflection.UniformInfo> members =
-                                collectStructMembers(reflection, state, pointeeType, name);
-                        reflection.addUniformBlock(name, set, binding, stageFlag(state), size, members);
+                                collectStructMembers(reflection, state, pointeeType, name == null ? "" : name);
+                        reflection.addUniformBlock(blockName, set, binding, stageFlag(state), size, members);
                     } else {
                         reflection.addUniform(name, "buffer", set, typeSize(state, pointeeType));
                     }
