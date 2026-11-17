@@ -82,6 +82,21 @@ public final class CompositeRunner {
             }
             """;
 
+    /** Depth copy: the world depth (one channel) for depthtex0/1/2, stored GL-style like the targets. */
+    private static final String DEPTH_FRAG = """
+            #version 450
+            layout(binding = 0) uniform sampler2D Sampler0;
+            layout(location = 0) in vec2 uv;
+            layout(location = 0) out vec4 fragColor;
+            void main() {
+                fragColor = vec4(texture(Sampler0, uv).r, 0.0, 0.0, 1.0);
+            }
+            """;
+    private static final int FORMAT_R32F = 100;                 // VK_FORMAT_R32_SFLOAT
+    private static final int FORMAT_D32F = 126;                 // VK_FORMAT_D32_SFLOAT
+    private static final int FORMAT_D16 = 124;                  // VK_FORMAT_D16_UNORM
+    private static final int LAYOUT_DEPTH_ATTACHMENT = 3;       // VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+
     private static boolean running;
     private static boolean disabled;
     private static boolean announced;
@@ -102,6 +117,10 @@ public final class CompositeRunner {
     private static ByteBuffer quad;
     /** GL-style scratch the final pass draws into; then copied (unflipped) onto the main target. */
     private static VulkanImage finalOut;
+    private static GraphicsPipeline depthPipeline;
+    /** World depth captured at the end of LevelRenderer.renderLevel (before the hand clears it). */
+    private static VulkanImage depthCopy;
+    private static boolean depthValid;
 
     /**
      * Per-pass uniform values for every post pass (Iris's full-screen quad setup): identity model-view,
@@ -130,7 +149,83 @@ public final class CompositeRunner {
             LOGGER.error("[Vulkairis/Composite] post chain disabled for this session: {}", t.toString(), t);
         } finally {
             running = false;
+            depthValid = false;
         }
+    }
+
+    /**
+     * Origin (step 4). Called at the end of {@code LevelRenderer.renderLevel}, while the main pass still
+     * holds the finished world depth: vanilla clears depth for the hand right after, so this is the only
+     * point where depthtex0 exists. Copies it into an R32F image (GL storage) the post chain samples.
+     * Never throws; on failure depth samplers stay white ("everything is sky").
+     */
+    public static void captureWorldDepth() {
+        if (running || disabled || IrisPassSource.currentSet() == null) {
+            return;
+        }
+        running = true;
+        try {
+            Renderer renderer = Renderer.getInstance();
+            MainPass mainPass = renderer.getMainPass();
+            Framebuffer mainFb = mainPass.getMainFramebuffer();
+            VulkanImage depth = mainFb == null ? null : mainFb.getDepthAttachment();
+            VulkanImage mainColor = mainPass.getColorAttachment().getVulkanImage();
+            if (depth == null || mainColor == null || renderer.getBoundRenderPass() == null) {
+                return;
+            }
+            if (depth.format != FORMAT_D32F && depth.format != FORMAT_D16) {
+                // A combined depth/stencil view cannot be sampled; say so once and keep white.
+                warnOnce("depth", "main depth format " + depth.format + " is not sampleable; depthtex stays white");
+                return;
+            }
+            ensureSize(mainFb.getWidth(), mainFb.getHeight());
+            if (!ensureCopyPipeline() || depthPipeline == null) {
+                return;
+            }
+            if (depth.getSampler() == 0L) {
+                depth.setSampler(whiteTexture().getSampler());
+            }
+            VkCommandBuffer cmd = Renderer.getCommandBuffer();
+            SavedState saved = SavedState.capture();
+            try {
+                renderer.endRenderPass(cmd);
+                readOnly(cmd, depth);
+                VulkanImage target = depthTarget();
+                beginTarget(cmd, renderer, target);
+                applyPostState();
+                renderer.bindGraphicsPipeline(depthPipeline);
+                VTextureSelector.bindTexture(0, depth);
+                renderer.uploadAndBindUBOs(depthPipeline);
+                drawQuad(DefaultVertexFormat.POSITION_TEX, true);
+                renderer.endRenderPass(cmd);
+                try (MemoryStack stack = MemoryStack.stackPush()) {
+                    depth.transitionImageLayout(stack, cmd, LAYOUT_DEPTH_ATTACHMENT);
+                    mainColor.transitionImageLayout(stack, cmd, LAYOUT_COLOR_ATTACHMENT);
+                }
+                mainPass.rebindMainTarget();
+                mainViewport();
+                depthValid = true;
+            } finally {
+                saved.restore();
+            }
+        } catch (Throwable t) {
+            disabled = true;
+            LOGGER.error("[Vulkairis/Composite] depth capture failed; post chain off: {}", t.toString(), t);
+        } finally {
+            running = false;
+        }
+    }
+
+    private static VulkanImage depthTarget() {
+        if (depthCopy == null) {
+            depthCopy = VulkanImage.createTextureImage(VulkanImage.builder(width, height)
+                    .setName("vulkairis depthtex")
+                    .setFormat(FORMAT_R32F)
+                    .setUsage(USAGE)
+                    .setLinearFiltering(false)
+                    .setClamp(true));
+        }
+        return depthCopy;
     }
 
     private static void run() {
@@ -264,6 +359,11 @@ public final class CompositeRunner {
             finalOut.free();
             finalOut = null;
         }
+        if (depthCopy != null) {
+            depthCopy.free();
+            depthCopy = null;
+        }
+        depthValid = false;
         width = w;
         height = h;
     }
@@ -385,8 +485,14 @@ public final class CompositeRunner {
         if (t.kind() == SamplerNames.Kind.COLORTEX) {
             return image(t.index(), sides[t.index()]);
         }
-        // Depth copies and custom textures are step 4; white keeps "everything is far/sky" sane.
-        return whiteTexture();
+        if (t.kind() == SamplerNames.Kind.DEPTH) {
+            // One capture after translucents serves depthtex0/1/2 (no separate pre-translucent or
+            // pre-hand copies yet). Without a capture this frame, white = "everything is sky".
+            return depthValid && depthCopy != null ? depthCopy : whiteTexture();
+        }
+        // noisetex and the pack's custom textures; shadow maps arrive with the shadow pass (step 6).
+        VulkanImage custom = PackTextures.resolve(cachedSet, name);
+        return custom != null ? custom : whiteTexture();
     }
 
     private static void drawPass(Renderer renderer, GraphicsPipeline gp, CompositeRouting.Side[] sides) {
@@ -510,6 +616,17 @@ public final class CompositeRunner {
             config.addImageDescriptor(0, "sampler2D", "Sampler0", 0);
             builder.applyConfig(config.build());
             copyPipeline = builder.createGraphicsPipeline();
+            try {
+                Pipeline.Builder depthBuilder = Pipeline.builder(DefaultVertexFormat.POSITION_TEX, "vulkairis_depth_copy");
+                depthBuilder.setShaderSrc(SPIRVUtils.ShaderKind.VERTEX_SHADER, COPY_VERT);
+                depthBuilder.setShaderSrc(SPIRVUtils.ShaderKind.FRAGMENT_SHADER, DEPTH_FRAG);
+                PipelineConfig.Builder depthConfig = PipelineConfig.builder();
+                depthConfig.addImageDescriptor(0, "sampler2D", "Sampler0", 0);
+                depthBuilder.applyConfig(depthConfig.build());
+                depthPipeline = depthBuilder.createGraphicsPipeline();
+            } catch (Throwable t) {
+                LOGGER.warn("[Vulkairis/Composite] depth copy pipeline failed; depthtex stays white: {}", t.toString());
+            }
             return true;
         } catch (Throwable t) {
             copyFailed = true;

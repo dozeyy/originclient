@@ -83,3 +83,14 @@ Probe evidence (run 44005321098): every Iris program failed to link, so the post
 - `PipelineCompatibilityValidator`: a fragment stage with no inputs (centerDepthSmooth) is valid.
 - `VulkanModProgramBridge`: no session-wide link kill switch after 3 failures; each program fails alone.
 Tests: `origin/VaryingLocationTest`; the translator policy tests now assert by-name varying locations.
+
+## 2026-11-16 depth and pack textures (step 4)
+- `LevelRendererIrisStateMixin` TAIL -> `CompositeRunner.captureWorldDepth()`: the finished world depth
+  (translucents included) is copied into an R32F image, GL storage, before vanilla clears depth for the
+  hand. depthtex0/1/2 all read this one copy (no separate pre-translucent / pre-hand copies yet). A
+  non-sampleable depth format (combined depth/stencil) keeps depth white and logs once.
+- `PackTextures`: noisetex (pack PNG or Iris's generated noise at the pack's resolution), PNG custom
+  textures (blur/clamp) and resource-location textures become Minecraft textures, which VulkanMod already
+  backs with Vulkan images. Raw/lightmap custom textures stay white (logged once). Freed on pack change.
+- Not done: mipmapped targets (every target is single-level), shadow samplers (white until step 6).
+  Iris's blit/copy needs are covered by the chain's own copy draws.

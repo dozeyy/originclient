@@ -55,4 +55,18 @@ public abstract class LevelRendererIrisStateMixin {
         }
         IrisUniformValues.beginFrame();
     }
+
+    /**
+     * Origin (step 4). Same target method at TAIL (VulkanMod overwrites renderLevel, an inject at its
+     * return still applies): the world, translucents included, is finished and the main pass still holds
+     * its depth. Vanilla clears depth for the hand right after this method, so this is where the pack's
+     * depthtex is copied. Without it every depth sampler reads white: no fog distance, no depth of field,
+     * no sky/terrain separation in the composite passes.
+     */
+    @Inject(method = "renderLevel", at = @At("TAIL"))
+    private void vulkairis$captureWorldDepth(DeltaTracker deltaTracker, boolean renderBlockOutline, Camera camera,
+                                            GameRenderer gameRenderer, LightTexture lightTexture,
+                                            Matrix4f modelView, Matrix4f projection, CallbackInfo ci) {
+        com.vulkairis.origin.composite.CompositeRunner.captureWorldDepth();
+    }
 }
