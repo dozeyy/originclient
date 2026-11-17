@@ -29,6 +29,10 @@ public final class FlywheelVulkanMixinPlugin implements IMixinConfigPlugin {
 		var g = FlywheelVulkanClient.gate();
 		// VulkanMod-only hooks need just the VulkanMod pin (the spike runs without Flywheel);
 		// anything reaching into Flywheel needs both pins.
+		// A VulkanMod hook that calls into Flywheel (block entities saved in the world) needs both pins.
+		if (mixinClassName.endsWith(".VulkanBuildTaskBlockEntityMixin")) {
+			return g.verdict() == com.origin.flywheelvulkan.Gate.Verdict.ON;
+		}
 		if (targetClassName.startsWith("net.vulkanmod.")) return g.vulkanmodPinned();
 		// Ponder (Create's GUI library) fixes: the VulkanMod pin, and Ponder present.
 		if (targetClassName.startsWith("net.createmod.")) {

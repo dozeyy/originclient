@@ -26,6 +26,10 @@ final class ProofShots {
 			return;
 		}
 		tick++;
+		// Frame rate in the windowed stretches (Minecraft's own once-a-second counter), for comparing backends.
+		if (tick == 40 || tick == 60 || tick == 80 || tick == 100 || tick == 200 || tick == 220) {
+			FwvTestMod.LOGGER.info("[fwv-test] fps {} at tick {} ({}x{})", mc.getFps(), tick, mc.getWindow().getWidth(), mc.getWindow().getHeight());
+		}
 		switch (tick) {
 			case 60 -> grab(mc, "fwv_a_rotating");
 			case 100 -> grab(mc, "fwv_b_rotating");
@@ -51,6 +55,8 @@ final class ProofShots {
 
 	private static void grab(Minecraft mc, String name) {
 		String file = name + "_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png";
+		// Screenshot.grab makes only the last level ("screenshots"); a fresh shots folder needs its parent.
+		new File(DIR, "screenshots").mkdirs();
 		Screenshot.grab(new File(DIR), file, mc.getMainRenderTarget(), c -> {
 		});
 		FwvTestMod.LOGGER.info("[fwv-test] captured {}", file);
