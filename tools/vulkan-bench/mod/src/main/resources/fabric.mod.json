@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "origin_vk_bench",
+  "version": "0.1.0",
+  "name": "Origin Vulkan bench (scratch, dev only)",
+  "environment": "client",
+  "entrypoints": { "client": ["com.origin.bench.Bench"] },
+  "depends": { "fabricloader": ">=0.15", "fabric-api": "*", "minecraft": "1.21.1" }
+}
