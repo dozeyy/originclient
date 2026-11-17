@@ -146,6 +146,9 @@ public final class CompositeRunner {
         }
         running = true;
         try {
+            if (plan != null && CompositeProbe.due()) {
+                probeDump();
+            }
             run();
         } catch (Throwable t) {
             disabled = true;
@@ -278,6 +281,22 @@ public final class CompositeRunner {
         depthOnlyViewImage = 0L;
         VK10.vkDeviceWaitIdle(net.vulkanmod.vulkan.device.DeviceManager.vkDevice);
         VK10.vkDestroyImageView(net.vulkanmod.vulkan.device.DeviceManager.vkDevice, view, null);
+    }
+
+    /** CI only (CompositeProbe): what the previous frame left in every post image. */
+    private static void probeDump() {
+        CompositeProbe.plan(plan, chain);
+        for (int b = 0; b < IMAGES.length; b++) {
+            for (int s = 0; s < 2; s++) {
+                CompositeProbe.dump("colortex" + b + (s == 0 ? " main" : " alt"), IMAGES[b][s]);
+            }
+        }
+        CompositeProbe.dump("depthtex copy (valid last frame: " + (depthCopy != null) + ")", depthCopy);
+        CompositeProbe.dump("final out", finalOut);
+        try {
+            CompositeProbe.dump("main color", Renderer.getInstance().getMainPass().getColorAttachment().getVulkanImage());
+        } catch (Throwable ignored) {
+        }
     }
 
     private static VulkanImage depthTarget() {
