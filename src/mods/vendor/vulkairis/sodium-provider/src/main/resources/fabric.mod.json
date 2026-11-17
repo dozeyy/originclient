@@ -1,0 +1,13 @@
+{
+	"schemaVersion": 1,
+	"id": "vulkairis_sodium_provider",
+	"version": "${version}",
+	"name": "VulkaIris Sodium id provider",
+	"description": "Metadata only: provides the sodium id so Iris loads under VulkanMod. Contains no code.",
+	"license": "LGPL-3.0-only",
+	"environment": "client",
+	"provides": ["sodium"],
+	"depends": {
+		"vulkairis_sodium_compat": "*"
+	}
+}

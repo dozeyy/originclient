@@ -1,0 +1,52 @@
+{
+	"schemaVersion": 1,
+	"id": "vulkairis",
+	"version": "${version}",
+	"name": "VulkaIris (Origin build)",
+	"description": "Unofficial mod that let's you use Iris shaders with Vulkanmod",
+	"authors": [
+		"ColorfulSunshine"
+	],
+	"contributors": [
+		"Lilbroskato",
+		"crispypeanutsyt",
+		"Origin Client"
+	],
+	"contact": {
+		"homepage": "https://modrinth.com/mod/vulkairis",
+		"sources": "https://github.com/Potatochip-p/vulkairis"
+	},
+	"license": "LGPL-3.0-only",
+	"icon": "assets/vulkairis/Icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"main": [
+			"com.vulkairis.Vulkairis"
+		],
+		"client": [
+			"com.vulkairis.client.VulkairisClient"
+		],
+		"fabric-datagen": [
+			"com.vulkairis.client.VulkairisDataGenerator"
+		],
+		"modmenu": [
+			"com.vulkairis.client.gui.VulkairisModMenu"
+		]
+	},
+	"mixins": [
+		"vulkairis.mixins.json",
+		{
+			"config": "vulkairis.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": ">=0.116.17",
+		"iris": "1.8.14-beta.1+mc1.21.1",
+		"vulkanmod": "0.6.7+1.21.1",
+		"vulkairis_sodium_compat": "*"
+	}
+}
