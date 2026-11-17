@@ -52,6 +52,15 @@ final class CompositeProbe {
         if (image == null) {
             return;
         }
+        if (image.formatSize == 0) {
+            // Builder-made images leave formatSize 0 (readback sized 0 bytes, probe run 44034547797):
+            // read through a wrapper over the same image and view that states the real texel size.
+            int size = image.format == 97 ? 8 : 4;
+            VulkanImage view = new VulkanImage(label, image.getId(), image.format, 1, image.width, image.height,
+                    size, image.usage, image.getImageView());
+            view.setCurrentLayout(image.getCurrentLayout());
+            image = view;
+        }
         long bytes = (long) image.width * image.height * image.formatSize;
         long ptr = MemoryUtil.nmemAlloc(bytes);
         try {

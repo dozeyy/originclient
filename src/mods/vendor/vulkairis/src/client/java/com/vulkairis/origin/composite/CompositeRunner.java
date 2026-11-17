@@ -324,6 +324,7 @@ public final class CompositeRunner {
             cachedSet = set;
             chain = IrisPassSource.chainOf(set);
             plan = chain == null ? null : CompositeRouting.plan(chain.passes());
+            loadTargetSettings(set);
             announced = false;
         }
         if (chain == null || plan == null) {
@@ -406,6 +407,7 @@ public final class CompositeRunner {
             } else {
                 out = image(0, finalSides[0]);
             }
+            draws += carryKeptBuffers(cmd, renderer, finalSides);
             readOnly(cmd, out);
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 mainColor.transitionImageLayout(stack, cmd, LAYOUT_COLOR_ATTACHMENT);
@@ -500,6 +502,59 @@ public final class CompositeRunner {
         glViewport(cmd);
     }
 
+    /**
+     * Origin: the pack's own {@code colortexNClear} / {@code colortexNClearColor} directives. MakeUp keeps
+     * its exposure in gaux3 (colortex6) across frames ({@code gaux3Clear = false}) and final.vsh multiplies
+     * the image by it; clearing it every frame left exposure near 0 and the whole frame black (probe run
+     * 44032302444). Buffers a pack keeps are neither cleared nor left on the wrong side (carryKeptBuffers).
+     */
+    private static final boolean[] CLEAR = new boolean[CompositeRouting.MAX_BUFFERS];
+    private static final float[][] CLEAR_COLORS = new float[CompositeRouting.MAX_BUFFERS][];
+    /** Kept buffers are cleared once when created (fresh memory may hold NaN, which would never wash out). */
+    private static final Set<VulkanImage> SEEDED = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+
+    private static void loadTargetSettings(ProgramSet set) {
+        java.util.Arrays.fill(CLEAR, true);
+        java.util.Arrays.fill(CLEAR_COLORS, null);
+        try {
+            var settings = set.getPackDirectives().getRenderTargetDirectives().getRenderTargetSettings();
+            for (var e : settings.entrySet()) {
+                int b = e.getKey();
+                if (b < 0 || b >= CompositeRouting.MAX_BUFFERS) {
+                    continue;
+                }
+                CLEAR[b] = e.getValue().shouldClear();
+                e.getValue().getClearColor().ifPresent(v -> CLEAR_COLORS[b] = new float[] {v.x, v.y, v.z, v.w});
+            }
+        } catch (Throwable t) {
+            warnOnce("clear", "pack clear directives unreadable; every buffer is cleared: " + t);
+        }
+    }
+
+    /**
+     * Origin (Iris's end-of-frame swap): a kept buffer whose newest content ended on the ALT side is copied
+     * back to MAIN, where the next frame's first read looks. Cleared buffers need no copy.
+     */
+    private static int carryKeptBuffers(VkCommandBuffer cmd, Renderer renderer, CompositeRouting.Side[] finalSides) {
+        int draws = 0;
+        for (int b = 0; b < CompositeRouting.MAX_BUFFERS; b++) {
+            if (CLEAR[b] || b == chain.sceneBuffer() || finalSides[b] != CompositeRouting.Side.ALT) {
+                continue;
+            }
+            VulkanImage alt = IMAGES[b][CompositeRouting.Side.ALT.ordinal()];
+            if (alt == null) {
+                continue;
+            }
+            VulkanImage main = image(b, CompositeRouting.Side.MAIN);
+            readOnly(cmd, alt);
+            beginTarget(cmd, renderer, main);
+            drawCopy(renderer, alt, false);
+            renderer.endRenderPass(cmd);
+            draws++;
+        }
+        return draws;
+    }
+
     /** Iris clears every buffer at frame start: colortex1 (gdepth) to white, the rest to zero. */
     private static void clearMainSides(VkCommandBuffer cmd, Renderer renderer) {
         float[] old = new float[4];
@@ -509,11 +564,16 @@ public final class CompositeRunner {
         try {
             for (int b = 0; b < CompositeRouting.MAX_BUFFERS; b++) {
                 VulkanImage img = IMAGES[b][0];
-                if (img == null || b == chain.sceneBuffer()) {
+                if (img == null || b == chain.sceneBuffer() || (!CLEAR[b] && !SEEDED.add(img))) {
                     continue;
                 }
-                float v = b == 1 ? 1f : 0f;
-                VRenderSystem.setClearColor(v, v, v, v);
+                float[] c = CLEAR_COLORS[b];
+                if (c != null) {
+                    VRenderSystem.setClearColor(c[0], c[1], c[2], c[3]);
+                } else {
+                    float v = b == 1 ? 1f : 0f;
+                    VRenderSystem.setClearColor(v, v, v, v);
+                }
                 beginTarget(cmd, renderer, img);
                 Renderer.clearAttachments(cmd, GL_COLOR_BUFFER_BIT);
                 renderer.endRenderPass(cmd);
@@ -735,6 +795,7 @@ public final class CompositeRunner {
             }
         }
         TARGETS.clear();
+        SEEDED.clear();
         for (VulkanImage[] pair : IMAGES) {
             for (int s = 0; s < 2; s++) {
                 if (pair[s] != null) {

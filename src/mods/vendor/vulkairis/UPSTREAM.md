@@ -111,3 +111,12 @@ Tests: `origin/VaryingLocationTest`; the translator policy tests now assert by-n
   Failed variants are no longer retried every frame.
 - `origin/composite/CompositeRunner`: a combined depth/stencil attachment (lavapipe picks
   D24_UNORM_S8_UINT) is sampled through its own DEPTH-only image view, so depthtex works there too.
+
+## 2026-11-17 kept buffers (step 4c)
+- `origin/composite/CompositeRunner`: honours the pack's `colortexNClear` / `colortexNClearColor`
+  directives and, like Iris at frame end, copies a kept buffer whose newest content is on the ALT side
+  back to MAIN. MakeUp keeps its auto-exposure in gaux3 (colortex6, `gaux3Clear = false`) and final.vsh
+  multiplies the frame by it; clearing it every frame made the frame near-black (probe 44034547797 plan:
+  composite writes colortex6 ALT, final reads ALT, the next frame read a cleared MAIN).
+- `origin/composite/CompositeProbe` (CI only, `-Dvulkairis.composite.probe=true`): one readback of
+  every post buffer, logged, to pin a wrong frame to one pass.
