@@ -44,6 +44,9 @@ public static class InstanceLayout
     /// <summary>Saved Sodium/Iris settings of every configuration, per account, directly in a version's root (Core/Components).</summary>
     public const string ConfigOverlaysFolder = "config-overlays";
 
+    /// <summary>Opt-in renderers' jars (1.21.1's Vulkan graphics), directly in a version's root (OriginPaths.RendererDir).</summary>
+    public const string RenderersFolder = "renderers";
+
     /// <summary>InstallVerification's "this install was checked" stamp, directly in a version's root.</summary>
     public const string VerifiedStampFileName = "origin-verified.json";
 
@@ -62,7 +65,7 @@ public static class InstanceLayout
     private static readonly HashSet<string> Shared = new(StringComparer.OrdinalIgnoreCase)
     {
         "versions", "libraries", "assets", "runtime", "resources",
-        AccountsFolder, ModsFolder, ProfilesFolder, ConfigOverlaysFolder, VerifiedStampFileName,
+        AccountsFolder, ModsFolder, ProfilesFolder, ConfigOverlaysFolder, RenderersFolder, VerifiedStampFileName,
     };
 
     public static bool IsSharedEntry(string name) => Shared.Contains(name);

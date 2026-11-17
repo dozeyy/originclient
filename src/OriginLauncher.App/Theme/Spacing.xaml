@@ -29,6 +29,8 @@
     <!-- Layout margins that more than one style needs, as tokens. -->
     <Thickness x:Key="Margin.Below.2">0,0,0,8</Thickness>
     <Thickness x:Key="Margin.DropZone">24,20</Thickness>
+    <!-- A status capsule beside a setting's title (Settings, Vulkan graphics "Experimental"): 8 after the title. -->
+    <Thickness x:Key="Margin.TitleCapsule">8,0,0,0</Thickness>
     <!-- The status strip's 6 px dot: 8 down puts it on the first text line's centre, 12 to the text. -->
     <Thickness x:Key="Margin.StatusDot">0,8,12,0</Thickness>
     <!-- A dialog over a page: 24 at the sides and foot, and the top clears the 48 top bar plus 24 (Size.Bar + Space.6),

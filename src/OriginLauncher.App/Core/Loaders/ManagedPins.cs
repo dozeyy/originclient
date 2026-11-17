@@ -18,6 +18,9 @@ public static partial class ManagedPins
     public static PerfMod? Alternate(string mcVersion, string family, string pairId) =>
         AlternatePins.GetValueOrDefault($"{mcVersion}:{family}-{pairId}");
 
+    /// <summary>VulkanMod for 1.21.1's opt-in Vulkan graphics (Core/Renderers/VulkanMode); never put in a mods folder.</summary>
+    public static PerfMod VulkanMod => VulkanModPin;
+
     /// <summary>Every pinned version key, for the data tests.</summary>
     public static IReadOnlyCollection<string> FabricApiVersions => FabricApiPins.Keys;
     public static IReadOnlyCollection<string> VoiceChatVersions => VoiceChatPins.Keys;
@@ -36,6 +39,7 @@ public static partial class ManagedPins
         foreach (var mod in FabricApiPins.Values) Add(set, mod.Sha512);
         foreach (var mod in VoiceChatPins.Values) Add(set, mod.Sha512);
         foreach (var mod in AlternatePins.Values) Add(set, mod.Sha512);
+        Add(set, VulkanModPin.Sha512);
         foreach (var sha in EverPinnedSha512) Add(set, sha); // pins that left the catalog (ManagedPins.History.cs)
         return set;
     }

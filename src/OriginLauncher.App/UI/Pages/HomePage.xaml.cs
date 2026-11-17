@@ -19,6 +19,7 @@ using OriginLauncher.App.Core.Import.Launcher;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Models;
 using OriginLauncher.App.Core.Profiles;
+using OriginLauncher.App.Core.Renderers;
 using OriginLauncher.App.Core.Social;
 using OriginLauncher.App.Core.Social.Launcher;
 using OriginLauncher.App.Core.Updates;
@@ -103,6 +104,9 @@ public partial class HomePage : UserControl
         // What the crash check judges for this launch (CrashMemory.ForLaunch): the heap it really gave Java, never
         // the stored RamMb (on Auto only the slider's suggestion; a version's own crash raise included).
         public CrashMemory.Facts Memory { get; init; }
+        // It was launched on Vulkan graphics (1.21.1, Core/Renderers/VulkanMode): dying before the title screen turns the
+        // setting off and relaunches once on normal graphics instead of opening the crash window.
+        public bool Vulkan { get; init; }
     }
 
     // The game whose start the progress screen is showing, once its process is
@@ -878,6 +882,12 @@ public partial class HomePage : UserControl
             externalMods = false;
             withoutModsLine = tryLine;
         }
+        // The Vulkan fallback's relaunch says why it is on normal graphics (the setting is already off on disk).
+        string? vulkanFallbackLine = null;
+        if (_vulkanFallbackOnce.Remove(key, out var fallbackLine) && route == LaunchRoute.Retry)
+            vulkanFallbackLine = fallbackLine;
+        // Vulkan graphics: only 1.21.1 reads the setting (VulkanMode); the install says whether it really ran on it.
+        var wantVulkan = VulkanMode.Wanted(freshSettings.VulkanRenderer, version);
 
         // One game per account: an open game is brought forward instead of a
         // second copy (the same Microsoft session can't play twice anyway).
@@ -1043,10 +1053,11 @@ public partial class HomePage : UserControl
             // still marshals every stage update back correctly.
             provisioning = true;
             string? configurationId = null; // set only for a profile on a version with vetted alternates
+            var launchedVulkan = false; // set by the install: Vulkan wanted AND nothing kept it on normal graphics
             var process = await Task.Run(
                 () => _versionManager.InstallAndBuildProcessAsync(
                     version, key, launchOption, externalMods, profile?.Id, installProgress, ticket.Token, overrideSetKey,
-                    profile?.ComponentPins, id => configurationId = id),
+                    profile?.ComponentPins, id => configurationId = id, wantVulkan, used => launchedVulkan = used),
                 ticket.Token);
             provisioning = false;
 
@@ -1099,6 +1110,7 @@ public partial class HomePage : UserControl
                     ? new Core.Models.VersionJvmOptions { Arguments = jvm.Arguments, ReplacePresets = jvm.ReplacePresets }
                     : null,
                 Memory = CrashMemory.ForLaunch(heap),
+                Vulkan = launchedVulkan,
             };
             StartWithLifecycleCapture(game);
             handoff.ProcessStarted(DateTime.UtcNow);
@@ -1122,6 +1134,7 @@ public partial class HomePage : UserControl
             // crash), instead of a plain "Running" that leaves the next Play to crash the same way.
             runningMessage = global::OriginLauncher.App.Core.Auth.Sessions.MinecraftSessions.PlayingLine(runningMessage, playingOffline, withoutModsLine);
             if (seedNotice != null) runningMessage = $"{runningMessage}. {seedNotice}";
+            if (vulkanFallbackLine != null) runningMessage = $"{vulkanFallbackLine} {runningMessage}";
             runningMessage = Core.GameFolders.LaunchedMods.WithNotices(runningMessage, Core.GameFolders.LaunchedMods.NoticesFor(gameDir));
             _ = WatchBootAsync(game, runningMessage);
         }
@@ -1267,6 +1280,13 @@ public partial class HomePage : UserControl
                         Note(game.Key, "Ready", LaunchTone.Neutral, game.Version);
                         return;
                     }
+                    // A Vulkan game that died before its title screen: back to normal graphics and one relaunch,
+                    // instead of a crash window about a renderer the player only tried.
+                    if (VulkanMode.ShouldFallBack(game.Vulkan, game.Handoff.Poll(DateTime.UtcNow).Stage, game.StoppedByPlayer, exitCode))
+                    {
+                        _ = Dispatcher.BeginInvoke(async () => await FallBackFromVulkanAsync(game), DispatcherPriority.Background);
+                        return;
+                    }
                     // Crash or not is decided from the evidence first (ShowCrashReportAsync): a killed or
                     // closed boot is not a crash and gets no window. Neutral until then.
                     // The exit code is in this launch's log (StartWithLifecycleCapture), not on the status line.
@@ -1405,6 +1425,10 @@ public partial class HomePage : UserControl
     // game boots (see CrashRetryGuard). The player can always press Play themselves.
     private static readonly CrashRetryGuard CrashRetries = new();
 
+    // Accounts whose next Retry launch is the Vulkan fallback (VulkanMode.FallbackLine): that launch's running line
+    // starts with it, so the player sees why the game is on normal graphics again. In memory only, used once.
+    private readonly Dictionary<string, string> _vulkanFallbackOnce = new(StringComparer.Ordinal);
+
     // Accounts whose next Retry launch leaves the player's own mods out, once (the crash window's
     // "Try once without my mods"). In memory only: nothing about it is saved.
     private readonly Dictionary<string, string> _tryWithoutAddedModsOnce = new(StringComparer.Ordinal);
@@ -1465,6 +1489,24 @@ public partial class HomePage : UserControl
             // game's - fall back to the status line that's already set.
             System.Diagnostics.Debug.WriteLine($"[HomePage] Crash analysis failed: {ex}");
         }
+    }
+
+    // The Vulkan boot fallback (VulkanMode.ShouldFallBack): the setting goes off in one write (so this relaunch and
+    // every later Play use normal graphics), Home says why, and the account's game is launched once more. Once only:
+    // the relaunch is on normal graphics, so it can never come back here. Newest launch action wins: if the player
+    // already started this account again, only the setting and the line change.
+    private async Task FallBackFromVulkanAsync(RunningGame game)
+    {
+        if (!SettingsStore.TryUpdate(s => s.VulkanRenderer = false, quiet: true))
+        {
+            Note(game.Key, SettingsStore.BusyLine, LaunchTone.Error, game.Version);
+            return;
+        }
+        _settings.VulkanRenderer = false;
+        Note(game.Key, VulkanMode.FallbackLine, LaunchTone.Warning, game.Version);
+        if (_launches.PhaseOf(game.Key) is GamePhase.Starting or GamePhase.Running) return;
+        _vulkanFallbackOnce[game.Key] = VulkanMode.FallbackLine;
+        await LaunchAsync(new LaunchTarget(game.Version, AccountKey: game.Key), LaunchRoute.Retry);
     }
 
     // Runs what the player chose in the crash window, then relaunches that account's game once.
@@ -1713,6 +1755,13 @@ public partial class HomePage : UserControl
         }
         SyncSocialMirror();
         RefreshPlayButton();
+        // Counted as running by the boot watch's ceiling but never reached the title screen on Vulkan: the same
+        // fallback as a boot crash (VulkanMode.ShouldFallBack).
+        if (wasRunning && VulkanMode.ShouldFallBack(game.Vulkan, game.Handoff.Poll(DateTime.UtcNow).Stage, game.StoppedByPlayer, exitCode))
+        {
+            _ = Dispatcher.BeginInvoke(async () => await FallBackFromVulkanAsync(game), DispatcherPriority.Background);
+            return;
+        }
         // A non-zero exit after the game was up: explain it when there is real crash evidence
         // (CrashEngine.Decide inside). A boot crash is the boot watcher's, and a normal quit never lands here.
         if (wasRunning && exitCode != 0 && !game.StoppedByPlayer)

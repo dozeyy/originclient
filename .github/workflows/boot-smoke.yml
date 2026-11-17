@@ -56,6 +56,12 @@
 #    jars go in beside Origin's (a nested Origin pair must lose to them), and with no player Iris the boot carries
 #    -Dfabric.debug.disableModIds=iris like the launcher (covers.py --player). FAIL unless the mod list names the
 #    player's versions (and no Iris when none was given) with zero mixin-apply failures.
+#  - VULKAN (input `renderer: vulkan`, 1.21.1 only): the opt-in Vulkan graphics launch (launcher Settings ->
+#    Performance; Core/Renderers/VulkanMode.cs). Mesa's lavapipe gives the runner a software Vulkan device
+#    (gated on `vulkaninfo --summary`); tools/boot-smoke/renderer_jars.py puts VulkanMod (the launcher's pin,
+#    SHA-512 checked) and Origin's vendor Vulkan jars in one folder; runClient gets -PrendererJars=<dir> and
+#    -PdisableModIds=sodium,immediatelyfast, the launcher's own switch. No Sodium/Iris gate on these rows
+#    (Sodium is off by design); same title + zero mixin-apply gates.
 #
 # Starts as manual (workflow_dispatch) so a flaky software-GL result can't block
 # merges. Promote to `on: pull_request` once it's proven stable per version.
@@ -91,9 +97,12 @@ on:
       players:
         description: "Player-profile boots: the player's own Sodium + Iris (Modrinth version numbers) win over Origin's, as <mc>:<sodium>/<iris> comma list, iris '-' = none, e.g. 1.21.1:mc1.21.1-0.6.9-fabric/1.8.7+1.21.1-fabric"
         default: ""
+      renderer:
+        description: "'' = normal graphics; 'vulkan' = boot 1.21.1 the way the launcher's Vulkan graphics switch does (lavapipe software Vulkan, VulkanMod + Origin's Vulkan jars, Sodium + ImmediatelyFast disabled). Use with modules=1.21.1"
+        default: ""
 
 concurrency:
-  group: boot-smoke-${{ github.ref }}-${{ github.event.inputs.modules }}-${{ github.event.inputs.covers }}-${{ github.event.inputs.pairs }}-${{ github.event.inputs.players }}
+  group: boot-smoke-${{ github.ref }}-${{ github.event.inputs.modules }}-${{ github.event.inputs.covers }}-${{ github.event.inputs.pairs }}-${{ github.event.inputs.players }}-${{ github.event.inputs.renderer }}
   cancel-in-progress: true
 
 # Least privilege (SEC-2): these jobs run Gradle, its plugins and downloaded mods; the token only reads.
@@ -114,6 +123,7 @@ jobs:
           PAIRS: ${{ github.event.inputs.pairs }}
           PLAYERS: ${{ github.event.inputs.players }}
           INWORLD: ${{ github.event.inputs.inworld }}
+          RENDERER: ${{ github.event.inputs.renderer }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
           import json, os, re
@@ -205,6 +215,18 @@ jobs:
               picked.append(row)
           if not picked:
               raise SystemExit("boot-smoke: nothing to boot (modules=none and no covers)")
+          # renderer=vulkan: only 1.21.1 has Vulkan graphics (VulkanMode.Version), booted from source.
+          renderer = (os.environ.get("RENDERER") or "").strip()
+          if renderer not in ("", "vulkan"):
+              raise SystemExit("boot-smoke: renderer: expected '' or 'vulkan', got %r" % renderer)
+          if renderer:
+              bad = [r["label"] for r in picked if r["version"] != "1.21.1" or r["cover"]]
+              if bad:
+                  raise SystemExit("boot-smoke: renderer=vulkan is 1.21.1 only (modules=1.21.1, no covers/pairs/players): %s"
+                                   % ", ".join(bad))
+              for r in picked:
+                  r["renderer"] = renderer
+                  r["label"] += " on Vulkan"
           print("modules=" + json.dumps(picked))
           EOF
 
@@ -244,6 +266,23 @@ jobs:
           # modes through them at Display.create() (same list as dev-shots.yml).
           sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
             x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6
+
+      # renderer=vulkan: Mesa's lavapipe (software Vulkan, like llvmpipe for GL) and a hard gate that it really
+      # answers before the boot, so a missing driver reads as an environment failure, never as a Vulkan crash.
+      - name: Software Vulkan (lavapipe) + gate
+        if: ${{ matrix.renderer == 'vulkan' }}
+        run: |
+          sudo apt-get install -y mesa-vulkan-drivers vulkan-tools libvulkan1
+          icd=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -n 1)
+          if [ -z "$icd" ]; then echo "::error::no lavapipe ICD in /usr/share/vulkan/icd.d"; exit 1; fi
+          echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
+          VK_ICD_FILENAMES="$icd" vulkaninfo --summary | tee vulkaninfo.txt
+          grep -qiE "llvmpipe|lavapipe" vulkaninfo.txt || { echo "::error::vulkaninfo lists no lavapipe device"; exit 1; }
+
+      # The launcher's Vulkan set (VulkanMod at its pin + Origin's vendor jars) for the module's -PrendererJars.
+      - name: Vulkan renderer jars
+        if: ${{ matrix.renderer == 'vulkan' }}
+        run: python3 tools/boot-smoke/renderer_jars.py vulkan --out "$RUNNER_TEMP/renderer-jars"
 
       # The real pinned Sodium + Iris (see dev-shots.yml): without them the boot never touches the
       # @Pseudo Sodium/Iris mixins. Skipped for modules with no libs/ pins (1.21.1 gets them from Gradle).
@@ -306,6 +345,7 @@ jobs:
           PAIR: ${{ matrix.pair }}
           PLAYER: ${{ matrix.player }}
           INWORLD_DIR: ${{ matrix.inworld == '1' && format('{0}/inworld', runner.temp) || '' }}
+          RENDERER: ${{ matrix.renderer }}
         run: |
           echo "Gradle JAVA_HOME=$JAVA_HOME"
           args=()
@@ -317,6 +357,13 @@ jobs:
             m="build/covers/$COVER"
             args+=(--perf --companions)
             if [ -n "$PAIR$PLAYER" ]; then args+=(--expect-perf "$m/pair-expect.txt"); fi
+          elif [ "$RENDERER" = "vulkan" ]; then
+            # The launcher's Vulkan launch: VulkanMod + Origin's Vulkan jars beside Origin's, Sodium + ImmediatelyFast
+            # switched off (VulkanMode.DisabledIds). Property names are the 1.21.1 module's contract. No --perf gate.
+            args+=("--gradle-arg=-PrendererJars=$RUNNER_TEMP/renderer-jars" "--gradle-arg=-PdisableModIds=sodium,immediatelyfast")
+            # Loom wraps runClient in its own xvfb-run whenever CI is set; the Vulkan probe ran the game on the
+            # outer xvfb-run's display instead (vulkan-probe.yml, run 44000463782: title + 128 shots on lavapipe).
+            unset CI
           elif ls "$m"/libs/sodium*.jar >/dev/null 2>&1 || { grep -q 'maven.modrinth:sodium' "$m/build.gradle" && grep -q 'maven.modrinth:iris' "$m/build.gradle"; }; then args+=(--perf); fi
           for a in $SMOKE_GRADLE_ARGS; do args+=("--gradle-arg=$a"); done
           if [ "$BORDERLESS" = "true" ] && [ -z "$COVER" ]; then args+=(--borderless); fi

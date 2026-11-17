@@ -206,6 +206,46 @@
                                       Checked="ShaderCacheToggle_Checked" Unchecked="ShaderCacheToggle_Unchecked"/>
                     </Grid>
                 </Border>
+                <!-- Vulkan graphics (Core/Renderers/VulkanMode): 1.21.1 only, off by default, Experimental. The status line
+                     under the caption says why the switch can't be turned on (no Vulkan jars in this build, or the player's
+                     own mods that only work with normal graphics); collapsed while empty. -->
+                <Border Style="{StaticResource SettingCard}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,16,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Vulkan graphics" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>
+                                <!-- Experimental: a Sm capsule (radius = height / 2) in a soft gold tile, never a big fill. -->
+                                <Border Style="{StaticResource Surface.Capsule.Sm}" Margin="{StaticResource Margin.TitleCapsule}"
+                                        Background="{StaticResource Brush.HueTile.Gold}" VerticalAlignment="Center"
+                                        AutomationProperties.Name="Experimental">
+                                    <TextBlock Text="EXPERIMENTAL" Style="{StaticResource Text.Capsule}" Foreground="{StaticResource Brush.Hue.Gold}"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="Minecraft 1.21.1 only. Can run smoother on some PCs. Some shader packs may look wrong. If the game won't start, Origin switches back to normal graphics."
+                                       Style="{StaticResource SettingWhy}"/>
+                            <TextBlock x:Name="VulkanStatusText" Margin="0,6,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource SettingWhy}">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Hue.Gold}"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="Text" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1" x:Name="VulkanToggle" Style="{StaticResource Toggle.Slider}" AutomationProperties.Name="Vulkan graphics"
+                                      VerticalAlignment="Center"
+                                      Checked="VulkanToggle_Checked" Unchecked="VulkanToggle_Unchecked"/>
+                    </Grid>
+                </Border>
 
                 <Border Style="{StaticResource SettingCard}">
                     <Grid>

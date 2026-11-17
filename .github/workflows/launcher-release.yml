@@ -224,6 +224,20 @@ jobs:
     with:
       modules: ${{ needs.plan.outputs.build }}
       fail-fast: true
+      vendor: false
+
+  # Origin's vendor jars (1.21.1's Vulkan graphics: vulkairis-origin, flywheel-vulkan), rebuilt on every release
+  # whether or not a Minecraft module changed (the mods job above is skipped when none did). Artifact mod-vendor;
+  # the Windows job places it where the csproj bundles it from (Bundled/Vulkan). None in the repo = no artifact,
+  # and the launcher shows Vulkan graphics as unavailable.
+  vendor:
+    name: Vendor mods
+    needs: plan
+    uses: ./.github/workflows/build-mods.yml
+    with:
+      modules: "[]"
+      fail-fast: true
+      vendor: true
 
   # The four Linux downloads (x64), built on GitHub's Ubuntu runner from the same jars the Windows
   # launcher bundles. x64 ONLY: Mojang ships no linux-arm64 Java runtime and 1.21.1 lists no arm64
@@ -288,10 +302,10 @@ jobs:
   # Builds and proves the Windows files; publishes nothing (read-only token, no credentials in .git).
   release:
     name: Build launcher (Windows)
-    needs: [plan, mods]
+    needs: [plan, mods, vendor]
     # Runs when the mod builds succeeded OR were skipped (nothing changed). Not waiting for Linux: the
     # two build side by side, and publish decides what to attach.
-    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.mods.result == 'success' || needs.mods.result == 'skipped') }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.mods.result == 'success' || needs.mods.result == 'skipped') && needs.vendor.result == 'success' }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -315,6 +329,19 @@ jobs:
         run: |
           $v = if ($env:REHEARSAL -eq 'true') { "" } else { "$env:RELEASE_TAG".Substring("launcher-v".Length) }
           echo "version=$v" >> $env:GITHUB_OUTPUT
+
+      # Vendor jars (mod-vendor: modjars/vendor/<name>/<jar>) go where the csproj's Bundled/Vulkan <Content>
+      # glob looks, src/mods/vendor/<name>/build/libs. publish-launcher places only the live Minecraft modules.
+      - name: Place vendor jars for bundling
+        shell: pwsh
+        run: |
+          if (-not (Test-Path modjars/vendor)) { Write-Host "No vendor jars: Vulkan graphics ships unavailable."; exit 0 }
+          foreach ($dir in Get-ChildItem modjars/vendor -Directory) {
+            $dest = "src/mods/vendor/$($dir.Name)/build/libs"
+            New-Item -ItemType Directory -Force -Path $dest | Out-Null
+            Copy-Item (Join-Path $dir.FullName '*.jar') $dest -Force
+            Get-ChildItem $dest -Filter *.jar | ForEach-Object { Write-Host "vendor/$($dir.Name): $($_.Name)" }
+          }
 
       - name: Publish launcher with mod jars
         uses: ./.github/actions/publish-launcher

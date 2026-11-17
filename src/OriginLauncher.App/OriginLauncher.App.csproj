@@ -111,6 +111,18 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
+    <!-- 1.21.1 Vulkan graphics (Settings -> Performance, opt-in; Core/Renderers/VulkanMode): Origin's own Vulkan jars
+         from src/mods/vendor, kept under their own versioned names in Bundled/Vulkan (OriginPaths.BundledVulkanDir).
+         VulkanMode.BundledPatterns names the files the launcher looks for. A checkout without these builds simply
+         bundles none: Vulkan graphics is then unavailable and Settings says so. VulkanMod itself is a Modrinth pin
+         (ManagedPins.VulkanMod), downloaded on the first Vulkan launch, never bundled. -->
+    <Content Include="..\mods\vendor\vulkairis\build\libs\vulkairis-origin-*.jar;..\mods\vendor\flywheel-vulkan\build\libs\flywheel-vulkan-*.jar"
+             Exclude="..\mods\vendor\vulkairis\build\libs\*-sources.jar;..\mods\vendor\vulkairis\build\libs\*-dev.jar;..\mods\vendor\flywheel-vulkan\build\libs\*-sources.jar;..\mods\vendor\flywheel-vulkan\build\libs\*-dev.jar">
+      <Link>Bundled\Vulkan\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
     <!-- 1.20 / 1.20.1 — Origin client only; perf stack installed standalone. -->
     <Content Include="..\mods\versions\1.20\build\libs\originclient-1.20-*.jar"
              Exclude="..\mods\versions\1.20\build\libs\originclient-1.20-*-sources.jar;..\mods\versions\1.20\build\libs\originclient-1.20-*-dev.jar">

@@ -71,6 +71,14 @@ public static partial class OriginPaths
         InstanceLayout.ProfileModsDir(Instances, version, profileId);
 
     /// <summary>
+    /// Where an opt-in renderer's jars rest for a version: instances/&lt;version&gt;/renderers/&lt;renderer&gt; (today only
+    /// 1.21.1's "vulkan": VulkanMod plus Origin's own Vulkan jars; Core/Renderers/VulkanMode). Add-only or rename-swap:
+    /// games never load from here directly, each launch hard-links these into the account's own mods-vulkan folder.
+    /// </summary>
+    public static string RendererDir(string version, string renderer) =>
+        Path.Combine(VersionRoot(version), InstanceLayout.RenderersFolder, renderer);
+
+    /// <summary>
     /// Origin's component store (Core/Components/ComponentStore): components/&lt;family&gt;/&lt;sha512-12&gt;/&lt;file&gt;.
     /// Write-once: a file is only ever added after its SHA-512 matched; games never load from here (each launch
     /// folder gets a copy), so nothing here is ever held open by a running game.
@@ -195,6 +203,11 @@ public static partial class OriginPaths
 
     public static string BundledOriginClientJar(string jarFileName) =>
         Path.Combine(BundledOriginClientDir, jarFileName);
+
+    // Origin's own jars for 1.21.1's opt-in Vulkan graphics (vulkairis-origin-*.jar, flywheel-vulkan-*.jar, built from
+    // src/mods/vendor), loose next to the exe like the Origin Client jars. Absent in a build that has none yet: then
+    // Vulkan graphics is unavailable and Settings says so (Core/Renderers/VulkanMode).
+    public static string BundledVulkanDir => Path.Combine(BundledBase, "Bundled", "Vulkan");
 
     public static void EnsureScaffold()
     {

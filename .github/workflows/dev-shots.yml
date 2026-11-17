@@ -73,6 +73,10 @@ on:
         description: "Stress the in-world step: enter the world, shoot, Save and Quit this many times in one run (ORIGIN_INWORLD_LOOPS; empty = once). For intermittent quit/load wedges"
         type: string
         default: ""
+      renderer:
+        description: "'' = normal graphics; 'vulkan' = shoot 1.21.1 the way the launcher's Vulkan graphics switch runs it (lavapipe software Vulkan, VulkanMod + Origin's Vulkan jars via -PrendererJars, -PdisableModIds=sodium,immediatelyfast). 1.21.1 only"
+        type: string
+        default: ""
       lang:
         description: "Minecraft's language for the run, e.g. ru_ru or de_de (written as lang: into options.txt; 1.8.9 gets ru_RU). Empty = English. For translated-text checks (LOC-1/LOC-4); not with video"
         type: string
@@ -107,6 +111,7 @@ jobs:
           MSG: ${{ github.event.head_commit.message }}
           INPUT: ${{ github.event.inputs.modules }}
           EVENT: ${{ github.event_name }}
+          RENDERER: ${{ github.event.inputs.renderer }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
           import json, os, re, sys
@@ -146,6 +151,11 @@ jobs:
           unknown = [x for x in picked if not known(x)]
           if unknown or not picked:
               print(f"::error::dev-shots: unknown module(s) {unknown or raw!r}; expected names from src/mods/live-modules.json or src/mods/versions/", file=sys.stderr)
+              sys.exit(1)
+          # renderer=vulkan: only 1.21.1 has Vulkan graphics (Core/Renderers/VulkanMode.cs).
+          renderer = (os.environ.get("RENDERER") or "").strip()
+          if renderer not in ("", "vulkan") or (renderer and picked != ["1.21.1"]):
+              print(f"::error::dev-shots: renderer {renderer!r} needs modules=1.21.1 (got {picked})", file=sys.stderr)
               sys.exit(1)
           print("modules=" + json.dumps([{"module": x, "java": java_of(x), "inworld": "1" if x in inworld else ""}
                                          for x in picked]))
@@ -189,6 +199,23 @@ jobs:
         env:
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
 
+      # renderer=vulkan: Mesa's lavapipe (software Vulkan, like llvmpipe for GL) and a hard gate that it really
+      # answers before the boot, so a missing driver reads as an environment failure, never as a Vulkan crash.
+      - name: Software Vulkan (lavapipe) + gate
+        if: ${{ github.event.inputs.renderer == 'vulkan' }}
+        run: |
+          sudo apt-get install -y mesa-vulkan-drivers vulkan-tools libvulkan1
+          icd=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -n 1)
+          if [ -z "$icd" ]; then echo "::error::no lavapipe ICD in /usr/share/vulkan/icd.d"; exit 1; fi
+          echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
+          VK_ICD_FILENAMES="$icd" vulkaninfo --summary | tee vulkaninfo.txt
+          grep -qiE "llvmpipe|lavapipe" vulkaninfo.txt || { echo "::error::vulkaninfo lists no lavapipe device"; exit 1; }
+
+      # The launcher's Vulkan set (VulkanMod at its pin + Origin's vendor jars) for the module's -PrendererJars.
+      - name: Vulkan renderer jars
+        if: ${{ github.event.inputs.renderer == 'vulkan' }}
+        run: python3 tools/boot-smoke/renderer_jars.py vulkan --out "$RUNNER_TEMP/renderer-jars"
+
       # Sodium + Iris for the dev run: every pre-1.21 module's build.gradle loads them from an
       # untracked libs/ folder CI never had, so these runs had neither and the @Pseudo Sodium/Iris
       # mixins found no target. The exact pins come from the module's build.gradle; each jar is
@@ -228,6 +255,7 @@ jobs:
           COMPANIONS: ${{ github.event.inputs.companions || 'false' }}
           SHADOW_DISTANCE: ${{ github.event.inputs.shadow_distance || '' }}
           SHOTS_LANG: ${{ github.event.inputs.lang || '' }}
+          RENDERER: ${{ github.event.inputs.renderer || '' }}
         run: |
           chmod +x gradlew
           mkdir -p "$ORIGIN_SHOTS/screenshots"
@@ -258,6 +286,14 @@ jobs:
               task=prodClient
               rundir=run-prod
             fi
+          fi
+          if [ "$RENDERER" = "vulkan" ]; then
+            # The launcher's Vulkan launch (VulkanMode): VulkanMod + Origin's Vulkan jars, Sodium + ImmediatelyFast off.
+            # Property names are the 1.21.1 module's contract.
+            gargs="$gargs -PrendererJars=$RUNNER_TEMP/renderer-jars -PdisableModIds=sodium,immediatelyfast"
+            # Loom wraps runClient in its own xvfb-run whenever CI is set; the Vulkan probe ran the game on this
+            # step's display instead (vulkan-probe.yml, run 44000463782: title + 128 shots on lavapipe).
+            unset CI
           fi
           if [ "$COMPANIONS" = "true" ] && [ "${{ matrix.module }}" != "1.8.9" ]; then
             # JP-6: most modules' dev run has no ImmediatelyFast / Mod Menu (the launcher installs them next to the
@@ -465,7 +501,7 @@ jobs:
         run: |
           m="src/mods/versions/${{ matrix.module }}"
           req=""
-          if [ "${{ github.event.inputs.perf_mods }}" != "false" ] && { ls "$m"/libs/sodium*.jar >/dev/null 2>&1 || { grep -q 'maven.modrinth:sodium' "$m/build.gradle" && grep -q 'maven.modrinth:iris' "$m/build.gradle"; }; }; then req="--require-loaded"; fi
+          if [ "${{ github.event.inputs.perf_mods }}" != "false" ] && [ "${{ github.event.inputs.renderer }}" != "vulkan" ] && { ls "$m"/libs/sodium*.jar >/dev/null 2>&1 || { grep -q 'maven.modrinth:sodium' "$m/build.gradle" && grep -q 'maven.modrinth:iris' "$m/build.gradle"; }; }; then req="--require-loaded"; fi
           python3 tools/ci/perf_log.py "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.module }}" --module-dir "$m" $req
 
       # companions=true (JP-6): FAILS unless the mod list names the launcher's ImmediatelyFast + Mod Menu at the

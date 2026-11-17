@@ -61,6 +61,11 @@ public static partial class ManagedPins
         ["26.2"] = new("fabric-2.6.22+26.2", "https://cdn.modrinth.com/data/9eGKb6K1/versions/DKSq5wO6/voicechat-fabric-2.6.22%2B26.2.jar", "voicechat-fabric-2.6.22+26.2.jar", "eb45e75e8b031f3bb27e178ed44fd7b78ba681f077f5972e170726b4837146efd49c7b67d63a95ec4ce87e5672cf76bed85ac8fa7790a9e7ff7309a6c3f424ee"),
     };
 
+    // VulkanMod for Settings -> Performance -> Vulkan graphics (1.21.1 only; Core/Renderers/VulkanMode). Modrinth version
+    // 2eqroDKD, pinned 2026-11-16 from api.modrinth.com/v2/version/2eqroDKD (19,892,599 bytes). Downloaded on the first
+    // Vulkan launch into instances/1.21.1/renderers/vulkan, moved in only when its SHA-512 matches.
+    private static readonly PerfMod VulkanModPin = new("0.6.7+1.21.1", "https://cdn.modrinth.com/data/JYQhtZtO/versions/2eqroDKD/VulkanMod-0.6.7%2B1.21.1.jar", "VulkanMod-0.6.7+1.21.1.jar", "2de36869bbc765637e874300af691cfa5208983e79485dcbfc3c5f8d2490d502065082a97dd7933334ed4d0e37f18234d0c9c5bf27b1217a3e2c032c52154ff0");
+
     // Vetted Sodium/Iris alternates (configuration-matrix.md): key = "<mc>:<pairId>".
     private static readonly Dictionary<string, PerfMod> AlternatePins = new(StringComparer.Ordinal)
     {

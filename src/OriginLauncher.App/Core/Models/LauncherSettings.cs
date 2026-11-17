@@ -38,6 +38,12 @@ public sealed class LauncherSettings
     public bool ShaderCacheNvidia { get; set; } = true;
     public bool ShaderCacheAmd { get; set; } = true;
 
+    // "Vulkan graphics" (Settings -> Performance, Experimental; Will, 2026-11-16: "keep the old version. The new version
+    // can be an option in the menu"). OFF by default: OpenGL stays the untouched default. Only 1.21.1 reads it; every
+    // other version ignores it (Core/Renderers/VulkanMode). A Vulkan game that dies before the title screen turns it
+    // back off (the boot fallback). Written only via SettingsStore.Update.
+    public bool VulkanRenderer { get; set; }
+
     // Developer escape hatch while Microsoft's app-registration approval is
     // pending: lets Play run with a local offline session instead of a real
     // Microsoft sign-in, so the whole launcher/game pipeline can be tested.

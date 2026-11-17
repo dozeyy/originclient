@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"sodium-extra","version":"0.6.0","name":"Sodium Extra","depends":{"fabricloader":">=0.15","minecraft":"1.21.1","sodium":">=0.6"}}

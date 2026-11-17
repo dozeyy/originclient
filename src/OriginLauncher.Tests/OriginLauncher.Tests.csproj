@@ -144,6 +144,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Compat\*.cs" LinkBase="Compat" />
     <Compile Include="..\OriginLauncher.App\Core\Components\*.cs" LinkBase="Components" />
     <None Include="Compat\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- 1.21.1's opt-in Vulkan graphics: the rules, the renderer files, and the block rule's fabric.mod.json fixtures. -->
+    <Compile Include="..\OriginLauncher.App\Core\Renderers\*.cs" LinkBase="Renderers" />
+    <None Include="Renderers\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="..\OriginLauncher.App\Core\Import\**\*.cs" Exclude="..\OriginLauncher.App\Core\Import\Launcher\**" LinkBase="Import" />
     <!-- The launcher glue that is pure: where each launcher keeps its data (roots), the settings change an
          import makes, the one-time first-run card rules and the Done page's summary reader. The rest of
