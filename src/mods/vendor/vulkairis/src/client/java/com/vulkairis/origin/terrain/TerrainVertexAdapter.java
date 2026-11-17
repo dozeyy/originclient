@@ -13,7 +13,8 @@ import java.util.regex.Pattern;
  * see its {@code basic/terrain/terrain.vsh}): {@code ivec4 Position} (xyz = position * 2048 relative to the
  * draw's {@code ModelOffset} push constant plus a section offset packed into {@code gl_InstanceIndex};
  * w = the packed lightmap coordinate), {@code uvec2 UV0} (texture coordinate * 32768) and
- * {@code uint PackedColor} (RGBA8). There is no normal, block id or mid-texture coordinate in it.</p>
+ * {@code uint PackedColor} (RGBA8). There is no normal slot, block id or mid-texture coordinate in it; the
+ * quad normal is carried in the colour alpha while a pack is active ({@link TerrainNormals}).</p>
  *
  * <p>A pack vertex shader instead declares the attributes Iris feeds ({@code gl_Vertex} and friends, already
  * renamed to {@code vulkairis_*} by {@code LegacyGlsl}, plus {@code mc_Entity}, {@code mc_midTexCoord},
@@ -22,7 +23,7 @@ import java.util.regex.Pattern;
  * {@code main} that decodes the compressed vertex into those globals, runs the pack, then moves
  * {@code gl_Position.z} from OpenGL's -w..w clip range to Vulkan's 0..w (the pack builds its position
  * from Iris's OpenGL-convention projection). Attributes the format cannot supply get Iris's own
- * "unknown" values: normal straight up, {@code mc_Entity} -1 (no block id), mid-texture coordinate =
+ * "unknown" values: normal straight up for a chunk meshed without one, {@code mc_Entity} -1 (no block id), mid-texture coordinate =
  * the vertex's own UV, tangent +X.</p>
  *
  * <p>Pure string logic, unit-tested ({@code TerrainVertexAdapterTest}).</p>
@@ -87,7 +88,20 @@ public final class TerrainVertexAdapter {
                 .append("    vec2 vulkairis_tUv = vec2(vulkairis_vmUV0) * (1.0 / 32768.0);\n")
                 .append("    uint vulkairis_tLm = uint(vulkairis_vmPosition.w) & 0xFFFFu;\n")
                 .append("    vec2 vulkairis_tLight = vec2(float(vulkairis_tLm & 0xFFu), float(vulkairis_tLm >> 8));\n")
-                .append("    vec4 vulkairis_tColor = unpackUnorm4x8(vulkairis_vmColor);\n");
+                .append("    vec4 vulkairis_tColor = unpackUnorm4x8(vulkairis_vmColor);\n")
+                // Origin (2026-11-17): the quad normal rides in the colour alpha (TerrainNormals).
+                .append("    uint vulkairis_nb = vulkairis_vmColor >> 24u;\n")
+                .append("    vec3 vulkairis_tNormal = vec3(0.0, 1.0, 0.0);\n")
+                .append("    if (vulkairis_nb != 255u) {\n")
+                .append("        vec2 vulkairis_np = vec2(float(vulkairis_nb & 15u), float(vulkairis_nb >> 4u))"
+                        + " * (2.0 / 14.0) - 1.0;\n")
+                .append("        vec3 vulkairis_n = vec3(vulkairis_np, 1.0 - abs(vulkairis_np.x) - abs(vulkairis_np.y));\n")
+                .append("        float vulkairis_nt = max(-vulkairis_n.z, 0.0);\n")
+                .append("        vulkairis_n.xy += vec2(vulkairis_n.x >= 0.0 ? -vulkairis_nt : vulkairis_nt,"
+                        + " vulkairis_n.y >= 0.0 ? -vulkairis_nt : vulkairis_nt);\n")
+                .append("        vulkairis_tNormal = normalize(vulkairis_n);\n")
+                .append("    }\n")
+                .append("    vulkairis_tColor.a = 1.0;\n");
         for (Attribute a : attributes) {
             tail.append("    ").append(a.name()).append(" = ").append(cast(a.type(), valueFor(a.name()))).append(";\n");
         }
@@ -104,7 +118,7 @@ public final class TerrainVertexAdapter {
             case "vulkairis_Color", "Color", "vaColor" -> "vulkairis_tColor";
             case "vulkairis_MultiTexCoord0", "UV0", "vaUV0", "mc_midTexCoord" -> "vec4(vulkairis_tUv, 0.0, 1.0)";
             case "vulkairis_MultiTexCoord1", "UV2", "vaUV2" -> "vec4(vulkairis_tLight, 0.0, 1.0)";
-            case "vulkairis_Normal", "Normal", "vaNormal" -> "vec4(0.0, 1.0, 0.0, 0.0)";
+            case "vulkairis_Normal", "Normal", "vaNormal" -> "vec4(vulkairis_tNormal, 0.0)";
             case "mc_Entity" -> "vec4(-1.0, -1.0, 0.0, 0.0)";
             case "at_tangent" -> "vec4(1.0, 0.0, 0.0, 1.0)";
             default -> "vec4(0.0)";

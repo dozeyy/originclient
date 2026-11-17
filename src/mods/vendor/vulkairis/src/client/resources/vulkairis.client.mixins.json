@@ -37,6 +37,7 @@
 		"render.RenderSystemIrisInitMixin",
 		"render.VulkairisRenderSystemMixin",
 		"vulkan.AttributeAccessor",
+		"vulkan.CompressedVertexNormalMixin",
 		"vulkan.GLSLParserMixin",
 		"vulkan.GlUtilMixin",
 		"vulkan.GraphicsPipelineMixin",

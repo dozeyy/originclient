@@ -194,5 +194,24 @@ Found on Will's RX 9070 XT with MakeUp (link FAILs, flat/near-black terrain, whi
   final image instead of being re-graded by it.
 - `diagnostics/DebugLog`: the per-200-frame render-target lines, the loading-overlay and screen debug
   lines only log with `-Dvulkairis.debugLog=true`.
-- Still open: chunk normals are a constant up vector (side faces lit like tops), no pack clouds or sky,
-  entities/hand use vanilla shading rather than the pack's.
+- Still open after step 7: entities/hand use vanilla shading rather than the pack's (normals, clouds and
+  sky are step 8).
+
+### 2026-11-17 terrain normals, pack clouds and sky haze (step 8)
+- `origin/terrain/TerrainNormals` + `client/mixin/vulkan/CompressedVertexNormalMixin` (TAIL of
+  `VertexBuilder$CompressedVertexBuilder.vertex(JFFFIFFII)V`): VulkanMod's 16-byte chunk vertex has no
+  normal slot and drops the quad normal it is given. While a pack's gbuffers_terrain is linked, the quad
+  normal is octahedral-encoded (4+4 bits) into the colour alpha byte; switching packs on/off rebuilds all
+  chunks (`allChanged`). Block faces decode exactly, diagonal plant quads within ~10 degrees; 0xFF = up.
+  Exact reconstruction was chosen over screen-space derivatives because MakeUp lights in the vertex shader.
+- `origin/terrain/TerrainVertexAdapter`: decodes that byte into the pack's normal attribute and feeds
+  colour alpha 1.0 (vanilla chunk alpha is always 1.0).
+- `origin/composite/PackTextures.stageOverride` + `CompositeRunner`: per-stage custom textures
+  (`texture.deferred.gaux2 = ...`) now replace the colortex for that stage, like Iris's sampler
+  interceptor. MakeUp's volumetric clouds read their noise from deferred gaux2; it was colortex5 (no clouds).
+- `origin/terrain/TerrainDraw.packTexture` + `CompositeRunner.lastFrameImage`: terrain colortex samplers
+  read the post chain's last published image instead of white. MakeUp's prepare pass writes the sky
+  gradient to gaux4, which terrain fog samples; white gave white haze. One frame late, since prepare runs
+  in the post chain here.
+- Still open: gbuffers-stage custom textures are not mapped; entities/hand keep vanilla shading; snow tops
+  read slightly greyer than GL and the sun glow is weaker.

@@ -85,6 +85,61 @@ public final class PackTextures {
         return id == null ? null : TextureBridge.getVulkanImage(id);
     }
 
+    /**
+     * Origin (2026-11-17): the custom texture a stage puts in place of a buffer sampler
+     * ({@code texture.deferred.gaux2 = ...}), or null when that stage sets none. Iris's sampler
+     * interceptor gives such a texture priority over the render target of the same name (or alias) for
+     * every pass of that stage; MakeUp's volumetric clouds read their cloud map this way. Without it
+     * deferred sampled the empty colortex5 and no clouds were drawn.
+     */
+    static VulkanImage stageOverride(ProgramSet set, TextureStage stage, String sampler) {
+        if (set == null || stage == null || sampler == null) {
+            return null;
+        }
+        if (set != owner) {
+            release();
+            owner = set;
+        }
+        Map<String, CustomTextureData> staged = set.getPack().getCustomTextureDataMap().get(stage);
+        if (staged == null || staged.isEmpty()) {
+            return null;
+        }
+        CustomTextureData data = staged.get(sampler);
+        if (data == null) {
+            SamplerNames.Target target = SamplerNames.resolve(sampler);
+            if (target.kind() == SamplerNames.Kind.COLORTEX) {
+                for (Map.Entry<String, CustomTextureData> e : staged.entrySet()) {
+                    if (SamplerNames.resolve(e.getKey()).equals(target)) {
+                        data = e.getValue();
+                        break;
+                    }
+                }
+            }
+        }
+        if (data == null) {
+            return null;
+        }
+        String key = "stage/" + stage + "/" + sampler;
+        Integer id = IDS.get(key);
+        if (id == null) {
+            if (MISSING.contains(key)) {
+                return null;
+            }
+            try {
+                id = load(data, sampler);
+            } catch (Throwable t) {
+                LOGGER.warn("[Vulkairis/Composite] texture '{}' ({}) could not be loaded: {}", sampler, stage, t.toString());
+                id = null;
+            }
+            if (id == null) {
+                MISSING.add(key);
+                return null;
+            }
+            IDS.put(key, id);
+        }
+        return TextureBridge.getVulkanImage(id);
+    }
+
     private static Integer create(ProgramSet set, String sampler) throws Exception {
         ShaderPack pack = set.getPack();
         CustomTextureData data = null;
@@ -106,6 +161,10 @@ public final class PackTextures {
         if (data == null) {
             return null;
         }
+        return load(data, sampler);
+    }
+
+    private static Integer load(CustomTextureData data, String sampler) throws Exception {
         if (data instanceof CustomTextureData.PngData png) {
             DynamicTexture texture = new DynamicTexture(NativeImage.read(png.getContent()));
             OWNED.add(texture);

@@ -37,6 +37,8 @@ public abstract class GameRendererCompositeMixin {
         } catch (Throwable ignored) {
             // Fail soft: time uniforms stay where they were.
         }
+        // Origin (2026-11-17): chunk normals are encoded only while pack terrain is linked (TerrainNormals).
+        com.vulkairis.origin.terrain.TerrainNormals.update();
     }
 
     /**

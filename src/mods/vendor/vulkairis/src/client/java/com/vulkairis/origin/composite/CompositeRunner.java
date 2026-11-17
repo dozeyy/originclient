@@ -7,6 +7,7 @@ import com.vulkairis.bridge.VulkanModProgramBridge;
 import com.vulkairis.translation.VulkanShaderRegistry;
 import com.vulkairis.translation.VulkairisProgram;
 import net.irisshaders.iris.shaderpack.programs.ProgramSet;
+import net.irisshaders.iris.shaderpack.texture.TextureStage;
 import net.minecraft.client.Minecraft;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
@@ -104,8 +105,11 @@ public final class CompositeRunner {
     private static boolean disabled;
     private static boolean announced;
     private static final Set<String> WARNED = new HashSet<>();
-
     private static ProgramSet cachedSet;
+    /** Origin (2026-11-17): texture stage of the pass being drawn (stage custom textures, {@link #stageOf}). */
+    private static TextureStage stage = TextureStage.COMPOSITE_AND_FINAL;
+    /** Origin (2026-11-17): true once a post chain completed and left its buffers read-only for the gbuffers. */
+    private static volatile boolean published;
     private static IrisPassSource.Chain chain;
     private static CompositeRouting.Plan plan;
 
@@ -352,6 +356,7 @@ public final class CompositeRunner {
         }
 
         VkCommandBuffer cmd = Renderer.getCommandBuffer();
+        published = false;
         SavedState saved = SavedState.capture();
         int draws = 0;
         try {
@@ -369,6 +374,7 @@ public final class CompositeRunner {
             draws++;
 
             for (CompositeRouting.PassRoute route : plan.passes()) {
+                stage = stageOf(route.name());
                 VulkairisProgram program = VulkanShaderRegistry.findProgramByName(route.name());
                 GraphicsPipeline base = program == null ? null
                         : VulkanModProgramBridge.getLinkedPipeline(program.getVirtualProgramId());
@@ -403,6 +409,7 @@ public final class CompositeRunner {
                     warnOnce(chain.finalName(), "not linked; colortex0 copied instead");
                 }
             }
+            stage = TextureStage.COMPOSITE_AND_FINAL;
             VulkanImage out;
             if (finalGp != null) {
                 // Final draws in GL storage too (gl_FragCoord rows match OpenGL), then is copied out.
@@ -417,6 +424,13 @@ public final class CompositeRunner {
             }
             draws += carryKeptBuffers(cmd, renderer, finalSides);
             readOnly(cmd, out);
+            // Origin (2026-11-17): next frame's pack terrain samples these (lastFrameImage).
+            for (int b = 0; b < CompositeRouting.MAX_BUFFERS; b++) {
+                VulkanImage kept = IMAGES[b][finalSides[b].ordinal()];
+                if (kept != null) {
+                    readOnly(cmd, kept);
+                }
+            }
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 mainColor.transitionImageLayout(stack, cmd, LAYOUT_COLOR_ATTACHMENT);
             }
@@ -429,6 +443,7 @@ public final class CompositeRunner {
             mainViewport();
             drawCopy(renderer, out, false);
             draws++;
+            published = true;
         } finally {
             saved.restore();
         }
@@ -640,6 +655,10 @@ public final class CompositeRunner {
         }
         SamplerNames.Target t = SamplerNames.resolve(name);
         if (t.kind() == SamplerNames.Kind.COLORTEX) {
+            VulkanImage custom = PackTextures.stageOverride(cachedSet, stage, name);
+            if (custom != null) {
+                return custom;
+            }
             return image(t.index(), sides[t.index()]);
         }
         if (t.kind() == SamplerNames.Kind.DEPTH) {
@@ -650,6 +669,44 @@ public final class CompositeRunner {
         // noisetex and the pack's custom textures.
         VulkanImage custom = PackTextures.resolve(cachedSet, name);
         return custom != null ? custom : whiteTexture();
+    }
+
+    /**
+     * Origin (2026-11-17): what pack terrain sees for {@code colortex<buffer>}: the image the last post
+     * chain left that buffer in (read-only), or null (caller binds white). Iris runs {@code prepare}
+     * before the gbuffers; here it runs in the post chain, so gbuffers read it one frame late. MakeUp's
+     * terrain fogs toward the sky gradient prepare writes to gaux4; with white bound the fog and the
+     * distance haze were white.
+     */
+    public static VulkanImage lastFrameImage(int buffer) {
+        CompositeRouting.Plan p = plan;
+        if (!published || p == null || buffer < 0 || buffer >= CompositeRouting.MAX_BUFFERS) {
+            return null;
+        }
+        return IMAGES[buffer][p.finalReadSides()[buffer].ordinal()];
+    }
+
+    /** Origin (2026-11-17): the Iris texture stage a post pass belongs to (for stage custom textures). */
+    static TextureStage stageOf(String passName) {
+        if (passName == null) {
+            return TextureStage.COMPOSITE_AND_FINAL;
+        }
+        if (passName.startsWith("shadowcomp")) {
+            return TextureStage.SHADOWCOMP;
+        }
+        if (passName.startsWith("prepare")) {
+            return TextureStage.PREPARE;
+        }
+        if (passName.startsWith("deferred")) {
+            return TextureStage.DEFERRED;
+        }
+        if (passName.startsWith("begin")) {
+            return TextureStage.BEGIN;
+        }
+        if (passName.startsWith("setup")) {
+            return TextureStage.SETUP;
+        }
+        return TextureStage.COMPOSITE_AND_FINAL;
     }
 
     private static void drawPass(Renderer renderer, GraphicsPipeline gp, CompositeRouting.Side[] sides) {
