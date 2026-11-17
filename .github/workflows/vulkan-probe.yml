@@ -15,10 +15,11 @@ name: vulkan-probe
 on:
   workflow_dispatch:
   push:
-    branches: [claude/vulkan-probe]
+    branches: [claude/vulkan-probe, claude/vulkan-vulkairis]
     paths:
       - ".github/workflows/vulkan-probe.yml"
       - "tools/vulkan-probe/**"
+      - "src/mods/vendor/vulkairis/**"
 
 concurrency:
   group: vulkan-probe-${{ github.ref }}
@@ -36,8 +37,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { case: gl, vulkan: "false", disable: "", vulkairis: "false" }
-          - { case: vk, vulkan: "true", disable: "sodium,immediatelyfast", vulkairis: "false" }
+          # Branch claude/vulkan-vulkairis: gl and vk were answered by run 44000463782 and are not re-run.
+          # vk-fork = VulkanMod + Origin's VulkaIris fork (built below from src/mods/vendor/vulkairis).
+          - { case: vk-fork, vulkan: "true", disable: "sodium,immediatelyfast", vulkairis: "false", fork: "true" }
           # vk-noiris (same result as vk: Origin's nested Iris drops out on its own once Sodium is disabled) and
           # vk-vulkairis (crashes at CrashReport.preload, NoClassDefFoundError sodium.api VertexSerializer) were
           # answered by run 43999565300 and are not re-run.
@@ -72,10 +74,22 @@ jobs:
           head -n 80 "$OUT/vulkaninfo.txt"
           grep -qE "deviceName\s*=\s*llvmpipe" "$OUT/vulkaninfo.txt" || { echo "::error::lavapipe device not listed"; exit 1; }
 
+      # Origin's VulkaIris fork: unit tests (incl. the Sodium stand-in coverage test) + jar, on Linux.
+      - name: Build Origin's VulkaIris fork
+        if: ${{ matrix.fork == 'true' }}
+        working-directory: src/mods/vendor/vulkairis
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon --console=plain > "$OUT/fork-build.log" 2>&1 || { tail -n 80 "$OUT/fork-build.log"; exit 1; }
+          tail -n 5 "$OUT/fork-build.log"
+          jar=$(ls build/libs/vulkairis-origin-*.jar | grep -v -- -sources | head -n 1)
+          [ -n "$jar" ] || { echo "::error::no vulkairis-origin jar"; exit 1; }
+          echo "FORK_JAR=$PWD/$jar" >> "$GITHUB_ENV"
+
       - name: Fetch VulkanMod (+ VulkaIris), SHA-512 checked
         if: ${{ matrix.vulkan == 'true' }}
         run: |
-          python3 tools/vulkan-probe/fetch.py "$RUNNER_TEMP/vk-mods" ${{ matrix.vulkairis == 'true' && '--vulkairis' || '' }} | tee "$OUT/fetch.txt"
+          python3 tools/vulkan-probe/fetch.py "$RUNNER_TEMP/vk-mods" ${{ matrix.vulkairis == 'true' && '--vulkairis' || '' }} ${{ matrix.fork == 'true' && '--local "$FORK_JAR"' || '' }} | tee "$OUT/fetch.txt"
           echo "EXTRA_MODS=$RUNNER_TEMP/vk-mods" >> "$GITHUB_ENV"
 
       - name: Download dependencies + assets (retried)

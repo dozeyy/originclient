@@ -54,7 +54,7 @@ for l in log:
             mods.setdefault(m.group(1), m.group(2))
         elif l.strip() and not re.match(r"^\s*[|\\ -]", l):
             inblock = False
-for mid in ("vulkanmod", "vulkairis", "sodium", "iris", "immediatelyfast", "originclient", "origin", "fabric-api",
+for mid in ("vulkanmod", "vulkairis", "vulkairis_sodium_compat", "vulkairis_sodium_provider", "sodium", "iris", "immediatelyfast", "originclient", "origin", "fabric-api",
             "modernfix", "lithium", "ferritecore", "modmenu", "jei"):
     if mid in mods:
         say(f"loaded: {mid} {mods[mid]}")

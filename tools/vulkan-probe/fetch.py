@@ -3,7 +3,8 @@
 and print each jar's fabric.mod.json id / provides / depends / breaks plus its nested jars
 (and whether each nested jar carries a fabric.mod.json, the known VulkaIris sodium-api trap).
 
-usage: fetch.py <out-dir> [--vulkairis]
+usage: fetch.py <out-dir> [--vulkairis] [--local <jar>]
+  --local copies a jar built in this run (Origin's VulkaIris fork) and describes it the same way.
 """
 import hashlib
 import io
@@ -74,6 +75,15 @@ def main():
     fetch(out, *VULKANMOD)
     if "--vulkairis" in sys.argv[2:]:
         fetch(out, *VULKAIRIS)
+    if "--local" in sys.argv[2:]:
+        src = sys.argv[sys.argv.index("--local") + 1]
+        with open(src, "rb") as fh:
+            data = fh.read()
+        path = os.path.join(out, os.path.basename(src))
+        with open(path, "wb") as fh:
+            fh.write(data)
+        print(f"fetch: local {src} -> {path} ({len(data)} bytes, sha512 {hashlib.sha512(data).hexdigest()[:16]})")
+        describe(os.path.basename(src), data)
 
 
 if __name__ == "__main__":
