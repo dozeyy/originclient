@@ -130,3 +130,6 @@ Tests: `origin/VaryingLocationTest`; the translator policy tests now assert by-n
   only the rest are numbered densely.
 - `translation/ShaderTranslator.injectLayoutLocations`: the same suffix rule for sources that reach the
   bridge without locations. Test: `FragDataLocationTest`.
+- `origin/composite/CompositeRunner.sampleableDepth`: the depth-only view cache is keyed on the depth
+  wrapper object as well as the VkImage handle; lavapipe handles are host pointers that a resized depth
+  image can reuse, which would hand out a view of freed memory.

@@ -169,6 +169,7 @@ jobs:
           cp run.log "$OUT/run.log" || true
           cp -r run-prod/crash-reports "$OUT/" 2>/dev/null || true
           cp run-prod/logs/latest.log "$OUT/latest.log" 2>/dev/null || true
+          cp run-prod/hs_err_pid*.log "$OUT/" 2>/dev/null || true
           cp -r run-prod/config/vulkanmod* "$OUT/" 2>/dev/null || true
           cp -r run-prod/vulkairis "$OUT/vulkairis-run" 2>/dev/null || true
           cp run-prod/config/iris.properties "$OUT/" 2>/dev/null || true

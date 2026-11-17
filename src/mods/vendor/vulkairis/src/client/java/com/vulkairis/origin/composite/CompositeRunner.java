@@ -228,6 +228,7 @@ public final class CompositeRunner {
     /** Wraps a depth-only view of a combined depth/stencil attachment (rebuilt when the image changes). */
     private static VulkanImage depthOnlyView;
     private static long depthOnlyViewImage;
+    private static VulkanImage depthOnlyViewSource;
 
     /**
      * Origin: VulkanMod picks a combined depth/stencil format when the device lists it first (lavapipe:
@@ -242,7 +243,12 @@ public final class CompositeRunner {
         if (depth.format != FORMAT_D24S8 && depth.format != FORMAT_D32FS8) {
             return null;
         }
-        if (depthOnlyView != null && depthOnlyViewImage == depth.getId()) {
+        // Keyed on the wrapper object, not only the handle: lavapipe's VkImage handles are host
+        // pointers, so a depth image recreated on resize can come back at the freed one's address and
+        // a handle-only key would hand out a view of freed memory (likely cause of the rasterizer
+        // SIGSEGV on the probe's later world load, run 44039263596). Holding the old wrapper keeps the
+        // identity unique.
+        if (depthOnlyView != null && depthOnlyViewSource == depth && depthOnlyViewImage == depth.getId()) {
             return depthOnlyView;
         }
         releaseDepthOnlyView();
@@ -267,6 +273,7 @@ public final class CompositeRunner {
             depthOnlyView = new VulkanImage("vulkairis depth-only view", depth.getId(), depth.format, 1,
                     depth.width, depth.height, 4, depth.usage, out.get(0));
             depthOnlyViewImage = depth.getId();
+            depthOnlyViewSource = depth;
         }
         return depthOnlyView;
     }
@@ -279,6 +286,7 @@ public final class CompositeRunner {
         long view = depthOnlyView.getImageView();
         depthOnlyView = null;
         depthOnlyViewImage = 0L;
+        depthOnlyViewSource = null;
         VK10.vkDeviceWaitIdle(net.vulkanmod.vulkan.device.DeviceManager.vkDevice);
         VK10.vkDestroyImageView(net.vulkanmod.vulkan.device.DeviceManager.vkDevice, view, null);
     }
