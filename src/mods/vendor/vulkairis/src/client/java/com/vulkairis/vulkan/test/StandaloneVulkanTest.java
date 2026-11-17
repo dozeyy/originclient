@@ -244,6 +244,7 @@ public class StandaloneVulkanTest {
      * the controlled draw path.
      */
     public static void logRenderTargetDiagnostic(DebugRenderMode mode) {
+        if (!com.vulkairis.diagnostics.DebugLog.ENABLED) return; // Origin: periodic debug lines only on request
         Renderer renderer = Renderer.getInstance();
         if (renderer == null) return;
 
@@ -284,6 +285,7 @@ public class StandaloneVulkanTest {
 
     /** Explicit, rate-limited log for a controlled quad suppressed because no world pass is active. */
     private static void logSkippedNoWorldPass(DebugRenderMode mode) {
+        if (!com.vulkairis.diagnostics.DebugLog.ENABLED) return; // Origin: periodic debug lines only on request
         long frame = VulkairisController.getInstance().getFrameCount();
         if (frame - lastSkipFrame < SKIP_LOG_INTERVAL) return;
         lastSkipFrame = frame;
@@ -302,6 +304,7 @@ public class StandaloneVulkanTest {
      * gate is doing its job.
      */
     private static void logSkippedGuiOpen(DebugRenderMode mode) {
+        if (!com.vulkairis.diagnostics.DebugLog.ENABLED) return; // Origin: periodic debug lines only on request
         long frame = VulkairisController.getInstance().getFrameCount();
         if (frame - lastGuiSkipFrame < SKIP_LOG_INTERVAL) return;
         lastGuiSkipFrame = frame;

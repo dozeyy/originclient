@@ -462,6 +462,11 @@ public final class VulkanModProgramBridge {
                 if (vertFinal == null) {
                     return failLinkNull(program.getName(), "terrain vertex shader has no main()");
                 }
+                // Origin (2026-11-17): Iris's cutout alpha test, which the pack source does not carry.
+                if (com.vulkairis.origin.terrain.TerrainFragmentAdapter.alphaTested(program.getName())) {
+                    fragFinal = com.vulkairis.origin.terrain.TerrainFragmentAdapter.alphaTest(
+                            fragFinal, com.vulkairis.origin.terrain.TerrainFragmentAdapter.CUTOUT_REFERENCE);
+                }
                 if (Boolean.getBoolean("vulkairis.dumpTerrain")) {
                     dumpFailedSource(program.getName() + ".terrain", vertFinal, fragFinal);
                 }
@@ -594,13 +599,11 @@ public final class VulkanModProgramBridge {
         // from the unified GLSL with fresh reflection. The mixin calls it just before link(),
         // so this is usually a generation-gated cache hit, not a second compile.
         try {
-            long generation = SourceProvenance.currentGeneration();
+            // Origin (2026-11-17): always through translateProgram, whose cache is keyed by this
+            // program's own shader ids (a name + generation lookup could return another load's outcome).
             UnifiedTranslationService.TranslationOutcome outcome =
-                    UnifiedTranslationService.getOutcome(program.getName(), generation);
-            if (outcome == null || !outcome.succeeded()) {
-                outcome = UnifiedTranslationService.translateProgram(
-                        program.getName(), program.getAttachedShaderIds());
-            }
+                    UnifiedTranslationService.translateProgram(
+                            program.getName(), program.getAttachedShaderIds());
             if (outcome != null && outcome.succeeded() && outcome.program() != null) {
                 ProgramTranslator.TranslatedStage vertStage =
                         outcome.program().stages().get("VERTEX");

@@ -21,6 +21,7 @@
 		"iris.ProgramMixin",
 		"iris.ProgramUniformsBuilderMixin",
 		"iris.RenderBuffersMixin",
+		"iris.ShaderMapMixin",
 		"iris.ShaderPackScreenMixin",
 		"iris.ShaderWorkaroundsMixin",
 		"iris.SmoothedFloatMixin",

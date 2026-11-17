@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "origin_probe_scene",
+  "version": "0.1.0",
+  "name": "Origin probe scene (dev only)",
+  "description": "vulkan-probe: opens one fixed-seed normal world, stands at its spawn at noon and takes the same shots every run. Does nothing unless ORIGIN_PROBE_SCENE is set.",
+  "environment": "client",
+  "entrypoints": { "client": ["com.origin.probescene.ProbeScene"] },
+  "depends": { "fabricloader": ">=0.15", "fabric-api": "*", "minecraft": "1.21.1" }
+}

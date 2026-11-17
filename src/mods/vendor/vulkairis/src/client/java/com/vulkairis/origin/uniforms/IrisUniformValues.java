@@ -4,6 +4,8 @@ import com.vulkairis.origin.composite.IrisPassSource;
 import kroppeb.stareval.expression.Expression;
 import kroppeb.stareval.function.FunctionReturn;
 import net.irisshaders.iris.gl.state.FogMode;
+import net.irisshaders.iris.shaderpack.materialmap.BlockMaterialMapping;
+import net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings;
 import net.irisshaders.iris.shaderpack.programs.ProgramSet;
 import net.irisshaders.iris.uniforms.CommonUniforms;
 import net.irisshaders.iris.uniforms.FrameUpdateNotifier;
@@ -65,6 +67,7 @@ public final class IrisUniformValues {
             }
             notifier.onNewFrame();
             CUSTOM_CACHE.clear();
+            ensureBlockStateIds(set);
             if (custom != null) {
                 try {
                     custom.update();
@@ -78,6 +81,27 @@ public final class IrisUniformValues {
             }
         } catch (Throwable t) {
             warnOnce("beginFrame", "Uniform refresh failed: " + t);
+        }
+    }
+
+    /**
+     * Origin (2026-11-17): Iris fills {@code WorldRenderingSettings}' block-state id map lazily, in
+     * {@code IrisRenderingPipeline.beginLevelRendering}. Vulkairis evaluates uniforms before that runs
+     * (and under VulkanMod it may never run), so {@code currentSelectedBlockId} threw on the null map,
+     * which stopped EVERY pack custom uniform (MakeUp's dayMixer/nightMixer/dayMoment read as 0: the
+     * terrain drew near-black). Build the map exactly as Iris does when it is still missing; Iris's own
+     * later call sees an equal map and returns.
+     */
+    private static void ensureBlockStateIds(ProgramSet set) {
+        if (set == null || WorldRenderingSettings.INSTANCE.getBlockStateIds() != null) {
+            return;
+        }
+        try {
+            var idMap = set.getPack().getIdMap();
+            WorldRenderingSettings.INSTANCE.setBlockStateIds(
+                    BlockMaterialMapping.createBlockStateIdMap(idMap.getBlockProperties(), idMap.getTagEntries()));
+        } catch (Throwable t) {
+            warnOnce("block-ids", "Block id map unavailable: " + t);
         }
     }
 
