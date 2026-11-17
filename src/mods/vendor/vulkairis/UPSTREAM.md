@@ -142,3 +142,30 @@ Tests: `origin/VaryingLocationTest`; the translator policy tests now assert by-n
   account's game folder (`{"version":1,"overrides":{"iris":{"-depends":{"sodium":"*"}}}}`, Fabric
   Loader's dependency override file; same file at `tools/vulkan-probe/fabric_loader_dependencies.json`).
   `sodium-compat` (Origin's own stand-in types) stays nested and claims no id.
+
+### 2026-11-17 pack gbuffers on VulkanMod terrain (step 5)
+- `framebuffer/VulkanImageResource` + `backend/vulkanmod/VulkanBackendAdapter.allocateAndBindImageMemory`:
+  upstream created pack render-target images with no memory bound; on AMD (amdvlk64) MakeUp's pack load
+  crashed in vkCreateImageView (EXCEPTION_ACCESS_VIOLATION). Images now get device-local memory before
+  any view; `findMemoryType` no longer leaks its malloc.
+- `translation/ShaderTranslator.declareFogFragCoordRaw` / `ProgramTranslator.declareFogFragCoord`:
+  `gl_FogFragCoord` becomes a declared `vulkairis_FogFragCoord` varying (core GLSL has no such built-in).
+- `origin/terrain/TerrainVertexAdapter` (+ test): rewrites a pack terrain vertex shader to read
+  VulkanMod's packed chunk vertex (`ivec4 Position` / `uvec2 UV0` / `uint PackedColor`, ModelOffset
+  push constant). Normal is a constant up vector and `mc_Entity` is -1 (VulkanMod carries neither).
+- `origin/terrain/TerrainDraw`, `bridge/VulkanModTerrainHook`, `client/mixin/vulkan/VTextureSelectorMixin`:
+  VulkanMod's terrain getter returns the pack's gbuffers_terrain / _cutout / gbuffers_water pipeline,
+  with Iris uniforms and the camera matrices uploaded per bind and samplers rebound by name.
+- Not yet through the pack: entities, block entities, hand (Iris's ExtendedShader path).
+
+### 2026-11-17 shadow pass (step 6)
+- Iris's ShadowRenderer never runs under VulkanMod. `origin/shadow/ShadowPass` (+ mixin
+  `client/mixin/vulkan/WorldRendererShadowMixin` on `WorldRenderer.renderSectionLayer`) draws the
+  opaque terrain layers again with the pack's `shadow` program before the solid layer, using Iris's own
+  `createShadowModelView` / `ShadowMatrices` math, into `origin/shadow/ShadowMap` (D32F depth + RGBA8
+  colour, pack resolution). `IrisUniformValues.lookup` serves shadowModelView/Projection(+Inverse).
+- `sampler2DShadow` samplers (`ShadowSamplers`, + test) get a compare-enabled sampler; plain
+  `sampler2D` reads get the plain one. Binding a non-depth placeholder to a `sampler2DShadow` read as
+  "all shadowed" on AMD, which made pack terrain dark.
+- Limits: casters are the sections VulkanMod culled for the camera view; no entity or translucent
+  casters; shadowtex1 = shadowtex0.

@@ -34,7 +34,7 @@ import java.util.Set;
  * custom textures (blur/clamp honoured) and resource-location textures. Raw/lightmap custom textures
  * are not mapped yet: the sampler stays white and the log says so once.</p>
  */
-final class PackTextures {
+public final class PackTextures {
     private static final Logger LOGGER = LoggerFactory.getLogger("Vulkairis/Composite");
     private static final int GL_TEXTURE_2D = 0x0DE1;
     private static final int GL_TEXTURE_WRAP_S = 0x2802;
@@ -74,6 +74,15 @@ final class PackTextures {
             IDS.put(sampler, id);
         }
         return TextureBridge.getVulkanImage(id);
+    }
+
+    /**
+     * Origin (step 5): the image for {@code sampler} only when it is already loaded for {@code set}
+     * (terrain binds textures inside VulkanMod's render pass, where uploading a new one is not allowed).
+     */
+    public static VulkanImage cached(ProgramSet set, String sampler) {
+        Integer id = set == owner ? IDS.get(sampler) : null;
+        return id == null ? null : TextureBridge.getVulkanImage(id);
     }
 
     private static Integer create(ProgramSet set, String sampler) throws Exception {

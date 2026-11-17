@@ -379,6 +379,7 @@ public final class ProgramTranslator {
 
         // One version, extensions hoisted behind it.
         body = normalizeVersionAndExtensions(body);
+        body = declareFogFragCoord(body, isVertex);
 
         // Non-opaque uniforms become union-block candidates; the declaration is stubbed out.
         Map<String, String> members = new LinkedHashMap<>();
@@ -652,6 +653,23 @@ public final class ProgramTranslator {
             header.append("precision highp int;\n");
         }
         return insertAfterHeader(body, header.toString());
+    }
+
+    private static final Pattern FOG_FRAG_COORD = Pattern.compile("\\bgl_FogFragCoord\\b");
+    static final String FOG_FRAG_COORD_VARYING = "vulkairis_FogFragCoord";
+
+    /**
+     * Origin (step 5): {@code gl_FogFragCoord} is a compatibility-profile built-in varying that core
+     * GLSL (and so Shaderc) does not know: every MakeUp gbuffers program failed with "'gl_FogFragCoord' :
+     * undeclared identifier" (probe 44041686578). It becomes an ordinary varying the vertex stage
+     * writes and the fragment stage reads, so the union varying pass gives both sides one location.
+     */
+    static String declareFogFragCoord(String body, boolean isVertex) {
+        if (!FOG_FRAG_COORD.matcher(body).find()) {
+            return body;
+        }
+        String renamed = FOG_FRAG_COORD.matcher(body).replaceAll(FOG_FRAG_COORD_VARYING);
+        return insertAfterHeader(renamed, (isVertex ? "out" : "in") + " float " + FOG_FRAG_COORD_VARYING + ";\n");
     }
 
     /** Inserts {@code header} on the line after the {@code #version} directive. */

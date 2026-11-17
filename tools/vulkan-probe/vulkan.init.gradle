@@ -21,5 +21,7 @@ allprojects {
 		if (classLog) {
 			t.jvmArgs.add('-Xlog:class+load=info:file=' + classLog)
 		}
+		// Step 5: write the adapted pack terrain shaders to <gameDir>/vulkairis/debug/ (*.terrain.*.glsl).
+		t.jvmArgs.add('-Dvulkairis.dumpTerrain=true')
 	}
 }

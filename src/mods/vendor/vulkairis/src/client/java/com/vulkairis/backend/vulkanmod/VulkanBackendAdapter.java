@@ -132,8 +132,49 @@ public class VulkanBackendAdapter {
         }
     }
 
+    /**
+     * Origin: allocates device-local memory for {@code image} and binds it. Upstream created render-target
+     * images without any memory and then made views of them, which is invalid Vulkan: lavapipe tolerated
+     * it, AMD's driver crashed in vkCreateImageView (EXCEPTION_ACCESS_VIOLATION reading 0x8) the moment a
+     * pack loaded. Returns the memory handle, or 0 when nothing could be bound (the caller must then drop
+     * the image).
+     */
+    public static long allocateAndBindImageMemory(long image) {
+        if (image == 0L || !isLive(getDevice())) {
+            return 0L;
+        }
+        try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
+            org.lwjgl.vulkan.VkMemoryRequirements memReqs = org.lwjgl.vulkan.VkMemoryRequirements.malloc(stack);
+            org.lwjgl.vulkan.VK10.vkGetImageMemoryRequirements(getDevice(), image, memReqs);
+            int type = findMemoryType(getPhysicalDevice(), memReqs.memoryTypeBits(),
+                    org.lwjgl.vulkan.VK10.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            if (type < 0) {
+                type = findMemoryType(getPhysicalDevice(), memReqs.memoryTypeBits(), 0);
+            }
+            if (type < 0) {
+                return 0L;
+            }
+            org.lwjgl.vulkan.VkMemoryAllocateInfo allocInfo = org.lwjgl.vulkan.VkMemoryAllocateInfo.calloc(stack)
+                    .sType(org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
+                    .allocationSize(memReqs.size())
+                    .memoryTypeIndex(type);
+            java.nio.LongBuffer pMemory = stack.mallocLong(1);
+            if (org.lwjgl.vulkan.VK10.vkAllocateMemory(getDevice(), allocInfo, null, pMemory) != org.lwjgl.vulkan.VK10.VK_SUCCESS) {
+                return 0L;
+            }
+            long memory = pMemory.get(0);
+            if (org.lwjgl.vulkan.VK10.vkBindImageMemory(getDevice(), image, memory, 0) != org.lwjgl.vulkan.VK10.VK_SUCCESS) {
+                org.lwjgl.vulkan.VK10.vkFreeMemory(getDevice(), memory, null);
+                return 0L;
+            }
+            return memory;
+        }
+    }
+
     private static int findMemoryType(org.lwjgl.vulkan.VkPhysicalDevice physicalDevice, int typeFilter, int properties) {
-        org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties memProps = org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties.malloc();
+        // Origin: stack-allocated (the upstream malloc() was never freed).
+        try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
+        org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties memProps = org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties.malloc(stack);
         org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceMemoryProperties(physicalDevice, memProps);
         for (int i = 0; i < memProps.memoryTypeCount(); i++) {
             if ((typeFilter & (1 << i)) != 0 && (memProps.memoryTypes(i).propertyFlags() & properties) == properties) {
@@ -141,5 +182,6 @@ public class VulkanBackendAdapter {
             }
         }
         return -1;
+        }
     }
 }

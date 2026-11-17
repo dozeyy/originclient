@@ -48,6 +48,14 @@ public class VulkanImageResource {
             int res = VK10.vkCreateImage(device, imageInfo, null, pImage);
             if (res == VK10.VK_SUCCESS) {
                 this.imageHandle = pImage.get(0);
+                // Origin: bind memory before anyone makes a view of it (see allocateAndBindImageMemory).
+                this.memoryHandle = VulkanBackendAdapter.allocateAndBindImageMemory(imageHandle);
+                if (memoryHandle == 0L) {
+                    VK10.vkDestroyImage(device, imageHandle, null);
+                    this.imageHandle = 0L;
+                    LOGGER.error("[Vulkairis/Image] No memory for {}x{} format {}; image dropped", width, height, format);
+                    return;
+                }
                 LOGGER.debug("[Vulkairis/Image] Allocated VkImage 0x{} ({}x{}, format: {})",
                         Long.toHexString(imageHandle), width, height, format);
             }

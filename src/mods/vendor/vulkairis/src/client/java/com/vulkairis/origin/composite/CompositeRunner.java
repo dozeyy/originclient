@@ -624,14 +624,20 @@ public final class CompositeRunner {
     /** Every image {@code gp} samples must be shader-readable before its render pass begins. */
     private static void prepareReads(VkCommandBuffer cmd, GraphicsPipeline gp, CompositeRouting.Side[] sides) {
         for (ImageDescriptor d : gp.getImageDescriptors()) {
-            VulkanImage img = sampled(d.name, sides);
+            VulkanImage img = sampled(gp, d.name, sides);
             if (img != null) {
                 readOnly(cmd, img);
             }
         }
     }
 
-    private static VulkanImage sampled(String name, CompositeRouting.Side[] sides) {
+    private static VulkanImage sampled(GraphicsPipeline gp, String name, CompositeRouting.Side[] sides) {
+        // Origin (step 6): shadowtex/shadowcolor come from Vulkairis's shadow pass (ShadowMap).
+        VulkanImage shadow = com.vulkairis.origin.shadow.ShadowMap.forSampler(name,
+                VulkanModProgramBridge.isCompareSampler(gp, name));
+        if (shadow != null) {
+            return shadow;
+        }
         SamplerNames.Target t = SamplerNames.resolve(name);
         if (t.kind() == SamplerNames.Kind.COLORTEX) {
             return image(t.index(), sides[t.index()]);
@@ -641,7 +647,7 @@ public final class CompositeRunner {
             // pre-hand copies yet). Without a capture this frame, white = "everything is sky".
             return depthValid && depthCopy != null ? depthCopy : whiteTexture();
         }
-        // noisetex and the pack's custom textures; shadow maps arrive with the shadow pass (step 6).
+        // noisetex and the pack's custom textures.
         VulkanImage custom = PackTextures.resolve(cachedSet, name);
         return custom != null ? custom : whiteTexture();
     }
@@ -655,7 +661,7 @@ public final class CompositeRunner {
                 warnOnce("sampler:" + d.name, "image index " + idx + " beyond VulkanMod's " + MAX_SAMPLERS + " slots");
                 continue;
             }
-            VTextureSelector.bindTexture(idx, sampled(d.name, sides));
+            VTextureSelector.bindTexture(idx, sampled(gp, d.name, sides));
         }
         VulkanModProgramBridge.uploadUniforms(gp, POST_UNIFORMS);
         renderer.uploadAndBindUBOs(gp);

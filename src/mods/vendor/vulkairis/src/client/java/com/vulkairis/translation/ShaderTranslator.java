@@ -165,6 +165,20 @@ public class ShaderTranslator {
      *        need this path and otherwise become named {@code #error} lines.
      * @return the translated source
      */
+    /** Origin (step 5): {@link ProgramTranslator#declareFogFragCoord} for a source whose #version is not normalized yet. */
+    static String declareFogFragCoordRaw(String body, boolean isVertex) {
+        java.util.regex.Matcher fog = java.util.regex.Pattern.compile("\\bgl_FogFragCoord\\b").matcher(body);
+        if (!fog.find()) {
+            return body;
+        }
+        String renamed = fog.replaceAll(ProgramTranslator.FOG_FRAG_COORD_VARYING);
+        String decl = (isVertex ? "out" : "in") + " float " + ProgramTranslator.FOG_FRAG_COORD_VARYING + ";\n";
+        java.util.regex.Matcher version = java.util.regex.Pattern.compile("(?m)^\\s*#version[^\\n]*\\n").matcher(renamed);
+        return version.find()
+                ? renamed.substring(0, version.end()) + decl + renamed.substring(version.end())
+                : decl + renamed;
+    }
+
     public static String preprocessGlsl(String rawSource, boolean isVertex, String includerPath) {
         if (rawSource == null || rawSource.isBlank()) {
             return rawSource;
@@ -196,6 +210,9 @@ public class ShaderTranslator {
         // reach shaderc under '#version 450 core' undeclared and every program fails.
         LegacyGlsl.LegacyResult legacy = LegacyGlsl.translateLegacyBuiltins(body, isVertex);
         body = legacy.source();
+        // Origin (step 5): the same gl_FogFragCoord varying as ProgramTranslator, so the analyzer and
+        // warm-up compiles of gbuffers stages stop failing on it (extensions are hoisted below).
+        body = declareFogFragCoordRaw(body, isVertex);
 
         // Collect #extension lines up front; they must precede any non-preprocessor token and
         // re-emitting them after #version keeps already-expanded (often multi-directive) sources valid.

@@ -174,6 +174,14 @@ public final class VulkanModProgramBridge {
             "vulkairis_MultiTexCoord0", "UV0",
             "vulkairis_MultiTexCoord1", "UV2");
 
+    /**
+     * Origin (step 5): build terrain programs against VulkanMod's own compressed chunk format through
+     * {@code TerrainVertexAdapter} (on by default; {@code -Dvulkairis.terrainAdapter=false} restores
+     * upstream's coverage check, under which every terrain program failed to link).
+     */
+    private static final boolean TERRAIN_ADAPTER =
+            !"false".equalsIgnoreCase(System.getProperty("vulkairis.terrainAdapter"));
+
     private static final Map<Integer, GraphicsPipeline> LINKED = new ConcurrentHashMap<>();
     /**
      * Origin: the sources and reflected shaders each program was linked from. Iris detaches and
@@ -377,6 +385,7 @@ public final class VulkanModProgramBridge {
             // Terrain programs must use VulkanMod's compressed terrain vertex format so the
             // pipeline's vertex input state matches the buffers VulkanMod actually feeds.
             VertexFormat vertexFormat = null;
+            boolean terrainAdapted = false;
             try {
                 boolean terrain = false;
                 String pname = program.getName();
@@ -389,7 +398,11 @@ public final class VulkanModProgramBridge {
                         }
                     }
                 }
-                if (terrain) {
+                if (terrain && TERRAIN_ADAPTER) {
+                    // Origin (step 5): see TerrainVertexAdapter; the pack's inputs become decoded globals.
+                    vertexFormat = net.vulkanmod.render.shader.PipelineManager.getTerrainVertexFormat();
+                    terrainAdapted = vertexFormat != null;
+                } else if (terrain) {
                     VertexFormat compressed = null;
                     try {
                         Class<?> cvf = Class.forName("net.vulkanmod.render.vertex.CustomVertexFormat");
@@ -425,9 +438,10 @@ public final class VulkanModProgramBridge {
                         "no DefaultVertexFormat covers vertex inputs " + requiredInputs
                                 + "; refusing to build a pipeline whose SPIR-V would lack locations");
             }
-            Map<String, Integer> vertexInputLocations = buildVertexInputLocations(vertexFormat);
+            Map<String, Integer> vertexInputLocations = terrainAdapted
+                    ? Map.of() : buildVertexInputLocations(vertexFormat);
             List<String> uncovered = new ArrayList<>();
-            for (String name : requiredInputs) {
+            for (String name : terrainAdapted ? List.<String>of() : requiredInputs) {
                 if (!vertexInputLocations.containsKey(name)) {
                     uncovered.add(name);
                 }
@@ -443,6 +457,15 @@ public final class VulkanModProgramBridge {
                     vertRemapped, true, vertexInputLocations, varyingLocations);
             String fragFinal = ShaderTranslator.injectLayoutLocations(
                     fragRemapped, false, vertexInputLocations, varyingLocations);
+            if (terrainAdapted) {
+                vertFinal = com.vulkairis.origin.terrain.TerrainVertexAdapter.adapt(vertFinal);
+                if (vertFinal == null) {
+                    return failLinkNull(program.getName(), "terrain vertex shader has no main()");
+                }
+                if (Boolean.getBoolean("vulkairis.dumpTerrain")) {
+                    dumpFailedSource(program.getName() + ".terrain", vertFinal, fragFinal);
+                }
+            }
 
             Pipeline.Builder builder = Pipeline.builder(vertexFormat, program.getName());
             builder.setShaderSrc(SPIRVUtils.ShaderKind.VERTEX_SHADER, vertFinal);
@@ -457,6 +480,12 @@ public final class VulkanModProgramBridge {
                 return failLinkNull(program.getName(),
                         "could not build a config entry for every descriptor binding; refusing to leave a"
                                 + " gap that VulkanMod would index out of range");
+            }
+            if (terrainAdapted) {
+                // VulkanMod's terrain loop pushes ModelOffset into every terrain pipeline it binds
+                // (Renderer.pushConstants dereferences getPushConstants()): declare the same block.
+                config = new PipelineConfig(config.shaderPaths, config.ubs, config.imageDescriptors,
+                        net.vulkanmod.render.shader.PipelineConfigs.TERRAIN_PC);
             }
             builder.applyConfig(config);
 
@@ -483,6 +512,11 @@ public final class VulkanModProgramBridge {
                 pipeline = builder.createGraphicsPipeline();
                 PIPELINE_FORMATS.put(pipeline, vertexFormat);
                 recordBlockLayout(pipeline, bindings, vert, frag);
+                // Origin (step 6): sampler2DShadow names, so the shadow map binds its compare sampler there.
+                java.util.Set<String> compare = com.vulkairis.origin.shadow.ShadowSamplers.compareSamplerNames(vertFinal, fragFinal);
+                if (!compare.isEmpty()) {
+                    COMPARE_SAMPLERS.put(pipeline, compare);
+                }
             } catch (Throwable t) {
                 dumpFailedSource(program.getName(), vertFinal, fragFinal);
                 throw t;
@@ -986,7 +1020,7 @@ public final class VulkanModProgramBridge {
         return switch (type) {
             case SOLID, CUTOUT_MIPPED, TRIPWIRE -> "gbuffers_terrain";
             case CUTOUT -> "gbuffers_terrain_cutout";
-            case TRANSLUCENT -> "gbuffers_translucent";
+            case TRANSLUCENT -> "gbuffers_water"; // Origin: Iris's translucent terrain program (no gbuffers_translucent exists)
         };
     }
 
@@ -1069,6 +1103,22 @@ public final class VulkanModProgramBridge {
             LOGGER.debug("[Vulkairis/ProgramBridge] Uniform upload notice: {}",
                     t.getMessage() != null ? t.getMessage() : t.toString());
         }
+    }
+
+    /** Origin (step 5, diagnostics): uniform-block members of {@code pipeline} that nothing supplies (they read 0). */
+    public static java.util.List<String> unsuppliedUniforms(GraphicsPipeline pipeline, Map<String, double[]> overrides) {
+        java.util.List<String> missing = new java.util.ArrayList<>();
+        BlockLayout layout = pipeline == null ? null : PIPELINE_BLOCKS.get(pipeline);
+        if (layout == null) {
+            return missing;
+        }
+        for (ShaderReflection.UniformInfo member : layout.members()) {
+            if ((overrides == null || !overrides.containsKey(member.name()))
+                    && com.vulkairis.origin.uniforms.IrisUniformValues.lookup(member.name()) == null) {
+                missing.add(member.name());
+            }
+        }
+        return missing;
     }
 
     private static void fillBlock(java.nio.ByteBuffer buf, int size, BlockLayout layout,
@@ -1359,6 +1409,7 @@ public final class VulkanModProgramBridge {
     /** Clears terrain program registrations. Test/shutdown helper; leaves LINKED untouched. */
     public static void clearTerrainRegistrations() {
         TERRAIN_PROGRAM_IDS.clear();
+        com.vulkairis.origin.terrain.TerrainDraw.reset(); // Origin (step 5): forget the old pack's pipelines
     }
 
     public static void unlink(int virtualProgramId) {
@@ -1380,7 +1431,23 @@ public final class VulkanModProgramBridge {
         }
     }
 
+    /**
+     * Origin (step 6): pipelines whose GLSL declares {@code sampler2DShadow} samplers, by name. Identity
+     * keys: a destroyed pipeline drops out at the next pack reload ({@link #cleanUp}).
+     */
+    private static final Map<Pipeline, java.util.Set<String>> COMPARE_SAMPLERS =
+            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+
+    /** True when {@code sampler} is declared {@code sampler2DShadow} in {@code pipeline}'s shaders. */
+    public static boolean isCompareSampler(Pipeline pipeline, String sampler) {
+        java.util.Set<String> names = COMPARE_SAMPLERS.get(pipeline);
+        return names != null && names.contains(sampler);
+    }
+
     public static void cleanUp() {
+        com.vulkairis.origin.terrain.TerrainDraw.reset(); // Origin (step 5)
+        com.vulkairis.origin.shadow.ShadowPass.reset(); // Origin (step 6): new pack, new shadow resolution
+        COMPARE_SAMPLERS.clear();
         for (GraphicsPipeline variant : OUTPUT_VARIANTS.values()) {
             variant.scheduleCleanUp();
         }

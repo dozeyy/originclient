@@ -157,7 +157,7 @@ public final class TerrainPipelineDoor {
         return switch (pass) {
             case TERRAIN -> "gbuffers_terrain";
             case TERRAIN_CUTOUT -> "gbuffers_terrain_cutout";
-            case TRANSLUCENT -> "gbuffers_translucent";
+            case TRANSLUCENT -> "gbuffers_water"; // Origin: Iris's translucent terrain program (no gbuffers_translucent exists)
             case SHADOW -> "shadow";
             case SHADOW_CUTOUT -> "shadow_cutout";
             case SHADOW_TRANS -> "shadow_translucent";

@@ -111,6 +111,12 @@ public final class IrisUniformValues {
 
     /** The current value for {@code name}, or {@code null} when neither Iris nor the pack defines it. */
     public static double[] lookup(String name) {
+        // Origin (step 6): Iris fills shadowModelView/shadowProjection from its ShadowRenderer, which never
+        // runs under VulkanMod; Vulkairis's own shadow pass computes them with Iris's math instead.
+        double[] shadow = com.vulkairis.origin.shadow.ShadowPass.uniform(name);
+        if (shadow != null) {
+            return shadow;
+        }
         IrisUniformCapture c = capture;
         if (c != null) {
             IrisUniformCapture.Entry entry = c.entries.get(name);

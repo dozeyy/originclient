@@ -40,7 +40,7 @@ public final class VulkanModTerrainHook {
         return switch (type) {
             case SOLID, CUTOUT_MIPPED, TRIPWIRE -> "gbuffers_terrain";
             case CUTOUT -> "gbuffers_terrain_cutout";
-            case TRANSLUCENT -> "gbuffers_translucent";
+            case TRANSLUCENT -> "gbuffers_water"; // Origin: Iris's translucent terrain program (no gbuffers_translucent exists)
         };
     }
 
@@ -59,8 +59,16 @@ public final class VulkanModTerrainHook {
 
     private static final Function<TerrainRenderType, GraphicsPipeline> SHADER_GETTER = type -> {
         try {
+            // Origin (step 6): inside the shadow pass every caster layer draws with the pack's shadow program.
+            GraphicsPipeline shadow = com.vulkairis.origin.shadow.ShadowPass.activePipeline();
+            if (shadow != null) {
+                com.vulkairis.origin.terrain.TerrainDraw.prepare(shadow);
+                return shadow;
+            }
             GraphicsPipeline pack = getPackPipeline(type);
             if (pack != null) {
+                // Origin (step 5): uniforms + texture routing for the pack pipeline (TerrainDraw).
+                com.vulkairis.origin.terrain.TerrainDraw.prepare(pack);
                 return pack;
             }
         } catch (Throwable ignored) {

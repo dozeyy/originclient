@@ -39,7 +39,9 @@
 		"vulkan.GLSLParserMixin",
 		"vulkan.GlUtilMixin",
 		"vulkan.GraphicsPipelineMixin",
-		"vulkan.VkGlTextureMixin"
+		"vulkan.VkGlTextureMixin",
+		"vulkan.VTextureSelectorMixin",
+		"vulkan.WorldRendererShadowMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
