@@ -892,6 +892,42 @@ class SignatureGate(unittest.TestCase):
         for v in ("1.18.2", "1.21.1", "26.3"):
             self.assertIn("jei", smoke.sig_groups(os.path.join(ROOT, "src", "mods", "versions", v)), v)
 
+    # Vulkan boots (renderer=vulkan, 1.21.1): groups with `vulkanmod absent` are switched off before Mixin because
+    # VulkanMod IS loaded, so they print no signature line. That is the gate working (CI run 44056464601), not a
+    # failed check; the same group with VulkanMod absent still must print its line.
+    VK_LIST = "[main/INFO] (FabricLoader) Loading 80 mods:\n\t- iris 1.8.14\n\t- vulkanmod 0.6.7+1.21.1\n"
+
+    def _vk_module(self, d):
+        res = os.path.join(d, "src", "client", "resources")
+        os.makedirs(res)
+        with open(os.path.join(res, smoke.GATES_FILE), "w", encoding="utf-8") as f:
+            f.write("group iris | Origin's Iris hooks | vulkanmod absent; iris ~1.8.1 | IrisMixin\n"
+                    "sig iris | net.irisshaders.iris.X | y()V\n")
+
+    def test_absent_needs_reads_the_1211_table(self):
+        needs = smoke.absent_needs(os.path.join(ROOT, "src", "mods", "versions", "1.21.1"))
+        for g in ("iris", "irisHalfRate", "sodium", "sodiumWalk"):
+            self.assertEqual(needs.get(g), ["vulkanmod"], g)
+        self.assertNotIn("jei", needs)
+
+    def test_group_off_because_vulkanmod_is_loaded_passes(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._vk_module(d)
+            self.assertEqual(smoke.sig_problems(self.VK_LIST, smoke.sig_groups(d), smoke.absent_needs(d)), [])
+
+    def test_same_group_without_vulkanmod_still_needs_its_line(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._vk_module(d)
+            text = "Loading 80 mods:\n\t- iris 1.8.14\n\t- sodium 0.8.13\n"
+            problems = smoke.sig_problems(text, smoke.sig_groups(d), smoke.absent_needs(d))
+            self.assertEqual(len(problems), 1)
+            self.assertIn("no signature-check line", problems[0])
+
+    def test_mod_loaded_reads_nested_entries(self):
+        text = "\t- vulkairis 0.8.12\n\t   \\-- vulkairis_sodium_compat 1.0.0\n"
+        self.assertTrue(smoke.mod_loaded(text, "vulkairis_sodium_compat"))
+        self.assertFalse(smoke.mod_loaded(text, "sodium"))
+
 
 class DevPinsMatchCatalog(unittest.TestCase):
     """A module's dev-run Mod Menu / ImmediatelyFast pins (gradle.properties, Modrinth version ids) must be the

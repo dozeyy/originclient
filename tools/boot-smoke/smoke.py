@@ -107,13 +107,18 @@ SIG_ON = "Origin compat gate: {label} is on (signature check"
 GATES_FILE = "originclient.compat-gates.txt"
 
 
-def sig_groups(module):
-    """{group id: label} for every gate group the module's data gives `sig` lines ({} when none / no data)."""
+def _gates_path(module):
     for sub in ("client", "main"):   # main: pre-1.18 merged source set
         path = os.path.join(module, "src", sub, "resources", GATES_FILE)
         if os.path.isfile(path):
-            break
-    else:
+            return path
+    return None
+
+
+def sig_groups(module):
+    """{group id: label} for every gate group the module's data gives `sig` lines ({} when none / no data)."""
+    path = _gates_path(module)
+    if not path:
         return {}
     labels, sig = {}, set()
     with open(path, encoding="utf-8") as f:
@@ -128,11 +133,38 @@ def sig_groups(module):
     return {g: labels.get(g, g) for g in sorted(sig)}
 
 
-def sig_problems(text, groups):
-    """One problem per signature-checked group whose 'is on (signature check' line is missing from the log."""
+def absent_needs(module):
+    """{group id: [mod ids]} for each gate group with a `<mod> absent` need (1.21.1's `vulkanmod absent`)."""
+    path = _gates_path(module)
+    out = {}
+    if not path:
+        return out
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("group "):
+                fields = line[len("group "):].split("|")
+                if len(fields) > 2:
+                    mods = [n.split()[0] for n in fields[2].split(";") if len(n.split()) == 2 and n.split()[1] == "absent"]
+                    if mods:
+                        out[fields[0].strip()] = mods
+    return out
+
+
+def mod_loaded(text, mod_id):
+    """True when Fabric Loader's 'Loading N mods:' list names mod_id (top level or nested)."""
+    return re.search(r"(?m)^\s*(?:-|\\--)\s+%s\s" % re.escape(mod_id), text) is not None
+
+
+def sig_problems(text, groups, absent=None):
+    """One problem per signature-checked group whose 'is on (signature check' line is missing from the log.
+    absent = absent_needs(module): a group whose `<mod> absent` need is unmet because that mod IS loaded is off by
+    design (a Vulkan boot: VulkanMod loaded switches the Sodium/Iris hooks off before Mixin), not a failed check."""
     problems = []
-    for label in groups.values():
+    for group, label in groups.items():
         if SIG_ON.format(label=label) in text:
+            continue
+        if any(mod_loaded(text, m) for m in (absent or {}).get(group, ())):
             continue
         off = re.search(r"Origin compat gate: %s is off \(([^\n]*)\)" % re.escape(label), text)
         problems.append(f"{label}: " + (f"switched off ({off.group(1)[:300]})" if off
@@ -256,7 +288,7 @@ def run_once(module, cmd, timeout, run_java=0, perf=None, companions=None, expec
                         print(f"boot-smoke: companions loaded at the catalog versions: {shown}", flush=True)
                         verdict = (True, verdict[1] + f"; companions loaded: {shown}", False)
                 if sig and verdict[0]:
-                    problems = sig_problems("".join(seen), sig)
+                    problems = sig_problems("".join(seen), sig, absent_needs(module))
                     if problems:
                         print("::error title=signature check did not pass::" + "; ".join(problems), flush=True)
                         verdict = (False, "compat-gate signature check did not pass: " + "; ".join(problems), False)
