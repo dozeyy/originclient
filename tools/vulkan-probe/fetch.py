@@ -3,7 +3,7 @@
 and print each jar's fabric.mod.json id / provides / depends / breaks plus its nested jars
 (and whether each nested jar carries a fabric.mod.json, the known VulkaIris sodium-api trap).
 
-usage: fetch.py <out-dir> [--vulkairis] [--local <jar>]
+usage: fetch.py <out-dir> [--vulkairis] [--local <jar>] [--shaderpack <modrinth-version-id> <dir>]
   --local copies a jar built in this run (Origin's VulkaIris fork) and describes it the same way.
 """
 import hashlib
@@ -69,6 +69,22 @@ def fetch(out, vid, pinned):
     describe(f["filename"], data)
 
 
+def fetch_pack(vid, dest):
+    """A shader pack from Modrinth by version id (SHA-512 from Modrinth's API), saved unopened into dest."""
+    os.makedirs(dest, exist_ok=True)
+    meta = json.loads(get(f"https://api.modrinth.com/v2/version/{vid}"))
+    f = meta["files"][0]
+    data = get(f["url"])
+    got = hashlib.sha512(data).hexdigest()
+    if got != f["hashes"]["sha512"]:
+        raise SystemExit(f"fetch: {f['filename']} sha512 mismatch")
+    path = os.path.join(dest, f["filename"])
+    with open(path, "wb") as fh:
+        fh.write(data)
+    print(f"fetch: shader pack {meta['name']} {meta['version_number']} -> {path} ({len(data)} bytes, sha512 OK)")
+    print(f"PACK_FILE={f['filename']}")
+
+
 def main():
     out = sys.argv[1]
     os.makedirs(out, exist_ok=True)
@@ -84,6 +100,9 @@ def main():
             fh.write(data)
         print(f"fetch: local {src} -> {path} ({len(data)} bytes, sha512 {hashlib.sha512(data).hexdigest()[:16]})")
         describe(os.path.basename(src), data)
+    if "--shaderpack" in sys.argv[2:]:
+        i = sys.argv.index("--shaderpack")
+        fetch_pack(sys.argv[i + 1], sys.argv[i + 2])
 
 
 if __name__ == "__main__":

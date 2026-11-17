@@ -39,7 +39,9 @@ jobs:
         include:
           # Branch claude/vulkan-vulkairis: gl and vk were answered by run 44000463782 and are not re-run.
           # vk-fork = VulkanMod + Origin's VulkaIris fork (built below from src/mods/vendor/vulkairis).
-          - { case: vk-fork, vulkan: "true", disable: "sodium,immediatelyfast", vulkairis: "false", fork: "true" }
+          - { case: vk-fork, vulkan: "true", disable: "sodium,immediatelyfast", vulkairis: "false", fork: "true", pack: "" }
+          # Same, plus MakeUp Ultra Fast 9.6 (Modrinth t4YRxQug, LGPL-3.0-or-later) switched on in Iris.
+          - { case: vk-fork-pack, vulkan: "true", disable: "sodium,immediatelyfast", vulkairis: "false", fork: "true", pack: "t4YRxQug" }
           # vk-noiris (same result as vk: Origin's nested Iris drops out on its own once Sodium is disabled) and
           # vk-vulkairis (crashes at CrashReport.preload, NoClassDefFoundError sodium.api VertexSerializer) were
           # answered by run 43999565300 and are not re-run.
@@ -89,7 +91,10 @@ jobs:
       - name: Fetch VulkanMod (+ VulkaIris), SHA-512 checked
         if: ${{ matrix.vulkan == 'true' }}
         run: |
-          python3 tools/vulkan-probe/fetch.py "$RUNNER_TEMP/vk-mods" ${{ matrix.vulkairis == 'true' && '--vulkairis' || '' }} ${{ matrix.fork == 'true' && '--local "$FORK_JAR"' || '' }} | tee "$OUT/fetch.txt"
+          python3 tools/vulkan-probe/fetch.py "$RUNNER_TEMP/vk-mods" ${{ matrix.vulkairis == 'true' && '--vulkairis' || '' }} ${{ matrix.fork == 'true' && '--local "$FORK_JAR"' || '' }} \
+            ${{ matrix.pack != '' && format('--shaderpack {0} "$RUNNER_TEMP/packs"', matrix.pack) || '' }} | tee "$OUT/fetch.txt"
+          pack=$(sed -n 's/^PACK_FILE=//p' "$OUT/fetch.txt")
+          [ -n "$pack" ] && echo "PACK_FILE=$pack" >> "$GITHUB_ENV" || true
           echo "EXTRA_MODS=$RUNNER_TEMP/vk-mods" >> "$GITHUB_ENV"
 
       - name: Download dependencies + assets (retried)
@@ -114,6 +119,12 @@ jobs:
           chmod +x gradlew
           mkdir -p run-prod
           printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > run-prod/options.txt
+          if [ -n "${PACK_FILE:-}" ]; then
+            mkdir -p run-prod/shaderpacks run-prod/config
+            cp "$RUNNER_TEMP/packs/$PACK_FILE" run-prod/shaderpacks/
+            printf 'enableShaders=true\nshaderPack=%s\n' "$PACK_FILE" > run-prod/config/iris.properties
+            echo "shader pack on: $PACK_FILE"
+          fi
           gargs="-PwithFabricApi -PframeLog -PbootLog"
           [ -n "${EXTRA_MODS:-}" ] && gargs="$gargs -PextraMods=$EXTRA_MODS"
           dargs=""
@@ -159,6 +170,8 @@ jobs:
           cp -r run-prod/crash-reports "$OUT/" 2>/dev/null || true
           cp run-prod/logs/latest.log "$OUT/latest.log" 2>/dev/null || true
           cp -r run-prod/config/vulkanmod* "$OUT/" 2>/dev/null || true
+          cp -r run-prod/vulkairis "$OUT/vulkairis-run" 2>/dev/null || true
+          cp run-prod/config/iris.properties "$OUT/" 2>/dev/null || true
           ls -la "$OUT" "$OUT/screenshots" "$OUT/x11"
 
       - name: Contact sheets
