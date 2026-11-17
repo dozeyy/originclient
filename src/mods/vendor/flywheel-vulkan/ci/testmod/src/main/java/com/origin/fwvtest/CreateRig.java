@@ -82,6 +82,18 @@ final class CreateRig {
 				level.setBlock(feet.relative(facing, 5).above(y).relative(right, side), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
 			}
 		}
+		// A terrain reference in the same frame: waxed copper (orange, like the cogs) left of centre and
+		// andesite (grey, like the shafts) right of it, one block in front of the first row and between
+		// the two row heights. Their faces point the same ways as the cogs' and shafts', so the pack's
+		// terrain shading is the yardstick for how it shades Flywheel's instances.
+		// Same sun for every backend's shots: noon, clock stopped.
+		level.getGameRules().getRule(net.minecraft.world.level.GameRules.RULE_DAYLIGHT).set(false, level.getServer());
+		level.setDayTime(6000);
+		BlockPos ref = feet.relative(facing, 4).above(2);
+		for (int i = 1; i <= 4; i++) {
+			level.setBlock(ref.relative(right, -i), Blocks.WAXED_COPPER_BLOCK.defaultBlockState(), Block.UPDATE_ALL);
+			level.setBlock(ref.relative(right, i), Blocks.ANDESITE.defaultBlockState(), Block.UPDATE_ALL);
+		}
 		return placed;
 	}
 
