@@ -469,6 +469,15 @@ public sealed class VersionManager
                 // A build without the Vulkan jars: Settings already says so; Home stays quiet about it.
                 return (null, files.Problem == VulkanMode.MissingJarsLine ? null : files.Problem);
             }
+            // Iris's sodium dependency is dropped in this account's config (nothing provides "sodium" in a Vulkan game,
+            // so without it the loader refuses to start). A file Origin can't safely edit means normal graphics.
+            var irisOverride = IrisDependencyOverride.Ensure(InstanceLayout.LoaderDependenciesFile(gameDir));
+            if (!irisOverride.InPlace)
+            {
+                AppendCompatLog(version, "Vulkan graphics unavailable: " + irisOverride.Problem);
+                return (null, VulkanMode.SetupFailedLine);
+            }
+            if (irisOverride.Changed) AppendCompatLog(version, "Vulkan: Iris's sodium dependency dropped in " + IrisDependencyOverride.FileName);
             // Hard links where the volume allows (instant, no extra disk), else copies; never a jar rewritten in place.
             var folder = Path.Combine(gameDir, VulkanMode.LaunchFolderName);
             LaunchModFolder.Sync(folder, VulkanMode.FolderPlan(baseJars, files.Jars!), static _ => true);
@@ -839,6 +848,12 @@ public sealed class VersionManager
             }
             if (notice != null) notices = new[] { notice }.Concat(notices).ToList();
         }
+        // Every 1.21.1 game on normal graphics (setting off, blocked, setup failed, the boot fallback's relaunch) takes
+        // Origin's Iris entry back out of the loader's override file; the player's own overrides stay. One File.Exists
+        // when there is no file.
+        if (VulkanMode.Applies(version) && !onVulkan
+            && IrisDependencyOverride.Remove(InstanceLayout.LoaderDependenciesFile(path.BasePath)) is { } overrideProblem)
+            AppendCompatLog(version, "Normal graphics: " + overrideProblem);
         vulkanUsed?.Invoke(onVulkan);
 
         // Fabric Loader's own supported switch for the folder it loads mods

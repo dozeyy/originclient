@@ -75,6 +75,13 @@ public static class InstanceLayout
 
     public static string PresetUndoFile(string gameDir) => Path.Combine(gameDir, PresetUndoFileName);
 
+    /// <summary>
+    /// Fabric Loader's dependency-override file in an account's game folder (&lt;game dir&gt;/config, where the loader reads
+    /// it). Origin only adds/removes its own Iris entry there for 1.21.1's Vulkan graphics (Core/Renderers/IrisDependencyOverride).
+    /// </summary>
+    public static string LoaderDependenciesFile(string gameDir) =>
+        Path.Combine(gameDir, "config", "fabric_loader_dependencies.json");
+
     public static string VersionRoot(string instancesRoot, string version) =>
         Path.Combine(instancesRoot, version);
 

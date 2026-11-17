@@ -326,6 +326,27 @@ tasks.register("prodClient", net.fabricmc.loom.task.prod.ClientProductionRunTask
 	}
 }
 
+// Vulkan mode needs one loader setting in the game folder's config, exactly what the launcher writes per account
+// (src/OriginLauncher.App/Core/Renderers/IrisDependencyOverride.cs): Origin's VulkaIris fork does not claim the id
+// "sodium" (Flywheel/Create would load Sodium classes if anything did) and -PdisableModIds switches Sodium off, so
+// Iris's "depends sodium" must be dropped or the loader refuses to start. With -PrendererJars the dev/prod run
+// folder gets the file; without it, a copy this build left behind (byte-identical) is removed so a normal run is
+// exactly as before. runClient runs in run/, prodClient in run-prod/.
+def irisOverrideJson = '{"version":1,"overrides":{"iris":{"-depends":{"sodium":"*"}}}}'
+def vulkanRun = project.hasProperty("rendererJars")
+def syncIrisOverride = { File gameDir ->
+	def f = new File(gameDir, "config/fabric_loader_dependencies.json")
+	if (vulkanRun) {
+		f.parentFile.mkdirs()
+		f.text = irisOverrideJson
+		println "Vulkan mode: ${f} (Iris's sodium dependency dropped, like the launcher)"
+	} else if (f.isFile() && f.text.trim() == irisOverrideJson) {
+		f.delete()
+	}
+}
+tasks.matching { it.name == "runClient" }.configureEach { t -> t.doFirst { syncIrisOverride(t.workingDir) } }
+tasks.named("prodClient") { doFirst { syncIrisOverride(file("run-prod")) } }
+
 processResources {
 	def version = project.version
 	inputs.property "version", version
