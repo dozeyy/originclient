@@ -51,3 +51,21 @@ Root causes (CI probe run 44002823904, MakeUp Ultra Fast 9.6 on): the pack never
 - `RendererMixin`: the old `onExecutePasses` call is removed.
 - Unit tests: `CompositeRoutingTest` (Iris ping-pong + flip directives), `SamplerNamesTest`,
   `FragOutputVariantTest`.
+
+## 2026-11-16 uniforms (step 3)
+- Root cause: the injected `VulkairisUniformBlock` was filled with a fixed "OfGlobals" layout, not the
+  block's reflected members, so every pack uniform read garbage or zero. Iris's `MixinLevelRenderer` and
+  `MixinGameRenderer` (stripped) also never fed `CapturedRenderingState` or advanced the frame timer.
+- `origin/uniforms/IrisUniformCapture`: a `DynamicUniformHolder` that records every uniform Iris's own
+  `CommonUniforms` registers; `IrisUniformValues` evaluates them once per frame, plus the pack's custom
+  uniforms (`uniform.*` in shaders.properties), and serves them by name.
+- `VulkanModProgramBridge.uploadUniforms(gp, overrides)`: fills the block member by member (reflected
+  std140 offsets, `Std140Writer`); other blocks keep the old payload.
+- `LevelRendererIrisStateMixin` (renderLevel HEAD): gbufferModelView/Projection, tick delta, cloud time,
+  world-time uniforms. The projection is converted from VulkanMod's forced 0..1 depth to GL's -1..1
+  (`GlProjection`); stored depth needs no conversion (GL window depth == Vulkan NDC depth).
+- `GameRendererCompositeMixin` HEAD: frameCounter / frameTimeCounter / real tick delta.
+- `CompositeRunner`: Iris targets are now stored GL-style (row 0 = bottom, positive-height viewport),
+  so texcoord, gl_FragCoord and depth reconstruction agree as on OpenGL; the world copy-in flips, the
+  final pass renders into a GL-style scratch image and is copied out unflipped through VulkanMod's
+  inverted main viewport. Post passes get Iris's quad matrices (identity model-view, 0..1 ortho, z = 0).

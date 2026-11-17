@@ -21,6 +21,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(GameRenderer.class)
 public abstract class GameRendererCompositeMixin {
+    /**
+     * Origin (step 3). Same target method, at HEAD: advances Iris's frame counter and frame timer
+     * ({@code frameCounter}, {@code frameTimeCounter}, {@code frameTime}) and the real tick delta.
+     * Iris does this from its own {@code MixinGameRenderer}, which VulkaIris strips; without it every
+     * animated effect in a pack (water waves, clouds, wind) stands still.
+     */
+    @Inject(method = "render(Lnet/minecraft/client/DeltaTracker;Z)V", at = @At("HEAD"))
+    private void vulkairis$beginIrisFrame(DeltaTracker deltaTracker, boolean tick, CallbackInfo ci) {
+        try {
+            net.irisshaders.iris.uniforms.CapturedRenderingState.INSTANCE
+                    .setRealTickDelta(deltaTracker.getGameTimeDeltaPartialTick(true));
+            net.irisshaders.iris.uniforms.SystemTimeUniforms.COUNTER.beginFrame();
+            net.irisshaders.iris.uniforms.SystemTimeUniforms.TIMER.beginFrame(net.minecraft.Util.getNanos());
+        } catch (Throwable ignored) {
+            // Fail soft: time uniforms stay where they were.
+        }
+    }
+
     @Inject(method = "render(Lnet/minecraft/client/DeltaTracker;Z)V",
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel(Lnet/minecraft/client/DeltaTracker;)V",

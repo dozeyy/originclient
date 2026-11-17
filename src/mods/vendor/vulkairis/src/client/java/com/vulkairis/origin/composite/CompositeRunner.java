@@ -23,7 +23,9 @@ import net.vulkanmod.vulkan.texture.VTextureSelector;
 import net.vulkanmod.vulkan.texture.VulkanImage;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
+import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkCommandBuffer;
+import org.lwjgl.vulkan.VkViewport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,6 +100,16 @@ public final class CompositeRunner {
     private static GraphicsPipeline copyPipeline;
     private static boolean copyFailed;
     private static ByteBuffer quad;
+    /** GL-style scratch the final pass draws into; then copied (unflipped) onto the main target. */
+    private static VulkanImage finalOut;
+
+    /**
+     * Per-pass uniform values for every post pass (Iris's full-screen quad setup): identity model-view,
+     * an ortho projection mapping the 0..1 quad onto clip space with z = 0 (Vulkan clips z below 0, so
+     * not GL's -1), identity texture/normal matrices. Covers the translator's legacy names and Iris's
+     * core-profile names.
+     */
+    private static final Map<String, double[]> POST_UNIFORMS = postUniforms();
 
     private record Target(Framebuffer framebuffer, RenderPass renderPass) {
     }
@@ -165,7 +177,7 @@ public final class CompositeRunner {
             VulkanImage scene = image(chain.sceneBuffer(), CompositeRouting.Side.MAIN);
             readOnly(cmd, mainColor);
             beginTarget(cmd, renderer, scene);
-            drawCopy(renderer, mainColor);
+            drawCopy(renderer, mainColor, true);
             renderer.endRenderPass(cmd);
             draws++;
 
@@ -204,11 +216,19 @@ public final class CompositeRunner {
                     warnOnce(chain.finalName(), "not linked; colortex0 copied instead");
                 }
             }
+            VulkanImage out;
             if (finalGp != null) {
+                // Final draws in GL storage too (gl_FragCoord rows match OpenGL), then is copied out.
                 prepareReads(cmd, finalGp, finalSides);
+                out = finalOut();
+                beginTarget(cmd, renderer, out);
+                drawPass(renderer, finalGp, finalSides);
+                renderer.endRenderPass(cmd);
+                draws++;
             } else {
-                readOnly(cmd, image(0, finalSides[0]));
+                out = image(0, finalSides[0]);
             }
+            readOnly(cmd, out);
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 mainColor.transitionImageLayout(stack, cmd, LAYOUT_COLOR_ATTACHMENT);
             }
@@ -216,12 +236,10 @@ public final class CompositeRunner {
             if (renderer.getBoundRenderPass() == null) {
                 throw new IllegalStateException("main pass did not rebind");
             }
-            fullViewport();
-            if (finalGp != null) {
-                drawPass(renderer, finalGp, finalSides);
-            } else {
-                drawCopy(renderer, image(0, finalSides[0]));
-            }
+            // VulkanMod's inverted viewport puts quad y = 1 on row 0 (the top of the screen), which is
+            // where GL-stored images keep their top (v = 1): an unflipped copy.
+            mainViewport();
+            drawCopy(renderer, out, false);
             draws++;
         } finally {
             saved.restore();
@@ -242,6 +260,10 @@ public final class CompositeRunner {
             return;
         }
         freeImages();
+        if (finalOut != null) {
+            finalOut.free();
+            finalOut = null;
+        }
         width = w;
         height = h;
     }
@@ -259,6 +281,18 @@ public final class CompositeRunner {
             IMAGES[buffer][s] = img;
         }
         return img;
+    }
+
+    private static VulkanImage finalOut() {
+        if (finalOut == null) {
+            finalOut = VulkanImage.createTextureImage(VulkanImage.builder(width, height)
+                    .setName("vulkairis final")
+                    .setFormat(FORMAT_RGBA16F)
+                    .setUsage(USAGE)
+                    .setLinearFiltering(true)
+                    .setClamp(true));
+        }
+        return finalOut;
     }
 
     private static Target target(VulkanImage image) {
@@ -280,7 +314,7 @@ public final class CompositeRunner {
         if (!renderer.beginRenderPass(t.renderPass(), t.framebuffer())) {
             throw new IllegalStateException("could not begin a render pass on " + image);
         }
-        fullViewport();
+        glViewport(cmd);
     }
 
     /** Iris clears every buffer at frame start: colortex1 (gdepth) to white, the rest to zero. */
@@ -306,7 +340,24 @@ public final class CompositeRunner {
         }
     }
 
-    private static void fullViewport() {
+    /**
+     * Iris's own targets are stored the OpenGL way: row 0 is the BOTTOM of the screen. A plain
+     * (positive-height) Vulkan viewport does that: clip y = -1 lands on row 0, and gl_FragCoord.y counts
+     * up from the bottom like GL's. So texcoord, gl_FragCoord and the depth/projection math in a pack all
+     * agree with each other, exactly as on OpenGL. ({@code Renderer.setViewport} is VulkanMod's
+     * inverted, top-row-first viewport; only the main target uses it.)
+     */
+    private static void glViewport(VkCommandBuffer cmd) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            VkViewport.Buffer vp = VkViewport.malloc(1, stack);
+            vp.x(0).y(0).width(width).height(height).minDepth(0f).maxDepth(1f);
+            VK10.vkCmdSetViewport(cmd, 0, vp);
+        }
+        Renderer.setScissor(0, 0, width, height);
+    }
+
+    /** VulkanMod's own viewport for the main target (row 0 = top of the screen). */
+    private static void mainViewport() {
         Renderer.setViewport(0, 0, width, height);
         Renderer.setScissor(0, 0, width, height);
     }
@@ -349,17 +400,39 @@ public final class CompositeRunner {
             }
             VTextureSelector.bindTexture(idx, sampled(d.name, sides));
         }
-        VulkanModProgramBridge.uploadUniforms(gp);
+        VulkanModProgramBridge.uploadUniforms(gp, POST_UNIFORMS);
         renderer.uploadAndBindUBOs(gp);
-        drawQuad(VulkanModProgramBridge.formatOf(gp));
+        drawQuad(VulkanModProgramBridge.formatOf(gp), false);
     }
 
-    private static void drawCopy(Renderer renderer, VulkanImage source) {
+    /** Copies {@code source} over the bound target; {@code flipV} converts between top-first and GL storage. */
+    private static void drawCopy(Renderer renderer, VulkanImage source, boolean flipV) {
         applyPostState();
         renderer.bindGraphicsPipeline(copyPipeline);
         VTextureSelector.bindTexture(0, source);
         renderer.uploadAndBindUBOs(copyPipeline);
-        drawQuad(DefaultVertexFormat.POSITION_TEX);
+        drawQuad(DefaultVertexFormat.POSITION_TEX, flipV);
+    }
+
+    private static Map<String, double[]> postUniforms() {
+        double[] identity = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+        double[] ortho = {2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, -1, -1, 0, 1};
+        int units = com.vulkairis.translation.LegacyGlsl.TEXTURE_MATRIX_UNITS;
+        double[] textureMatrices = new double[16 * units];
+        for (int u = 0; u < units; u++) {
+            System.arraycopy(identity, 0, textureMatrices, u * 16, 16);
+        }
+        Map<String, double[]> m = new java.util.HashMap<>();
+        m.put("vulkairis_ModelViewMatrix", identity);
+        m.put("vulkairis_ProjectionMatrix", ortho);
+        m.put("vulkairis_ModelViewProjectionMatrix", ortho);
+        m.put("vulkairis_NormalMatrix", identity);
+        m.put("vulkairis_TextureMatrix", textureMatrices);
+        m.put("iris_ModelViewMat", identity);
+        m.put("iris_ProjMat", ortho);
+        m.put("iris_NormalMat", identity);
+        m.put("iris_TextureMat", identity);
+        return Map.copyOf(m);
     }
 
     private static void applyPostState() {
@@ -371,12 +444,11 @@ public final class CompositeRunner {
     }
 
     /**
-     * A full-screen quad in {@code format}: positions 0..1 (Iris's composite ortho maps them to clip
-     * space), UV0 with v flipped. VulkanMod's viewport is GL-style (negative height), so row 0 of every
-     * image is the top of the screen; v = 1 - y keeps texcoord and gl_FragCoord on the same rows and
-     * stops each pass flipping the image.
+     * A full-screen quad in {@code format}: positions 0..1 (the post ortho maps them to clip space) and
+     * UV0 = position, as Iris's full-screen quad; {@code flipV} samples rows bottom-up instead (only for
+     * copies between VulkanMod's top-first images and Iris's GL-stored ones).
      */
-    private static void drawQuad(VertexFormat format) {
+    private static void drawQuad(VertexFormat format, boolean flipV) {
         if (format == null) {
             format = DefaultVertexFormat.POSITION_TEX;
         }
@@ -402,7 +474,7 @@ public final class CompositeRunner {
                     case POSITION -> buf.putFloat(at, x).putFloat(at + 4, y).putFloat(at + 8, 0f);
                     case UV -> {
                         if (e == VertexFormatElement.UV0 && e.type() == VertexFormatElement.Type.FLOAT) {
-                            buf.putFloat(at, x).putFloat(at + 4, 1f - y);
+                            buf.putFloat(at, x).putFloat(at + 4, flipV ? 1f - y : y);
                         }
                     }
                     case COLOR -> {

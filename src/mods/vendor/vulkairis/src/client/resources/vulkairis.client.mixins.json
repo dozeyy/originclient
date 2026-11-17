@@ -30,6 +30,7 @@
 		"iris.TransformPatcherMixin",
 		"render.GlStateManagerMixin",
 		"render.GameRendererCompositeMixin",
+		"render.LevelRendererIrisStateMixin",
 		"render.RenderTargetExtMixin",
 		"render.RendererMixin",
 		"render.RenderSystemIrisInitMixin",

@@ -236,6 +236,40 @@ public final class VulkanModProgramBridge {
     /** Origin: one-output variants, keyed by virtual program id and kept output location. */
     private static final Map<Long, GraphicsPipeline> OUTPUT_VARIANTS = new ConcurrentHashMap<>();
 
+    /**
+     * Origin (step 3): where the injected {@code VulkairisUniformBlock} sits in a built pipeline (its
+     * dense binding) and its reflected std140 members, so {@link #uploadUniforms} can fill each member
+     * by name with Iris's value instead of writing a fixed layout.
+     */
+    record BlockLayout(int binding, java.util.List<ShaderReflection.UniformInfo> members) {
+    }
+
+    private static final Map<GraphicsPipeline, BlockLayout> PIPELINE_BLOCKS =
+            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+
+    private static void recordBlockLayout(GraphicsPipeline pipeline, Map<String, Integer> bindings,
+                                          VulkairisShader vert, VulkairisShader frag) {
+        Integer binding = bindings.get(ShaderTranslator.UNIFORM_BLOCK_NAME);
+        if (binding == null) {
+            return;
+        }
+        ShaderReflection.UniformBlock best = null;
+        for (VulkairisShader shader : List.of(vert, frag)) {
+            if (shader == null || shader.getReflection() == null) {
+                continue;
+            }
+            for (ShaderReflection.UniformBlock block : shader.getReflection().getUniformBlocks()) {
+                if (matchesBlock(block, ShaderTranslator.UNIFORM_BLOCK_NAME, ShaderTranslator.UNIFORM_BLOCK_BINDING)
+                        && (best == null || block.members().size() > best.members().size())) {
+                    best = block;
+                }
+            }
+        }
+        if (best != null) {
+            PIPELINE_BLOCKS.put(pipeline, new BlockLayout(binding, java.util.List.copyOf(best.members())));
+        }
+    }
+
     /** Origin: the vertex format {@code pipeline} was linked with, or {@code null}. */
     public static VertexFormat formatOf(GraphicsPipeline pipeline) {
         return pipeline == null ? null : PIPELINE_FORMATS.get(pipeline);
@@ -429,6 +463,7 @@ public final class VulkanModProgramBridge {
             try {
                 pipeline = builder.createGraphicsPipeline();
                 PIPELINE_FORMATS.put(pipeline, vertexFormat);
+                recordBlockLayout(pipeline, bindings, vert, frag);
             } catch (Throwable t) {
                 dumpFailedSource(program.getName(), vertFinal, fragFinal);
                 throw t;
@@ -995,9 +1030,20 @@ public final class VulkanModProgramBridge {
      * Never throws.
      */
     public static void uploadUniforms(GraphicsPipeline pipeline) {
+        uploadUniforms(pipeline, null);
+    }
+
+    /**
+     * Origin (step 3): as {@link #uploadUniforms(GraphicsPipeline)}, but the injected uniform block is
+     * filled member by member from Iris's live values ({@code IrisUniformValues}), with
+     * {@code overrides} (per-pass values such as the composite quad's matrices) taking priority.
+     * Members nobody defines stay zero, as an unset GL uniform does.
+     */
+    public static void uploadUniforms(GraphicsPipeline pipeline, Map<String, double[]> overrides) {
         if (pipeline == null) {
             return;
         }
+        BlockLayout layout = PIPELINE_BLOCKS.get(pipeline);
         try {
             UniformBridge bridge = UniformBridge.getInstance();
             java.util.List<UBO> ubos = pipeline.getBuffers();
@@ -1025,10 +1071,15 @@ public final class VulkanModProgramBridge {
                     buf.put((byte) 0);
                 }
                 buf.clear();
-                // Fill the std140 OfGlobals payload into the front of the buffer.
-                try {
-                    bridge.writeOfGlobals(buf);
-                } catch (Throwable ignored) {
+                if (layout != null && ubo.getBinding() == layout.binding()) {
+                    fillBlock(buf, size, layout, overrides);
+                    buf.position(size);
+                } else {
+                    // Any other block keeps upstream's fixed OfGlobals payload.
+                    try {
+                        bridge.writeOfGlobals(buf);
+                    } catch (Throwable ignored) {
+                    }
                 }
                 buf.flip();
                 long addr = org.lwjgl.system.MemoryUtil.memAddress0(buf);
@@ -1038,6 +1089,19 @@ public final class VulkanModProgramBridge {
         } catch (Throwable t) {
             LOGGER.debug("[Vulkairis/ProgramBridge] Uniform upload notice: {}",
                     t.getMessage() != null ? t.getMessage() : t.toString());
+        }
+    }
+
+    private static void fillBlock(java.nio.ByteBuffer buf, int size, BlockLayout layout,
+                                  Map<String, double[]> overrides) {
+        for (ShaderReflection.UniformInfo member : layout.members()) {
+            double[] value = overrides != null ? overrides.get(member.name()) : null;
+            if (value == null) {
+                value = com.vulkairis.origin.uniforms.IrisUniformValues.lookup(member.name());
+            }
+            if (value != null) {
+                com.vulkairis.origin.uniforms.Std140Writer.write(buf, member.offset(), size, member.type(), value);
+            }
         }
     }
 
@@ -1333,6 +1397,7 @@ public final class VulkanModProgramBridge {
             variant.scheduleCleanUp();
         }
         OUTPUT_VARIANTS.clear();
+        PIPELINE_BLOCKS.clear();
         for (GraphicsPipeline pipeline : LINKED.values()) {
             try {
                 pipeline.scheduleCleanUp();
