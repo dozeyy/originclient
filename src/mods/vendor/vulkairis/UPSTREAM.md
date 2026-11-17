@@ -133,3 +133,12 @@ Tests: `origin/VaryingLocationTest`; the translator policy tests now assert by-n
 - `origin/composite/CompositeRunner.sampleableDepth`: the depth-only view cache is keyed on the depth
   wrapper object as well as the VkImage handle; lavapipe handles are host pointers that a resized depth
   image can reuse, which would hand out a view of freed memory.
+
+### 2026-11-17 nothing claims the sodium id (step 4e)
+- `sodium-provider/` is removed. With a mod providing `sodium`, `isModLoaded("sodium")` was true under
+  VulkanMod (probe 44041686578: "Sodium: true"), and Flywheel (Create) then loads its Sodium compat
+  classes, which the stand-in does not have. Iris's `sodium 0.8.x` dependency is now removed at the
+  loader level instead: the launcher writes `config/fabric_loader_dependencies.json` in each Vulkan
+  account's game folder (`{"version":1,"overrides":{"iris":{"-depends":{"sodium":"*"}}}}`, Fabric
+  Loader's dependency override file; same file at `tools/vulkan-probe/fabric_loader_dependencies.json`).
+  `sodium-compat` (Origin's own stand-in types) stays nested and claims no id.

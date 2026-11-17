@@ -125,6 +125,14 @@ jobs:
             printf 'enableShaders=true\nshaderPack=%s\n' "$PACK_FILE" > run-prod/config/iris.properties
             echo "shader pack on: $PACK_FILE"
           fi
+          # Vulkan rows: nothing provides the id "sodium" any more (Flywheel/Create would load Sodium
+          # classes if it did), so Iris's sodium dependency is dropped with Fabric Loader's dependency
+          # override file, exactly what the launcher writes per Vulkan account.
+          case ",$DISABLE," in *,sodium,*)
+            mkdir -p run-prod/config
+            cp "$GITHUB_WORKSPACE/tools/vulkan-probe/fabric_loader_dependencies.json" run-prod/config/
+            echo "dependency override on: iris -depends sodium";;
+          esac
           gargs="-PwithFabricApi -PframeLog -PbootLog"
           [ -n "${EXTRA_MODS:-}" ] && gargs="$gargs -PextraMods=$EXTRA_MODS"
           dargs=""

@@ -15,9 +15,10 @@ This module is Origin's own minimal stand-in for exactly those types:
 - Deliberately absent: every Sodium class an Iris mixin targets (for example `RenderSectionManager`,
   `DefaultChunkRenderer`, `ChunkVertexEncoder$Vertex`). With no target, those mixins cannot apply, and
   VulkaIris removes their config before Mixin reads it.
-- Mod id `vulkairis_sodium_compat`, version 1.0.0, client only. It does not claim to be Sodium. The
-  separate `sodium-provider` marker does that, so a launcher can drop the claim without losing the
-  classes.
+- Mod id `vulkairis_sodium_compat`, version 1.0.0, client only. It does not claim to be Sodium, and nothing else
+  does: Iris's `sodium` dependency is removed by Fabric Loader's dependency override file
+  (`config/fabric_loader_dependencies.json`, written by the launcher), so Flywheel/Create never see
+  Sodium as loaded.
 
 Proof: `SodiumCompatCoverageTest` (named namespace, runs in `gradlew test`) walks every Iris class
 and checks every Sodium class, field, method and constructor it references against this module.

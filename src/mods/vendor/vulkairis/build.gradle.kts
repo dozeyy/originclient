@@ -1,5 +1,5 @@
 // Origin fork of VulkaIris. Upstream: Potatochip-p/vulkairis @ 0e9d08f (UPSTREAM.md lists our changes).
-// Output: build/libs/vulkairis-origin-<version>.jar, with sodium-compat + sodium-provider nested.
+// Output: build/libs/vulkairis-origin-<version>.jar, with sodium-compat nested.
 plugins {
 	id("net.fabricmc.fabric-loom-remap")
 }
@@ -58,7 +58,6 @@ dependencies {
 	// VulkaIris uses nothing the stand-in lacks) and nested into the jar. No Sodium jar anywhere.
 	implementation(project(path = ":sodium-compat", configuration = "namedElements"))
 	include(project(":sodium-compat"))
-	include(project(":sodium-provider"))
 
 	// Iris's own nested libraries (Loom does not put a mod's nested jars on the dev classpath).
 	implementation("io.github.douira:glsl-transformer:3.0.0-pre3")

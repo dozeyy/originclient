@@ -1,5 +1,5 @@
 // Origin's minimal stand-in for the Sodium API classes Iris 1.8.14-beta.1 links against.
-// Nested into the VulkaIris jar; its own mod id, no "provides" (that lives in sodium-provider).
+// Nested into the VulkaIris jar; its own mod id, no "provides": nothing claims the sodium id.
 plugins {
 	id("net.fabricmc.fabric-loom-remap")
 }
