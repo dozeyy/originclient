@@ -102,3 +102,12 @@ Tests: `origin/VaryingLocationTest`; the translator policy tests now assert by-n
   ("Descriptor 'VulkairisUniformBlock' (binding 0, raw 100) has no reflected block", probe run 44008144043).
   Anonymous blocks now reflect under their block type name; member names are unchanged.
   Test: `origin/UnionBlockReflectionTest`.
+
+## 2026-11-16 multi-target passes and depth/stencil depth (step 4b)
+- `bridge/VulkanModProgramBridge`: one-output variants of a multi-target pass are built from the sources
+  the program was linked with. Iris deletes a program's shaders right after linking, so the variant
+  build found none ("vert is null", 141 retries in probe run 44010406762) and MakeUp's composite never
+  wrote colortex6; final.vsh reads its exposure from there, so the whole frame was multiplied by 0.
+  Failed variants are no longer retried every frame.
+- `origin/composite/CompositeRunner`: a combined depth/stencil attachment (lavapipe picks
+  D24_UNORM_S8_UINT) is sampled through its own DEPTH-only image view, so depthtex works there too.

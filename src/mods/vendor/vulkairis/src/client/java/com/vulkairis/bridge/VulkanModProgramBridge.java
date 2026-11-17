@@ -175,6 +175,15 @@ public final class VulkanModProgramBridge {
             "vulkairis_MultiTexCoord1", "UV2");
 
     private static final Map<Integer, GraphicsPipeline> LINKED = new ConcurrentHashMap<>();
+    /**
+     * Origin: the sources and reflected shaders each program was linked from. Iris detaches and
+     * deletes a program's shaders right after glLinkProgram, so a one-output variant built later
+     * (first composite frame) found no shaders ("vert is null", probe run 44010406762) and the
+     * pass's extra targets were never written. Variants are built from this copy instead.
+     */
+    private static final Map<Integer, DriverSources> LINKED_SOURCES = new ConcurrentHashMap<>();
+    /** Origin: variants that failed to build; never retried each frame (one log line, not one per frame). */
+    private static final java.util.Set<Long> FAILED_VARIANTS = ConcurrentHashMap.newKeySet();
     private static final AtomicInteger CONSECUTIVE_FAILURES = new AtomicInteger();
     private static final int MAX_FAILURES = 3;
     private static volatile boolean disabled = false;
@@ -290,9 +299,14 @@ public final class VulkanModProgramBridge {
         if (cached != null) {
             return cached;
         }
+        if (FAILED_VARIANTS.contains(key)) {
+            return null;
+        }
         GraphicsPipeline built = buildPipeline(program, keepOutput);
         if (built != null) {
             OUTPUT_VARIANTS.put(key, built);
+        } else {
+            FAILED_VARIANTS.add(key);
         }
         return built;
     }
@@ -317,7 +331,12 @@ public final class VulkanModProgramBridge {
             // never from per-stage preprocessing. The dense 0..N-1 assignment below is the single
             // shared contract (ShaderTranslator.buildUnifiedBindingMap: injected block first,
             // then first-seen vertex->fragment).
-            DriverSources base = resolveDriverSources(program);
+            // Origin: a variant reuses the linked program's own sources (its shaders are gone by now).
+            DriverSources linked = keepOutput >= 0 ? LINKED_SOURCES.get(program.getVirtualProgramId()) : null;
+            DriverSources base = linked != null ? linked : resolveDriverSources(program);
+            if (keepOutput < 0) {
+                LINKED_SOURCES.put(program.getVirtualProgramId(), base);
+            }
             VulkairisShader vert = base.vert() != null ? base.vert() : vert0;
             VulkairisShader frag = base.frag() != null ? base.frag() : frag0;
             String vertSrc = base.vertGlsl();
@@ -1344,6 +1363,15 @@ public final class VulkanModProgramBridge {
 
     public static void unlink(int virtualProgramId) {
         GraphicsPipeline pipeline = LINKED.remove(virtualProgramId);
+        LINKED_SOURCES.remove(virtualProgramId);
+        OUTPUT_VARIANTS.entrySet().removeIf(e -> {
+            if ((e.getKey() >> 8) != virtualProgramId) {
+                return false;
+            }
+            e.getValue().scheduleCleanUp();
+            return true;
+        });
+        FAILED_VARIANTS.removeIf(k -> (k >> 8) == virtualProgramId);
         if (pipeline != null) {
             try {
                 pipeline.scheduleCleanUp();
@@ -1357,6 +1385,8 @@ public final class VulkanModProgramBridge {
             variant.scheduleCleanUp();
         }
         OUTPUT_VARIANTS.clear();
+        FAILED_VARIANTS.clear();
+        LINKED_SOURCES.clear();
         PIPELINE_BLOCKS.clear();
         for (GraphicsPipeline pipeline : LINKED.values()) {
             try {

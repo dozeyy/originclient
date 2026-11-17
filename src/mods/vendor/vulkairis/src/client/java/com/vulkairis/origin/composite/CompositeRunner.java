@@ -95,7 +95,10 @@ public final class CompositeRunner {
     private static final int FORMAT_R32F = 100;                 // VK_FORMAT_R32_SFLOAT
     private static final int FORMAT_D32F = 126;                 // VK_FORMAT_D32_SFLOAT
     private static final int FORMAT_D16 = 124;                  // VK_FORMAT_D16_UNORM
+    private static final int FORMAT_D24S8 = 129;                // VK_FORMAT_D24_UNORM_S8_UINT
+    private static final int FORMAT_D32FS8 = 130;               // VK_FORMAT_D32_SFLOAT_S8_UINT
     private static final int LAYOUT_DEPTH_ATTACHMENT = 3;       // VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    private static final int LAYOUT_SHADER_READ_ONLY = 5;       // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 
     private static boolean running;
     private static boolean disabled;
@@ -173,8 +176,8 @@ public final class CompositeRunner {
             if (depth == null || mainColor == null || renderer.getBoundRenderPass() == null) {
                 return;
             }
-            if (depth.format != FORMAT_D32F && depth.format != FORMAT_D16) {
-                // A combined depth/stencil view cannot be sampled; say so once and keep white.
+            VulkanImage sampleDepth = sampleableDepth(depth);
+            if (sampleDepth == null) {
                 warnOnce("depth", "main depth format " + depth.format + " is not sampleable; depthtex stays white");
                 return;
             }
@@ -182,19 +185,22 @@ public final class CompositeRunner {
             if (!ensureCopyPipeline() || depthPipeline == null) {
                 return;
             }
-            if (depth.getSampler() == 0L) {
-                depth.setSampler(whiteTexture().getSampler());
+            if (sampleDepth.getSampler() == 0L) {
+                sampleDepth.setSampler(whiteTexture().getSampler());
             }
             VkCommandBuffer cmd = Renderer.getCommandBuffer();
             SavedState saved = SavedState.capture();
             try {
                 renderer.endRenderPass(cmd);
                 readOnly(cmd, depth);
+                // The depth-only view shares the real image, which is now read-only; tell the wrapper
+                // so VulkanMod's bind does not "transition" it from UNDEFINED (that would drop depth).
+                sampleDepth.setCurrentLayout(LAYOUT_SHADER_READ_ONLY);
                 VulkanImage target = depthTarget();
                 beginTarget(cmd, renderer, target);
                 applyPostState();
                 renderer.bindGraphicsPipeline(depthPipeline);
-                VTextureSelector.bindTexture(0, depth);
+                VTextureSelector.bindTexture(0, sampleDepth);
                 renderer.uploadAndBindUBOs(depthPipeline);
                 drawQuad(DefaultVertexFormat.POSITION_TEX, true);
                 renderer.endRenderPass(cmd);
@@ -214,6 +220,64 @@ public final class CompositeRunner {
         } finally {
             running = false;
         }
+    }
+
+    /** Wraps a depth-only view of a combined depth/stencil attachment (rebuilt when the image changes). */
+    private static VulkanImage depthOnlyView;
+    private static long depthOnlyViewImage;
+
+    /**
+     * Origin: VulkanMod picks a combined depth/stencil format when the device lists it first (lavapipe:
+     * D24_UNORM_S8_UINT, probe run 44010406762) and views it with both aspects, which a shader may not
+     * sample. A second view over the same image with only the DEPTH aspect can be sampled, so depthtex
+     * works on those devices too. Returns {@code depth} itself for plain depth formats, or null.
+     */
+    private static VulkanImage sampleableDepth(VulkanImage depth) {
+        if (depth.format == FORMAT_D32F || depth.format == FORMAT_D16) {
+            return depth;
+        }
+        if (depth.format != FORMAT_D24S8 && depth.format != FORMAT_D32FS8) {
+            return null;
+        }
+        if (depthOnlyView != null && depthOnlyViewImage == depth.getId()) {
+            return depthOnlyView;
+        }
+        releaseDepthOnlyView();
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            org.lwjgl.vulkan.VkImageViewCreateInfo info = org.lwjgl.vulkan.VkImageViewCreateInfo.calloc(stack)
+                    .sType(VK10.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO)
+                    .image(depth.getId())
+                    .viewType(VK10.VK_IMAGE_VIEW_TYPE_2D)
+                    .format(depth.format);
+            info.subresourceRange()
+                    .aspectMask(VK10.VK_IMAGE_ASPECT_DEPTH_BIT)
+                    .baseMipLevel(0)
+                    .levelCount(1)
+                    .baseArrayLayer(0)
+                    .layerCount(1);
+            java.nio.LongBuffer out = stack.mallocLong(1);
+            int result = VK10.vkCreateImageView(net.vulkanmod.vulkan.device.DeviceManager.vkDevice, info, null, out);
+            if (result != VK10.VK_SUCCESS) {
+                warnOnce("depthview", "depth-only view failed (VkResult " + result + ")");
+                return null;
+            }
+            depthOnlyView = new VulkanImage("vulkairis depth-only view", depth.getId(), depth.format, 1,
+                    depth.width, depth.height, 4, depth.usage, out.get(0));
+            depthOnlyViewImage = depth.getId();
+        }
+        return depthOnlyView;
+    }
+
+    /** Destroys the depth-only view. Only on a depth image change (a resize, which already waits for the GPU). */
+    private static void releaseDepthOnlyView() {
+        if (depthOnlyView == null) {
+            return;
+        }
+        long view = depthOnlyView.getImageView();
+        depthOnlyView = null;
+        depthOnlyViewImage = 0L;
+        VK10.vkDeviceWaitIdle(net.vulkanmod.vulkan.device.DeviceManager.vkDevice);
+        VK10.vkDestroyImageView(net.vulkanmod.vulkan.device.DeviceManager.vkDevice, view, null);
     }
 
     private static VulkanImage depthTarget() {
