@@ -12,6 +12,7 @@ import net.fabricmc.loader.api.ModContainer;
  * or VulkanMod class (so a player without either, or with other versions, loads nothing of them).
  */
 public final class FlywheelVulkanClient implements ClientModInitializer {
+	public static final String MOD_ID = "origin_flywheel_vulkan";
 	public static final Logger LOGGER = LoggerFactory.getLogger("origin-flywheel-vulkan");
 
 	public record GateState(Gate.Verdict verdict, String vulkanmod, String flywheel, boolean vulkanmodPinned) {
