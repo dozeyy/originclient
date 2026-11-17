@@ -748,8 +748,10 @@ public class ShaderTranslator {
         if (isVertex) {
             return lookupLocation(varyingLocations, name);
         }
-        // Fragment colour outputs have no cross-stage identity; number them in order.
-        return fragmentOutputLocation;
+        // Origin (step 4d): an iris_FragDataN / vulkairisFragDataN output is draw buffer N
+        // whatever its declaration order; other colour outputs are numbered in order.
+        Integer own = ProgramTranslator.fragDataSuffix(name);
+        return own != null ? own : fragmentOutputLocation;
     }
 
     /** Whether the declaration is a fragment-stage colour output ({@code out}, non-vertex). */

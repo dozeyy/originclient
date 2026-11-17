@@ -120,3 +120,13 @@ Tests: `origin/VaryingLocationTest`; the translator policy tests now assert by-n
   composite writes colortex6 ALT, final reads ALT, the next frame read a cleared MAIN).
 - `origin/composite/CompositeProbe` (CI only, `-Dvulkairis.composite.probe=true`): one readback of
   every post buffer, logged, to pin a wrong frame to one pass.
+
+### 2026-11-17 fragment outputs keep their draw buffer (step 4d)
+- `translation/ProgramTranslator`: the union pass stripped every `layout(location = N)` and renumbered
+  fragment outs densely by declaration order. Iris declares `iris_FragDataN` in reverse order in some
+  programs, so `iris_FragData2` landed at location 0 (SPIR-V cache of probe 44036544134), and MakeUp's
+  composite wrote its exposure into colortex0 and 0 into colortex6: a black frame. An out now keeps its
+  own explicit location (read before the strip), else the `iris_FragDataN` / `vulkairisFragDataN` suffix;
+  only the rest are numbered densely.
+- `translation/ShaderTranslator.injectLayoutLocations`: the same suffix rule for sources that reach the
+  bridge without locations. Test: `FragDataLocationTest`.

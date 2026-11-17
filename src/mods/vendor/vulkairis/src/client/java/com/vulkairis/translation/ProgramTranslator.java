@@ -204,6 +204,23 @@ public final class ProgramTranslator {
                 }
             }
         }
+        // Origin (step 4d): an out that names its own location keeps it (explicit
+        // layout(location = N), else an iris_FragDataN / vulkairisFragDataN suffix). Dense
+        // numbering by declaration order put MakeUp's exposure into colortex0 (probe 44036544134).
+        for (StageDraft draft : drafts) {
+            if (!"FRAGMENT".equals(draft.stage())) {
+                continue;
+            }
+            for (String outName : draft.plainFragmentOutputs()) {
+                Integer own = draft.explicitFragmentLocations().get(outName);
+                if (own == null) {
+                    own = fragDataSuffix(outName);
+                }
+                if (own != null && !fragOutputs.containsKey(outName) && taken.add(own)) {
+                    fragOutputs.put(outName, own);
+                }
+            }
+        }
         int nextOutput = 0;
         for (StageDraft draft : drafts) {
             if (!"FRAGMENT".equals(draft.stage())) {
@@ -321,6 +338,7 @@ public final class ProgramTranslator {
             Map<String, Integer> interfaceOuts,
             Map<String, Integer> interfaceIns,
             List<String> plainFragmentOutputs,
+            Map<String, Integer> explicitFragmentLocations,
             LegacyGlsl.LegacyResult legacy,
             List<String> notes) {
     }
@@ -371,6 +389,11 @@ public final class ProgramTranslator {
         // outputs are renumbered densely once the union is fixed). Both strips are
         // idempotent, so finalizeStage re-applies them defensively.
         body = stripBindingQualifiers(body);
+        // Origin (step 4d): a fragment out's own location is its draw buffer (Iris writes
+        // layout(location = N) out vec4 iris_FragDataN, sometimes declared in reverse order).
+        // Record it before the strip so the dense renumbering cannot reorder the targets.
+        Map<String, Integer> explicitFragLocations = "FRAGMENT".equals(stage)
+                ? explicitFragmentLocations(body) : Map.of();
         body = stripAllLocationQualifiers(body);
 
         // Interface inventory for the union varying set (slot-aware for split leaves).
@@ -382,7 +405,8 @@ public final class ProgramTranslator {
         // Provenance: trace the pre-union rewrite like any other translation output.
         com.vulkairis.iris.SourceProvenance.recordTranslation(packId, program, stage, body);
 
-        return new StageDraft(stage, body, members, outs, ins, plainFragOuts, legacy, notes);
+        return new StageDraft(stage, body, members, outs, ins, plainFragOuts, explicitFragLocations,
+                legacy, notes);
     }
 
     // ------------------------------------------------------------------
@@ -860,6 +884,35 @@ public final class ProgramTranslator {
         }
         out.append(source, last, source.length());
         return out.toString().replaceAll("[ \\t]{2,}", " ");
+    }
+
+    private static final Pattern EXPLICIT_FRAG_OUT = Pattern.compile(
+            "layout\\s*\\(([^)]*)\\)\\s*out\\s+[A-Za-z_]\\w*\\s+([A-Za-z_]\\w*)\\s*;");
+    private static final Pattern FRAG_DATA_SUFFIX = Pattern.compile(
+            "(?:iris_FragData|" + LegacyGlsl.FRAG_DATA_BASE + ")(\\d+)");
+
+    /** Origin (step 4d): name -> location for every {@code layout(location = N) out T name;}. */
+    static Map<String, Integer> explicitFragmentLocations(String source) {
+        Map<String, Integer> found = new LinkedHashMap<>();
+        if (source == null || !source.contains("location")) {
+            return found;
+        }
+        Matcher m = EXPLICIT_FRAG_OUT.matcher(source);
+        while (m.find()) {
+            Matcher loc = LOCATION_TOKEN.matcher(m.group(1));
+            if (loc.find()) {
+                String token = loc.group();
+                found.putIfAbsent(m.group(2),
+                        Integer.parseInt(token.substring(token.indexOf('=') + 1).trim()));
+            }
+        }
+        return found;
+    }
+
+    /** Origin (step 4d): the draw-buffer index an iris_FragDataN / vulkairisFragDataN name carries. */
+    static Integer fragDataSuffix(String name) {
+        Matcher m = FRAG_DATA_SUFFIX.matcher(name);
+        return m.matches() ? Integer.valueOf(m.group(1)) : null;
     }
 
     private static final Pattern FRAG_OUT_DECL = Pattern.compile(
