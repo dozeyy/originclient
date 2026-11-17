@@ -122,6 +122,9 @@ test {
 	def fw = project.configurations.detachedConfiguration(project.dependencies.create(flywheelCoord))
 	fw.transitive = false
 	inputs.files(fw)
+	// Also on the test classpath: PackVariantKeyTest builds keys from Flywheel's material enums
+	// (plain API classes, no Minecraft types).
+	classpath += fw
 	doFirst { systemProperty 'flywheel.jar', fw.singleFile.absolutePath }
 	systemProperty 'flywheelvulkan.resources', file('src/main/resources').absolutePath
 	testLogging { events 'failed'; exceptionFormat 'full' }

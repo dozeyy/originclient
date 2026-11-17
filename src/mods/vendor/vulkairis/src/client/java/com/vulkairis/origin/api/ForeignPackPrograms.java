@@ -90,7 +90,8 @@ public final class ForeignPackPrograms {
      * pack is active or it can't be prepared. Cached per pack generation, failures included.
      */
     public static Object prepare(String role, int set) {
-        if (!packActive()) {
+        if (!packActive() || PROGRAM_IDS.isEmpty()) {
+            // No pack, or its programs aren't registered yet: ask again later, nothing is cached.
             return null;
         }
         String key = role + "#" + set;

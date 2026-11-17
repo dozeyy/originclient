@@ -32,6 +32,17 @@ final class VkPipelines {
 		static StateKey of(Material m) {
 			return new StateKey(m.backfaceCulling(), m.depthTest(), m.transparency(), m.writeMask());
 		}
+
+		/**
+		 * What a draw into a shader pack's shadow map uses, whatever the material: both faces (a cog
+		 * seen from the sun shows its back), opaque, depth tested and written, like Iris's shadow pass.
+		 */
+		static final StateKey SHADOW = new StateKey(false, DepthTest.LEQUAL, Transparency.OPAQUE, WriteMask.COLOR_DEPTH);
+
+		/** The state a shader-pack variant of a draw uses: the material's own, or {@link #SHADOW} in the shadow pass. */
+		static StateKey forRole(StateKey material, boolean shadow) {
+			return shadow ? SHADOW : material;
+		}
 	}
 
 	/*
@@ -80,13 +91,13 @@ final class VkPipelines {
 		PipelineKey key = new PipelineKey(formats(renderPass), program, state);
 		Long p = pipelines.get(key);
 		if (p == null) {
-			p = create(renderPass.getId(), modules, state);
+			p = create(renderPass.getId(), modules.vertex(), modules.fragment(), state, pipelineLayout);
 			pipelines.put(key, p);
 		}
 		return p;
 	}
 
-	private static RenderPassFormats formats(RenderPass renderPass) {
+	static RenderPassFormats formats(RenderPass renderPass) {
 		RenderPassAccessor pass = (RenderPassAccessor) renderPass;
 		return RenderPassFormats.of(format(pass.origin$colorAttachment()), format(pass.origin$depthAttachment()));
 	}
@@ -118,11 +129,12 @@ final class VkPipelines {
 		vkDestroyDescriptorSetLayout(dev, setLayout, null);
 	}
 
-	private long create(long renderPass, VkShaders.Modules modules, StateKey state) {
+	/** One pipeline over Flywheel's vertex layout; {@code layout} is ours, or a shader pack's (PackDraw, set 0 + set 1). */
+	long create(long renderPass, long vertexModule, long fragmentModule, StateKey state, long layout) {
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			VkPipelineShaderStageCreateInfo.Buffer stages = VkPipelineShaderStageCreateInfo.calloc(2, stack);
-			stages.get(0).sType$Default().stage(VK_SHADER_STAGE_VERTEX_BIT).module(modules.vertex()).pName(stack.UTF8("main"));
-			stages.get(1).sType$Default().stage(VK_SHADER_STAGE_FRAGMENT_BIT).module(modules.fragment()).pName(stack.UTF8("main"));
+			stages.get(0).sType$Default().stage(VK_SHADER_STAGE_VERTEX_BIT).module(vertexModule).pName(stack.UTF8("main"));
+			stages.get(1).sType$Default().stage(VK_SHADER_STAGE_FRAGMENT_BIT).module(fragmentModule).pName(stack.UTF8("main"));
 
 			VkVertexInputBindingDescription.Buffer bind = VkVertexInputBindingDescription.calloc(1, stack);
 			bind.get(0).binding(0).stride(VkLayout.VERTEX_STRIDE).inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
@@ -166,7 +178,7 @@ final class VkPipelines {
 					.pDynamicState(VkPipelineDynamicStateCreateInfo.calloc(stack).sType$Default()
 							.pDynamicStates(stack.ints(VK_DYNAMIC_STATE_DEPTH_BIAS, VK_DYNAMIC_STATE_VIEWPORT,
 									VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_LINE_WIDTH)))
-					.layout(pipelineLayout)
+					.layout(layout)
 					.renderPass(renderPass)
 					.subpass(0)
 					.basePipelineIndex(-1);

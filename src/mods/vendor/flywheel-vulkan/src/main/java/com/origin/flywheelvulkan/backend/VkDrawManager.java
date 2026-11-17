@@ -91,12 +91,15 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 	/** Embedded pose (mat4) + normal (mat3 as 3 x vec4) as EmbeddedEnvironment.flush writes them. */
 	private static final int MATRIX_BYTES = 112;
 
-	private record SetKey(long instanceBuffer, long diffuseView, long diffuseSampler, long crumblingView, long crumblingSampler) {
+	private record SetKey(long ubo, long instanceBuffer, long diffuseView, long diffuseSampler, long crumblingView, long crumblingSampler) {
 	}
 
 	private static final class Slot {
 		HostBuffer ubo;
 		HostBuffer instances;
+		// Shadow pass (PackDraw.SHADOW): Flywheel's uniforms with this frame's camera, last frame's instances.
+		HostBuffer shadowUbo;
+		HostBuffer shadowInstances;
 		HostBuffer crumbling;
 		long crumblingCursor;
 		HostBuffer lightLut;
@@ -148,6 +151,26 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 	private boolean loggedFirstDraw;
 	private boolean deleted;
 
+	// ---- shader pack (null without Origin's VulkaIris fork: phase 1 only)
+	private final PackDraw pack;
+	private final Runnable shadowCaster = this::castShadows;
+	/** The slot the shadow pass already began this frame (it runs before Flywheel's render), or -1. */
+	private int pendingEarlySlot = -1;
+	// Last frame's unculled instances + draws, for the next frame's shadow pass (which runs first).
+	private final InstanceRegions shadowRegions = new InstanceRegions();
+	private long snapInstances;
+	private long snapInstanceCapacity;
+	private long snapInstanceBytes;
+	private VkDraw[] snapDraws = new VkDraw[64];
+	private long snapMatrices = MemoryUtil.nmemAlloc(64L * MATRIX_BYTES);
+	private boolean[] snapEmbedded = new boolean[64];
+	private int snapCount;
+	private int snapOriginX, snapOriginY, snapOriginZ;
+	private boolean loggedFirstShadow;
+	private boolean loggedFirstPackDraw;
+	/** _flw_cameraPos inside Flywheel's frame block (std140, after the planes, cull data and 9 mat4). */
+	private static final int FRAME_CAMERA_POS = 720;
+
 	public VkDrawManager() {
 		uniformBlocks = FlywheelInternals.uniformBlocks();
 		uniformOffsets = new long[uniformBlocks.length];
@@ -158,6 +181,10 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		}
 		uniformBytes = cursor;
 		ensureSlots();
+		pack = PackBridge.AVAILABLE ? new PackDraw(pipelines) : null;
+		if (pack != null) {
+			PackBridge.addShadowCaster(shadowCaster);
+		}
 	}
 
 	/** Meshes this backend holds (shown in Flywheel's debug info instead of a GL MeshPool's). */
@@ -213,6 +240,11 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		upload(light);
 		cullAndWrite(ctx, renderOrigin, environments);
 		record(renderPass, environments);
+		if (pack != null && pack.active()) {
+			snapshot(renderOrigin, environments);
+		} else {
+			clearSnapshot();
+		}
 	}
 
 	/** First call with a new RenderContext starts this manager's work in VulkanMod's current frame slot. */
@@ -224,15 +256,30 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		ensureSlots();
 		slotIndex = Renderer.getCurrentFrame();
 		slot = slots[slotIndex];
-		retirement.beginFrame(slotIndex);
+		if (pendingEarlySlot != slotIndex) {
+			beginSlot(slotIndex);
+		}
+		pendingEarlySlot = -1;
+		uploaded = false;
+	}
+
+	/**
+	 * VulkanMod waited on this slot's fence: what the GPU read from it last time may go. Runs once
+	 * per frame, from whichever comes first: the shadow pass (castShadows) or Flywheel's render.
+	 */
+	private void beginSlot(int k) {
+		Slot s = slots[k];
+		retirement.beginFrame(k);
 		VkDevice dev = Vulkan.getVkDevice();
-		for (long pool : slot.pools) {
+		for (long pool : s.pools) {
 			vkResetDescriptorPool(dev, pool, 0);
 		}
-		slot.poolIndex = 0;
-		slot.sets.clear();
-		slot.crumblingCursor = 0;
-		uploaded = false;
+		s.poolIndex = 0;
+		s.sets.clear();
+		s.crumblingCursor = 0;
+		if (pack != null) {
+			pack.beginSlot(k);
+		}
 	}
 
 	/** VulkanMod's frames-in-flight setting can change at runtime (it waits for the device then). */
@@ -346,13 +393,20 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		for (VkDraw d : draws) {
 			if (shaders.prepare(d.material())) {
 				pipelines.retireAll(retirement, slotIndex);
+				if (pack != null) {
+					pack.invalidatePrograms(retirement, slotIndex);
+				}
 			}
 		}
+		boolean packMain = pack != null && pack.begin(PackDraw.MAIN, retirement, slotIndex, renderPass);
+		int packDraws = 0;
 
 		VkCommandBuffer cb = Renderer.getCommandBuffer();
 		VulkanImage white = VTextureSelector.getWhiteTexture();
 		long boundPipeline = 0;
+		long boundLayout = 0;
 		long boundSet = 0;
+		long boundPackSet = 0;
 		boolean offset = false;
 		int drawCount = 0;
 		long instanceCount = 0;
@@ -371,18 +425,41 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 					continue;
 				}
 				var environment = instancer.key.environment();
-				long pipeline = pipeline(renderPass, instancer.key.type(), environment.contextShader(), material);
-				long set = descriptorSet(slot.instances.buffer, diffuse, white);
+				long pipeline = 0;
+				long layout = pipelines.pipelineLayout;
+				long packSet = 0;
+				if (packMain) {
+					// The pack's gbuffers_block; a draw whose pack pipeline won't build keeps phase 1.
+					pipeline = packPipeline(draw, PackDraw.MAIN, renderPass);
+					if (pipeline != 0) {
+						layout = pack.layout(PackDraw.MAIN);
+						packSet = pack.descriptorSet(PackDraw.MAIN, slotIndex, diffuse, lightImage, white);
+						packDraws++;
+					}
+				}
+				if (pipeline == 0) {
+					pipeline = pipeline(renderPass, instancer.key.type(), environment.contextShader(), material);
+				}
+				long set = descriptorSet(slot.ubo, slot.instances.buffer, diffuse, white);
 				if (pipeline != boundPipeline) {
 					vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 					boundPipeline = pipeline;
 				}
+				if (layout != boundLayout) {
+					boundLayout = layout;
+					boundSet = 0;
+					boundPackSet = 0;
+				}
 				if (set != boundSet) {
-					vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.pipelineLayout, 0, stack.longs(set), null);
+					vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, stack.longs(set), null);
 					boundSet = set;
 				}
+				if (packSet != 0 && packSet != boundPackSet) {
+					vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, PackDraw.SET, stack.longs(packSet), null);
+					boundPackSet = packSet;
+				}
 				long matrices = environment instanceof EmbeddedEnvironment e ? environments.arena.indexToPointer(e.matrixIndex()) : 0;
-				pushConstants(cb, matrices, material, draw.mesh.baseVertex);
+				pushConstants(cb, layout, matrices, material, draw.mesh.baseVertex);
 				offset = polygonOffset(material.polygonOffset(), offset);
 				vkCmdDrawIndexed(cb, draw.mesh.indexCount(), instancer.visibleCount, draw.mesh.firstIndex, draw.mesh.baseVertex,
 						InstanceRegions.firstInstance(instancer.regionOffset, instancer.strideBytes));
@@ -401,6 +478,180 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 			FlywheelVulkanClient.LOGGER.info("[flywheel-vulkan] origin:vulkan first frame drawn: {} draws, {} instances, {} pipelines, render pass {}",
 					drawCount, instanceCount, pipelines.size(), Long.toHexString(renderPass.getId()));
 		}
+		if (packDraws > 0 && !loggedFirstPackDraw) {
+			loggedFirstPackDraw = true;
+			FlywheelVulkanClient.LOGGER.info("[flywheel-vulkan] origin:vulkan drawing through the shader pack: {} of {} draws use its gbuffers program",
+					packDraws, drawCount);
+		}
+	}
+
+	/** The draw's pack pipeline for a role, cached on the draw until the role's epoch moves. */
+	private long packPipeline(VkDraw draw, int role, RenderPass renderPass) {
+		int epoch = pack.epoch(role);
+		if (draw.packEpoch[role] != epoch) {
+			VkShaders.ProgramKey key = draw.programKey();
+			draw.packPipeline[role] = pack.pipeline(role, renderPass, key, shaders.get(key), draw.stateKey());
+			draw.packEpoch[role] = epoch;
+		}
+		return draw.packPipeline[role];
+	}
+
+	// ---------------------------------------------------------------- shadow pass (shader pack)
+
+	private void clearSnapshot() {
+		for (int i = 0; i < snapCount; i++) {
+			snapDraws[i] = null;
+		}
+		snapCount = 0;
+	}
+
+	/**
+	 * After this frame's draws: every instance unculled (the sun sees what the camera doesn't) and
+	 * every draw, for the NEXT frame's shadow pass, which runs at the head of the solid layer, before
+	 * Flywheel updates anything. CPU memory only; castShadows copies it into that frame's slot.
+	 */
+	private void snapshot(Vec3i origin, EnvironmentStorage environments) {
+		clearSnapshot();
+		long upper = 0;
+		for (VkInstancer<?> instancer : instancers.values()) {
+			upper += (long) (instancer.instanceCountUnsafe() + 1) * instancer.strideBytes;
+		}
+		if (upper > snapInstanceCapacity) {
+			long size = HostBuffer.grownSize(upper, snapInstanceCapacity);
+			snapInstances = MemoryUtil.nmemRealloc(snapInstances, size);
+			snapInstanceCapacity = size;
+		}
+		shadowRegions.reset();
+		for (VkInstancer<?> instancer : instancers.values()) {
+			instancer.shadowCount = 0;
+			if (instancer.draws.isEmpty()) {
+				continue;
+			}
+			long offset = shadowRegions.add(instancer.instanceCountUnsafe(), instancer.strideBytes);
+			instancer.shadowOffset = offset;
+			instancer.shadowCount = instancer.writeVisible(snapInstances + offset, null, null, sphere, scratch);
+		}
+		snapInstanceBytes = shadowRegions.totalBytes();
+		for (VkDraw draw : draws) {
+			VkInstancer<?> instancer = draw.instancer;
+			if (instancer.shadowCount == 0 || !draw.mesh.drawable()) {
+				continue;
+			}
+			if (snapCount == snapDraws.length) {
+				int n = snapCount * 2;
+				snapDraws = java.util.Arrays.copyOf(snapDraws, n);
+				snapEmbedded = java.util.Arrays.copyOf(snapEmbedded, n);
+				snapMatrices = MemoryUtil.nmemRealloc(snapMatrices, (long) n * MATRIX_BYTES);
+			}
+			boolean embedded = instancer.key.environment() instanceof EmbeddedEnvironment;
+			if (embedded) {
+				EmbeddedEnvironment e = (EmbeddedEnvironment) instancer.key.environment();
+				MemoryUtil.memCopy(environments.arena.indexToPointer(e.matrixIndex()), snapMatrices + (long) snapCount * MATRIX_BYTES, MATRIX_BYTES);
+			}
+			snapEmbedded[snapCount] = embedded;
+			snapDraws[snapCount] = draw;
+			snapCount++;
+		}
+		snapOriginX = origin.getX();
+		snapOriginY = origin.getY();
+		snapOriginZ = origin.getZ();
+	}
+
+	/**
+	 * Vulkairis's shadow pass calls this with the shadow map's render pass bound: last frame's
+	 * instances through the pack's shadow program. Flywheel's uniform blocks still hold last frame's
+	 * values here (VkEngine updates them at render), so the shadow copy gets this frame's camera,
+	 * relative to the snapshot's render origin, which is what the splice subtracts.
+	 */
+	private void castShadows() {
+		if (deleted || pack == null || snapCount == 0 || !Renderer.isRecording() || slots == null
+				|| slots.length != Renderer.getFramesNum() || meshPool.vertexBuffer() == 0) {
+			return;
+		}
+		RenderPass renderPass = Renderer.getInstance().getBoundRenderPass();
+		if (renderPass == null) {
+			return;
+		}
+		int k = Renderer.getCurrentFrame();
+		if (pendingEarlySlot != k) {
+			beginSlot(k);
+			pendingEarlySlot = k;
+		}
+		slotIndex = k;
+		slot = slots[k];
+		if (slot.lightLut == null || slot.lightSections == null || !pack.begin(PackDraw.SHADOW, retirement, k, renderPass)) {
+			return;
+		}
+
+		slot.shadowUbo = ensure(slot.shadowUbo, uniformBytes, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+		long ubo = slot.shadowUbo.ptr();
+		for (int i = 0; i < uniformBlocks.length; i++) {
+			MemoryUtil.memCopy(uniformBlocks[i].ptr(), ubo + uniformOffsets[i], uniformBlocks[i].size());
+		}
+		Vec3 cam = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+		long camPos = ubo + uniformOffsets[VkLayout.FRAME] + FRAME_CAMERA_POS;
+		MemoryUtil.memPutFloat(camPos, (float) (cam.x - snapOriginX));
+		MemoryUtil.memPutFloat(camPos + 4, (float) (cam.y - snapOriginY));
+		MemoryUtil.memPutFloat(camPos + 8, (float) (cam.z - snapOriginZ));
+		slot.shadowInstances = ensure(slot.shadowInstances, Math.max(snapInstanceBytes, 16), STORAGE);
+		MemoryUtil.memCopy(snapInstances, slot.shadowInstances.ptr(), snapInstanceBytes);
+
+		VkCommandBuffer cb = Renderer.getCommandBuffer();
+		VulkanImage white = VTextureSelector.getWhiteTexture();
+		long layout = pack.layout(PackDraw.SHADOW);
+		long boundPipeline = 0;
+		long boundSet = 0;
+		long boundPackSet = 0;
+		int drawn = 0;
+		beginLightAndOverlay(white);
+		try (MemoryStack stack = MemoryStack.stackPush()) {
+			vkCmdBindVertexBuffers(cb, 0, stack.longs(meshPool.vertexBuffer()), stack.longs(0));
+			vkCmdBindIndexBuffer(cb, meshPool.indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+			for (int i = 0; i < snapCount; i++) {
+				VkDraw draw = snapDraws[i];
+				if (draw.deleted() || !draw.mesh.drawable() || draw.instancer.shadowCount == 0) {
+					continue;
+				}
+				Material material = draw.material();
+				VulkanImage diffuse = texture(material.texture(), material.blur(), material.mipmap(), false);
+				if (diffuse == null) {
+					continue;
+				}
+				long pipeline = packPipeline(draw, PackDraw.SHADOW, renderPass);
+				if (pipeline == 0) {
+					continue;
+				}
+				long set = descriptorSet(slot.shadowUbo, slot.shadowInstances.buffer, diffuse, white);
+				long packSet = pack.descriptorSet(PackDraw.SHADOW, k, diffuse, lightImage, white);
+				if (pipeline != boundPipeline) {
+					vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+					boundPipeline = pipeline;
+				}
+				if (set != boundSet) {
+					vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, stack.longs(set), null);
+					boundSet = set;
+				}
+				if (packSet != 0 && packSet != boundPackSet) {
+					vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, PackDraw.SET, stack.longs(packSet), null);
+					boundPackSet = packSet;
+				}
+				long matrices = snapEmbedded[i] ? snapMatrices + (long) i * MATRIX_BYTES : 0;
+				pushConstants(cb, layout, matrices, material, draw.mesh.baseVertex);
+				VkInstancer<?> instancer = draw.instancer;
+				vkCmdDrawIndexed(cb, draw.mesh.indexCount(), instancer.shadowCount, draw.mesh.firstIndex, draw.mesh.baseVertex,
+						InstanceRegions.firstInstance(instancer.shadowOffset, instancer.strideBytes));
+				drawn++;
+			}
+		} finally {
+			if (boundPipeline != 0) {
+				VkStateSync.afterForeignBind();
+			}
+			endLightAndOverlay();
+		}
+		if (drawn > 0 && !loggedFirstShadow) {
+			loggedFirstShadow = true;
+			FlywheelVulkanClient.LOGGER.info("[flywheel-vulkan] origin:vulkan casting into the shader pack's shadow map: {} draws", drawn);
+		}
 	}
 
 	private long pipeline(RenderPass renderPass, InstanceType<?> type, ContextShader context, Material material) {
@@ -409,7 +660,7 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 	}
 
 	/** Push block (VkLayout): embedding matrices (identity outside an embedding), packed material, base vertex. */
-	private void pushConstants(VkCommandBuffer cb, long matrices, Material material, int baseVertex) {
+	private void pushConstants(VkCommandBuffer cb, long layout, long matrices, Material material, int baseVertex) {
 		long p = MemoryUtil.memAddress(push);
 		if (matrices != 0) {
 			MemoryUtil.memCopy(matrices, p, MATRIX_BYTES);
@@ -425,7 +676,7 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		MemoryUtil.memPutInt(p + VkLayout.PUSH_MATERIAL, MaterialEncoder.packUberShader(material));
 		MemoryUtil.memPutInt(p + VkLayout.PUSH_MATERIAL + 4, MaterialEncoder.packProperties(material));
 		MemoryUtil.memPutInt(p + VkLayout.PUSH_BASE_VERTEX, baseVertex);
-		vkCmdPushConstants(cb, pipelines.pipelineLayout, ALL_STAGES, 0, push);
+		vkCmdPushConstants(cb, layout, ALL_STAGES, 0, push);
 	}
 
 	/**
@@ -483,8 +734,8 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		return image;
 	}
 
-	private long descriptorSet(long instanceBuffer, VulkanImage diffuse, VulkanImage crumbling) {
-		SetKey key = new SetKey(instanceBuffer, diffuse.getImageView(), diffuse.getSampler(), crumbling.getImageView(), crumbling.getSampler());
+	private long descriptorSet(HostBuffer ubo, long instanceBuffer, VulkanImage diffuse, VulkanImage crumbling) {
+		SetKey key = new SetKey(ubo.buffer, instanceBuffer, diffuse.getImageView(), diffuse.getSampler(), crumbling.getImageView(), crumbling.getSampler());
 		Long cached = slot.sets.get(key);
 		if (cached != null) {
 			return cached;
@@ -493,7 +744,7 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			VkWriteDescriptorSet.Buffer writes = VkWriteDescriptorSet.calloc(VkLayout.BINDING_COUNT, stack);
 			for (int i = 0; i < VkLayout.UNIFORM_BLOCKS; i++) {
-				buffer(writes.get(i), stack, set, i, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, slot.ubo.buffer, uniformOffsets[i], uniformBlocks[i].size());
+				buffer(writes.get(i), stack, set, i, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, ubo.buffer, uniformOffsets[i], uniformBlocks[i].size());
 			}
 			buffer(writes.get(VkLayout.INSTANCES), stack, set, VkLayout.INSTANCES, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, instanceBuffer, 0, VK_WHOLE_SIZE);
 			buffer(writes.get(VkLayout.LIGHT_LUT), stack, set, VkLayout.LIGHT_LUT, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, slot.lightLut.buffer, 0, VK_WHOLE_SIZE);
@@ -621,6 +872,9 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 							CommonCrumbling.applyCrumblingProperties(crumblingMaterial, draw.material());
 							if (shaders.prepare(crumblingMaterial)) {
 								pipelines.retireAll(retirement, slotIndex);
+								if (pack != null) {
+									pack.invalidatePrograms(retirement, slotIndex);
+								}
 								boundPipeline = 0;
 							}
 							VulkanImage diffuse = texture(crumblingMaterial.texture(), crumblingMaterial.blur(), crumblingMaterial.mipmap(), true);
@@ -628,7 +882,7 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 								continue;
 							}
 							long pipeline = pipeline(renderPass, type, ContextShader.CRUMBLING, crumblingMaterial);
-							long set = descriptorSet(slot.crumbling.buffer, diffuse, breaking);
+							long set = descriptorSet(slot.ubo, slot.crumbling.buffer, diffuse, breaking);
 							if (pipeline != boundPipeline) {
 								vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 								boundPipeline = pipeline;
@@ -638,7 +892,7 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 								boundSet = set;
 							}
 							// Crumbling ignores embeddings, as in Flywheel's InstancedDrawManager.
-							pushConstants(cb, 0, crumblingMaterial, draw.mesh.baseVertex);
+							pushConstants(cb, pipelines.pipelineLayout, 0, crumblingMaterial, draw.mesh.baseVertex);
 							offset = polygonOffset(crumblingMaterial.polygonOffset(), offset);
 							vkCmdDrawIndexed(cb, draw.mesh.indexCount(), 1, draw.mesh.firstIndex, draw.mesh.baseVertex, firstInstance);
 						}
@@ -696,6 +950,10 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 			return;
 		}
 		deleted = true;
+		if (pack != null) {
+			PackBridge.removeShadowCaster(shadowCaster);
+		}
+		clearSnapshot();
 		instancers.values().forEach(VkInstancer::delete);
 		allDraws.forEach(VkDraw::delete);
 		allDraws.clear();
@@ -706,9 +964,14 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		Graveyard.bury(() -> {
 			meshPool.destroy();
 			shaders.destroyModules();
+			if (pack != null) {
+				pack.destroy();
+			}
 			pipelines.destroy();
 			destroySlots();
 			MemoryUtil.memFree(push);
+			MemoryUtil.nmemFree(snapInstances);
+			MemoryUtil.nmemFree(snapMatrices);
 		});
 	}
 
@@ -716,7 +979,7 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		retirement.destroyAll();
 		VkDevice dev = Vulkan.getVkDevice();
 		for (Slot s : slots) {
-			for (HostBuffer b : new HostBuffer[] { s.ubo, s.instances, s.crumbling, s.lightLut, s.lightSections }) {
+			for (HostBuffer b : new HostBuffer[] { s.ubo, s.instances, s.crumbling, s.lightLut, s.lightSections, s.shadowUbo, s.shadowInstances }) {
 				if (b != null) {
 					b.destroy();
 				}

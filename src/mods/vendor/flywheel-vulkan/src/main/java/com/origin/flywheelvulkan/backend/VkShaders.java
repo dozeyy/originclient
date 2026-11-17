@@ -56,7 +56,8 @@ final class VkShaders {
 		}
 	}
 
-	record Modules(long vertex, long fragment) {
+	/** vertexSource: the retargeted Flywheel vertex GLSL, kept for the shader-pack splice (PackDraw). */
+	record Modules(long vertex, long fragment, String vertexSource) {
 	}
 
 	private static final ResourceLocation API_IMPL_VERT = ResourceUtil.rl("internal/api_impl.vert");
@@ -153,7 +154,7 @@ final class VkShaders {
 			vkDestroyShaderModule(Vulkan.getVkDevice(), v, null);
 			throw e;
 		}
-		return new Modules(v, f);
+		return new Modules(v, f, r.vertex());
 	}
 
 	private static String name(ProgramKey key) {
@@ -204,7 +205,7 @@ final class VkShaders {
 		included.addAll(component.included());
 	}
 
-	private static long module(String name, String source, SPIRVUtils.ShaderKind kind) {
+	static long module(String name, String source, SPIRVUtils.ShaderKind kind) {
 		SPIRVUtils.SPIRV spirv = SPIRVUtils.compileShader(name, source, kind);
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			LongBuffer p = stack.mallocLong(1);

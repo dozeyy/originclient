@@ -53,6 +53,9 @@ final class VkInstancer<I extends Instance> extends BaseInstancer<I> {
 	/** This frame's region in the instance buffer (set by the draw manager). */
 	long regionOffset;
 	int visibleCount;
+	/** Last frame's unculled region in the shadow snapshot (VkDrawManager.snapshot). */
+	long shadowOffset;
+	int shadowCount;
 
 	VkInstancer(InstancerKey<I> key, Recreate<I> recreate) {
 		super(key, recreate);

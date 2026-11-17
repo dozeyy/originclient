@@ -7,7 +7,6 @@ import com.origin.flywheelvulkan.shader.VkLayout;
 import dev.engine_room.flywheel.backend.InternalVertex;
 import dev.engine_room.flywheel.backend.compile.FlwPrograms;
 import dev.engine_room.flywheel.lib.backend.SimpleBackend;
-import dev.engine_room.flywheel.lib.util.ShadersModHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.vulkanmod.vulkan.Vulkan;
 
@@ -19,8 +18,10 @@ import net.vulkanmod.vulkan.Vulkan;
  * falls to the next lower supported one: this. Picked automatically, nothing for the player to set.
  *
  * <p>Supported only while: the reflection targets resolved, Flywheel's shader sources are loaded,
- * VulkanMod's device exists, no shader pack is on (Phase 1 defers to Flywheel there, which turns
- * itself off under Iris packs), and this backend never failed this session.
+ * VulkanMod's device exists and this backend never failed this session. A shader pack does not turn
+ * it off: with Origin's VulkaIris fork the instances draw through the pack's own programs
+ * (PackDraw), and without it they draw unshaded (phase 1), never flywheel:off.
+ * {@code -Dflywheelvulkan.forceOff=true} reports unsupported, only to measure the old fallback.
  */
 public final class VkBackend {
 	public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath("origin", "vulkan");
@@ -50,12 +51,14 @@ public final class VkBackend {
 				.register(ID);
 	}
 
+	private static final boolean FORCE_OFF = Boolean.getBoolean("flywheelvulkan.forceOff");
+
 	static boolean supported() {
 		boolean ok = internalsOk
 				&& !VkDrawManager.failed()
 				&& FlwPrograms.SOURCES != null
 				&& Vulkan.getVkDevice() != null
-				&& !ShadersModHelper.isShaderPackInUse();
+				&& !FORCE_OFF;
 		if (ok && !loggedSupported) {
 			loggedSupported = true;
 			FlywheelVulkanClient.LOGGER.info("[flywheel-vulkan] origin:vulkan is supported (VulkanMod device up, Flywheel shader sources loaded)");

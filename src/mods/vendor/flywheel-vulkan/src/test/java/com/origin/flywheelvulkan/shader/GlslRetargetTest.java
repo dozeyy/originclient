@@ -167,7 +167,7 @@ class GlslRetargetTest {
 	private static final Pattern INCLUDE = Pattern.compile("^\\s*#\\s*include\\s+\"([^\"]+)\"\\s*$", Pattern.MULTILINE);
 
 	/** Same order and de-duplication as Flywheel's ShaderCache.expand (includes depth first, once each). */
-	private static String assemble(String stageDefine, String context, boolean cutout, List<String> roots) throws IOException {
+	static String assemble(String stageDefine, String context, boolean cutout, List<String> roots) throws IOException {
 		StringBuilder sb = new StringBuilder("#version 450\n#define ").append(stageDefine).append('\n');
 		if (context != null) {
 			sb.append("#define ").append(context).append('\n');
@@ -246,7 +246,7 @@ class GlslRetargetTest {
 			}
 			""";
 
-	private static void compile(String source, int kind, String what) {
+	static void compile(String source, int kind, String what) {
 		long compiler = Shaderc.shaderc_compiler_initialize();
 		long options = Shaderc.shaderc_compile_options_initialize();
 		try {
