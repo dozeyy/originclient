@@ -24,7 +24,7 @@ public abstract class LoadingOverlayDebugMixin {
     @Inject(method = "render", at = @At("HEAD"))
     private void onRenderHead(CallbackInfo ci) {
         renderCount++;
-        if (renderCount % 60 == 1) { // Log once per second
+        if (com.vulkairis.diagnostics.DebugLog.ENABLED && renderCount % 60 == 1) { // once per second, debug only
             LOGGER.info("[Vulkairis] LoadingOverlay.render() frame={}, fadeIn={}, fadeInStart={}, fadeOutStart={}",
                     renderCount, fadeIn, fadeInStart, fadeOutStart);
         }

@@ -1,8 +1,10 @@
 package com.vulkairis.origin.terrain;
 
 import com.vulkairis.bridge.VulkanModProgramBridge;
+import com.vulkairis.origin.composite.CompositeRunner;
 import com.vulkairis.origin.composite.IrisPassSource;
 import com.vulkairis.origin.composite.PackTextures;
+import com.vulkairis.origin.composite.SamplerNames;
 import com.vulkairis.origin.shadow.ShadowMap;
 import com.vulkairis.origin.shadow.ShadowPass;
 import com.vulkairis.origin.uniforms.IrisUniformValues;
@@ -89,10 +91,19 @@ public final class TerrainDraw {
             VulkanImage img = switch (d.name) {
                 case "gtexture", "texture", "tex" -> VRenderSystem.getShaderTexture(ATLAS_UNIT);
                 case "lightmap" -> VRenderSystem.getShaderTexture(LIGHTMAP_UNIT);
-                default -> set == null ? null : PackTextures.cached(set, d.name);
+                default -> set == null ? null : packTexture(set, d.name);
             };
             VTextureSelector.bindTexture(idx, img != null ? img : white);
         }
+    }
+
+    /** A pack custom texture, or for a colortex/gaux sampler the post chain's last image of it. */
+    private static VulkanImage packTexture(ProgramSet set, String name) {
+        SamplerNames.Target t = SamplerNames.resolve(name);
+        if (t.kind() == SamplerNames.Kind.COLORTEX) {
+            return CompositeRunner.lastFrameImage(t.index());
+        }
+        return PackTextures.cached(set, name);
     }
 
     /**

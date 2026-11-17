@@ -75,8 +75,25 @@ public final class UnifiedTranslationService {
     /** Buffered raw sources keyed by virtual shader id. */
     private static final Map<Integer, BufferedSource> BUFFERED = new ConcurrentHashMap<>();
 
-    /** Completed translations keyed by program name + generation. */
+    /**
+     * Completed translations keyed by program name + generation + attached shader ids.
+     *
+     * <p>Origin (2026-11-17): upstream keyed this by name + generation only. A pack loaded twice in
+     * one generation (seen with MakeUp on a real GPU: the third load at world join) registers the
+     * terrain programs again under NEW shader ids; the old key returned the earlier load's outcome,
+     * whose recompile had re-registered only the OLD ids, so the new shaders kept their raw source
+     * and every link failed ("VulkairisUniformBlock ... has no reflected block"). The ids are part
+     * of what was translated, so they are part of the key.</p>
+     */
     private static final Map<String, TranslationOutcome> OUTCOMES = new ConcurrentHashMap<>();
+
+    /** Latest outcome per program name + generation, for {@link #getOutcome(String, long)}. */
+    private static final Map<String, TranslationOutcome> LATEST = new ConcurrentHashMap<>();
+
+    private static void remember(String outcomeKey, String programName, long generation, TranslationOutcome outcome) {
+        OUTCOMES.put(outcomeKey, outcome);
+        LATEST.put(programName + "|" + generation, outcome);
+    }
 
     private UnifiedTranslationService() {
     }
@@ -130,7 +147,7 @@ public final class UnifiedTranslationService {
     public static TranslationOutcome translateProgram(String programName,
                                                        List<Integer> attachedShaderIds) {
         long generation = SourceProvenance.currentGeneration();
-        String outcomeKey = programName + "|" + generation;
+        String outcomeKey = programName + "|" + generation + "|" + attachedShaderIds;
 
         // Fast path: already translated this program at this generation.
         TranslationOutcome cached = OUTCOMES.get(outcomeKey);
@@ -172,7 +189,7 @@ public final class UnifiedTranslationService {
         if (units.isEmpty()) {
             errors.add("no translatable stages for program '" + programName + "'");
             TranslationOutcome outcome = new TranslationOutcome(null, false, List.copyOf(errors));
-            OUTCOMES.put(outcomeKey, outcome);
+            remember(outcomeKey, programName, generation, outcome);
             return outcome;
         }
 
@@ -192,7 +209,7 @@ public final class UnifiedTranslationService {
                     programName, null, null, -1, null,
                     "No action needed; far terrain degrades to vanilla rendering");
             TranslationOutcome outcome = new TranslationOutcome(null, false, List.copyOf(errors));
-            OUTCOMES.put(outcomeKey, outcome);
+            remember(outcomeKey, programName, generation, outcome);
             return outcome;
         }
 
@@ -210,7 +227,7 @@ public final class UnifiedTranslationService {
                     programName, null, null, -1, null,
                     "Check the shader source for unsupported constructs");
             TranslationOutcome outcome = new TranslationOutcome(null, false, List.copyOf(errors));
-            OUTCOMES.put(outcomeKey, outcome);
+            remember(outcomeKey, programName, generation, outcome);
             return outcome;
         }
 
@@ -290,7 +307,7 @@ public final class UnifiedTranslationService {
 
         TranslationOutcome outcome = new TranslationOutcome(
                 translated, allRecompiled, List.copyOf(errors));
-        OUTCOMES.put(outcomeKey, outcome);
+        remember(outcomeKey, programName, generation, outcome);
 
         if (outcome.succeeded()) {
             LOGGER.info("[Vulkairis/UnifiedTranslation] Program '{}' translated and recompiled successfully ({} stages)",
@@ -311,7 +328,7 @@ public final class UnifiedTranslationService {
      * Returns the last translation outcome for a program, or {@code null} if none.
      */
     public static TranslationOutcome getOutcome(String programName, long generation) {
-        return OUTCOMES.get(programName + "|" + generation);
+        return LATEST.get(programName + "|" + generation);
     }
 
     /**
@@ -339,6 +356,7 @@ public final class UnifiedTranslationService {
     public static void reset() {
         BUFFERED.clear();
         OUTCOMES.clear();
+        LATEST.clear();
         LOGGER.debug("[Vulkairis/UnifiedTranslation] Buffers and outcomes cleared");
     }
 

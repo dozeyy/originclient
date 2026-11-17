@@ -169,3 +169,49 @@ Tests: `origin/VaryingLocationTest`; the translator policy tests now assert by-n
   "all shadowed" on AMD, which made pack terrain dark.
 - Limits: casters are the sections VulkanMod culled for the camera view; no entity or translucent
   casters; shadowtex1 = shadowtex0.
+
+### 2026-11-17 MakeUp on a real GPU (step 7)
+Found on Will's RX 9070 XT with MakeUp (link FAILs, flat/near-black terrain, white hand, log flood).
+- `translation/UnifiedTranslationService`: outcomes were cached by program name + generation only. The
+  pack loads three times per run; the third load reused a stale outcome while its new shader ids stayed
+  untranslated ("VulkairisUniformBlock has no reflected block" -> shadow / gbuffers_terrain /
+  gbuffers_water "Program linking: FAIL"). The key now includes the attached shader ids;
+  `bridge/VulkanModProgramBridge.resolveDriverSources` always translates by those ids.
+- `origin/uniforms/IrisUniformValues.ensureBlockStateIds`: pack custom uniforms threw an NPE every
+  frame because `WorldRenderingSettings.getBlockStateIds()` is filled by Iris's own
+  `beginLevelRendering`, which never runs here. Every custom uniform (MakeUp's dayMixer, nightMixer...)
+  stayed 0 and the world drew near-black. The id map is now built from the pack's IdMap first.
+- `origin/terrain/TerrainFragmentAdapter` (+ test): Iris appends "alpha > 0.1" to cutout terrain
+  (`AlphaTests.ONE_TENTH_ALPHA`); pack source has none, so grass and leaves drew as opaque squares.
+  The translated fragment main is wrapped with the same test (not for gbuffers_water /
+  shadow_translucent).
+- `client/mixin/iris/ShaderMapMixin`: Iris's ExtendedShader replacements for vanilla core shaders do
+  not compile into SPIR-V under VulkanMod (36 failures with MakeUp) and their uniforms have no supplier
+  (the "not present in uniform map" flood); a failed one drew the hand white. Every entry is null, so
+  entities, hand, particles, sky and text draw with VulkanMod's own shaders.
+- `client/mixin/render/GameRendererCompositeMixin`: the composite/final chain now runs in
+  `GameRenderer.renderLevel` before `popPush("hand")` (Iris's order), so the hand is drawn on top of the
+  final image instead of being re-graded by it.
+- `diagnostics/DebugLog`: the per-200-frame render-target lines, the loading-overlay and screen debug
+  lines only log with `-Dvulkairis.debugLog=true`.
+- Still open after step 7: entities/hand use vanilla shading rather than the pack's (normals, clouds and
+  sky are step 8).
+
+### 2026-11-17 terrain normals, pack clouds and sky haze (step 8)
+- `origin/terrain/TerrainNormals` + `client/mixin/vulkan/CompressedVertexNormalMixin` (TAIL of
+  `VertexBuilder$CompressedVertexBuilder.vertex(JFFFIFFII)V`): VulkanMod's 16-byte chunk vertex has no
+  normal slot and drops the quad normal it is given. While a pack's gbuffers_terrain is linked, the quad
+  normal is octahedral-encoded (4+4 bits) into the colour alpha byte; switching packs on/off rebuilds all
+  chunks (`allChanged`). Block faces decode exactly, diagonal plant quads within ~10 degrees; 0xFF = up.
+  Exact reconstruction was chosen over screen-space derivatives because MakeUp lights in the vertex shader.
+- `origin/terrain/TerrainVertexAdapter`: decodes that byte into the pack's normal attribute and feeds
+  colour alpha 1.0 (vanilla chunk alpha is always 1.0).
+- `origin/composite/PackTextures.stageOverride` + `CompositeRunner`: per-stage custom textures
+  (`texture.deferred.gaux2 = ...`) now replace the colortex for that stage, like Iris's sampler
+  interceptor. MakeUp's volumetric clouds read their noise from deferred gaux2; it was colortex5 (no clouds).
+- `origin/terrain/TerrainDraw.packTexture` + `CompositeRunner.lastFrameImage`: terrain colortex samplers
+  read the post chain's last published image instead of white. MakeUp's prepare pass writes the sky
+  gradient to gaux4, which terrain fog samples; white gave white haze. One frame late, since prepare runs
+  in the post chain here.
+- Still open: gbuffers-stage custom textures are not mapped; entities/hand keep vanilla shading; snow tops
+  read slightly greyer than GL and the sun glow is weaker.

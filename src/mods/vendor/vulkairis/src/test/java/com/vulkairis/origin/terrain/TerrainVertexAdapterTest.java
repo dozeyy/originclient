@@ -43,7 +43,7 @@ class TerrainVertexAdapterTest {
         // Each global is filled from the compressed vertex, narrowed to its declared type.
         assertTrue(out.contains("vulkairis_Vertex = vec4(vulkairis_tPos, 1.0);"), out);
         assertTrue(out.contains("vulkairis_MultiTexCoord1 = vec4(vulkairis_tLight, 0.0, 1.0);"), out);
-        assertTrue(out.contains("vulkairis_Normal = (vec4(0.0, 1.0, 0.0, 0.0)).xyz;"), out);
+        assertTrue(out.contains("vulkairis_Normal = (vec4(vulkairis_tNormal, 0.0)).xyz;"), out);
         assertTrue(out.contains("mc_midTexCoord = (vec4(vulkairis_tUv, 0.0, 1.0)).xy;"), out);
         assertTrue(out.contains("blockEntityId = ivec2((vec4(0.0)).xy);"), out);
     }

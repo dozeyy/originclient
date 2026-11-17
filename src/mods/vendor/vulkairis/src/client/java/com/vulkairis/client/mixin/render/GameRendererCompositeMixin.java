@@ -9,8 +9,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Origin (step 2). Target: {@code GameRenderer.render(DeltaTracker, boolean)}, right after its call to
- * {@code renderLevel(DeltaTracker)} (before the screenshot hook and the GUI).
+ * Origin (step 2). Runs the pack's post chain once per frame at the end of the world pass (see
+ * {@link #vulkairis$runPostChain}; moved before the hand on 2026-11-17).
  *
  * <p>Why: the pack's deferred/composite/final chain must run exactly once per frame, after the whole
  * world is drawn and before the GUI. Upstream ran it from {@code Renderer.endRenderPass}, which fires
@@ -37,13 +37,25 @@ public abstract class GameRendererCompositeMixin {
         } catch (Throwable ignored) {
             // Fail soft: time uniforms stay where they were.
         }
+        // Origin (2026-11-17): chunk normals are encoded only while pack terrain is linked (TerrainNormals).
+        com.vulkairis.origin.terrain.TerrainNormals.update();
     }
 
-    @Inject(method = "render(Lnet/minecraft/client/DeltaTracker;Z)V",
-            at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/client/renderer/GameRenderer;renderLevel(Lnet/minecraft/client/DeltaTracker;)V",
-                    shift = At.Shift.AFTER))
-    private void vulkairis$runPostChain(DeltaTracker deltaTracker, boolean tick, CallbackInfo ci) {
+    /**
+     * Origin (2026-11-17). Target: {@code GameRenderer.renderLevel(DeltaTracker)}, just before its
+     * {@code popPush("hand")}: the world is finished ({@code LevelRenderer.renderLevel} returned, world
+     * depth captured) and vanilla has not yet cleared depth or drawn the hand. Iris runs its composites
+     * at the same point and draws the hand afterwards on top of the final image.
+     *
+     * <p>Why here and not after {@code renderLevel}: there the hand is already in the main colour target,
+     * so the composite/final chain overwrote or re-graded it (MakeUp: the arm washed pale, the sleeve
+     * layer gone). Running before the hand leaves the hand exactly as vanilla draws it.</p>
+     */
+    @Inject(method = "renderLevel(Lnet/minecraft/client/DeltaTracker;)V",
+            at = @At(value = "INVOKE_STRING",
+                    target = "Lnet/minecraft/util/profiling/ProfilerFiller;popPush(Ljava/lang/String;)V",
+                    args = "ldc=hand"))
+    private void vulkairis$runPostChain(DeltaTracker deltaTracker, CallbackInfo ci) {
         CompositeRunner.afterWorld();
     }
 }
