@@ -37,6 +37,11 @@ jobs:
           - case: spike
             jvm: "-Dorigin.flywheel_vulkan.spike=true"
             must: "\\[spike\\] instanced cube drawn"
+          # phase1: Flywheel picks origin:vulkan by itself and draws ci/testmod's cogs (transformed,
+          # oriented, embedded) through it. No spike flag.
+          - case: phase1
+            jvm: ""
+            must: "fell back from '.*' to 'origin:vulkan' && \\[fwv-test\\] cog visual created && origin:vulkan first frame drawn && \\[fwv-test\\] visuals: effects=1"
     env:
       OUT: ${{ github.workspace }}/fwv-out
       FLYWHEEL_URL: https://maven.createmod.net/dev/engine-room/flywheel/flywheel-fabric-1.21.1/1.0.6-44/flywheel-fabric-1.21.1-1.0.6-44.jar

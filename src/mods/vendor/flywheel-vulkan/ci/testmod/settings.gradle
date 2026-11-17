@@ -1,0 +1,14 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+// CI-only test mod for the origin:vulkan Flywheel backend. Built with the parent
+// module's wrapper: ./gradlew -p ci/testmod build. Never shipped to players.
+rootProject.name = 'fwv-testmod'

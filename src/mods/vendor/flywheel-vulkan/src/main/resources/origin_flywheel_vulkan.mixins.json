@@ -6,6 +6,8 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "FlwDebugInfoMixin",
+    "NoiseTexturesMixin",
+    "PonderStencilMixin",
     "VulkanRendererAccessor"
   ],
   "injectors": {

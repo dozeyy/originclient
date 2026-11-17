@@ -11,7 +11,9 @@ import os
 import re
 import sys
 
-out, musts = sys.argv[1], sys.argv[2:]
+out = sys.argv[1]
+# One workflow matrix value can carry several regexes, joined by " && ".
+musts = [m for a in sys.argv[2:] for m in a.split(" && ") if m]
 p = os.path.join(out, "run.log")
 log = open(p, encoding="utf-8", errors="replace").read().splitlines() if os.path.exists(p) else []
 lines, bad = [], []
