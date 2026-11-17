@@ -535,3 +535,11 @@ for your topic, or open one section with `Read offset=<line> limit=<n>` using th
 ## 2026-11-17 - Real-GPU check of the Flywheel pack path (0ecebbf23, RX 9070 XT)
 - Will's Trainworks jar strips Flywheel rendering by design (trainworks/CLAUDE.md: "Flywheel is a library only and must never render"), so his server stack never reaches origin:vulkan; it draws through Create's vanilla BER path on Vulkan, with or without a pack, and works. The pack path serves the full Create port (Flywheel visuals kept).
 - With the CI cog test mod on the real GPU: pack + shadow drawing PASS, fullscreen toggle PASS, pack-off phase 1 PASS, the OpenGL default boots and draws Trainworks cogs. Evidence: scratchpad\v\key3\_sheet.jpg, r30-r35 logs.
+
+## 2026-11-17 - Vulkan vs Sodium bench on the RX 9070 XT (tools/vulkan-bench on claude/vulkan-bench, 44863aa32)
+- 1920x1080, seed 20261117, noon, 3 reps (medians), stacks alternated. Wallpaper Engine took ~25% of the GPU from 15:00 on; the pairs are still fair.
+- Plain world, no pack: Vulkan +19-22% average FPS (RD12 1515/1841, RD32 978/1165), 1% lows even. Create cogs with no pack: Vulkan ahead (1280 cogs 1400/1599).
+- MakeUp on plain terrain: Sodium+Iris wins (RD12 855/495). MakeUp with 1280 cogs: Vulkan ~3x (146/442), because Flywheel is off under Iris.
+- Will's full list (78 jars + Create 6.0.0): does NOT boot on Vulkan. The gate misses Veil (inside Sable, for Aeronautics; texture-filter mixin clash), Cubes Without Borders (window mixin), TACZ (depth-stencil fmt 36013) and oblivion-magic (raw GL, pack only). Without those: no pack, Vulkan is slower and CPU-bound (2152/1898, 1% low 691/384); with MakeUp and cogs it's 2.5x (437/1084), but the pack only partly applies.
+- His pack, Eclipse, never loads on VulkaIris (ClosedFileSystemException in Iris IdMap.readProperties) and runs unshaded. BSL renders black (legacy `texture` sampler syntax fails SPIR-V).
+- Cold start: Vulkan slower (14.0/17.1 s plain). Chunk loading the same.
