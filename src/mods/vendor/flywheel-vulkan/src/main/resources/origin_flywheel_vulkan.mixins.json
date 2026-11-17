@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.origin.flywheelvulkan.mixin",
+  "plugin": "com.origin.flywheelvulkan.mixin.FlywheelVulkanMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "VulkanRendererAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
