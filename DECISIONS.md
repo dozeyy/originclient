@@ -33,6 +33,11 @@ the day Will gives them (one line). Background: `docs/memory-archive/` (grep, ne
 - Picks install from the creator's own source only when its terms allow automated downloads and the file matches a pinned hash; otherwise the tile opens the creator's page (PvPRP, MediaFire) (2026-11-03).
 - A player's mod replaces Origin's only when the two would fight (same key, same camera/input/render job, e.g. two freelooks): theirs takes priority and they can switch Origin's back on. Mods that can run side by side (minimaps, separate HUD pieces) leave Origin's on too (2026-11-03).
 
+- Vulkan graphics on 1.21.1 only, opt-in: a Settings > Performance toggle with an Experimental tag; normal OpenGL + Sodium + Iris stays the default and is kept as-is (2026-11-16).
+- Shaders on Vulkan come from Origin's own fixed fork of VulkaIris (find why it breaks and fix it), labelled Experimental (2026-11-16).
+- Create/Trainworks must keep Flywheel's fast drawing on Vulkan (never flywheel:off as the answer); first without a shader pack, then with packs (2026-11-16).
+- Vulkan mode can't be turned on while the player has mods that only work with Sodium; the launcher names them (2026-11-16).
+- Local test runs on Will's PC are allowed whenever needed: runClient in a module's dev run folder, `--render-shots`, `--render-tour` (Will, 2026-11-16: "You're open to open my PC whenever you need"; replaces his "dont open anything" from earlier the same day and the 2026-10-18/10-25 no-Minecraft-window rules). Still never: moving the mouse, clicking or typing into windows Claude didn't launch, or touching `%LocalAppData%\OriginLauncher` without his go.
 - Mac launcher: every screen and feature of the Windows launcher; no Apple Developer account for now (the site shows the Open Anyway steps); the site calls it Mac Beta until real players confirm it works (2026-11-02).
 - A version that plays on Mac but whose shaders fail stays in the Mac picker and says shaders aren't available on Mac yet (2026-11-02).
 - The Mac launcher builds and screenshots on GitHub only: nothing new gets installed on Will's PC for it (2026-11-02).
