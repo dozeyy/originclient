@@ -1,0 +1,132 @@
+// Origin's Vulkan backend for Flywheel ("origin:vulkan").
+//
+// Not a live module (never in live-modules.json): the launcher installs the jar
+// only when a 1.21.1 player turns on Vulkan mode AND has Flywheel (Create /
+// Trainworks). Flywheel and VulkanMod are compile-only: the player's own copies
+// load at runtime, this jar never bundles or redistributes either.
+//
+// Output: build/libs/flywheel-vulkan-<mod_version>.jar. That file name is a fixed
+// contract with the launcher unit; don't rename archivesName.
+
+import java.security.MessageDigest
+
+plugins {
+	id 'fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = 'flywheel-vulkan'
+}
+
+repositories {
+	exclusiveContent {
+		forRepository { maven { name = 'CreateMod'; url = 'https://maven.createmod.net' } }
+		filter { includeGroup 'dev.engine-room.flywheel' }
+	}
+	exclusiveContent {
+		forRepository { maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } }
+		filter { includeGroup 'maven.modrinth' }
+	}
+	mavenCentral()
+}
+
+def flywheelCoord  = "dev.engine-room.flywheel:flywheel-fabric-${project.minecraft_version}:${project.flywheel_version}"
+def vulkanmodCoord = "maven.modrinth:vulkanmod:${project.vulkanmod_version}"
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modCompileOnly "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// The player's own copies load at runtime; compile against the exact builds.
+	modCompileOnly(flywheelCoord) { transitive = false }
+	modCompileOnly(vulkanmodCoord) { transitive = false }
+	// VulkanMod nests LWJGL's Vulkan + shaderc bindings; Minecraft 1.21.1 ships
+	// LWJGL 3.3.3 core, so the matching binding jars compile the raw vkCmd* calls.
+	compileOnly 'org.lwjgl:lwjgl-vulkan:3.3.3'
+	compileOnly 'org.lwjgl:lwjgl-shaderc:3.3.3'
+	compileOnly 'org.lwjgl:lwjgl-vma:3.3.3'
+
+	testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+	// GlslRetargetTest compiles the retargeted real Flywheel GLSL to SPIR-V with the same shaderc
+	// build VulkanMod nests (3.3.3), so a retarget that shaderc rejects fails here, not in game.
+	testImplementation 'org.lwjgl:lwjgl:3.3.3'
+	testImplementation 'org.lwjgl:lwjgl-shaderc:3.3.3'
+	['natives-windows', 'natives-linux'].each { n ->
+		testRuntimeOnly "org.lwjgl:lwjgl:3.3.3:${n}"
+		testRuntimeOnly "org.lwjgl:lwjgl-shaderc:3.3.3:${n}"
+	}
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Pin both foreign jars by hash, not only by coordinate: a republished artifact
+// under the same coordinate fails the build instead of compiling against
+// something Trainworks / Modrinth never shipped.
+tasks.register('verifyPinnedJars') {
+	def pins = [
+		[flywheelCoord,  'SHA-256', project.flywheel_sha256],
+		[vulkanmodCoord, 'SHA-512', project.vulkanmod_sha512],
+	]
+	doLast {
+		pins.each { coord, algo, expected ->
+			def cfg = project.configurations.detachedConfiguration(project.dependencies.create(coord))
+			cfg.transitive = false
+			def file = cfg.singleFile
+			def md = MessageDigest.getInstance(algo)
+			file.withInputStream { is ->
+				byte[] buf = new byte[65536]
+				int n
+				while ((n = is.read(buf)) > 0) md.update(buf, 0, n)
+			}
+			def actual = md.digest().encodeHex().toString()
+			if (actual != expected) {
+				throw new GradleException("${coord}: ${algo} ${actual} != pinned ${expected}")
+			}
+			logger.lifecycle("pinned OK: ${coord} ${algo} ${actual.take(16)}...")
+		}
+	}
+}
+tasks.named('compileJava') { dependsOn 'verifyPinnedJars' }
+
+processResources {
+	inputs.property 'version', project.version
+	inputs.property 'flywheel', project.flywheel_runtime_version
+	inputs.property 'vulkanmod', project.vulkanmod_runtime_version
+	filesMatching('fabric.mod.json') {
+		expand 'version': project.version,
+			'flywheel': project.flywheel_runtime_version,
+			'vulkanmod': project.vulkanmod_runtime_version
+	}
+	filesMatching('**/flywheel_vulkan_pins.properties') {
+		expand 'flywheel': project.flywheel_runtime_version,
+			'vulkanmod': project.vulkanmod_runtime_version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+test {
+	useJUnitPlatform()
+	// The pinned Flywheel jar: tests read its real GLSL (assets/flywheel/flywheel/**).
+	def fw = project.configurations.detachedConfiguration(project.dependencies.create(flywheelCoord))
+	fw.transitive = false
+	inputs.files(fw)
+	doFirst { systemProperty 'flywheel.jar', fw.singleFile.absolutePath }
+	systemProperty 'flywheelvulkan.resources', file('src/main/resources').absolutePath
+	testLogging { events 'failed'; exceptionFormat 'full' }
+}
+
+jar {
+	from('LICENSE') { rename { 'LICENSE_flywheel-vulkan' } }
+}

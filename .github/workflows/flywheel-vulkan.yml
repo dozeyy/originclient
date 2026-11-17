@@ -1,0 +1,152 @@
+# Vulkan Flywheel (src/mods/vendor/flywheel-vulkan, branch claude/vulkan-flywheel): in-game proof on
+# Xvfb + Mesa lavapipe, since no session opens Minecraft on Will's PC. Lives here (outside vendor/)
+# because GitHub only reads workflows from .github/workflows.
+#
+# One boot: the 1.21.1 module's prodClient (built Origin jar + Fabric API) + VulkanMod 0.6.7 (SHA-512
+# from Modrinth) + Flywheel 1.0.6-44 (maven.createmod.net, SHA-256 pinned) + flywheel-vulkan's own jar
+# (+ its ci/testmod jar when present), with Origin's nested Sodium/ImmediatelyFast disabled (the Vulkan
+# mode's plan). Pass = every required log line, the title, and real PNGs. No Create or Trainworks here:
+# Create's assets are All Rights Reserved and Trainworks is private, so CI never fetches either.
+name: flywheel-vulkan
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/vulkan-flywheel]
+    paths:
+      - ".github/workflows/flywheel-vulkan.yml"
+      - "src/mods/vendor/flywheel-vulkan/**"
+
+concurrency:
+  group: flywheel-vulkan-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  boot:
+    name: Boot ${{ matrix.case }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # spike: the raw instanced-cube draw on VulkanMod's command buffer (no Flywheel backend involved).
+          - case: spike
+            jvm: "-Dorigin.flywheel_vulkan.spike=true"
+            must: "\\[spike\\] instanced cube drawn"
+          # phase1: Flywheel picks origin:vulkan by itself and draws ci/testmod's cogs (transformed,
+          # oriented, embedded) through it. No spike flag.
+          - case: phase1
+            jvm: ""
+            must: "fell back from '.*' to 'origin:vulkan' && \\[fwv-test\\] cog visual created && origin:vulkan first frame drawn && \\[fwv-test\\] visuals: effects=1"
+    env:
+      OUT: ${{ github.workspace }}/fwv-out
+      FLYWHEEL_URL: https://maven.createmod.net/dev/engine-room/flywheel/flywheel-fabric-1.21.1/1.0.6-44/flywheel-fabric-1.21.1-1.0.6-44.jar
+      FLYWHEEL_SHA256: ebda3daabd2b5b734540949ed8deb38c7dbf8a8476af897074c69887f1337e02
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Xvfb + Mesa lavapipe + grab tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
+            libxcursor1 libxrandr2 libxxf86vm1 libxtst6 python3-pil x11-apps imagemagick \
+            mesa-vulkan-drivers vulkan-tools libvulkan1
+          mkdir -p "$OUT/screenshots" "$OUT/x11"
+          icd=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json 2>/dev/null | head -n 1)
+          [ -n "$icd" ] || { echo "::error::no lavapipe ICD json"; exit 1; }
+          echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
+
+      - name: Build flywheel-vulkan (+ unit tests)
+        working-directory: src/mods/vendor/flywheel-vulkan
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon -q
+          ls -la build/libs
+          mkdir -p "$RUNNER_TEMP/extra"
+          cp build/libs/flywheel-vulkan-*.jar "$RUNNER_TEMP/extra/"
+          rm -f "$RUNNER_TEMP"/extra/*-sources.jar
+          if [ -f ci/testmod/build.gradle ]; then
+            ./gradlew -p ci/testmod build --no-daemon -q
+            cp ci/testmod/build/libs/*.jar "$RUNNER_TEMP/extra/"
+            rm -f "$RUNNER_TEMP"/extra/*-sources.jar
+          fi
+          ls -la "$RUNNER_TEMP/extra"
+
+      - name: Fetch VulkanMod (SHA-512) + Flywheel (SHA-256)
+        run: |
+          python3 tools/vulkan-probe/fetch.py "$RUNNER_TEMP/extra" | tee "$OUT/fetch.txt"
+          curl -fsSL --retry 4 -o "$RUNNER_TEMP/extra/flywheel-fabric-1.21.1-1.0.6-44.jar" "$FLYWHEEL_URL"
+          echo "$FLYWHEEL_SHA256  $RUNNER_TEMP/extra/flywheel-fabric-1.21.1-1.0.6-44.jar" | sha256sum -c -
+          ls -la "$RUNNER_TEMP/extra"
+
+      - name: Download dependencies + assets (retried)
+        run: bash tools/ci/gradle_prefetch.sh src/mods/versions/1.21.1
+
+      - name: Boot ${{ matrix.case }}
+        working-directory: src/mods/versions/1.21.1
+        env:
+          ORIGIN_SMOKE: "1"
+          ORIGIN_SHOTS: ${{ github.workspace }}/fwv-out
+          ORIGIN_SHOTS_SET: design
+          ORIGIN_INWORLD: "1"
+        run: |
+          chmod +x gradlew
+          mkdir -p run-prod
+          printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > run-prod/options.txt
+          Xvfb :99 -screen 0 1280x720x24 -nolisten tcp &
+          export DISPLAY=:99
+          sleep 2
+          grab() { xwd -root -silent -display :99 2>/dev/null | convert xwd:- "$OUT/x11/$1.png" 2>/dev/null && echo "grabbed $1" || echo "grab $1 failed"; }
+          t0=$(date +%s)
+          # CI unset: Loom's production run would otherwise wrap the game in its own xvfb-run display.
+          setsid env -u CI ./gradlew prodClient --no-daemon -I "$GITHUB_WORKSPACE/tools/vulkan-probe/vulkan.init.gradle" \
+            -DprobeDisableModIds=sodium,immediatelyfast -PwithFabricApi -PframeLog -PbootLog \
+            -PextraMods="$RUNNER_TEMP/extra" "-PbootJvmArgs=${{ matrix.jvm }}" > run.log 2>&1 &
+          pid=$!
+          tgame=""; ttitle=""; tworld=""; quiet=0; size=-1; n=0; nextgrab=0
+          for i in $(seq 1 1500); do
+            kill -0 $pid 2>/dev/null || break
+            now=$(( $(date +%s) - t0 ))
+            if [ -z "$tgame" ] && grep -q "Loading Minecraft" run.log; then tgame=$now; nextgrab=$((now + 20)); fi
+            if [ -z "$ttitle" ] && grep -q "\[origin-smoke\] title screen reached" run.log; then ttitle=$now; sleep 1; grab x11_title; fi
+            if [ -z "$tworld" ] && grep -q "\[origin-smoke\] in-world: HUD up" run.log; then tworld=$now; grab x11_world; fi
+            if [ -n "$tworld" ] && [ $now -ge $((tworld + 90)) ]; then grab x11_world_late; break; fi
+            if [ -n "$tgame" ] && [ $now -ge $nextgrab ] && [ $n -lt 20 ]; then n=$((n + 1)); grab "x11_t$(printf %04d $now)"; nextgrab=$((now + 30)); fi
+            sz=$(stat -c %s run.log 2>/dev/null || echo 0)
+            if [ "$sz" = "$size" ] && [ -n "$tgame" ]; then quiet=$((quiet + 1)); else quiet=0; size=$sz; fi
+            if [ $quiet -ge 420 ]; then echo "::error::run.log silent 420 s"; bash "$GITHUB_WORKSPACE/tools/ci/thread_dump.sh" $pid "stalled 420s" || true; break; fi
+            sleep 1
+          done
+          kill -- -$pid 2>/dev/null || true; sleep 3; kill -9 -- -$pid 2>/dev/null || true
+          echo "game ${tgame:-never} s, title ${ttitle:-never} s, world ${tworld:-never} s" | tee "$OUT/timing.txt"
+          tail -n 120 run.log
+          cp run.log "$OUT/run.log" || true
+          cp -r run-prod/crash-reports "$OUT/" 2>/dev/null || true
+
+      - name: Contact sheets
+        if: always()
+        run: |
+          python3 tools/lean/contact_sheet.py "$OUT" || true
+          python3 tools/lean/contact_sheet.py "$OUT/screenshots" || true
+          python3 tools/lean/contact_sheet.py "$OUT/x11" || true
+
+      - name: Keep the output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flywheel-vulkan-${{ matrix.case }}
+          path: fwv-out/
+          if-no-files-found: warn
+
+      - name: Answers (also in the run summary)
+        if: always()
+        run: python3 src/mods/vendor/flywheel-vulkan/ci/analyze.py "$OUT" "${{ matrix.must }}"

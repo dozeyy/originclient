@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "origin_flywheel_vulkan",
+  "version": "${version}",
+  "name": "Origin Vulkan Flywheel",
+  "description": "Lets Flywheel (Create, Trainworks) draw with fast instancing when Origin runs Minecraft on Vulkan (VulkanMod). Built for Flywheel ${flywheel} and VulkanMod ${vulkanmod}; switches itself off on any other version.",
+  "authors": ["Origin"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.origin.flywheelvulkan.FlywheelVulkanClient"]
+  },
+  "mixins": ["origin_flywheel_vulkan.mixins.json"],
+  "depends": {
+    "minecraft": "1.21.1",
+    "fabricloader": ">=0.15.0"
+  },
+  "suggests": {
+    "flywheel": "${flywheel}",
+    "vulkanmod": "${vulkanmod}"
+  }
+}

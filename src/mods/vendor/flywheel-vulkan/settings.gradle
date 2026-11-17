@@ -1,0 +1,14 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+// The jar name (build/libs/flywheel-vulkan-<ver>.jar) is a fixed contract with
+// the launcher; see build.gradle base.archivesName.
+rootProject.name = 'flywheel-vulkan'

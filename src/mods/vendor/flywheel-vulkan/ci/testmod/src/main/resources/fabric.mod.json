@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "fwv_testmod",
+  "version": "${version}",
+  "name": "Origin Vulkan Flywheel test mod",
+  "description": "CI-only: draws a few hundred Flywheel cogs (transformed, oriented, embedded) in front of the camera.",
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.origin.fwvtest.FwvTestMod"]
+  },
+  "depends": {
+    "minecraft": "1.21.1",
+    "fabricloader": ">=0.15.0",
+    "flywheel": "*",
+    "fabric-api": "*"
+  }
+}

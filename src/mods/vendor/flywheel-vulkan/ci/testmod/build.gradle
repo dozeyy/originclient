@@ -1,0 +1,42 @@
+// Test mod for origin:vulkan (CI dev-shots, and local runs). Uses ONLY Flywheel's public
+// API, the way Create and Trainworks do: an Effect whose visual draws a few hundred cogs
+// as TRANSFORMED instances, ORIENTED instances, and an embedded (contraption-style) group.
+// Flywheel is compile-only; the run supplies Flywheel 1.0.6-44 itself. Never shipped.
+
+plugins {
+	id 'fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = 'com.origin'
+
+base {
+	archivesName = 'fwv-testmod'
+}
+
+repositories {
+	exclusiveContent {
+		forRepository { maven { name = 'CreateMod'; url = 'https://maven.createmod.net' } }
+		filter { includeGroup 'dev.engine-room.flywheel' }
+	}
+	mavenCentral()
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modCompileOnly "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	modCompileOnly("dev.engine-room.flywheel:flywheel-fabric-${project.minecraft_version}:${project.flywheel_version}") { transitive = false }
+}
+
+processResources {
+	inputs.property 'version', project.version
+	filesMatching('fabric.mod.json') { expand 'version': project.version }
+}
+
+tasks.withType(JavaCompile).configureEach { it.options.release = 21 }
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}

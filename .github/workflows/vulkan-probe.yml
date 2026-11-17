@@ -1,0 +1,167 @@
+# THROWAWAY PROBE (branch claude/vulkan-probe, 2026-11-16): does Minecraft 1.21.1 + Origin's built jar
+# + VulkanMod 0.6.7 boot and render under Xvfb + Mesa lavapipe on ubuntu-24.04? The riskiest assumption
+# behind the planned opt-in Vulkan mode. Not a shared workflow; nothing else reads it.
+#
+# Rows (all prodClient = the built remapJar + Fabric API in a production Fabric game, run-prod/):
+#   gl            control: the normal OpenGL boot on llvmpipe (no VulkanMod, nothing disabled)
+#   vk            VulkanMod + disableModIds=sodium,immediatelyfast (the plan as written)
+#   vk-noiris     VulkanMod + disableModIds=sodium,immediatelyfast,iris (Origin's nested Iris needs Sodium)
+#   vk-vulkairis  VulkanMod + VulkaIris (upstream QKLglGuI) + disableModIds=sodium,immediatelyfast
+# Each row: title marker ([origin-smoke], env ORIGIN_SMOKE), then OriginDevWorld's in-world step
+# (run 1: env ORIGIN_SMOKE_WORLD; run 2: the design shot set + ORIGIN_INWORLD), plus
+# X11 root grabs of the Xvfb display (independent of the game's screenshot path).
+name: vulkan-probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/vulkan-probe]
+    paths:
+      - ".github/workflows/vulkan-probe.yml"
+      - "tools/vulkan-probe/**"
+
+concurrency:
+  group: vulkan-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe ${{ matrix.case }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { case: gl, vulkan: "false", disable: "", vulkairis: "false" }
+          - { case: vk, vulkan: "true", disable: "sodium,immediatelyfast", vulkairis: "false" }
+          # vk-noiris (same result as vk: Origin's nested Iris drops out on its own once Sodium is disabled) and
+          # vk-vulkairis (crashes at CrashReport.preload, NoClassDefFoundError sodium.api VertexSerializer) were
+          # answered by run 43999565300 and are not re-run.
+    env:
+      OUT: ${{ github.workspace }}/probe-out
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Xvfb + Mesa (llvmpipe GL, lavapipe Vulkan) + grab tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
+            libxcursor1 libxrandr2 libxxf86vm1 libxtst6 python3-pil x11-apps imagemagick \
+            mesa-vulkan-drivers vulkan-tools libvulkan1
+          dpkg -l mesa-vulkan-drivers libvulkan1 | tail -n 2
+          mkdir -p "$OUT/screenshots" "$OUT/x11"
+
+      # Q1: a usable lavapipe device under Xvfb. Fails the row if vulkaninfo finds no device.
+      - name: Vulkan gate (lavapipe ICD + vulkaninfo --summary)
+        if: ${{ matrix.vulkan == 'true' }}
+        run: |
+          icd=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json 2>/dev/null | head -n 1)
+          [ -n "$icd" ] || { echo "::error::no lavapipe ICD json"; ls /usr/share/vulkan/icd.d; exit 1; }
+          echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
+          echo "ICD: $icd"
+          VK_ICD_FILENAMES="$icd" xvfb-run -a -s "-screen 0 1280x720x24" vulkaninfo --summary > "$OUT/vulkaninfo.txt" 2>&1 || true
+          head -n 80 "$OUT/vulkaninfo.txt"
+          grep -qE "deviceName\s*=\s*llvmpipe" "$OUT/vulkaninfo.txt" || { echo "::error::lavapipe device not listed"; exit 1; }
+
+      - name: Fetch VulkanMod (+ VulkaIris), SHA-512 checked
+        if: ${{ matrix.vulkan == 'true' }}
+        run: |
+          python3 tools/vulkan-probe/fetch.py "$RUNNER_TEMP/vk-mods" ${{ matrix.vulkairis == 'true' && '--vulkairis' || '' }} | tee "$OUT/fetch.txt"
+          echo "EXTRA_MODS=$RUNNER_TEMP/vk-mods" >> "$GITHUB_ENV"
+
+      - name: Download dependencies + assets (retried)
+        run: bash tools/ci/gradle_prefetch.sh src/mods/versions/1.21.1
+
+      - name: Boot ${{ matrix.case }}
+        working-directory: src/mods/versions/1.21.1
+        env:
+          # GL rows only (Vulkan ignores them): the same software-GL spoof as dev-shots.yml.
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: llvmpipe
+          MESA_GL_VERSION_OVERRIDE: "4.6"
+          MESA_GLSL_VERSION_OVERRIDE: "460"
+          ORIGIN_SMOKE: "1"
+          # Run 2: the design set (title + Origin's own screens via Screenshot.grab), then the in-world step
+          # (ORIGIN_INWORLD). Run 1 used ORIGIN_SMOKE_WORLD, which leaves the title after one frame: no title shot.
+          ORIGIN_SHOTS: ${{ github.workspace }}/probe-out
+          ORIGIN_SHOTS_SET: design
+          ORIGIN_INWORLD: "1"
+          DISABLE: ${{ matrix.disable }}
+        run: |
+          chmod +x gradlew
+          mkdir -p run-prod
+          printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > run-prod/options.txt
+          gargs="-PwithFabricApi -PframeLog -PbootLog"
+          [ -n "${EXTRA_MODS:-}" ] && gargs="$gargs -PextraMods=$EXTRA_MODS"
+          dargs=""
+          [ -n "$DISABLE" ] && dargs="-DprobeDisableModIds=$DISABLE"
+          Xvfb :99 -screen 0 1280x720x24 -nolisten tcp &
+          export DISPLAY=:99
+          sleep 2
+          grab() { xwd -root -silent -display :99 2>/dev/null | convert xwd:- "$OUT/x11/$1.png" 2>/dev/null && echo "grabbed $1" || echo "grab $1 failed"; }
+          t0=$(date +%s)
+          # CI unset: Loom's production run would otherwise wrap the game in its own xvfb-run display.
+          setsid env -u CI ./gradlew prodClient --no-daemon -I "$GITHUB_WORKSPACE/tools/vulkan-probe/vulkan.init.gradle" \
+            $dargs $gargs > run.log 2>&1 &
+          pid=$!
+          tgame=""; ttitle=""; tworld=""; tend=""; quiet=0; size=-1; n=0; nextgrab=0
+          for i in $(seq 1 1500); do
+            kill -0 $pid 2>/dev/null || { tend=$(( $(date +%s) - t0 )); break; }
+            now=$(( $(date +%s) - t0 ))
+            if [ -z "$tgame" ] && grep -q "Loading Minecraft" run.log; then tgame=$now; nextgrab=$((now + 20)); fi
+            if [ -z "$ttitle" ] && grep -q "\[origin-smoke\] title screen reached" run.log; then
+              ttitle=$now; sleep 1; grab x11_title
+            fi
+            if [ -z "$tworld" ] && grep -q "\[origin-smoke\] in-world: HUD up" run.log; then tworld=$now; grab x11_world; fi
+            # Periodic grabs while the game runs (max 30): proof of what is on the display, even with no title.
+            if [ -n "$tgame" ] && [ $now -ge $nextgrab ] && [ $n -lt 30 ]; then n=$((n + 1)); grab "x11_t$(printf %04d $now)"; nextgrab=$((now + 30)); fi
+            # VulkaIris row only answers Q4 (mod list) + title: stop 30 s after the title.
+            if [ "${{ matrix.case }}" = "vk-vulkairis" ] && [ -n "$ttitle" ] && [ $now -ge $((ttitle + 30)) ]; then break; fi
+            sz=$(stat -c %s run.log 2>/dev/null || echo 0)
+            if [ "$sz" = "$size" ] && [ -n "$tgame" ]; then quiet=$((quiet + 1)); else quiet=0; size=$sz; fi
+            if [ $quiet -eq 180 ]; then bash "$GITHUB_WORKSPACE/tools/ci/thread_dump.sh" $pid "stalled 180s" || true; fi
+            if [ $quiet -ge 420 ]; then echo "::error::run.log silent 420 s"; bash "$GITHUB_WORKSPACE/tools/ci/thread_dump.sh" $pid "stalled 420s" || true; break; fi
+            sleep 1
+          done
+          kill -- -$pid 2>/dev/null || true; sleep 3; kill -9 -- -$pid 2>/dev/null || true
+          {
+            echo "gradle start -> game 'Loading Minecraft': ${tgame:-never} s"
+            echo "gradle start -> title marker: ${ttitle:-never} s"
+            [ -n "$tgame" ] && [ -n "$ttitle" ] && echo "time to title (game start -> title): $((ttitle - tgame)) s" || true
+            echo "gradle start -> in-world HUD up: ${tworld:-never} s"
+            echo "game process ended at: ${tend:-killed by the probe} s"
+          } | tee "$OUT/timing.txt"
+          echo "--- last 150 log lines ---"; tail -n 150 run.log
+          cp run.log "$OUT/run.log" || true
+          cp -r run-prod/crash-reports "$OUT/" 2>/dev/null || true
+          cp run-prod/logs/latest.log "$OUT/latest.log" 2>/dev/null || true
+          cp -r run-prod/config/vulkanmod* "$OUT/" 2>/dev/null || true
+          ls -la "$OUT" "$OUT/screenshots" "$OUT/x11"
+
+      - name: Contact sheets
+        if: always()
+        run: |
+          python3 tools/lean/contact_sheet.py "$OUT/screenshots" || true
+          python3 tools/lean/contact_sheet.py "$OUT/x11" || true
+
+      - name: Keep the probe output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulkan-probe-${{ matrix.case }}
+          path: probe-out/
+          if-no-files-found: warn
+
+      # Red = no title marker or no PNG with real content (never a 0-shot green).
+      - name: Answers (also in the run summary)
+        if: always()
+        run: python3 tools/vulkan-probe/analyze.py "${{ matrix.case }}" "$OUT"
