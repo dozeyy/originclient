@@ -1,0 +1,12 @@
+{
+	"schemaVersion": 1,
+	"id": "vulkairis_sodium_compat",
+	"version": "${version}",
+	"name": "VulkaIris Sodium API stand-in",
+	"description": "Origin's own minimal versions of the Sodium API types Iris links against, so Iris runs without Sodium under VulkanMod. Contains no Sodium code.",
+	"license": "LGPL-3.0-only",
+	"environment": "client",
+	"depends": {
+		"minecraft": "~1.21.1"
+	}
+}

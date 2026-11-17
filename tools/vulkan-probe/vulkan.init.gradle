@@ -4,12 +4,24 @@
 // switch the planned Vulkan mode would pass to keep Origin's nested Sodium/ImmediatelyFast out.
 // prodClient's own -PbootJvmArgs splits on commas, so it can't carry a comma list; this init
 // script leaves the module's build.gradle untouched. Applied with --init-script, CI only.
+//
+// Also turns on VulkaIris's one-shot post-chain readback (CompositeProbe): it logs what each
+// post buffer holds, so a wrong shot can be pinned to one pass. CI only; never for players.
 def ids = System.getProperty('probeDisableModIds')
-if (ids) {
-	allprojects {
-		tasks.matching { it.name == 'prodClient' }.configureEach { t ->
+allprojects {
+	tasks.matching { it.name == 'prodClient' }.configureEach { t ->
+		if (ids) {
 			t.jvmArgs.add('-Dfabric.debug.disableModIds=' + ids)
 			println "vulkan-probe: prodClient gets -Dfabric.debug.disableModIds=" + ids
 		}
+		t.jvmArgs.add('-Dvulkairis.composite.probe=true')
+		// -DprobeClassLog=<file>: the JVM's class-load log, to prove which classes a boot touched
+		// (step 4e: no Sodium compat class from Flywheel/Create once nothing claims the sodium id).
+		def classLog = System.getProperty('probeClassLog')
+		if (classLog) {
+			t.jvmArgs.add('-Xlog:class+load=info:file=' + classLog)
+		}
+		// Step 5: write the adapted pack terrain shaders to <gameDir>/vulkairis/debug/ (*.terrain.*.glsl).
+		t.jvmArgs.add('-Dvulkairis.dumpTerrain=true')
 	}
 }

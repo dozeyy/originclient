@@ -1,0 +1,57 @@
+# gradle
+
+.gradle/
+build/
+out/
+classes/
+
+# eclipse
+
+*.launch
+
+# idea
+
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# vscode
+
+.settings/
+.vscode/
+bin/
+.classpath
+.project
+
+# macos
+
+*.DS_Store
+
+# fabric
+
+run/
+
+# java
+
+hs_err_*.log
+replay_*.log
+*.hprof
+*.jfr
+*.class
+
+# Vulkairis local references and logs
+LIBS/Vitrail/
+*.log
+*.log.gz
+build-*.log
+runclient*.log
+test-output.*
+run_output*.txt
+gradle-ascii/
+.opencode/
+
+
+# Origin: log4j output from unit tests, dev run folder
+logs/
+run/

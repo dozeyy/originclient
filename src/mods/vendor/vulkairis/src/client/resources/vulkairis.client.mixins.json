@@ -1,0 +1,52 @@
+{
+	"required": true,
+	"package": "com.vulkairis.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"plugin": "com.vulkairis.client.mixin.VulkairisMixinPlugin",
+	"priority": 1100,
+	"client": [
+		"debug.LoadingOverlayDebugMixin",
+		"debug.MinecraftScreenDebugMixin",
+		"iris.DepthCopyStrategyMixin",
+		"iris.ExtendedShaderMixin",
+		"iris.GLDebugMixin",
+		"iris.GlResourceMixin",
+		"iris.GlShaderMixin",
+		"iris.HandPassDebugMixin",
+		"iris.IrisRenderSystemMixin",
+		"iris.PBRTextureManagerMixin",
+		"iris.PipelineManagerMixin",
+		"iris.ProgramCreatorMixin",
+		"iris.ProgramImagesBuilderMixin",
+		"iris.ProgramMixin",
+		"iris.ProgramUniformsBuilderMixin",
+		"iris.RenderBuffersMixin",
+		"iris.ShaderPackScreenMixin",
+		"iris.ShaderWorkaroundsMixin",
+		"iris.SmoothedFloatMixin",
+		"iris.SodiumProgramsMixin",
+		"iris.SodiumTerrainDoorMixin",
+		"iris.StandardMacrosMixin",
+		"iris.TransformPatcherMixin",
+		"render.GlStateManagerMixin",
+		"render.GameRendererCompositeMixin",
+		"render.LevelRendererIrisStateMixin",
+		"render.RenderTargetExtMixin",
+		"render.RendererMixin",
+		"render.RenderSystemIrisInitMixin",
+		"render.VulkairisRenderSystemMixin",
+		"vulkan.AttributeAccessor",
+		"vulkan.GLSLParserMixin",
+		"vulkan.GlUtilMixin",
+		"vulkan.GraphicsPipelineMixin",
+		"vulkan.VkGlTextureMixin",
+		"vulkan.VTextureSelectorMixin",
+		"vulkan.WorldRendererShadowMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
