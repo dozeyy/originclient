@@ -15,7 +15,7 @@ name: vulkan-probe
 on:
   workflow_dispatch:
   push:
-    branches: [claude/vulkan-probe, claude/vulkan-vulkairis]
+    branches: [claude/vulkan-probe, claude/vulkan-vulkairis, claude/vulkan-1211-fwv-packs]
     paths:
       - ".github/workflows/vulkan-probe.yml"
       - "tools/vulkan-probe/**"

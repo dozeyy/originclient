@@ -12,7 +12,7 @@ name: flywheel-vulkan
 on:
   workflow_dispatch:
   push:
-    branches: [claude/vulkan-flywheel]
+    branches: [claude/vulkan-flywheel, claude/vulkan-1211-fwv-packs]
     paths:
       - ".github/workflows/flywheel-vulkan.yml"
       - "src/mods/vendor/flywheel-vulkan/**"
@@ -42,6 +42,14 @@ jobs:
           - case: phase1
             jvm: ""
             must: "fell back from '.*' to 'origin:vulkan' && \\[fwv-test\\] cog visual created && origin:vulkan first frame drawn && \\[fwv-test\\] visuals: effects=1"
+          # pack: phase1 plus Origin's VulkaIris fork and MakeUp Ultra Fast 9.6 (Modrinth t4YRxQug,
+          # LGPL-3.0-or-later) switched on: the cogs must draw through the pack's gbuffers program and
+          # cast into its shadow map, still on origin:vulkan (never flywheel:off).
+          - case: pack
+            jvm: ""
+            fork: "true"
+            pack: "t4YRxQug"
+            must: "Using shaderpack: MakeUp && fell back from '.*' to 'origin:vulkan' && \\[fwv-test\\] cog visual created && origin:vulkan drawing through the shader pack && origin:vulkan casting into the shader pack's shadow map"
     env:
       OUT: ${{ github.workspace }}/fwv-out
       FLYWHEEL_URL: https://maven.createmod.net/dev/engine-room/flywheel/flywheel-fabric-1.21.1/1.0.6-44/flywheel-fabric-1.21.1-1.0.6-44.jar
@@ -81,9 +89,24 @@ jobs:
           fi
           ls -la "$RUNNER_TEMP/extra"
 
+      # Origin's VulkaIris fork (pack case only): unit tests + jar, the same build vulkan-probe runs.
+      - name: Build Origin's VulkaIris fork
+        if: ${{ matrix.fork == 'true' }}
+        working-directory: src/mods/vendor/vulkairis
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon --console=plain > "$OUT/fork-build.log" 2>&1 || { tail -n 80 "$OUT/fork-build.log"; exit 1; }
+          tail -n 5 "$OUT/fork-build.log"
+          jar=$(ls build/libs/vulkairis-origin-*.jar | grep -v -- -sources | head -n 1)
+          [ -n "$jar" ] || { echo "::error::no vulkairis-origin jar"; exit 1; }
+          echo "FORK_JAR=$PWD/$jar" >> "$GITHUB_ENV"
+
       - name: Fetch VulkanMod (SHA-512) + Flywheel (SHA-256)
         run: |
-          python3 tools/vulkan-probe/fetch.py "$RUNNER_TEMP/extra" | tee "$OUT/fetch.txt"
+          python3 tools/vulkan-probe/fetch.py "$RUNNER_TEMP/extra" ${{ matrix.fork == 'true' && '--local "$FORK_JAR"' || '' }} \
+            ${{ matrix.pack && format('--shaderpack {0} "$RUNNER_TEMP/packs"', matrix.pack) || '' }} | tee "$OUT/fetch.txt"
+          pack=$(sed -n 's/^PACK_FILE=//p' "$OUT/fetch.txt")
+          [ -n "$pack" ] && echo "PACK_FILE=$pack" >> "$GITHUB_ENV" || true
           curl -fsSL --retry 4 -o "$RUNNER_TEMP/extra/flywheel-fabric-1.21.1-1.0.6-44.jar" "$FLYWHEEL_URL"
           echo "$FLYWHEEL_SHA256  $RUNNER_TEMP/extra/flywheel-fabric-1.21.1-1.0.6-44.jar" | sha256sum -c -
           ls -la "$RUNNER_TEMP/extra"
@@ -102,6 +125,15 @@ jobs:
           chmod +x gradlew
           mkdir -p run-prod
           printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > run-prod/options.txt
+          if [ -n "${PACK_FILE:-}" ]; then
+            # Same setup as vulkan-probe's vk-fork-pack: the pack switched on in Iris, and Iris's sodium
+            # dependency dropped with the override file the launcher writes per Vulkan account.
+            mkdir -p run-prod/shaderpacks run-prod/config
+            cp "$RUNNER_TEMP/packs/$PACK_FILE" run-prod/shaderpacks/
+            printf 'enableShaders=true\nshaderPack=%s\n' "$PACK_FILE" > run-prod/config/iris.properties
+            cp "$GITHUB_WORKSPACE/tools/vulkan-probe/fabric_loader_dependencies.json" run-prod/config/
+            echo "shader pack on: $PACK_FILE"
+          fi
           Xvfb :99 -screen 0 1280x720x24 -nolisten tcp &
           export DISPLAY=:99
           sleep 2

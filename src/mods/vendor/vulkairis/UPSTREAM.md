@@ -223,6 +223,8 @@ Found on Will's RX 9070 XT with MakeUp (link FAILs, flat/near-black terrain, whi
   with every descriptor in the caller's descriptor set, fills its uniform buffers and resolves its pack
   samplers. Shadow casters register a callback that runs inside the shadow pass. A program that can't be
   prepared returns null (logged once per pack) and never counts toward the link-failure breaker.
+  `prepare` caches nothing while the pack's programs are not registered yet (a caller asking during
+  the pack reload gets null and asks again next frame, instead of a cached failure for the session).
 - `bridge/VulkanModProgramBridge.prepareForeign/writeForeignUniforms`: buildPipeline's translation up to
   the final GLSL (union bindings, varying locations, 0.1 alpha cutout) without touching the device.
 - `origin/terrain/TerrainVertexAdapter.adaptForeign`: the same pack-attribute wrap, fed by the caller's
