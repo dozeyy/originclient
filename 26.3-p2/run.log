@@ -1,0 +1,200 @@
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-9.5.1-bin.zip
+.............10%.............20%..............30%.............40%.............50%..............60%.............70%..............80%.............90%.............100%
+
+Welcome to Gradle 9.5.1!
+
+Here are the highlights of this release:
+ - Task provenance in reports and failure messages
+ - Type-safe accessors for precompiled Kotlin Settings plugins
+
+For more details see https://docs.gradle.org/9.5.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.17.21
+
+> Task :compileJava
+> Task :processResources
+> Task :classes
+
+> Task :compileClientJava
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/packs/ResourcePackHubScreen.java:574: error: cannot find symbol
+			Util.getPlatform().openUri(url);
+			                  ^
+  symbol:   method openUri(String)
+  location: class OS
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/packs/ResourcePackHubScreen.java:888: error: cannot find symbol
+			Util.getPlatform().openFile(dir.toFile());
+			                  ^
+  symbol:   method openFile(File)
+  location: class OS
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:61: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static final Map<String, IJeiConfigValue<?>> HANDLES = new LinkedHashMap<>();
+	                                 ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] getConfigManager() in IJeiRuntime has been deprecated and marked for removal
+			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+			                             ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+			     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:118: warning: [removal] IJeiConfigCategory in mezz.jei.api.runtime.config has been deprecated and marked for removal
+				for (IJeiConfigCategory cat : file.getCategories()) {
+				     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:120: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+					for (IJeiConfigValue<?> v : cat.getConfigValues()) {
+					     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:141: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static ModOption build(String category, IJeiConfigValue<?> v) {
+	                                                ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:144: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			IJeiConfigValueSerializer<?> ser = v.getSerializer();
+			^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:148: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			if (ser instanceof IJeiConfigListValueSerializer<?> ls) {
+			                   ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:184: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:200: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:217: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:242: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:255: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> String readTyped(IJeiConfigValue<T> v) {
+	                                    ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:259: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> void writeTyped(IJeiConfigValue<T> v, String s) {
+	                                   ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:260: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValueSerializer.IDeserializeResult<T> r = v.getSerializer().deserialize(s);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:269: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> List<String> validTokens(IJeiConfigValueSerializer<T> ser) {
+	                                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:281: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <E> List<String> elementChoices(IJeiConfigListValueSerializer<E> ls) {
+	                                               ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:287: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static double[] bounds(String key, IJeiConfigValueSerializer<?> ser, int pivot) {
+	                                           ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:314: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static int probeMin(IJeiConfigValueSerializer<?> ser, int pivot) {
+	                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:330: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static int probeMax(IJeiConfigValueSerializer<?> ser, int pivot) {
+	                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:346: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static boolean validInt(IJeiConfigValueSerializer<?> ser, int x) {
+	                                ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:356: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static String fileName(IJeiConfigFile file) {
+	                               ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+2 errors
+22 warnings
+
+> Task :compileClientJava FAILED
+
+[Incubating] Problems report is available at: file:///home/runner/work/originclient/originclient/src/mods/versions/26.3/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileClientJava' (registered by plugin class 'org.gradle.api.plugins.JavaBasePlugin').
+> Compilation failed; see the compiler output below.
+  Note: Recompile with -Xlint:deprecation for details.
+  Note: Some input files use or override a deprecated API.
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:61: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static final Map<String, IJeiConfigValue<?>> HANDLES = new LinkedHashMap<>();
+  	                                 ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] getConfigManager() in IJeiRuntime has been deprecated and marked for removal
+  			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+  			                             ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+  			     ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:118: warning: [removal] IJeiConfigCategory in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  				for (IJeiConfigCategory cat : file.getCategories()) {
+  				     ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:120: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  					for (IJeiConfigValue<?> v : cat.getConfigValues()) {
+  					     ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:141: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static ModOption build(String category, IJeiConfigValue<?> v) {
+  	                                                ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:144: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  			IJeiConfigValueSerializer<?> ser = v.getSerializer();
+  			^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:148: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  			if (ser instanceof IJeiConfigListValueSerializer<?> ls) {
+  			                   ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:184: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  		IJeiConfigValue<?> v = HANDLES.get(key);
+  		^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:200: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  		IJeiConfigValue<?> v = HANDLES.get(key);
+  		^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:217: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  		IJeiConfigValue<?> v = HANDLES.get(key);
+  		^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:242: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  		IJeiConfigValue<?> v = HANDLES.get(key);
+  		^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:255: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static <T> String readTyped(IJeiConfigValue<T> v) {
+  	                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:259: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static <T> void writeTyped(IJeiConfigValue<T> v, String s) {
+  	                                   ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:260: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  		IJeiConfigValueSerializer.IDeserializeResult<T> r = v.getSerializer().deserialize(s);
+  		^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:269: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static <T> List<String> validTokens(IJeiConfigValueSerializer<T> ser) {
+  	                                            ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:281: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static <E> List<String> elementChoices(IJeiConfigListValueSerializer<E> ls) {
+  	                                               ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:287: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static double[] bounds(String key, IJeiConfigValueSerializer<?> ser, int pivot) {
+  	                                           ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:314: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static int probeMin(IJeiConfigValueSerializer<?> ser, int pivot) {
+  	                            ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:330: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static int probeMax(IJeiConfigValueSerializer<?> ser, int pivot) {
+  	                            ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:346: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static boolean validInt(IJeiConfigValueSerializer<?> ser, int x) {
+  	                                ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:356: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static String fileName(IJeiConfigFile file) {
+  	                               ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/packs/ResourcePackHubScreen.java:574: error: cannot find symbol
+  			Util.getPlatform().openUri(url);
+  			                  ^
+    symbol:   method openUri(String)
+    location: class OS
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/packs/ResourcePackHubScreen.java:888: error: cannot find symbol
+  			Util.getPlatform().openFile(dir.toFile());
+  			                  ^
+    symbol:   method openFile(File)
+    location: class OS
+  2 errors
+  22 warnings
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+BUILD FAILED in 51s
+3 actionable tasks: 3 executed

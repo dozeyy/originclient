@@ -1,0 +1,460 @@
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-9.5.1-bin.zip
+.............10%.............20%..............30%.............40%.............50%..............60%.............70%..............80%.............90%.............100%
+
+Welcome to Gradle 9.5.1!
+
+Here are the highlights of this release:
+ - Task provenance in reports and failure messages
+ - Type-safe accessors for precompiled Kotlin Settings plugins
+
+For more details see https://docs.gradle.org/9.5.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.17.21
+
+> Task :compileJava
+> Task :processResources
+> Task :classes
+
+> Task :compileClientJava
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:61: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static final Map<String, IJeiConfigValue<?>> HANDLES = new LinkedHashMap<>();
+	                                 ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] getConfigManager() in IJeiRuntime has been deprecated and marked for removal
+			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+			                             ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+			     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:118: warning: [removal] IJeiConfigCategory in mezz.jei.api.runtime.config has been deprecated and marked for removal
+				for (IJeiConfigCategory cat : file.getCategories()) {
+				     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:120: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+					for (IJeiConfigValue<?> v : cat.getConfigValues()) {
+					     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:141: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static ModOption build(String category, IJeiConfigValue<?> v) {
+	                                                ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:144: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			IJeiConfigValueSerializer<?> ser = v.getSerializer();
+			^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:148: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			if (ser instanceof IJeiConfigListValueSerializer<?> ls) {
+			                   ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:184: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:200: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:217: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:242: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:255: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> String readTyped(IJeiConfigValue<T> v) {
+	                                    ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:259: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> void writeTyped(IJeiConfigValue<T> v, String s) {
+	                                   ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:260: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValueSerializer.IDeserializeResult<T> r = v.getSerializer().deserialize(s);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:269: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> List<String> validTokens(IJeiConfigValueSerializer<T> ser) {
+	                                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:281: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <E> List<String> elementChoices(IJeiConfigListValueSerializer<E> ls) {
+	                                               ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:287: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static double[] bounds(String key, IJeiConfigValueSerializer<?> ser, int pivot) {
+	                                           ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:314: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static int probeMin(IJeiConfigValueSerializer<?> ser, int pivot) {
+	                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:330: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static int probeMax(IJeiConfigValueSerializer<?> ser, int pivot) {
+	                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:346: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static boolean validInt(IJeiConfigValueSerializer<?> ser, int x) {
+	                                ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/JeiSettings.java:356: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static String fileName(IJeiConfigFile file) {
+	                               ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+22 warnings
+
+> Task :processClientResources
+> Task :clientClasses
+> Task :generateLog4jConfig
+> Task :generateDLIConfig
+> Task :configureLaunch
+> Task :downloadAssets
+> Task :configureClientLaunch
+
+> Task :runClient
+[0.002s][info][gc] Using G1
+[17:29:58] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.2 with Fabric Loader 0.19.3
+[17:29:58] [main/INFO] (FabricLoader/Mappings) Mappings not present!
+[0.651s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 73M->21M(264M) 7.480ms
+[17:29:58] [main/INFO] (FabricLoader) Loading 54 mods:
+	- fabric-advancement-api-v1 1.0.0+58719a3b9e
+	- fabric-api 0.161.0+26.2
+	- fabric-api-base 2.0.4+ece063239e
+	- fabric-api-lookup-api-v1 2.0.18+11e1c9a39e
+	- fabric-biome-api-v1 18.0.6+c7bd5b8e9e
+	- fabric-block-api-v1 3.1.0+53515aab9e
+	- fabric-block-getter-api-v2 2.0.7+ec56b6019e
+	- fabric-client-gametest-api-v1 6.0.2+0f4f1dca9e
+	- fabric-command-api-v2 3.1.0+00cb03469e
+	- fabric-content-registries-v0 11.3.2+37b1aa249e
+	- fabric-convention-tags-v2 4.7.1+1f023a9e9e
+	- fabric-crash-report-info-v1 1.0.5+086d547a9e
+	- fabric-creative-tab-api-v1 5.0.15+6468574f9e
+	- fabric-data-attachment-api-v1 2.2.19+515ac5339e
+	- fabric-data-generation-api-v1 25.6.0+c0da0b829e
+	- fabric-debug-api-v1 1.0.2+c792624d9e
+	- fabric-dimensions-v1 5.1.12+515ac5339e
+	- fabric-entity-events-v1 5.0.5+06488ac19e
+	- fabric-events-interaction-v0 5.2.8+515ac5339e
+	- fabric-game-rule-api-v1 4.0.8+46a6d00c9e
+	- fabric-gametest-api-v1 4.0.22+4a7fa0819e
+	- fabric-item-api-v1 14.5.0+c68f6cbe9e
+	- fabric-key-mapping-api-v1 2.0.5+e2bdee789e
+	- fabric-lifecycle-events-v1 4.1.4+29b6eb019e
+	- fabric-loot-api-v3 3.0.17+06488ac19e
+	- fabric-menu-api-v1 2.0.17+086d547a9e
+	- fabric-message-api-v1 7.0.8+bb2ed3f79e
+	- fabric-model-loading-api-v1 8.0.17+c80601bb9e
+	- fabric-networking-api-v1 6.3.4+2989c6a09e
+	- fabric-object-builder-api-v1 24.1.1+6fcd5f039e
+	- fabric-particles-v1 5.0.19+d1756aa99e
+	- fabric-permission-api-v1 1.0.5+e442d8d09e
+	- fabric-recipe-api-v1 9.0.22+11e1c9a39e
+	- fabric-registry-sync-v0 7.1.1+c7bd5b8e9e
+	- fabric-renderer-api-v1 14.1.4+2b0d8a229e
+	- fabric-renderer-indigo 9.1.4+2b0d8a229e
+	- fabric-rendering-fluids-v1 6.0.4+06488ac19e
+	- fabric-rendering-v1 25.3.3+515ac5339e
+	- fabric-resource-conditions-api-v1 6.1.0+10e9a28b9e
+	- fabric-resource-loader-v0 3.3.20+4fc5413f9e
+	- fabric-resource-loader-v1 2.0.13+9edec1269e
+	- fabric-screen-api-v1 5.2.1+5087f8249e
+	- fabric-serialization-api-v1 2.0.4+11a26f319e
+	- fabric-sound-api-v1 2.0.5+11a26f319e
+	- fabric-tag-api-v1 2.1.4+515ac5339e
+	- fabric-transfer-api-v1 8.0.13+11dbb7d79e
+	- fabric-transitive-access-wideners-v1 8.1.4+67c847259e
+	- fabricloader 0.19.3
+	- java 25
+	- jei 30.42.0.236
+	   \-- mezz_config 0.6.6
+	- minecraft 26.2
+	- mixinextras 0.5.4
+	- originclient 0.4.2
+[17:29:58] [main/INFO] (FabricLoader/Mixin) SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.3+mixin.0.8.7/41c4a3984a80f4679e759fb9f495587acc5cdac7/sponge-mixin-0.17.3+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[17:29:58] [main/INFO] (FabricLoader/Mixin) Compatibility level set to JAVA_25
+[1.030s][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 109M->29M(264M) 6.776ms
+[17:29:58] [main/WARN] (FabricLoader/Mixin) Error loading class: de/siphalor/amecs/key_modifiers/impl/AmecsKeyModifiersEarlyInit (java.lang.ClassNotFoundException: de/siphalor/amecs/key_modifiers/impl/AmecsKeyModifiersEarlyInit)
+[17:29:58] [main/WARN] (FabricLoader/Mixin) @Mixin target de.siphalor.amecs.key_modifiers.impl.AmecsKeyModifiersEarlyInit was not found jei.mixins.json:AmecsKeyModifiersEarlyInitMixin from mod jei
+[1.190s][info][gc] GC(2) Pause Young (Normal) (G1 Evacuation Pause) 117M->37M(264M) 9.672ms
+[17:29:58] [main/WARN] (FabricLoader/Mixin) Error loading class: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives (java.lang.ClassNotFoundException: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives)
+[1.373s][info][gc] GC(3) Pause Young (Concurrent Start) (G1 Evacuation Pause) 125M->44M(264M) 7.519ms
+[1.373s][info][gc] GC(4) Concurrent Mark Cycle
+[1.400s][info][gc] GC(4) Pause Remark 54M->54M(192M) 4.099ms
+[1.412s][info][gc] GC(4) Pause Cleanup 56M->56M(192M) 0.022ms
+[1.412s][info][gc] GC(4) Concurrent Mark Cycle 39.169ms
+[17:29:59] [main/INFO] (FabricLoader/MixinExtras|Service) Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.4).
+[1.916s][info][gc] GC(5) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 108M->46M(192M) 6.585ms
+[2.294s][info][gc] GC(6) Pause Young (Mixed) (G1 Evacuation Pause) 110M->48M(192M) 10.393ms
+[2.307s][info][gc] GC(7) Pause Young (Concurrent Start) (Metadata GC Threshold) 50M->48M(248M) 4.058ms
+[2.307s][info][gc] GC(8) Concurrent Mark Cycle
+[2.345s][info][gc] GC(8) Pause Remark 53M->53M(216M) 3.721ms
+[2.358s][info][gc] GC(8) Pause Cleanup 56M->56M(216M) 0.021ms
+[2.358s][info][gc] GC(8) Concurrent Mark Cycle 51.445ms
+[2.585s][info][gc] GC(9) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 136M->76M(216M) 8.275ms
+[2.734s][info][gc] GC(10) Pause Young (Mixed) (G1 Evacuation Pause) 148M->91M(216M) 20.296ms
+[17:30:00] [Datafixer Bootstrap #0/INFO] (Minecraft) 295 Datafixer optimizations took 307 milliseconds
+[3.159s][info][gc] GC(11) Pause Young (Concurrent Start) (G1 Evacuation Pause) 163M->95M(216M) 6.832ms
+[3.159s][info][gc] GC(12) Concurrent Mark Cycle
+[3.264s][info][gc] GC(12) Pause Remark 120M->120M(216M) 5.293ms
+[3.295s][info][gc] GC(12) Pause Cleanup 124M->124M(216M) 0.027ms
+[3.296s][info][gc] GC(12) Concurrent Mark Cycle 136.268ms
+[3.509s][info][gc] GC(13) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 167M->100M(216M) 8.111ms
+[3.861s][info][gc] GC(14) Pause Young (Mixed) (G1 Evacuation Pause) 172M->102M(216M) 17.183ms
+[4.146s][info][gc] GC(15) Pause Young (Concurrent Start) (G1 Evacuation Pause) 174M->108M(376M) 8.139ms
+[4.146s][info][gc] GC(16) Concurrent Mark Cycle
+[4.253s][info][gc] GC(16) Pause Remark 164M->164M(376M) 3.671ms
+[4.285s][info][gc] GC(16) Pause Cleanup 184M->184M(376M) 0.022ms
+[4.286s][info][gc] GC(16) Concurrent Mark Cycle 140.049ms
+[4.383s][info][gc] GC(17) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 244M->116M(376M) 9.795ms
+[4.871s][info][gc] GC(18) Pause Young (Mixed) (G1 Evacuation Pause) 252M->120M(376M) 14.820ms
+[5.380s][info][gc] GC(19) Pause Young (Concurrent Start) (G1 Evacuation Pause) 256M->124M(376M) 7.299ms
+[5.380s][info][gc] GC(20) Concurrent Mark Cycle
+[5.511s][info][gc] GC(20) Pause Remark 180M->180M(376M) 4.322ms
+[5.550s][info][gc] GC(20) Pause Cleanup 204M->204M(376M) 0.026ms
+[5.551s][info][gc] GC(20) Concurrent Mark Cycle 170.553ms
+[5.626s][info][gc] GC(21) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 260M->129M(376M) 6.006ms
+[5.967s][info][gc] GC(22) Pause Young (Mixed) (G1 Evacuation Pause) 265M->130M(376M) 12.257ms
+[6.370s][info][gc] GC(23) Pause Young (Concurrent Start) (G1 Evacuation Pause) 266M->136M(608M) 6.593ms
+[6.370s][info][gc] GC(24) Concurrent Mark Cycle
+[6.509s][info][gc] GC(24) Pause Remark 184M->184M(480M) 5.027ms
+[6.545s][info][gc] GC(24) Pause Cleanup 189M->189M(480M) 0.027ms
+[6.547s][info][gc] GC(24) Concurrent Mark Cycle 177.042ms
+[17:30:04] [Render thread/INFO] (Minecraft) Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, profilesHost=https://api.mojang.com, name=PROD]
+[17:30:04] [Render thread/INFO] (Minecraft) Setting user: Player313
+[17:30:04] [Render thread/INFO] (originclient) Origin Client initializing
+[17:30:04] [Render thread/INFO] (PluginCaller) Sending ConfigManager...
+[17:30:04] [Render thread/INFO] (PluginCaller) Sending ConfigManager took 1.558 milliseconds
+[7.099s][info][gc] GC(25) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 320M->153M(480M) 15.445ms
+[17:30:04] [Render thread/INFO] (originclient) Origin: MSDF text, icon SDF and colour-grade pipelines build on first use (26.2).
+[17:30:04] [Render thread/INFO] (Indigo) [Indigo] Registering Indigo renderer!
+[17:30:05] [Render thread/INFO] (Minecraft) Backend library: LWJGL version 3.4.1-snapshot
+[17:30:06] [Render thread/INFO] (Minecraft) Using graphics backend OpenGL, using drivers: 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.4
+[17:30:06] [Render thread/INFO] (Minecraft) Using graphics device: llvmpipe (LLVM 20.1.2, 256 bits) (Mesa)
+[17:30:06] [Render thread/INFO] (Minecraft) Using graphics device extensions: GL_ARB_multi_draw_indirect, GL_ARB_buffer_storage, GL_ARB_shader_draw_parameters, GL_ARB_base_instance, GL_KHR_debug, GL_ARB_draw_indirect, GL_ARB_clip_control, GL_ARB_vertex_attrib_binding, GL_ARB_direct_state_access, GL_EXT_texture_filter_anisotropic
+[8.996s][info][gc] GC(26) Pause Young (Mixed) (G1 Evacuation Pause) 337M->159M(480M) 19.759ms
+[17:30:06] [Render thread/ERROR] (Minecraft) Error while loading the narrator
+
+com.mojang.text2speech.Narrator$InitializeException: Failed to load library flite
+	at knot//com.mojang.text2speech.NarratorLinux$FliteLibrary.loadNative(NarratorLinux.java:82)
+	at knot//com.mojang.text2speech.NarratorLinux.<init>(NarratorLinux.java:19)
+	at knot//com.mojang.text2speech.Narrator.getNarrator(Narrator.java:41)
+	at knot//net.minecraft.client.GameNarrator.<init>(GameNarrator.java:20)
+	at knot//net.minecraft.client.Minecraft.<init>(Minecraft.java:733)
+	at knot//net.minecraft.client.main.Main.main(Main.java:278)
+	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
+	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
+Caused by: java.lang.UnsatisfiedLinkError: Unable to load library 'flite':
+libflite.so: cannot open shared object file: No such file or directory
+libflite.so: cannot open shared object file: No such file or directory
+Native library (linux-x86-64/libflite.so) not found in resource path (/home/runner/work/originclient/originclient/src/mods/versions/26.2/build/classes/java/client:/home/runner/work/originclient/originclient/src/mods/versions/26.2/build/resources/client:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/fabric-loader/0.19.3/354dfaa02d0552e11867f85dff7cdbfaf813ba3e/fabric-loader-0.19.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api/0.161.0+26.2/332da34ebb72171e603a0c538de17f4c54ea9e29/fabric-api-0.161.0+26.2.jar:/home/runner/.gradle/caches/modules-2/files-2.1/maven.modrinth/jei/30.42.0.236/9f120d7d07d7e20e09a9fdb0044dd866e33ca142/jei-30.42.0.236.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-webp/3.12.0/390599d525f6af2af4d94bd549411d6e1d47ea07/imageio-webp-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.10.1/ada2141c0cc52ee8f5c48cd5fa4ce0e794f22236/asm-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-analysis/9.10.1/8d49f14d51f632cb1d87c88d1ceaf50db0d8af1b/asm-analysis-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-commons/9.10.1/4229e4c55fd8e01c23f9fe9884075cc628aacc50/asm-commons-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-tree/9.10.1/e244332a17564c1d1572449399a842de35881be2/asm-tree-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-util/9.10.1/7bb9d450e8d4cbf9f9e04096c44bbfe7fba80b15/asm-util-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.3+mixin.0.8.7/41c4a3984a80f4679e759fb9f495587acc5cdac7/sponge-mixin-0.17.3+mixin.0.8.7.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.github.llamalad7/mixinextras-fabric/0.5.4/5e167154bcb9942111313a5e186e16cd7265f858/mixinextras-fabric-0.5.4.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/dev-launch-injector/0.2.1+build.8/da8bef7e6e2f952da707f282bdb46882a0fce5e3/dev-launch-injector-0.2.1+build.8.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/fabric-log4j-util/1.0.2/ef0b3fb613356feb75a67d54f2fad6f03a006648/fabric-log4j-util-1.0.2.jar:/home/runner/.gradle/caches/modules-2/files-2.1/at.yawk.lz4/lz4-java/1.10.1/f541d7f910fe3d76f38f799c507c48cc81b12ecb/lz4-java-1.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.azure/azure-json/1.4.0/fcc1d354dbc3e0300e5276b1bf124d0247799cd8/azure-json-1.4.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.github.oshi/oshi-core/6.9.0/3224870731860cfcd7744581a05b559e94291e7/oshi-core-6.9.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/2.14.0/efc0e34ede4e3204eaefb84a00e55e8c86634382/gson-2.14.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.guava/failureaccess/1.0.3/aeaffd00d57023a2c947393ed251f0354f0985fc/failureaccess-1.0.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/33.6.0-jre/c376b13067cc99a5774403530953f7b05a91e218/guava-33.6.0-jre.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.ibm.icu/icu4j/78.3/6a851a53bb1f25689fc418dcc8935b0d93580adf/icu4j-78.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.microsoft.azure/msal4j/1.24.1/c233f2d047b9755f7041adf21a858c680e4c9242/msal4j-1.24.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/authlib/9.0.75/d61056a234d5e4b272e09d59b0713f80d6c0b6af/authlib-9.0.75.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/blocklist/1.0.10/5c685c5ffa94c4cd39496c7184c1d122e515ecef/blocklist-1.0.10.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/brigadier/1.3.10/d15b53a14cf20fdcaa98f731af5dda654452c010/brigadier-1.3.10.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/datafixerupper/10.0.21/b6b2ae770c02e0c1eb90f9985b151e9085a38d0b/datafixerupper-10.0.21.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/jtracy/1.0.37/a3fb649b2e2b2288d2978f0b0bc3d83f62809d1e/jtracy-1.0.37.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/jtracy/1.0.37/e1b4395227af41195da9e2ead13c48ee0b7d31cd/jtracy-1.0.37-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/logging/1.7.12/351cea64a5233361327d8d54c44277041beed97f/logging-1.7.12.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/patchy/2.2.10/da05971b07cbb379d002cf7eaec6a2048211fefc/patchy-2.2.10.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/text2speech/1.19.12/2e517a75c79d34d32de2b5d68422150836c2133e/text2speech-1.19.12.jar:/home/runner/.gradle/caches/modules-2/files-2.1/commons-codec/commons-codec/1.22.0/6b3eb4beb7058c2a638f5f17bcb388649fd339dd/commons-codec-1.22.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/commons-io/commons-io/2.20.0/36f3474daec2849c149e877614e7f979b2082cd2/commons-io-2.20.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-buffer/4.2.15.Final/2beb620803bf871cda2dd5d46b8f831e8015dd34/netty-buffer-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-base/4.2.15.Final/e97149fdd5fb04858efa90e314651c8d700dc68b/netty-codec-base-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-compression/4.2.15.Final/89fc4a20b7ae6af974304b1695405e62c4f9b16d/netty-codec-compression-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-http/4.2.15.Final/e611826aa054371bb9a17f27bdb05755a4cac5f0/netty-codec-http-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-common/4.2.15.Final/7222492c1af9c2d4d78d521eea340a619e242fda/netty-common-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-handler/4.2.15.Final/d5344afd1148e3b9927a74be019605ebb0937a93/netty-handler-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-resolver/4.2.15.Final/b961a16d379b508b473e064ba06842bba280f4e3/netty-resolver-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-epoll/4.2.15.Final/44bafba9c9993800e955b365bba4981326f3f3b1/netty-transport-classes-epoll-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-kqueue/4.2.15.Final/f248656bb907607c5a41c7b61fd918a97db79250/netty-transport-classes-kqueue-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-epoll/4.2.15.Final/cccd31f2c8e966ab1e7a4d2293c8a3965628fe73/netty-transport-native-epoll-4.2.15.Final-linux-aarch_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-epoll/4.2.15.Final/ce256127f8ed3f076756f1f4dcb5877d65d1f1c2/netty-transport-native-epoll-4.2.15.Final-linux-x86_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-unix-common/4.2.15.Final/efb6943b4de9e0226a5ac35330f232605424af02/netty-transport-native-unix-common-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport/4.2.15.Final/a000c3a6196ee40207b73ac619dcb339409dd62f/netty-transport-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/it.unimi.dsi/fastutil/8.5.18/a6cff377eecc19c2037bf31568a6d7106b50ba1f/fastutil-8.5.18.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna-platform/5.17.0/a4934c44d25a9d8c2ddf4203affd20330cb3426f/jna-platform-5.17.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.17.0/33d12735bef894440780fce64f9758d420c7bae2/jna-5.17.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.sf.jopt-simple/jopt-simple/5.0.4/4fdac2fbe92dfad86aa6e9301736f6b4342a3f5c/jopt-simple-5.0.4.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-compress/1.28.0/e482f2c7a88dac3c497e96aa420b6a769f59c8d7/commons-compress-1.28.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-lang3/3.20.0/65897b3e5731220962e659e001904af3c3cbeba9/commons-lang3-3.20.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-api/2.26.0/ad52af0ecf054a7e3f275a2e180ee06d9c490951/log4j-api-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-core/2.26.0/d267ca60b27ddb075e0b4e75e7875859717bf85f/log4j-core-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-slf4j2-impl/2.26.0/668c0f0e813d83f00a7182533aa658ec7e7a0a0d/log4j-slf4j2-impl-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.jcraft/jorbis/0.0.17/8872d22b293e8f5d7d56ff92be966e6dc28ebdc6/jorbis-0.0.17.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.joml/joml/1.10.8/fc0a71dad90a2cf41d82a76156a0e700af8e4f8d/joml-1.10.8.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.jspecify/jspecify/1.0.0/7425a601c1c7ec76645a78d22b8c6a627edee507/jspecify-1.0.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-freetype/3.4.1/caa75a37e857efc9b0686e434d708d6420c5b6ea/lwjgl-freetype-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-freetype/3.4.1/40a29a29b1549c4cad073ccd682e3776ffb454fa/lwjgl-freetype-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-glfw/3.4.1/a782b1ddd175c9107bf300fd92920579ea65e2a4/lwjgl-glfw-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-glfw/3.4.1/23cdf7655ce9f3b27ad90f08e73345e0d5b46362/lwjgl-glfw-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-jemalloc/3.4.1/16b663092854fc6adfe0a941e61cae2bb2e437b6/lwjgl-jemalloc-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-jemalloc/3.4.1/b83c82d941f2e624d150d6d1e2efcf4ea49ff8ea/lwjgl-jemalloc-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-openal/3.4.1/8508bd60589de0539aa465b78fcf838efd07ae9a/lwjgl-openal-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-openal/3.4.1/dbff577119266cd4312e4eb9cc2b171407c56360/lwjgl-openal-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-opengl/3.4.1/830412cab823c029cda6b9729f9d2ed36cf79959/lwjgl-opengl-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-opengl/3.4.1/b750599f0e75ddb19f1d0fe993f3011334b710ae/lwjgl-opengl-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-shaderc/3.4.1/5c02c88f0d879529014c78463b76f43fdecfd272/lwjgl-shaderc-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-shaderc/3.4.1/4289bdfa998c4afcdfa7c6925baf50e938113188/lwjgl-shaderc-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-spvc/3.4.1/188553592e97b5ab2dba54a1b403ee80b48dad4c/lwjgl-spvc-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-spvc/3.4.1/6ea8d9edcfcc5664d14e11b9a37a1a900783584a/lwjgl-spvc-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-stb/3.4.1/f077c3dafc31924fbe8acb0b913f08977ba27f8e/lwjgl-stb-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-stb/3.4.1/7e1cfae909da6c68f3cb6073a9bfeb6c90e82a57/lwjgl-stb-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-tinyfd/3.4.1/562697d40dbd2ed0424bf24dcf65d51170f81adf/lwjgl-tinyfd-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-tinyfd/3.4.1/fc6a72690afc8defb60d82ad1de64dd8f537154c/lwjgl-tinyfd-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vma/3.4.1/2c54ce10154feb1ede4d23c5947438cdbfdcc003/lwjgl-vma-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vma/3.4.1/1d5d00e4abed992e0850aa970d338453ebbd3e0c/lwjgl-vma-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vulkan/3.4.1/d0601fdc38890755e5638048c14cc0f7b990964b/lwjgl-vulkan-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl/3.4.1/129e06a04f93992cb2a45172435b21fc4b60dd7d/lwjgl-3.4.1-unsafe.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl/3.4.1/2734e106bd95db49fe0da8cf8bf7fd96475c436c/lwjgl-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/2.0.17/d9e58ac9c7779ba3bf8142aff6c830617a7fe60f/slf4j-api-2.0.17.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.2/.gradle/loom-cache/minecraftMaven/net/minecraft/minecraft-clientOnly-deb5de2120/26.2/minecraft-clientOnly-deb5de2120-26.2.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.2/.gradle/loom-cache/minecraftMaven/net/minecraft/minecraft-common-deb5de2120/26.2/minecraft-common-deb5de2120-26.2.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-kqueue/4.2.15.Final/4245380831515fb4eca18d32477a27fbb8f7b8f4/netty-transport-native-kqueue-4.2.15.Final-osx-x86_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-kqueue/4.2.15.Final/8ea0ef3eb716d821332e4b4926825a4b7c1a6d38/netty-transport-native-kqueue-4.2.15.Final-osx-aarch_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-advancement-api-v1/1.0.0+58719a3b9e/4394b4ce7f29690f622da915d780493148b974cb/fabric-advancement-api-v1-1.0.0+58719a3b9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-transfer-api-v1/8.0.13+11dbb7d79e/10f39a4b46043bc724c7ea3b93bcc0243e592abb/fabric-transfer-api-v1-8.0.13+11dbb7d79e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api-lookup-api-v1/2.0.18+11e1c9a39e/31fc094d5f4d878ed12bba2e5e8cdb42b26d83ae/fabric-api-lookup-api-v1-2.0.18+11e1c9a39e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-block-api-v1/3.1.0+53515aab9e/46cf7e7564fbbb13d099c3fe1b065561f14e268f/fabric-block-api-v1-3.1.0+53515aab9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-command-api-v2/3.1.0+00cb03469e/b144d197307c39c1bc516c274d9460f0116131a3/fabric-command-api-v2-3.1.0+00cb03469e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-content-registries-v0/11.3.2+37b1aa249e/6f664a04bd603be3564b614caafa898e2fc9c67c/fabric-content-registries-v0-11.3.2+37b1aa249e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-data-generation-api-v1/25.6.0+c0da0b829e/6b314081c5999c2094b6a92323c055d59bf7e639/fabric-data-generation-api-v1-25.6.0+c0da0b829e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-convention-tags-v2/4.7.1+1f023a9e9e/e465c608c60ceb105c4f5d792460f5de02d90135/fabric-convention-tags-v2-4.7.1+1f023a9e9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-creative-tab-api-v1/5.0.15+6468574f9e/b8896143a3467ad9eeff3bda41fb787bc080019e/fabric-creative-tab-api-v1-5.0.15+6468574f9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-data-attachment-api-v1/2.2.19+515ac5339e/6ac7e37bdfaf6b9fc26be152d01daa0f95d799a2/fabric-data-attachment-api-v1-2.2.19+515ac5339e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-debug-api-v1/1.0.2+c792624d9e/9f0581bb985edf22a0d812dbe67178bd2849286/fabric-debug-api-v1-1.0.2+c792624d9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-dimensions-v1/5.1.12+515ac5339e/b9d60e3ceee08f0fbc6f19fe8264c82c5fc2d122/fabric-dimensions-v1-5.1.12+515ac5339e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-entity-events-v1/5.0.5+06488ac19e/5cbecb675b91d0ebfe2ef3f20339e1a2c76c435/fabric-entity-events-v1-5.0.5+06488ac19e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-events-interaction-v0/5.2.8+515ac5339e/98650380bb4e65a3deb6254e7c10a171eb907477/fabric-events-interaction-v0-5.2.8+515ac5339e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-game-rule-api-v1/4.0.8+46a6d00c9e/886816530fb79c925eb1bc6c34dd4d9d82e71d49/fabric-game-rule-api-v1-4.0.8+46a6d00c9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-gametest-api-v1/4.0.22+4a7fa0819e/3fb91749fe4f238518d2980fdc18454016949190/fabric-gametest-api-v1-4.0.22+4a7fa0819e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-item-api-v1/14.5.0+c68f6cbe9e/c2d241b01e3c083637adb17c2c8ff798cb752d5a/fabric-item-api-v1-14.5.0+c68f6cbe9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-recipe-api-v1/9.0.22+11e1c9a39e/e756703eda39613f8d638521829b673c92276604/fabric-recipe-api-v1-9.0.22+11e1c9a39e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-model-loading-api-v1/8.0.17+c80601bb9e/b7b69be9cac7b63f853bd3c937c1b774c96a13fb/fabric-model-loading-api-v1-8.0.17+c80601bb9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-renderer-indigo/9.1.4+2b0d8a229e/48cdf540bd670fe9333a74dd1570316180d10ab3/fabric-renderer-indigo-9.1.4+2b0d8a229e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-renderer-api-v1/14.1.4+2b0d8a229e/f6a6d234cc1073ffb871150d548d2164f8bc8d0b/fabric-renderer-api-v1-14.1.4+2b0d8a229e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-rendering-v1/25.3.3+515ac5339e/b970a6d778b9867d6ea13d5437193f1e86a19c55/fabric-rendering-v1-25.3.3+515ac5339e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-lifecycle-events-v1/4.1.4+29b6eb019e/54a508470dcea81513e39001b5c0bf9fae0f1d5/fabric-lifecycle-events-v1-4.1.4+29b6eb019e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-loot-api-v3/3.0.17+06488ac19e/964f3985687b491093db6b9ff87b35106112b74d/fabric-loot-api-v3-3.0.17+06488ac19e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-menu-api-v1/2.0.17+086d547a9e/2d35d55e2aa842d5eec1f9262a74074385c69cfb/fabric-menu-api-v1-2.0.17+086d547a9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-message-api-v1/7.0.8+bb2ed3f79e/106dc9ed22970076aaa39cd257b69705d136dd05/fabric-message-api-v1-7.0.8+bb2ed3f79e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-client-gametest-api-v1/6.0.2+0f4f1dca9e/f54e52e7af5a41fdcf6715f87d09282b2dc9b0f2/fabric-client-gametest-api-v1-6.0.2+0f4f1dca9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-particles-v1/5.0.19+d1756aa99e/f6290d6511388b78455e2186d980553879343172/fabric-particles-v1-5.0.19+d1756aa99e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-object-builder-api-v1/24.1.1+6fcd5f039e/90175252776d48f5c549835501e7fa227e68c4c8/fabric-object-builder-api-v1-24.1.1+6fcd5f039e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-registry-sync-v0/7.1.1+c7bd5b8e9e/82c1ce3885265deb0c15970d4abadf0ae055a539/fabric-registry-sync-v0-7.1.1+c7bd5b8e9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-networking-api-v1/6.3.4+2989c6a09e/608860809ec66fd65ca764c4157e96030f330537/fabric-networking-api-v1-6.3.4+2989c6a09e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-permission-api-v1/1.0.5+e442d8d09e/92197dd81a18322fd36b87de79bdaa8d2b4a1ba9/fabric-permission-api-v1-1.0.5+e442d8d09e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-rendering-fluids-v1/6.0.4+06488ac19e/9ded3bc73b5ff3c441075d0c8eca988aacce1f1f/fabric-rendering-fluids-v1-6.0.4+06488ac19e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-tag-api-v1/2.1.4+515ac5339e/f66a24273cdcc2ce424bf8c69cdc9cf48bdcb328/fabric-tag-api-v1-2.1.4+515ac5339e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-loader-v0/3.3.20+4fc5413f9e/c6551ab905383f3c8e046a403a78a25bebabaff0/fabric-resource-loader-v0-3.3.20+4fc5413f9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-loader-v1/2.0.13+9edec1269e/db19bb66f069d7ed3dde41eb7e1f9ff3122c15a4/fabric-resource-loader-v1-2.0.13+9edec1269e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-screen-api-v1/5.2.1+5087f8249e/ef9ad9a09f392eff05957c24c71e4da6797bb8d9/fabric-screen-api-v1-5.2.1+5087f8249e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api-base/2.0.4+ece063239e/e766f3698b7bab8b1e13683040f8648fab511ca3/fabric-api-base-2.0.4+ece063239e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-biome-api-v1/18.0.6+c7bd5b8e9e/414c89d2bc8ab64dce1763edc4dbe4619113a5b/fabric-biome-api-v1-18.0.6+c7bd5b8e9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-block-getter-api-v2/2.0.7+ec56b6019e/8204045ca262749761be09b144618e6c4133ebe1/fabric-block-getter-api-v2-2.0.7+ec56b6019e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-crash-report-info-v1/1.0.5+086d547a9e/119f48a9a648d86c89fe21444176d0032449d95c/fabric-crash-report-info-v1-1.0.5+086d547a9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-key-mapping-api-v1/2.0.5+e2bdee789e/c86dc688a7e9caa7edca9973dc6abfe37c652135/fabric-key-mapping-api-v1-2.0.5+e2bdee789e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-conditions-api-v1/6.1.0+10e9a28b9e/bfe91afa0e7712974b318ed7e274b493b038a596/fabric-resource-conditions-api-v1-6.1.0+10e9a28b9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-serialization-api-v1/2.0.4+11a26f319e/ebf77996be79909f639a7352689d851385a9cd2b/fabric-serialization-api-v1-2.0.4+11a26f319e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-sound-api-v1/2.0.5+11a26f319e/73e4e62924608e1d1581f192607857db096dafe7/fabric-sound-api-v1-2.0.5+11a26f319e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-transitive-access-wideners-v1/8.1.4+67c847259e/e1e769f8e123395ab939d5d8da900e6a6ad53ab2/fabric-transitive-access-wideners-v1-8.1.4+67c847259e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-metadata/3.12.0/6997264db25396a2c8fddf6520174c9a907e3403/imageio-metadata-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-core/3.12.0/4a57990b52fd36fe60c356a3e5fd57054a85a502/imageio-core-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-image/3.12.0/1ffc9fb885eea7f0bdab0f6e7f780d3e41b5ad01/common-image-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-io/3.12.0/1f739ad65a48fd2bc7b8c0a8bb54218c0e219c84/common-io-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-lang/3.12.0/170b88f23daa4d4d64189285ebebe4eb59d51c93/common-lang-3.12.0.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.2/build/classes/java/main:/home/runner/work/originclient/originclient/src/mods/versions/26.2/build/resources/main)
+	at knot//com.sun.jna.NativeLibrary.loadLibrary(NativeLibrary.java:325)
+	at knot//com.sun.jna.NativeLibrary.getInstance(NativeLibrary.java:481)
+	at knot//com.sun.jna.NativeLibrary.getInstance(NativeLibrary.java:423)
+	at knot//com.mojang.text2speech.NarratorLinux$FliteLibrary.loadNative(NarratorLinux.java:80)
+	... 9 more
+	Suppressed: java.lang.UnsatisfiedLinkError: libflite.so: cannot open shared object file: No such file or directory
+		at knot//com.sun.jna.Native.open(Native Method)
+		at knot//com.sun.jna.NativeLibrary.loadLibrary(NativeLibrary.java:213)
+		... 12 more
+	Suppressed: java.lang.UnsatisfiedLinkError: libflite.so: cannot open shared object file: No such file or directory
+		at knot//com.sun.jna.Native.open(Native Method)
+		at knot//com.sun.jna.NativeLibrary.loadLibrary(NativeLibrary.java:226)
+		... 12 more
+	Suppressed: java.io.IOException: Native library (linux-x86-64/libflite.so) not found in resource path (/home/runner/work/originclient/originclient/src/mods/versions/26.2/build/classes/java/client:/home/runner/work/originclient/originclient/src/mods/versions/26.2/build/resources/client:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/fabric-loader/0.19.3/354dfaa02d0552e11867f85dff7cdbfaf813ba3e/fabric-loader-0.19.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api/0.161.0+26.2/332da34ebb72171e603a0c538de17f4c54ea9e29/fabric-api-0.161.0+26.2.jar:/home/runner/.gradle/caches/modules-2/files-2.1/maven.modrinth/jei/30.42.0.236/9f120d7d07d7e20e09a9fdb0044dd866e33ca142/jei-30.42.0.236.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-webp/3.12.0/390599d525f6af2af4d94bd549411d6e1d47ea07/imageio-webp-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.10.1/ada2141c0cc52ee8f5c48cd5fa4ce0e794f22236/asm-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-analysis/9.10.1/8d49f14d51f632cb1d87c88d1ceaf50db0d8af1b/asm-analysis-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-commons/9.10.1/4229e4c55fd8e01c23f9fe9884075cc628aacc50/asm-commons-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-tree/9.10.1/e244332a17564c1d1572449399a842de35881be2/asm-tree-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-util/9.10.1/7bb9d450e8d4cbf9f9e04096c44bbfe7fba80b15/asm-util-9.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.3+mixin.0.8.7/41c4a3984a80f4679e759fb9f495587acc5cdac7/sponge-mixin-0.17.3+mixin.0.8.7.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.github.llamalad7/mixinextras-fabric/0.5.4/5e167154bcb9942111313a5e186e16cd7265f858/mixinextras-fabric-0.5.4.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/dev-launch-injector/0.2.1+build.8/da8bef7e6e2f952da707f282bdb46882a0fce5e3/dev-launch-injector-0.2.1+build.8.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/fabric-log4j-util/1.0.2/ef0b3fb613356feb75a67d54f2fad6f03a006648/fabric-log4j-util-1.0.2.jar:/home/runner/.gradle/caches/modules-2/files-2.1/at.yawk.lz4/lz4-java/1.10.1/f541d7f910fe3d76f38f799c507c48cc81b12ecb/lz4-java-1.10.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.azure/azure-json/1.4.0/fcc1d354dbc3e0300e5276b1bf124d0247799cd8/azure-json-1.4.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.github.oshi/oshi-core/6.9.0/3224870731860cfcd7744581a05b559e94291e7/oshi-core-6.9.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/2.14.0/efc0e34ede4e3204eaefb84a00e55e8c86634382/gson-2.14.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.guava/failureaccess/1.0.3/aeaffd00d57023a2c947393ed251f0354f0985fc/failureaccess-1.0.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.google.guava/guava/33.6.0-jre/c376b13067cc99a5774403530953f7b05a91e218/guava-33.6.0-jre.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.ibm.icu/icu4j/78.3/6a851a53bb1f25689fc418dcc8935b0d93580adf/icu4j-78.3.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.microsoft.azure/msal4j/1.24.1/c233f2d047b9755f7041adf21a858c680e4c9242/msal4j-1.24.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/authlib/9.0.75/d61056a234d5e4b272e09d59b0713f80d6c0b6af/authlib-9.0.75.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/blocklist/1.0.10/5c685c5ffa94c4cd39496c7184c1d122e515ecef/blocklist-1.0.10.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/brigadier/1.3.10/d15b53a14cf20fdcaa98f731af5dda654452c010/brigadier-1.3.10.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/datafixerupper/10.0.21/b6b2ae770c02e0c1eb90f9985b151e9085a38d0b/datafixerupper-10.0.21.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/jtracy/1.0.37/a3fb649b2e2b2288d2978f0b0bc3d83f62809d1e/jtracy-1.0.37.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/jtracy/1.0.37/e1b4395227af41195da9e2ead13c48ee0b7d31cd/jtracy-1.0.37-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/logging/1.7.12/351cea64a5233361327d8d54c44277041beed97f/logging-1.7.12.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/patchy/2.2.10/da05971b07cbb379d002cf7eaec6a2048211fefc/patchy-2.2.10.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.mojang/text2speech/1.19.12/2e517a75c79d34d32de2b5d68422150836c2133e/text2speech-1.19.12.jar:/home/runner/.gradle/caches/modules-2/files-2.1/commons-codec/commons-codec/1.22.0/6b3eb4beb7058c2a638f5f17bcb388649fd339dd/commons-codec-1.22.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/commons-io/commons-io/2.20.0/36f3474daec2849c149e877614e7f979b2082cd2/commons-io-2.20.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-buffer/4.2.15.Final/2beb620803bf871cda2dd5d46b8f831e8015dd34/netty-buffer-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-base/4.2.15.Final/e97149fdd5fb04858efa90e314651c8d700dc68b/netty-codec-base-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-compression/4.2.15.Final/89fc4a20b7ae6af974304b1695405e62c4f9b16d/netty-codec-compression-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-codec-http/4.2.15.Final/e611826aa054371bb9a17f27bdb05755a4cac5f0/netty-codec-http-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-common/4.2.15.Final/7222492c1af9c2d4d78d521eea340a619e242fda/netty-common-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-handler/4.2.15.Final/d5344afd1148e3b9927a74be019605ebb0937a93/netty-handler-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-resolver/4.2.15.Final/b961a16d379b508b473e064ba06842bba280f4e3/netty-resolver-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-epoll/4.2.15.Final/44bafba9c9993800e955b365bba4981326f3f3b1/netty-transport-classes-epoll-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-classes-kqueue/4.2.15.Final/f248656bb907607c5a41c7b61fd918a97db79250/netty-transport-classes-kqueue-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-epoll/4.2.15.Final/cccd31f2c8e966ab1e7a4d2293c8a3965628fe73/netty-transport-native-epoll-4.2.15.Final-linux-aarch_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-epoll/4.2.15.Final/ce256127f8ed3f076756f1f4dcb5877d65d1f1c2/netty-transport-native-epoll-4.2.15.Final-linux-x86_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-unix-common/4.2.15.Final/efb6943b4de9e0226a5ac35330f232605424af02/netty-transport-native-unix-common-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport/4.2.15.Final/a000c3a6196ee40207b73ac619dcb339409dd62f/netty-transport-4.2.15.Final.jar:/home/runner/.gradle/caches/modules-2/files-2.1/it.unimi.dsi/fastutil/8.5.18/a6cff377eecc19c2037bf31568a6d7106b50ba1f/fastutil-8.5.18.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna-platform/5.17.0/a4934c44d25a9d8c2ddf4203affd20330cb3426f/jna-platform-5.17.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.java.dev.jna/jna/5.17.0/33d12735bef894440780fce64f9758d420c7bae2/jna-5.17.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.sf.jopt-simple/jopt-simple/5.0.4/4fdac2fbe92dfad86aa6e9301736f6b4342a3f5c/jopt-simple-5.0.4.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-compress/1.28.0/e482f2c7a88dac3c497e96aa420b6a769f59c8d7/commons-compress-1.28.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-lang3/3.20.0/65897b3e5731220962e659e001904af3c3cbeba9/commons-lang3-3.20.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-api/2.26.0/ad52af0ecf054a7e3f275a2e180ee06d9c490951/log4j-api-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-core/2.26.0/d267ca60b27ddb075e0b4e75e7875859717bf85f/log4j-core-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-slf4j2-impl/2.26.0/668c0f0e813d83f00a7182533aa658ec7e7a0a0d/log4j-slf4j2-impl-2.26.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.jcraft/jorbis/0.0.17/8872d22b293e8f5d7d56ff92be966e6dc28ebdc6/jorbis-0.0.17.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.joml/joml/1.10.8/fc0a71dad90a2cf41d82a76156a0e700af8e4f8d/joml-1.10.8.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.jspecify/jspecify/1.0.0/7425a601c1c7ec76645a78d22b8c6a627edee507/jspecify-1.0.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-freetype/3.4.1/caa75a37e857efc9b0686e434d708d6420c5b6ea/lwjgl-freetype-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-freetype/3.4.1/40a29a29b1549c4cad073ccd682e3776ffb454fa/lwjgl-freetype-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-glfw/3.4.1/a782b1ddd175c9107bf300fd92920579ea65e2a4/lwjgl-glfw-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-glfw/3.4.1/23cdf7655ce9f3b27ad90f08e73345e0d5b46362/lwjgl-glfw-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-jemalloc/3.4.1/16b663092854fc6adfe0a941e61cae2bb2e437b6/lwjgl-jemalloc-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-jemalloc/3.4.1/b83c82d941f2e624d150d6d1e2efcf4ea49ff8ea/lwjgl-jemalloc-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-openal/3.4.1/8508bd60589de0539aa465b78fcf838efd07ae9a/lwjgl-openal-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-openal/3.4.1/dbff577119266cd4312e4eb9cc2b171407c56360/lwjgl-openal-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-opengl/3.4.1/830412cab823c029cda6b9729f9d2ed36cf79959/lwjgl-opengl-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-opengl/3.4.1/b750599f0e75ddb19f1d0fe993f3011334b710ae/lwjgl-opengl-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-shaderc/3.4.1/5c02c88f0d879529014c78463b76f43fdecfd272/lwjgl-shaderc-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-shaderc/3.4.1/4289bdfa998c4afcdfa7c6925baf50e938113188/lwjgl-shaderc-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-spvc/3.4.1/188553592e97b5ab2dba54a1b403ee80b48dad4c/lwjgl-spvc-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-spvc/3.4.1/6ea8d9edcfcc5664d14e11b9a37a1a900783584a/lwjgl-spvc-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-stb/3.4.1/f077c3dafc31924fbe8acb0b913f08977ba27f8e/lwjgl-stb-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-stb/3.4.1/7e1cfae909da6c68f3cb6073a9bfeb6c90e82a57/lwjgl-stb-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-tinyfd/3.4.1/562697d40dbd2ed0424bf24dcf65d51170f81adf/lwjgl-tinyfd-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-tinyfd/3.4.1/fc6a72690afc8defb60d82ad1de64dd8f537154c/lwjgl-tinyfd-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vma/3.4.1/2c54ce10154feb1ede4d23c5947438cdbfdcc003/lwjgl-vma-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vma/3.4.1/1d5d00e4abed992e0850aa970d338453ebbd3e0c/lwjgl-vma-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl-vulkan/3.4.1/d0601fdc38890755e5638048c14cc0f7b990964b/lwjgl-vulkan-3.4.1.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl/3.4.1/129e06a04f93992cb2a45172435b21fc4b60dd7d/lwjgl-3.4.1-unsafe.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.lwjgl/lwjgl/3.4.1/2734e106bd95db49fe0da8cf8bf7fd96475c436c/lwjgl-3.4.1-natives-linux.jar:/home/runner/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/2.0.17/d9e58ac9c7779ba3bf8142aff6c830617a7fe60f/slf4j-api-2.0.17.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.2/.gradle/loom-cache/minecraftMaven/net/minecraft/minecraft-clientOnly-deb5de2120/26.2/minecraft-clientOnly-deb5de2120-26.2.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.2/.gradle/loom-cache/minecraftMaven/net/minecraft/minecraft-common-deb5de2120/26.2/minecraft-common-deb5de2120-26.2.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-kqueue/4.2.15.Final/4245380831515fb4eca18d32477a27fbb8f7b8f4/netty-transport-native-kqueue-4.2.15.Final-osx-x86_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-transport-native-kqueue/4.2.15.Final/8ea0ef3eb716d821332e4b4926825a4b7c1a6d38/netty-transport-native-kqueue-4.2.15.Final-osx-aarch_64.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-advancement-api-v1/1.0.0+58719a3b9e/4394b4ce7f29690f622da915d780493148b974cb/fabric-advancement-api-v1-1.0.0+58719a3b9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-transfer-api-v1/8.0.13+11dbb7d79e/10f39a4b46043bc724c7ea3b93bcc0243e592abb/fabric-transfer-api-v1-8.0.13+11dbb7d79e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api-lookup-api-v1/2.0.18+11e1c9a39e/31fc094d5f4d878ed12bba2e5e8cdb42b26d83ae/fabric-api-lookup-api-v1-2.0.18+11e1c9a39e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-block-api-v1/3.1.0+53515aab9e/46cf7e7564fbbb13d099c3fe1b065561f14e268f/fabric-block-api-v1-3.1.0+53515aab9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-command-api-v2/3.1.0+00cb03469e/b144d197307c39c1bc516c274d9460f0116131a3/fabric-command-api-v2-3.1.0+00cb03469e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-content-registries-v0/11.3.2+37b1aa249e/6f664a04bd603be3564b614caafa898e2fc9c67c/fabric-content-registries-v0-11.3.2+37b1aa249e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-data-generation-api-v1/25.6.0+c0da0b829e/6b314081c5999c2094b6a92323c055d59bf7e639/fabric-data-generation-api-v1-25.6.0+c0da0b829e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-convention-tags-v2/4.7.1+1f023a9e9e/e465c608c60ceb105c4f5d792460f5de02d90135/fabric-convention-tags-v2-4.7.1+1f023a9e9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-creative-tab-api-v1/5.0.15+6468574f9e/b8896143a3467ad9eeff3bda41fb787bc080019e/fabric-creative-tab-api-v1-5.0.15+6468574f9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-data-attachment-api-v1/2.2.19+515ac5339e/6ac7e37bdfaf6b9fc26be152d01daa0f95d799a2/fabric-data-attachment-api-v1-2.2.19+515ac5339e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-debug-api-v1/1.0.2+c792624d9e/9f0581bb985edf22a0d812dbe67178bd2849286/fabric-debug-api-v1-1.0.2+c792624d9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-dimensions-v1/5.1.12+515ac5339e/b9d60e3ceee08f0fbc6f19fe8264c82c5fc2d122/fabric-dimensions-v1-5.1.12+515ac5339e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-entity-events-v1/5.0.5+06488ac19e/5cbecb675b91d0ebfe2ef3f20339e1a2c76c435/fabric-entity-events-v1-5.0.5+06488ac19e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-events-interaction-v0/5.2.8+515ac5339e/98650380bb4e65a3deb6254e7c10a171eb907477/fabric-events-interaction-v0-5.2.8+515ac5339e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-game-rule-api-v1/4.0.8+46a6d00c9e/886816530fb79c925eb1bc6c34dd4d9d82e71d49/fabric-game-rule-api-v1-4.0.8+46a6d00c9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-gametest-api-v1/4.0.22+4a7fa0819e/3fb91749fe4f238518d2980fdc18454016949190/fabric-gametest-api-v1-4.0.22+4a7fa0819e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-item-api-v1/14.5.0+c68f6cbe9e/c2d241b01e3c083637adb17c2c8ff798cb752d5a/fabric-item-api-v1-14.5.0+c68f6cbe9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-recipe-api-v1/9.0.22+11e1c9a39e/e756703eda39613f8d638521829b673c92276604/fabric-recipe-api-v1-9.0.22+11e1c9a39e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-model-loading-api-v1/8.0.17+c80601bb9e/b7b69be9cac7b63f853bd3c937c1b774c96a13fb/fabric-model-loading-api-v1-8.0.17+c80601bb9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-renderer-indigo/9.1.4+2b0d8a229e/48cdf540bd670fe9333a74dd1570316180d10ab3/fabric-renderer-indigo-9.1.4+2b0d8a229e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-renderer-api-v1/14.1.4+2b0d8a229e/f6a6d234cc1073ffb871150d548d2164f8bc8d0b/fabric-renderer-api-v1-14.1.4+2b0d8a229e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-rendering-v1/25.3.3+515ac5339e/b970a6d778b9867d6ea13d5437193f1e86a19c55/fabric-rendering-v1-25.3.3+515ac5339e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-lifecycle-events-v1/4.1.4+29b6eb019e/54a508470dcea81513e39001b5c0bf9fae0f1d5/fabric-lifecycle-events-v1-4.1.4+29b6eb019e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-loot-api-v3/3.0.17+06488ac19e/964f3985687b491093db6b9ff87b35106112b74d/fabric-loot-api-v3-3.0.17+06488ac19e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-menu-api-v1/2.0.17+086d547a9e/2d35d55e2aa842d5eec1f9262a74074385c69cfb/fabric-menu-api-v1-2.0.17+086d547a9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-message-api-v1/7.0.8+bb2ed3f79e/106dc9ed22970076aaa39cd257b69705d136dd05/fabric-message-api-v1-7.0.8+bb2ed3f79e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-client-gametest-api-v1/6.0.2+0f4f1dca9e/f54e52e7af5a41fdcf6715f87d09282b2dc9b0f2/fabric-client-gametest-api-v1-6.0.2+0f4f1dca9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-particles-v1/5.0.19+d1756aa99e/f6290d6511388b78455e2186d980553879343172/fabric-particles-v1-5.0.19+d1756aa99e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-object-builder-api-v1/24.1.1+6fcd5f039e/90175252776d48f5c549835501e7fa227e68c4c8/fabric-object-builder-api-v1-24.1.1+6fcd5f039e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-registry-sync-v0/7.1.1+c7bd5b8e9e/82c1ce3885265deb0c15970d4abadf0ae055a539/fabric-registry-sync-v0-7.1.1+c7bd5b8e9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-networking-api-v1/6.3.4+2989c6a09e/608860809ec66fd65ca764c4157e96030f330537/fabric-networking-api-v1-6.3.4+2989c6a09e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-permission-api-v1/1.0.5+e442d8d09e/92197dd81a18322fd36b87de79bdaa8d2b4a1ba9/fabric-permission-api-v1-1.0.5+e442d8d09e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-rendering-fluids-v1/6.0.4+06488ac19e/9ded3bc73b5ff3c441075d0c8eca988aacce1f1f/fabric-rendering-fluids-v1-6.0.4+06488ac19e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-tag-api-v1/2.1.4+515ac5339e/f66a24273cdcc2ce424bf8c69cdc9cf48bdcb328/fabric-tag-api-v1-2.1.4+515ac5339e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-loader-v0/3.3.20+4fc5413f9e/c6551ab905383f3c8e046a403a78a25bebabaff0/fabric-resource-loader-v0-3.3.20+4fc5413f9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-loader-v1/2.0.13+9edec1269e/db19bb66f069d7ed3dde41eb7e1f9ff3122c15a4/fabric-resource-loader-v1-2.0.13+9edec1269e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-screen-api-v1/5.2.1+5087f8249e/ef9ad9a09f392eff05957c24c71e4da6797bb8d9/fabric-screen-api-v1-5.2.1+5087f8249e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-api-base/2.0.4+ece063239e/e766f3698b7bab8b1e13683040f8648fab511ca3/fabric-api-base-2.0.4+ece063239e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-biome-api-v1/18.0.6+c7bd5b8e9e/414c89d2bc8ab64dce1763edc4dbe4619113a5b/fabric-biome-api-v1-18.0.6+c7bd5b8e9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-block-getter-api-v2/2.0.7+ec56b6019e/8204045ca262749761be09b144618e6c4133ebe1/fabric-block-getter-api-v2-2.0.7+ec56b6019e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-crash-report-info-v1/1.0.5+086d547a9e/119f48a9a648d86c89fe21444176d0032449d95c/fabric-crash-report-info-v1-1.0.5+086d547a9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-key-mapping-api-v1/2.0.5+e2bdee789e/c86dc688a7e9caa7edca9973dc6abfe37c652135/fabric-key-mapping-api-v1-2.0.5+e2bdee789e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-resource-conditions-api-v1/6.1.0+10e9a28b9e/bfe91afa0e7712974b318ed7e274b493b038a596/fabric-resource-conditions-api-v1-6.1.0+10e9a28b9e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-serialization-api-v1/2.0.4+11a26f319e/ebf77996be79909f639a7352689d851385a9cd2b/fabric-serialization-api-v1-2.0.4+11a26f319e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-sound-api-v1/2.0.5+11a26f319e/73e4e62924608e1d1581f192607857db096dafe7/fabric-sound-api-v1-2.0.5+11a26f319e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc.fabric-api/fabric-transitive-access-wideners-v1/8.1.4+67c847259e/e1e769f8e123395ab939d5d8da900e6a6ad53ab2/fabric-transitive-access-wideners-v1-8.1.4+67c847259e.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-metadata/3.12.0/6997264db25396a2c8fddf6520174c9a907e3403/imageio-metadata-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.imageio/imageio-core/3.12.0/4a57990b52fd36fe60c356a3e5fd57054a85a502/imageio-core-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-image/3.12.0/1ffc9fb885eea7f0bdab0f6e7f780d3e41b5ad01/common-image-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-io/3.12.0/1f739ad65a48fd2bc7b8c0a8bb54218c0e219c84/common-io-3.12.0.jar:/home/runner/.gradle/caches/modules-2/files-2.1/com.twelvemonkeys.common/common-lang/3.12.0/170b88f23daa4d4d64189285ebebe4eb59d51c93/common-lang-3.12.0.jar:/home/runner/work/originclient/originclient/src/mods/versions/26.2/build/classes/java/main:/home/runner/work/originclient/originclient/src/mods/versions/26.2/build/resources/main)
+		at knot//com.sun.jna.Native.extractFromResourcePath(Native.java:1141)
+		at knot//com.sun.jna.NativeLibrary.loadLibrary(NativeLibrary.java:297)
+		... 12 more
+[17:30:06] [Download-1/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
+[17:30:07] [Render thread/INFO] (Minecraft) Reloading ResourceManager: vanilla, fabric-advancement-api-v1, fabric-api, fabric-api-base, fabric-api-lookup-api-v1, fabric-biome-api-v1, fabric-block-api-v1, fabric-block-getter-api-v2, fabric-client-gametest-api-v1, fabric-command-api-v2, fabric-content-registries-v0, fabric-convention-tags-v2, fabric-crash-report-info-v1, fabric-creative-tab-api-v1, fabric-data-attachment-api-v1, fabric-data-generation-api-v1, fabric-debug-api-v1, fabric-dimensions-v1, fabric-entity-events-v1, fabric-events-interaction-v0, fabric-game-rule-api-v1, fabric-gametest-api-v1, fabric-item-api-v1, fabric-key-mapping-api-v1, fabric-lifecycle-events-v1, fabric-loot-api-v3, fabric-menu-api-v1, fabric-message-api-v1, fabric-model-loading-api-v1, fabric-networking-api-v1, fabric-object-builder-api-v1, fabric-particles-v1, fabric-permission-api-v1, fabric-recipe-api-v1, fabric-registry-sync-v0, fabric-renderer-api-v1, fabric-renderer-indigo, fabric-rendering-fluids-v1, fabric-rendering-v1, fabric-resource-conditions-api-v1, fabric-resource-loader-v0, fabric-resource-loader-v1, fabric-screen-api-v1, fabric-serialization-api-v1, fabric-sound-api-v1, fabric-tag-api-v1, fabric-transfer-api-v1, fabric-transitive-access-wideners-v1, fabricloader, jei, mezz_config, originclient
+[17:30:07] [Render thread/INFO] (originclient) [OriginFrameLog] on: frames over 20.0 ms, reload steps over 16.0 ms, from 3000 ms before the reload finishes until the title's entrance ends (uptime 9.406 s)
+[17:30:07] [Render thread/INFO] (originclient) Seeded new instance from bundled default-mods-config.json
+[9.696s][info][gc] GC(27) Pause Young (Normal) (G1 Evacuation Pause) 343M->166M(480M) 10.877ms
+[17:30:07] [Worker-Main-3/INFO] (Minecraft) Found unifont_all_no_pua-17.0.01.hex, loading
+[17:30:07] [Worker-Main-2/INFO] (Minecraft) Found unifont_pua-17.0.01.hex, loading
+[17:30:07] [Worker-Main-3/INFO] (Minecraft) Found unifont_jp_patch-17.0.01.hex, loading
+[10.131s][info][gc] GC(28) Pause Young (Concurrent Start) (G1 Evacuation Pause) 350M->188M(480M) 14.352ms
+[10.131s][info][gc] GC(29) Concurrent Mark Cycle
+[10.467s][info][gc] GC(30) Pause Young (Normal) (G1 Evacuation Pause) 372M->196M(480M) 12.571ms
+[10.536s][info][gc] GC(29) Pause Remark 218M->218M(480M) 17.034ms
+[10.662s][info][gc] GC(29) Pause Cleanup 267M->267M(480M) 0.027ms
+[10.663s][info][gc] GC(29) Concurrent Mark Cycle 531.749ms
+[17:30:08] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas
+[17:30:08] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf_bold' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas_bold
+[11.196s][info][gc] GC(31) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 380M->212M(480M) 18.817ms
+[17:30:09] [Render thread/INFO] (originclient) [OriginFrameLog] mark render-thread reload tasks held while the mark settles t=? ms uptime 11.373 s
+[17:30:09] [Render thread/INFO] (originclient) [OriginFrameLog] mark mark-settle (render-thread reload work queued) t=? ms uptime 11.374 s
+[17:30:09] [Render thread/INFO] (originclient) [OriginFrameLog] mark mark at rest (clean pose) t=? ms uptime 11.656 s
+[17:30:09] [Render thread/INFO] (originclient) [OriginFrameLog] mark render-thread reload work begins (minecraft:languages (LanguageManager)) t=? ms uptime 11.673 s
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+[17:30:09] [Render thread/ERROR] (Minecraft) Error starting SoundSystem. Turning off sounds & music
+
+java.lang.IllegalStateException: Failed to open OpenAL device
+	at knot//com.mojang.blaze3d.audio.Library.openDeviceOrFallback(Library.java:275)
+	at knot//com.mojang.blaze3d.audio.Library.init(Library.java:150)
+	at knot//net.minecraft.client.sounds.SoundEngine.loadLibrary(SoundEngine.java:120)
+	at knot//net.minecraft.client.sounds.SoundEngine.reload(SoundEngine.java:109)
+	at knot//net.minecraft.client.sounds.SoundManager.apply(SoundManager.java:122)
+	at knot//net.minecraft.client.sounds.SoundManager.apply(SoundManager.java:41)
+	at knot//net.minecraft.server.packs.resources.SimplePreparableReloadListener.lambda$reload$1(SimplePreparableReloadListener.java:15)
+	at java.base/java.util.concurrent.CompletableFuture$UniAccept.tryFire(CompletableFuture.java:739)
+	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:503)
+	at knot//net.minecraft.server.packs.resources.SimpleReloadInstance.md26e516$originclient$lambda$originclient$watchApplySteps$1$1(SimpleReloadInstance.java:1052)
+	at knot//net.minecraft.server.packs.resources.SimpleReloadInstance.lambda$prepareTasks$3(SimpleReloadInstance.java:59)
+	at knot//net.minecraft.util.thread.BlockableEventLoop.doRunTask(BlockableEventLoop.java:173)
+	at knot//net.minecraft.util.thread.ReentrantBlockableEventLoop.doRunTask(ReentrantBlockableEventLoop.java:23)
+	at knot//net.minecraft.util.thread.BlockableEventLoop.pollTask(BlockableEventLoop.java:147)
+	at knot//net.minecraft.util.thread.BlockableEventLoop.handler$bhd000$originclient$budgetReloadTasks(BlockableEventLoop.java:578)
+	at knot//net.minecraft.util.thread.BlockableEventLoop.runAllTasks(BlockableEventLoop.java)
+	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1235)
+	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
+	at knot//net.minecraft.client.main.Main.main(Main.java:292)
+	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
+	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
+[17:30:09] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/particles.png-atlas
+[17:30:09] [Render thread/INFO] (Minecraft) Created: 128x128x0 minecraft:textures/atlas/decorated_pot.png-atlas
+[17:30:09] [Render thread/INFO] (Minecraft) Created: 2048x1024x0 minecraft:textures/atlas/armor_trims.png-atlas
+[17:30:09] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
+[17:30:09] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/shield_patterns.png-atlas
+[17:30:09] [Render thread/INFO] (Minecraft) Created: 2048x2048x4 minecraft:textures/atlas/blocks.png-atlas
+[17:30:10] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/chest.png-atlas
+[17:30:10] [Render thread/INFO] (Minecraft) Created: 256x128x0 minecraft:textures/atlas/celestials.png-atlas
+[17:30:10] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/banner_patterns.png-atlas
+[17:30:10] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/items.png-atlas
+[17:30:10] [Render thread/INFO] (Minecraft) Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas
+[17:30:10] [Render thread/INFO] (Minecraft) Created: 128x64x0 minecraft:textures/atlas/map_decorations.png-atlas
+[17:30:10] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/shulker_boxes.png-atlas
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] mark reload-done (bar full) uptime 12.651 s
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2361.2 ms frame=22.7 ms phase=LOAD tasks=0.1 render=5.3 swap=8.1 title=0.0 gc=0.0 ms/0 reload=[] scene+20.8 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2338.5 ms frame=23.2 ms phase=LOAD tasks=0.0 render=1.9 swap=6.0 title=0.0 gc=0.0 ms/0 reload=[] scene+21.9 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2315.3 ms frame=23.1 ms phase=LOAD tasks=0.0 render=1.9 swap=7.1 title=0.0 gc=0.0 ms/0 reload=[] scene+23.5 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2292.2 ms frame=21.9 ms phase=LOAD tasks=0.0 render=4.8 swap=6.9 title=0.0 gc=0.0 ms/0 reload=[] scene+22.8 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2270.3 ms frame=33.7 ms phase=LOAD tasks=0.0 render=21.5 swap=0.2 title=0.0 gc=0.0 ms/0 reload=[] scene+22.0 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2236.6 ms frame=25.4 ms phase=LOAD tasks=0.0 render=7.7 swap=3.9 title=0.0 gc=0.0 ms/0 reload=[] scene+33.9 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2192.5 ms frame=29.3 ms phase=LOAD tasks=0.0 render=7.0 swap=0.4 title=0.0 gc=12.0 ms/1 reload=[] scene+18.4 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2163.2 ms frame=30.0 ms phase=LOAD tasks=0.0 render=10.6 swap=6.0 title=0.0 gc=0.0 ms/0 reload=[] scene+29.6 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2133.2 ms frame=39.2 ms phase=LOAD tasks=0.0 render=5.8 swap=0.5 title=0.0 gc=0.0 ms/0 reload=[] scene+29.7 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2094.0 ms frame=20.7 ms phase=LOAD tasks=0.0 render=6.4 swap=2.9 title=0.0 gc=0.0 ms/0 reload=[] scene+39.9 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2039.2 ms frame=20.7 ms phase=LOAD tasks=0.0 render=8.1 swap=2.8 title=0.0 gc=0.0 ms/0 reload=[] scene+17.6 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2018.5 ms frame=39.2 ms phase=LOAD tasks=0.0 render=16.3 swap=4.0 title=0.0 gc=0.0 ms/0 reload=[] scene+23.1 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1979.3 ms frame=26.8 ms phase=LOAD tasks=0.0 render=5.7 swap=3.9 title=0.0 gc=0.0 ms/0 reload=[] scene+36.4 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1952.5 ms frame=22.7 ms phase=LOAD tasks=0.0 render=10.0 swap=1.8 title=0.0 gc=0.0 ms/0 reload=[] scene+27.0 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1863.1 ms frame=20.9 ms phase=LOAD tasks=0.0 render=4.9 swap=3.8 title=0.0 gc=0.0 ms/0 reload=[] scene+16.9 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1668.6 ms frame=21.0 ms phase=LOAD tasks=0.0 render=7.5 swap=3.8 title=0.0 gc=0.0 ms/0 reload=[] scene+17.0 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1647.6 ms frame=28.4 ms phase=LOAD tasks=0.0 render=5.4 swap=7.9 title=0.0 gc=0.0 ms/0 reload=[] scene+20.7 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1563.3 ms frame=22.0 ms phase=LOAD tasks=0.0 render=4.9 swap=6.6 title=0.0 gc=0.0 ms/0 reload=[] scene+19.6 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1524.7 ms frame=20.0 ms phase=LOAD tasks=0.0 render=4.1 swap=3.0 title=0.0 gc=0.0 ms/0 reload=[] scene+16.6 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1470.3 ms frame=35.9 ms phase=LOAD tasks=0.0 render=2.0 swap=0.3 title=0.0 gc=19.0 ms/1 reload=[] scene+17.6 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1400.2 ms frame=21.9 ms phase=LOAD tasks=0.0 render=2.1 swap=5.0 title=0.0 gc=0.0 ms/0 reload=[] scene+16.7 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-958.4 ms frame=30.2 ms phase=LOAD tasks=18.2 render=1.5 swap=0.9 title=0.0 gc=0.0 ms/0 reload=[minecraft:languages (LanguageManager):17.5] scene+37.0 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-909.2 ms frame=291.6 ms phase=LOAD tasks=246.7 render=39.9 swap=0.8 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:246.6] scene+26.6 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-617.7 ms frame=41.2 ms phase=LOAD tasks=32.8 render=1.8 swap=0.7 title=0.0 gc=0.0 ms/0 reload=[minecraft:sounds (SoundManager):32.1] scene+57.1 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-576.4 ms frame=305.0 ms phase=LOAD tasks=296.6 render=2.5 swap=0.8 title=0.0 gc=0.0 ms/0 reload=[minecraft:atlas (AtlasManager):296.4] scene+36.7 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=-576.4 frame=305.0 scene+36.7 phase=LOAD
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-271.4 ms frame=106.4 ms phase=LOAD tasks=97.9 render=1.5 swap=0.9 title=0.0 gc=0.0 ms/0 reload=[minecraft:fonts (FontManager):97.8] scene+81.1 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=-271.4 frame=106.4 scene+81.1 phase=LOAD
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=-164.9 frame=16.7 scene+14.5 phase=LOAD
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-148.2 ms frame=123.7 ms phase=LOAD tasks=112.6 render=2.3 swap=2.1 title=0.0 gc=0.0 ms/0 reload=[minecraft:entity_render_dispatcher (EntityRenderDispatcher):111.9] scene+92.4 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=-148.2 frame=123.7 scene+92.4 phase=LOAD
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-24.5 ms frame=24.5 ms phase=LOAD tasks=15.8 render=1.6 swap=0.8 title=0.0 gc=0.0 ms/0 reload=[] scene+37.5 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=-24.5 frame=24.5 scene+37.5 phase=LOAD
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] mark hold-start t=23.4 ms uptime 12.654 s
+[17:30:10] [Download-1/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=0.0 ms frame=165.0 ms phase=HOLD tasks=2.3 render=132.6 swap=0.9 title=5.7 (title frame 1) gc=0.0 ms/0 reload=[onFinish:14.3,screen.init:0.8] scene+67.4 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=0.0 frame=165.0 scene+67.4 phase=HOLD
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=165.0 frame=18.8 scene+103.3 phase=HOLD
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=183.8 frame=19.7 scene+24.3 phase=HOLD
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=203.4 frame=16.7 scene+21.4 phase=HOLD
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=220.1 frame=17.8 scene+21.6 phase=HOLD
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=237.9 frame=18.8 scene+26.1 phase=HOLD
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] mark dissolve-start t=258.3 ms uptime 12.889 s
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] mark settled after 6 frames, limit 24.8 ms t=258.9 ms uptime 12.890 s
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=256.7 frame=16.7 scene+21.7 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=273.3 frame=16.7 scene+21.5 phase=DISSOLVE
+[12.949s][info][gc] GC(32) Pause Young (Mixed) (G1 Evacuation Pause) 396M->234M(480M) 24.776ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=290.0 ms frame=45.3 ms phase=DISSOLVE tasks=0.0 render=31.2 swap=0.2 title=0.4 gc=25.0 ms/1 reload=[] scene+24.1 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=290.0 frame=45.3 scene+24.1 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=335.3 ms frame=21.2 ms phase=DISSOLVE tasks=0.0 render=2.5 swap=1.2 title=0.5 gc=0.0 ms/0 reload=[] scene+58.8 ms
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=335.3 frame=21.2 scene+58.8 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=356.5 frame=19.3 scene+25.5 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=375.8 frame=16.7 scene+24.7 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=392.5 frame=19.6 scene+24.7 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=412.0 frame=16.7 scene+22.2 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=428.7 frame=16.7 scene+17.7 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=445.4 frame=17.3 scene+18.1 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=462.7 frame=16.7 scene+15.8 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=479.3 frame=17.2 scene+16.6 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=496.5 frame=17.4 scene+19.3 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=513.9 frame=16.7 scene+15.3 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=530.6 frame=16.7 scene+18.5 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=547.2 frame=16.7 scene+15.1 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=563.9 frame=16.7 scene+16.3 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=580.6 frame=19.0 scene+20.2 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=599.6 frame=16.7 scene+15.7 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=616.3 frame=18.1 scene+16.9 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=634.4 frame=16.7 scene+19.4 phase=DISSOLVE
+[17:30:10] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=651.0 frame=16.7 scene+15.1 phase=DISSOLVE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=667.7 frame=16.7 scene+16.6 phase=DISSOLVE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=684.4 frame=16.7 scene+18.7 phase=DISSOLVE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=701.0 frame=16.8 scene+14.7 phase=DISSOLVE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=717.9 frame=17.5 scene+16.9 phase=DISSOLVE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=735.4 frame=16.7 scene+18.8 phase=DISSOLVE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=752.0 frame=16.7 scene+15.1 phase=DISSOLVE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=768.7 frame=16.7 scene+16.7 phase=DISSOLVE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=785.4 frame=16.7 scene+19.1 phase=DISSOLVE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] mark overlay-gone t=802.4 ms uptime 13.433 s
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=802.1 frame=16.7 scene+14.9 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=818.7 frame=16.7 scene+16.0 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=835.4 frame=16.7 scene+18.2 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=852.0 frame=16.7 scene+15.0 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=868.7 frame=16.7 scene+16.7 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=885.4 frame=16.6 scene+19.2 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=902.0 frame=16.7 scene+15.6 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=918.7 frame=16.7 scene+15.1 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=935.4 frame=16.8 scene+18.6 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=952.1 frame=16.6 scene+15.0 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=968.7 frame=16.7 scene+16.8 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=985.4 frame=16.6 scene+18.3 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1002.0 frame=16.7 scene+14.5 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1018.7 frame=16.7 scene+16.7 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1035.4 frame=16.7 scene+18.3 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1052.0 frame=16.7 scene+15.3 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1068.7 frame=16.7 scene+16.5 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1085.4 frame=16.7 scene+19.1 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1102.0 frame=16.7 scene+14.0 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1118.7 frame=16.7 scene+16.8 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1135.4 frame=17.7 scene+18.5 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1153.1 frame=16.7 scene+15.7 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1169.8 frame=16.7 scene+16.8 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1186.5 frame=16.7 scene+19.5 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1203.1 frame=16.7 scene+14.0 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1219.8 frame=16.7 scene+16.4 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1236.5 frame=16.7 scene+18.5 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1253.1 frame=16.7 scene+15.3 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1269.8 frame=16.7 scene+16.4 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1286.5 frame=16.7 scene+18.7 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1303.1 frame=16.7 scene+14.4 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1319.8 frame=16.7 scene+16.8 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1336.5 frame=16.7 scene+18.6 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1353.1 frame=16.7 scene+14.7 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1369.8 frame=16.6 scene+16.7 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1386.5 frame=16.7 scene+18.4 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1403.1 frame=16.7 scene+14.9 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1419.8 frame=16.7 scene+16.6 phase=TITLE
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] mark entrance-end t=1436.7 ms uptime 14.067 s
+[17:30:11] [Render thread/INFO] (originclient) [OriginFrameLog] summary lead+handoff: frames=154 max=305.0 ms over33=11 over20=31 median=16.7 ms | from bar-full: frames=74 max=165.0 ms over33=2 over20=3 median=16.7 ms | visible (dissolve+entrance): frames=68 max=45.3 ms over33=1 over20=2 median=16.7 ms max/median=2.7 | worst=t=-576.4 LOAD [minecraft:atlas (AtlasManager):296.4] | gc in window=56.0 ms/3 | hold=235.0 ms | bar-full->entrance-end=1436.5 ms
+[17:30:15] [Render thread/INFO] (originclient) [dev-shots] captured title_1920x1080_s0.png
+[17:30:15] [Render thread/INFO] (originclient) [dev-shots] done — 1 shots in /home/runner/work/_temp/shots
+[17:30:16] [Render thread/INFO] (Minecraft) Stopping!
+
+[Incubating] Problems report is available at: file:///home/runner/work/originclient/originclient/src/mods/versions/26.2/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 1m 13s
+8 actionable tasks: 8 executed

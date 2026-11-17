@@ -1,0 +1,24 @@
+TAB ORDER (list, add box open): first focus when the drawer opens, then Tab x16:
+   0: Button 'Add a friend' [-]
+   1: Button 'Close friends' [-]
+   2: TextBox 'Friend's Minecraft username' [-]
+   3: Button 'Send friend requestSEND REQUEST' [-]
+   4: Button 'JOIN' [InviteVm]
+   5: Button 'Decline invite' [InviteVm]
+   6: Button 'ACCEPT' [RequestVm]
+   7: Button 'Decline request' [RequestVm]
+   8: Button 'CHAT - 1' [PartyHeaderVm]
+   9: Button 'LEAVE' [PartyHeaderVm]
+  10: Button 'OriginPlayer' [MemberVm]
+  11: Button 'Alex' [MemberVm]
+  12: Button 'More actions' [MemberVm]
+  13: Button 'Steve' [MemberVm]
+  14: Button 'JOIN' [MemberVm]
+  15: Button 'More actions' [MemberVm]
+  16: Button 'Kai_Builds' [FriendVm]
+
+ENTER IN CHAT: input kept its text = True (the demo service refuses sends), error line = 'Preview only.' visible = Visible
+
+ESC: chat open -> Esc -> drawer still open = True (expect True, back on the list)
+ESC: add box open -> Esc -> drawer still open = True (expect True, add box closed)
+ESC: list -> Esc -> drawer open = False (expect False)

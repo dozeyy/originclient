@@ -1,0 +1,330 @@
+Compiled from "Axis.java"
+public interface com.mojang.math.Axis {
+  public static final com.mojang.math.Axis XN;
+  public static final com.mojang.math.Axis XP;
+  public static final com.mojang.math.Axis YN;
+  public static final com.mojang.math.Axis YP;
+  public static final com.mojang.math.Axis ZN;
+  public static final com.mojang.math.Axis ZP;
+  public static com.mojang.math.Axis of(org.joml.Vector3fc);
+  public abstract org.joml.Quaternionf rotation(float);
+  public default org.joml.Quaternionf rotationDegrees(float);
+  public abstract org.joml.Matrix3f rotate(org.joml.Matrix3f, float);
+  public default org.joml.Matrix3f rotateDegrees(org.joml.Matrix3f, float);
+  public abstract org.joml.Matrix4f rotate(org.joml.Matrix4f, float);
+  public default org.joml.Matrix4f rotateDegrees(org.joml.Matrix4f, float);
+  static {};
+}
+Compiled from "Axis.java"
+class com.mojang.math.Axis$1 implements com.mojang.math.Axis {
+  com.mojang.math.Axis$1();
+  public org.joml.Quaternionf rotation(float);
+  public org.joml.Matrix3f rotate(org.joml.Matrix3f, float);
+  public org.joml.Matrix4f rotate(org.joml.Matrix4f, float);
+  public java.lang.String toString();
+}
+Compiled from "Axis.java"
+class com.mojang.math.Axis$2 implements com.mojang.math.Axis {
+  com.mojang.math.Axis$2();
+  public org.joml.Quaternionf rotation(float);
+  public org.joml.Matrix3f rotate(org.joml.Matrix3f, float);
+  public org.joml.Matrix4f rotate(org.joml.Matrix4f, float);
+  public java.lang.String toString();
+}
+Compiled from "Axis.java"
+class com.mojang.math.Axis$3 implements com.mojang.math.Axis {
+  com.mojang.math.Axis$3();
+  public org.joml.Quaternionf rotation(float);
+  public org.joml.Matrix3f rotate(org.joml.Matrix3f, float);
+  public org.joml.Matrix4f rotate(org.joml.Matrix4f, float);
+  public java.lang.String toString();
+}
+Compiled from "Axis.java"
+class com.mojang.math.Axis$4 implements com.mojang.math.Axis {
+  com.mojang.math.Axis$4();
+  public org.joml.Quaternionf rotation(float);
+  public org.joml.Matrix3f rotate(org.joml.Matrix3f, float);
+  public org.joml.Matrix4f rotate(org.joml.Matrix4f, float);
+  public java.lang.String toString();
+}
+Compiled from "Axis.java"
+class com.mojang.math.Axis$5 implements com.mojang.math.Axis {
+  com.mojang.math.Axis$5();
+  public org.joml.Quaternionf rotation(float);
+  public org.joml.Matrix3f rotate(org.joml.Matrix3f, float);
+  public org.joml.Matrix4f rotate(org.joml.Matrix4f, float);
+  public java.lang.String toString();
+}
+Compiled from "Axis.java"
+class com.mojang.math.Axis$6 implements com.mojang.math.Axis {
+  com.mojang.math.Axis$6();
+  public org.joml.Quaternionf rotation(float);
+  public org.joml.Matrix3f rotate(org.joml.Matrix3f, float);
+  public org.joml.Matrix4f rotate(org.joml.Matrix4f, float);
+  public java.lang.String toString();
+}
+Compiled from "Axis.java"
+class com.mojang.math.Axis$7 implements com.mojang.math.Axis {
+  final org.joml.Vector3fc val$axis;
+  com.mojang.math.Axis$7();
+  public org.joml.Quaternionf rotation(float);
+  public org.joml.Matrix3f rotate(org.joml.Matrix3f, float);
+  public org.joml.Matrix4f rotate(org.joml.Matrix4f, float);
+  public java.lang.String toString();
+}
+Compiled from "Constants.java"
+public class com.mojang.math.Constants {
+  public static final float PI;
+  public static final float RAD_TO_DEG;
+  public static final float DEG_TO_RAD;
+  public static final float EPSILON;
+  public com.mojang.math.Constants();
+}
+Compiled from "Divisor.java"
+public class com.mojang.math.Divisor implements it.unimi.dsi.fastutil.ints.IntIterator {
+  private final int denominator;
+  private final int quotient;
+  private final int mod;
+  private int returnedParts;
+  private int remainder;
+  public com.mojang.math.Divisor(int, int);
+  public boolean hasNext();
+  public int nextInt();
+  public static java.lang.Iterable<java.lang.Integer> asIterable(int, int);
+  private static java.util.Iterator lambda$asIterable$0(int, int);
+}
+Compiled from "GivensParameters.java"
+public final class com.mojang.math.GivensParameters extends java.lang.Record {
+  private final float sinHalf;
+  private final float cosHalf;
+  public com.mojang.math.GivensParameters(float, float);
+  public static com.mojang.math.GivensParameters fromUnnormalized(float, float);
+  public static com.mojang.math.GivensParameters fromPositiveAngle(float);
+  public com.mojang.math.GivensParameters inverse();
+  public org.joml.Quaternionf aroundX(org.joml.Quaternionf);
+  public org.joml.Quaternionf aroundY(org.joml.Quaternionf);
+  public org.joml.Quaternionf aroundZ(org.joml.Quaternionf);
+  public float cos();
+  public float sin();
+  public org.joml.Matrix3f aroundX(org.joml.Matrix3f);
+  public org.joml.Matrix3f aroundY(org.joml.Matrix3f);
+  public org.joml.Matrix3f aroundZ(org.joml.Matrix3f);
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public float sinHalf();
+  public float cosHalf();
+}
+Compiled from "MatrixUtil.java"
+public class com.mojang.math.MatrixUtil {
+  private static final float G;
+  private static final com.mojang.math.GivensParameters PI_4;
+  private com.mojang.math.MatrixUtil();
+  public static org.joml.Matrix4f mulComponentWise(org.joml.Matrix4f, float);
+  private static com.mojang.math.GivensParameters approxGivensQuat(float, float, float);
+  private static com.mojang.math.GivensParameters qrGivensQuat(float, float);
+  private static void similarityTransform(org.joml.Matrix3f, org.joml.Matrix3f);
+  private static void stepJacobi(org.joml.Matrix3f, org.joml.Matrix3f, org.joml.Quaternionf, org.joml.Quaternionf);
+  public static void eigenvalueJacobi(org.joml.Matrix3f, int, org.joml.Quaternionf);
+  public static void svdDecompose(org.joml.Matrix4fc, org.joml.Vector3f, org.joml.Quaternionf, org.joml.Vector3f, org.joml.Quaternionf);
+  private static void svdDecompose(org.joml.Matrix3f, org.joml.Quaternionf, org.joml.Vector3f, org.joml.Quaternionf);
+  public static boolean checkPropertyRaw(org.joml.Matrix4fc, int);
+  public static boolean checkProperty(org.joml.Matrix4fc, int);
+  public static boolean isIdentity(org.joml.Matrix4fc);
+  public static boolean isPureTranslation(org.joml.Matrix4fc);
+  static {};
+}
+Compiled from "OctahedralGroup.java"
+public final class com.mojang.math.OctahedralGroup extends java.lang.Enum<com.mojang.math.OctahedralGroup> implements net.minecraft.util.StringRepresentable {
+  public static final com.mojang.math.OctahedralGroup IDENTITY;
+  public static final com.mojang.math.OctahedralGroup ROT_180_FACE_XY;
+  public static final com.mojang.math.OctahedralGroup ROT_180_FACE_XZ;
+  public static final com.mojang.math.OctahedralGroup ROT_180_FACE_YZ;
+  public static final com.mojang.math.OctahedralGroup ROT_120_NNN;
+  public static final com.mojang.math.OctahedralGroup ROT_120_NNP;
+  public static final com.mojang.math.OctahedralGroup ROT_120_NPN;
+  public static final com.mojang.math.OctahedralGroup ROT_120_NPP;
+  public static final com.mojang.math.OctahedralGroup ROT_120_PNN;
+  public static final com.mojang.math.OctahedralGroup ROT_120_PNP;
+  public static final com.mojang.math.OctahedralGroup ROT_120_PPN;
+  public static final com.mojang.math.OctahedralGroup ROT_120_PPP;
+  public static final com.mojang.math.OctahedralGroup ROT_180_EDGE_XY_NEG;
+  public static final com.mojang.math.OctahedralGroup ROT_180_EDGE_XY_POS;
+  public static final com.mojang.math.OctahedralGroup ROT_180_EDGE_XZ_NEG;
+  public static final com.mojang.math.OctahedralGroup ROT_180_EDGE_XZ_POS;
+  public static final com.mojang.math.OctahedralGroup ROT_180_EDGE_YZ_NEG;
+  public static final com.mojang.math.OctahedralGroup ROT_180_EDGE_YZ_POS;
+  public static final com.mojang.math.OctahedralGroup ROT_90_X_NEG;
+  public static final com.mojang.math.OctahedralGroup ROT_90_X_POS;
+  public static final com.mojang.math.OctahedralGroup ROT_90_Y_NEG;
+  public static final com.mojang.math.OctahedralGroup ROT_90_Y_POS;
+  public static final com.mojang.math.OctahedralGroup ROT_90_Z_NEG;
+  public static final com.mojang.math.OctahedralGroup ROT_90_Z_POS;
+  public static final com.mojang.math.OctahedralGroup INVERSION;
+  public static final com.mojang.math.OctahedralGroup INVERT_X;
+  public static final com.mojang.math.OctahedralGroup INVERT_Y;
+  public static final com.mojang.math.OctahedralGroup INVERT_Z;
+  public static final com.mojang.math.OctahedralGroup ROT_60_REF_NNN;
+  public static final com.mojang.math.OctahedralGroup ROT_60_REF_NNP;
+  public static final com.mojang.math.OctahedralGroup ROT_60_REF_NPN;
+  public static final com.mojang.math.OctahedralGroup ROT_60_REF_NPP;
+  public static final com.mojang.math.OctahedralGroup ROT_60_REF_PNN;
+  public static final com.mojang.math.OctahedralGroup ROT_60_REF_PNP;
+  public static final com.mojang.math.OctahedralGroup ROT_60_REF_PPN;
+  public static final com.mojang.math.OctahedralGroup ROT_60_REF_PPP;
+  public static final com.mojang.math.OctahedralGroup SWAP_XY;
+  public static final com.mojang.math.OctahedralGroup SWAP_YZ;
+  public static final com.mojang.math.OctahedralGroup SWAP_XZ;
+  public static final com.mojang.math.OctahedralGroup SWAP_NEG_XY;
+  public static final com.mojang.math.OctahedralGroup SWAP_NEG_YZ;
+  public static final com.mojang.math.OctahedralGroup SWAP_NEG_XZ;
+  public static final com.mojang.math.OctahedralGroup ROT_90_REF_X_NEG;
+  public static final com.mojang.math.OctahedralGroup ROT_90_REF_X_POS;
+  public static final com.mojang.math.OctahedralGroup ROT_90_REF_Y_NEG;
+  public static final com.mojang.math.OctahedralGroup ROT_90_REF_Y_POS;
+  public static final com.mojang.math.OctahedralGroup ROT_90_REF_Z_NEG;
+  public static final com.mojang.math.OctahedralGroup ROT_90_REF_Z_POS;
+  public static final com.mojang.math.OctahedralGroup BLOCK_ROT_X_270;
+  public static final com.mojang.math.OctahedralGroup BLOCK_ROT_X_180;
+  public static final com.mojang.math.OctahedralGroup BLOCK_ROT_X_90;
+  public static final com.mojang.math.OctahedralGroup BLOCK_ROT_Y_270;
+  public static final com.mojang.math.OctahedralGroup BLOCK_ROT_Y_180;
+  public static final com.mojang.math.OctahedralGroup BLOCK_ROT_Y_90;
+  public static final com.mojang.math.OctahedralGroup BLOCK_ROT_Z_270;
+  public static final com.mojang.math.OctahedralGroup BLOCK_ROT_Z_180;
+  public static final com.mojang.math.OctahedralGroup BLOCK_ROT_Z_90;
+  private final org.joml.Matrix3fc transformation;
+  private final java.lang.String name;
+  private java.util.Map<net.minecraft.core.Direction, net.minecraft.core.Direction> rotatedDirections;
+  private final boolean invertX;
+  private final boolean invertY;
+  private final boolean invertZ;
+  private final com.mojang.math.SymmetricGroup3 permutation;
+  private static final com.mojang.math.OctahedralGroup[][] CAYLEY_TABLE;
+  private static final com.mojang.math.OctahedralGroup[] INVERSE_TABLE;
+  private static final com.mojang.math.OctahedralGroup[] $VALUES;
+  public static com.mojang.math.OctahedralGroup[] values();
+  public static com.mojang.math.OctahedralGroup valueOf(java.lang.String);
+  private com.mojang.math.OctahedralGroup(java.lang.String, com.mojang.math.SymmetricGroup3, boolean, boolean, boolean);
+  private static int trace(boolean, boolean, boolean, com.mojang.math.SymmetricGroup3);
+  private int trace();
+  public com.mojang.math.OctahedralGroup compose(com.mojang.math.OctahedralGroup);
+  public com.mojang.math.OctahedralGroup inverse();
+  public org.joml.Matrix3fc transformation();
+  public java.lang.String toString();
+  public java.lang.String getSerializedName();
+  public net.minecraft.core.Direction rotate(net.minecraft.core.Direction);
+  public org.joml.Vector3i rotate(org.joml.Vector3i);
+  public boolean inverts(net.minecraft.core.Direction$Axis);
+  public com.mojang.math.SymmetricGroup3 permutation();
+  public net.minecraft.core.FrontAndTop rotate(net.minecraft.core.FrontAndTop);
+  private static com.mojang.math.OctahedralGroup[] $values();
+  private net.minecraft.core.Direction lambda$rotate$0(net.minecraft.core.Direction);
+  private static com.mojang.math.OctahedralGroup[] lambda$INVERSE_TABLE$0(int);
+  private static com.mojang.math.OctahedralGroup lambda$static$2(com.mojang.math.OctahedralGroup);
+  private static boolean lambda$static$3(com.mojang.math.OctahedralGroup, com.mojang.math.OctahedralGroup);
+  private static com.mojang.math.OctahedralGroup[][] lambda$static$0();
+  private static com.mojang.math.OctahedralGroup lambda$static$1(com.mojang.math.OctahedralGroup);
+  static {};
+}
+Compiled from "OctahedralGroup.java"
+class com.mojang.math.OctahedralGroup$1 {
+  static final int[] $SwitchMap$net$minecraft$core$Direction$Axis;
+  static {};
+}
+Compiled from "Quadrant.java"
+public final class com.mojang.math.Quadrant extends java.lang.Enum<com.mojang.math.Quadrant> {
+  public static final com.mojang.math.Quadrant R0;
+  public static final com.mojang.math.Quadrant R90;
+  public static final com.mojang.math.Quadrant R180;
+  public static final com.mojang.math.Quadrant R270;
+  public static final com.mojang.serialization.Codec<com.mojang.math.Quadrant> CODEC;
+  public final int shift;
+  public final com.mojang.math.OctahedralGroup rotationX;
+  public final com.mojang.math.OctahedralGroup rotationY;
+  public final com.mojang.math.OctahedralGroup rotationZ;
+  private static final com.mojang.math.Quadrant[] $VALUES;
+  public static com.mojang.math.Quadrant[] values();
+  public static com.mojang.math.Quadrant valueOf(java.lang.String);
+  private com.mojang.math.Quadrant(int, com.mojang.math.OctahedralGroup, com.mojang.math.OctahedralGroup, com.mojang.math.OctahedralGroup);
+  public static com.mojang.math.Quadrant parseJson(int);
+  public static com.mojang.math.OctahedralGroup fromXYAngles(com.mojang.math.Quadrant, com.mojang.math.Quadrant);
+  public static com.mojang.math.OctahedralGroup fromXYZAngles(com.mojang.math.Quadrant, com.mojang.math.Quadrant, com.mojang.math.Quadrant);
+  public int rotateVertexIndex(int);
+  private static com.mojang.math.Quadrant[] $values();
+  private static java.lang.Integer lambda$static$2(com.mojang.math.Quadrant);
+  private static com.mojang.serialization.DataResult lambda$static$0(java.lang.Integer);
+  private static java.lang.String lambda$static$1(java.lang.Integer);
+  static {};
+}
+Compiled from "SymmetricGroup3.java"
+public final class com.mojang.math.SymmetricGroup3 extends java.lang.Enum<com.mojang.math.SymmetricGroup3> {
+  public static final com.mojang.math.SymmetricGroup3 P123;
+  public static final com.mojang.math.SymmetricGroup3 P213;
+  public static final com.mojang.math.SymmetricGroup3 P132;
+  public static final com.mojang.math.SymmetricGroup3 P312;
+  public static final com.mojang.math.SymmetricGroup3 P231;
+  public static final com.mojang.math.SymmetricGroup3 P321;
+  private final int p0;
+  private final int p1;
+  private final int p2;
+  private final org.joml.Matrix3fc transformation;
+  private static final com.mojang.math.SymmetricGroup3[][] CAYLEY_TABLE;
+  private static final com.mojang.math.SymmetricGroup3[] INVERSE_TABLE;
+  private static final com.mojang.math.SymmetricGroup3[] $VALUES;
+  public static com.mojang.math.SymmetricGroup3[] values();
+  public static com.mojang.math.SymmetricGroup3 valueOf(java.lang.String);
+  private com.mojang.math.SymmetricGroup3(int, int, int);
+  public com.mojang.math.SymmetricGroup3 compose(com.mojang.math.SymmetricGroup3);
+  public com.mojang.math.SymmetricGroup3 inverse();
+  public int permute(int);
+  public net.minecraft.core.Direction$Axis permuteAxis(net.minecraft.core.Direction$Axis);
+  public org.joml.Vector3f permuteVector(org.joml.Vector3f);
+  public org.joml.Vector3i permuteVector(org.joml.Vector3i);
+  public org.joml.Matrix3fc transformation();
+  private static com.mojang.math.SymmetricGroup3[] $values();
+  private static com.mojang.math.SymmetricGroup3[] lambda$static$2();
+  private static com.mojang.math.SymmetricGroup3[] lambda$static$5(int);
+  private static com.mojang.math.SymmetricGroup3 lambda$static$3(com.mojang.math.SymmetricGroup3);
+  private static boolean lambda$static$4(com.mojang.math.SymmetricGroup3, com.mojang.math.SymmetricGroup3);
+  private static com.mojang.math.SymmetricGroup3[][] lambda$static$0();
+  private static boolean lambda$static$1(int, int, int, com.mojang.math.SymmetricGroup3);
+  static {};
+}
+Compiled from "Transformation.java"
+public final class com.mojang.math.Transformation {
+  private static final org.joml.Vector3fc ZERO_TRANSLATION;
+  private static final org.joml.Vector3fc UNIT_SCALE;
+  private static final org.joml.Quaternionfc ZERO_ROTATION;
+  private final org.joml.Matrix4fc matrix;
+  public static final com.mojang.serialization.Codec<com.mojang.math.Transformation> CODEC;
+  public static final com.mojang.serialization.Codec<com.mojang.math.Transformation> EXTENDED_CODEC;
+  private boolean decomposed;
+  private org.joml.Vector3fc translation;
+  private org.joml.Quaternionfc leftRotation;
+  private org.joml.Vector3fc scale;
+  private org.joml.Quaternionfc rightRotation;
+  public static final com.mojang.math.Transformation IDENTITY;
+  public com.mojang.math.Transformation(org.joml.Matrix4fc);
+  public com.mojang.math.Transformation(org.joml.Vector3fc, org.joml.Quaternionfc, org.joml.Vector3fc, org.joml.Quaternionfc);
+  public com.mojang.math.Transformation compose(com.mojang.math.Transformation);
+  public com.mojang.math.Transformation inverse();
+  private void ensureDecomposed();
+  private static org.joml.Matrix4f compose(org.joml.Vector3fc, org.joml.Quaternionfc, org.joml.Vector3fc, org.joml.Quaternionfc);
+  public org.joml.Matrix4fc getMatrix();
+  public org.joml.Matrix4f getMatrixCopy();
+  public org.joml.Vector3fc translation();
+  public org.joml.Quaternionfc leftRotation();
+  public org.joml.Vector3fc scale();
+  public org.joml.Quaternionfc rightRotation();
+  public boolean equals(java.lang.Object);
+  public int hashCode();
+  public com.mojang.math.Transformation slerp(com.mojang.math.Transformation, float);
+  public static org.joml.Matrix4fc compose(org.joml.Matrix4fc, java.util.Optional<com.mojang.math.Transformation>);
+  private static com.mojang.math.Transformation lambda$static$1();
+  private static com.mojang.datafixers.kinds.App lambda$static$0(com.mojang.serialization.codecs.RecordCodecBuilder$Instance);
+  static {};
+}
+Compiled from "package-info.java"
+interface com.mojang.math.package-info {
+}

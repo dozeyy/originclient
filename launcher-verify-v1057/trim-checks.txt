@@ -1,0 +1,4 @@
+WARN 05-toasts: 'hit join on my name in the launcher' needs 245 px, has 162 (TextBlock 'hit join on my name in the launcher' in StackPanel '')
+WARN 05-toasts: 'Join Steve on hypixel.net' needs 175 px, has 170 (TextBlock 'Join Steve on hypixel.net' in StackPanel '')
+WARN 27-min-home-profile-toasts: 'hit join on my name in the launcher' needs 245 px, has 162 (TextBlock 'hit join on my name in the launcher' in StackPanel '')
+WARN 27-min-home-profile-toasts: 'Join Steve on hypixel.net' needs 175 px, has 170 (TextBlock 'Join Steve on hypixel.net' in StackPanel '')

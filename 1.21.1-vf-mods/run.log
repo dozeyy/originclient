@@ -1,0 +1,905 @@
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-9.5.1-bin.zip
+.............10%.............20%..............30%.............40%.............50%..............60%.............70%..............80%.............90%.............100%
+
+Welcome to Gradle 9.5.1!
+
+Here are the highlights of this release:
+ - Task provenance in reports and failure messages
+ - Type-safe accessors for precompiled Kotlin Settings plugins
+
+For more details see https://docs.gradle.org/9.5.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.17.21
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Using of the official minecraft mappings is at your own risk!
+Please make sure to read and understand the following license:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# (c) 2020 Microsoft Corporation. These mappings are provided "as-is" and you bear the risk of using them. You may copy and use the mappings for development purposes, but you may not redistribute the mappings complete and unmodified. Microsoft makes no warranties, express or implied, with respect to the mappings provided here.  Use and modification of this document or the source code (in any form) of Minecraft: Java Edition is governed by the Minecraft End User License Agreement available at https://account.mojang.com/documents/minecraft_eula.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Cannot remap lambda$updateBlockEntityTicker$6 because it does not exist in any of the targets [net/minecraft/class_2818]
+Cannot remap lambda$updateBlockEntityTicker$6 because it does not exist in any of the targets [net/minecraft/class_2818]
+Cannot remap lambda$init$2 because it does not exist in any of the targets [net/minecraft/class_429]
+Cannot remap lambda$getTickets$7 because it does not exist in any of the targets [net/minecraft/class_3204]
+Cannot remap getRenderLayers because it does not exist in any of the targets [net/minecraft/class_4696]
+Cannot remap getHeldItem because it does not exist in any of the targets [net/minecraft/class_3727]
+Cannot remap lambda$create$5 because it does not exist in any of the targets [net/minecraft/class_4246]
+Cannot remap lambda$create$8 because it does not exist in any of the targets [net/minecraft/class_4246]
+Cannot remap iterateVisibleBlockEntities because it does not exist in any of the targets [net/minecraft/class_761]
+
+> Configure project :
+:remapping sources
+
+> Task :downloadAssets
+> Task :compileJava
+> Task :processResources
+> Task :classes
+> Task :compileClientJava
+> Task :processClientResources
+> Task :jar
+
+> Task :processIncludeJars
+(mc1.21.1-0.15.4-fabric) is not valid semver for dependency maven.modrinth:lithium:mc1.21.1-0.15.4-fabric
+(19.27.0.340) is not valid semver for dependency maven.modrinth:jei:19.27.0.340
+(fabric-1.21.1-2.6.21) is not valid semver for dependency maven.modrinth:simple-voice-chat:fabric-1.21.1-2.6.21
+(mc1.21.1-0.6.13-fabric) is not valid semver for dependency maven.modrinth:sodium:mc1.21.1-0.6.13-fabric
+
+> Task :remapJar
+
+> Task :prodClient
+[0.003s][info][gc] Using G1
+[0.160s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 21M->9M(252M) 2.095ms
+[0.282s][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 23M->17M(252M) 4.609ms
+[0.325s][info][gc] GC(2) Pause Young (Normal) (G1 Evacuation Pause) 29M->28M(252M) 7.405ms
+[0.439s][info][gc] GC(3) Pause Young (Normal) (G1 Evacuation Pause) 56M->47M(252M) 10.114ms
+[0.505s][info][gc] GC(4) Pause Young (Normal) (G1 Evacuation Pause) 73M->49M(470M) 3.860ms
+[0.569s][info][gc] GC(5) Pause Young (Normal) (G1 Evacuation Pause) 85M->50M(470M) 1.074ms
+[0.907s][info][gc] GC(6) Pause Young (Normal) (G1 Evacuation Pause) 328M->57M(470M) 3.435ms
+[1.339s][info][gc] GC(7) Pause Young (Normal) (G1 Evacuation Pause) 331M->93M(470M) 18.734ms
+[1.769s][info][gc] GC(8) Pause Young (Normal) (G1 Evacuation Pause) 339M->138M(470M) 32.548ms
+[1.941s][info][gc] GC(9) Pause Young (Normal) (G1 Evacuation Pause) 162M->145M(470M) 20.132ms
+[2.324s][info][gc] GC(10) Pause Young (Normal) (G1 Evacuation Pause) 281M->148M(808M) 11.187ms
+[2.898s][info][gc] GC(11) Pause Young (Normal) (G1 Evacuation Pause) 572M->160M(808M) 8.986ms
+[3.495s][info][gc] GC(12) Pause Young (Normal) (G1 Evacuation Pause) 622M->174M(808M) 9.776ms
+[4.816s][info][gc] GC(13) Pause Young (Normal) (G1 Evacuation Pause) 626M->201M(808M) 11.767ms
+[03:37:07] [main/INFO]: Loading Minecraft 1.21.1 with Fabric Loader 0.19.3
+[03:37:07] [main/INFO]: Fabric is preparing JARs on first launch, this may take a few seconds...
+[03:37:07] [ForkJoinPool-1-worker-1/WARN]: The mod "accessories_compat_layer" contains invalid entries in its mod json:
+- Unsupported root entry "#COMMENT_breaks" at line 53 column 20
+[03:37:07] [main/WARN]: Warnings were found!
+ - Mod 'Simply Swords' (simplyswords) 1.63.0-1.21.1 recommends version 1.0.0 or later of oracle_index, which is missing!
+	 - You should install version 1.0.0 or later of oracle_index for the optimal experience.
+[03:37:07] [main/INFO]: Loading 186 mods:
+	- accessories 1.1.0-beta.52+1.21.1
+	- accessories_compat_layer 0.1.10
+	   \-- mixinsquared 0.3.4
+	- amendments 1.21-1.2.24
+	- architectury 13.0.8
+	- balm 21.0.45
+	   \-- kuma_api 21.0.5
+	- bettercombat 2.3.2+1.21.1
+	   \-- tiny_config 3.1.0
+	- boxlib 14.4.2
+	- cardinal-components 6.1.2
+	   |-- cardinal-components-base 6.1.2
+	   |-- cardinal-components-block 6.1.2
+	   |-- cardinal-components-chunk 6.1.2
+	   |-- cardinal-components-entity 6.1.2
+	   |-- cardinal-components-item 6.1.2
+	   |-- cardinal-components-level 6.1.2
+	   |-- cardinal-components-scoreboard 6.1.2
+	   \-- cardinal-components-world 6.1.2
+	- cicada 0.13.0+1.21-1.21.1
+	   \-- org_yaml_snakeyaml 2.2
+	- cloth-config 15.0.140
+	   \-- cloth-basic-math 0.6.1
+	- cobbledollars 2.0.0+Beta-5.1+1.21.1
+	- cobblemon 1.8.0+1.21.1
+	   |-- com_ibm_icu_icu4j 71.1
+	   |-- fabric-language-kotlin 1.13.6+kotlin.2.2.20
+	   |    |-- org_jetbrains_kotlin_kotlin-reflect 2.2.20
+	   |    |-- org_jetbrains_kotlin_kotlin-stdlib 2.2.20
+	   |    |-- org_jetbrains_kotlin_kotlin-stdlib-jdk7 2.2.20
+	   |    |-- org_jetbrains_kotlin_kotlin-stdlib-jdk8 2.2.20
+	   |    |-- org_jetbrains_kotlinx_atomicfu-jvm 0.29.0
+	   |    |-- org_jetbrains_kotlinx_kotlinx-coroutines-core-jvm 1.10.2
+	   |    |-- org_jetbrains_kotlinx_kotlinx-coroutines-jdk8 1.10.2
+	   |    |-- org_jetbrains_kotlinx_kotlinx-datetime-jvm 0.7.1
+	   |    |-- org_jetbrains_kotlinx_kotlinx-io-bytestring-jvm 0.8.0
+	   |    |-- org_jetbrains_kotlinx_kotlinx-io-core-jvm 0.8.0
+	   |    |-- org_jetbrains_kotlinx_kotlinx-serialization-cbor-jvm 1.9.0
+	   |    |-- org_jetbrains_kotlinx_kotlinx-serialization-core-jvm 1.9.0
+	   |    \-- org_jetbrains_kotlinx_kotlinx-serialization-json-jvm 1.9.0
+	   |-- org_graalvm_js_js 22.3.0
+	   |-- org_graalvm_regex_regex 22.3.0
+	   |-- org_graalvm_sdk_graal-sdk 22.3.0
+	   |-- org_graalvm_truffle_truffle-api 22.3.0
+	   |-- org_mongodb_mongodb-driver-core 4.10.2
+	   \-- org_mongodb_mongodb-driver-sync 4.10.2
+	- cobblenav 2.4.1
+	- cobbreeding 2.3.0
+	- combat_roll 2.0.6+1.21.1
+	- continuity 3.0.0+1.21
+	- coordinatesdisplay 13.2.0
+	- copperagebackport 0.1.5
+	- cubes-without-borders 3.0.0+mc1.21
+	- do_a_barrel_roll 3.7.3
+	- easy_item_list 0.1.4-1.20.5
+	- enhancedblockentities 0.10.2+1.21
+	- fabric-api 0.116.17+1.21.1
+	   |-- fabric-api-base 0.4.42+6573ed8c19
+	   |-- fabric-api-lookup-api-v1 1.6.72+7b3d111d19
+	   |-- fabric-biome-api-v1 13.0.31+d527f9fd19
+	   |-- fabric-block-api-v1 1.1.0+0bc3503219
+	   |-- fabric-block-view-api-v2 1.0.11+ebb2264e19
+	   |-- fabric-blockrenderlayer-v1 1.1.52+0af3f5a719
+	   |-- fabric-client-tags-api-v1 1.2.0+1eb36c0719
+	   |-- fabric-command-api-v1 1.2.49+f71b366f19
+	   |-- fabric-command-api-v2 2.2.28+6ced4dd919
+	   |-- fabric-commands-v0 0.2.66+df3654b319
+	   |-- fabric-content-registries-v0 8.0.19+b559734419
+	   |-- fabric-convention-tags-v1 2.1.7+7f945d5b19
+	   |-- fabric-convention-tags-v2 2.12.0+c3656daa19
+	   |-- fabric-crash-report-info-v1 0.2.29+0af3f5a719
+	   |-- fabric-data-attachment-api-v1 1.4.7+5b36e0f719
+	   |-- fabric-data-generation-api-v1 20.3.0+1eb36c0719
+	   |-- fabric-dimensions-v1 4.0.1+65213ef819
+	   |-- fabric-entity-events-v1 1.8.0+2b27e0a419
+	   |-- fabric-events-interaction-v0 0.7.14+ba9dae0619
+	   |-- fabric-game-rule-api-v1 1.0.53+6ced4dd919
+	   |-- fabric-item-api-v1 11.3.0+467044f319
+	   |-- fabric-item-group-api-v1 4.1.7+def88e3a19
+	   |-- fabric-key-binding-api-v1 1.0.47+0af3f5a719
+	   |-- fabric-keybindings-v0 0.2.45+df3654b319
+	   |-- fabric-lifecycle-events-v1 2.6.0+0865547519
+	   |-- fabric-loot-api-v2 3.0.15+3f89f5a519
+	   |-- fabric-loot-api-v3 1.0.3+3f89f5a519
+	   |-- fabric-message-api-v1 6.0.14+8aaf3aca19
+	   |-- fabric-model-loading-api-v1 2.1.0+b4d813fc19
+	   |-- fabric-networking-api-v1 4.3.1+d30f6a7919
+	   |-- fabric-object-builder-api-v1 15.2.1+40875a9319
+	   |-- fabric-particles-v1 4.0.2+6573ed8c19
+	   |-- fabric-recipe-api-v1 5.0.16+2475392c19
+	   |-- fabric-registry-sync-v0 5.3.2+e3eddc2119
+	   |-- fabric-renderer-api-v1 3.4.1+b4d813fc19
+	   |-- fabric-renderer-indigo 1.7.1+c705a49c19
+	   |-- fabric-renderer-registries-v1 3.2.71+df3654b319
+	   |-- fabric-rendering-data-attachment-v1 0.3.49+73761d2e19
+	   |-- fabric-rendering-fluids-v1 3.1.6+1daea21519
+	   |-- fabric-rendering-v0 1.1.74+df3654b319
+	   |-- fabric-rendering-v1 5.2.1+f44c2eea19
+	   |-- fabric-resource-conditions-api-v1 4.3.0+8dc279b119
+	   |-- fabric-resource-loader-v0 1.3.1+5b5275af19
+	   |-- fabric-screen-api-v1 2.0.26+639b4c0719
+	   |-- fabric-screen-handler-api-v1 1.3.91+b559734419
+	   |-- fabric-sound-api-v1 1.0.23+6573ed8c19
+	   |-- fabric-tag-api-v1 1.3.0+1eb36c0719
+	   |-- fabric-transfer-api-v1 5.4.4+7b3d111d19
+	   \-- fabric-transitive-access-wideners-v1 6.2.0+45b9699719
+	- fabricloader 0.19.3
+	   \-- mixinextras 0.5.4
+	- forgeconfigapiport 21.1.3
+	   |-- com_electronwill_night-config_core 3.8.0
+	   \-- com_electronwill_night-config_toml 3.8.0
+	- freecam 1.3.0+mc1.21
+	- fzzy_config 0.7.6+1.21
+	   |-- blue_endless_jankson 1.2.3
+	   |-- fabric-permissions-api-v0 0.3.1
+	   \-- net_peanuuutz_tomlkt_tomlkt-jvm 0.3.7
+	- held-item-info 1.7.0
+	- herbalbrews 1.1.3
+	- immersive_aircraft 1.2.4+1.21.1
+	   \-- org_mariuszgromada_math_mathparser_org-mxparser 5.2.1
+	- immersive_machinery 0.2.0+1.21.1
+	- java 21
+	- keybindfixplus 2.0.0
+	- lighty 3.0.0-beta.8
+	- litematica 0.19.58
+	- lithostitched 1.5.0
+	- malilib 0.21.8
+	- mcwfurnitures 3.3.0
+	- mega_showdown 1.0.2+1.8+1.21.1-release
+	- minecraft 1.21.1
+	- moonlight 1.21-2.28.3
+	- originclient 0.4.2
+	   |-- com_twelvemonkeys_common_common-image 3.12.0
+	   |-- com_twelvemonkeys_common_common-io 3.12.0
+	   |-- com_twelvemonkeys_common_common-lang 3.12.0
+	   |-- com_twelvemonkeys_imageio_imageio-core 3.12.0
+	   |-- com_twelvemonkeys_imageio_imageio-metadata 3.12.0
+	   |-- com_twelvemonkeys_imageio_imageio-webp 3.12.0
+	   |-- ferritecore 7.0.3
+	   |-- immediatelyfast 1.6.11+1.21.1
+	   |    \-- net_lenni0451_reflect 1.6.2
+	   |-- iris 1.8.8+mc1.21.1
+	   |    |-- io_github_douira_glsl-transformer 2.0.1
+	   |    |-- org_anarres_jcpp 1.4.14
+	   |    \-- org_antlr_antlr4-runtime 4.13.1
+	   |-- jei 19.27.0.340
+	   |-- lithium 0.15.4+mc1.21.1
+	   |-- modernfix 5.25.1+mc1.21.1
+	   |-- modmenu 11.0.4
+	   |    \-- placeholder-api 2.4.0-pre.2+1.21
+	   |-- sodium 0.6.13+mc1.21.1
+	   \-- voicechat 1.21.1-2.6.21
+	        \-- voicechat_api 2.6.20
+	- owo 0.12.15.4+1.21
+	   |-- io_wispforest_endec 0.1.5.1
+	   |-- io_wispforest_endec_gson 0.1.3.1
+	   |-- io_wispforest_endec_jankson 0.1.3.1
+	   \-- io_wispforest_endec_netty 0.1.2
+	- playeranimator 2.0.4+1.21.1
+	- puzzleslib 21.1.38
+	- rctapi 0.16.0-beta
+	- rctmod 0.19.0-beta
+	   |-- com_github_vlsi_mxgraph_jgraphx 4.2.2
+	   |-- org_jgrapht_jgrapht-core 1.5.2
+	   \-- org_jgrapht_jgrapht-ext 1.5.2
+	- simplyswords 1.63.0-1.21.1
+	- simplytooltips 0.1.3
+	- smallships 2.0.0-b2.1
+	- supplementaries 1.21-3.1.7
+	- tacz 0.7.0-forge1.1.8-hotfix
+	   |-- cardinal-components-base 6.1.2
+	   |-- cardinal-components-entity 6.1.2
+	   |-- com_github_figuramc_luaj_luaj-core 3.0.8-figura
+	   |-- com_github_figuramc_luaj_luaj-jse 3.0.8-figura
+	   |-- org_apache_bcel_bcel 6.6.1
+	   |-- org_apache_commons_commons-math3 3.6.1
+	   \-- simplebedrockmodel 2.3.0.1+mc1.21.1
+	        \-- com_maydaymemory_mae 1.1.1
+	- tectonic 3.0.16
+	- terralith 2.5.8
+	- tim_core 1.8.0-fabric-1.32.0
+	- torchmaster 21.1.9
+	- travelersbackpack 10.1.22
+	- trinkets 3.10.0
+	- vinery 1.5.3
+	- waystones 21.1.19
+	- worldedit 7.3.8+6939-7d32b45
+	- xercapaint 1.21.1-1.0.1
+[03:37:07] [main/INFO]: SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.3+mixin.0.8.7/41c4a3984a80f4679e759fb9f495587acc5cdac7/sponge-mixin-0.17.3+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[03:37:07] [main/INFO]: Compatibility level set to JAVA_17
+[03:37:07] [main/INFO]: Compatibility level set to JAVA_21
+[03:37:08] [main/WARN]: Reference map 'do_a_barrel_roll.refmap.json' for do_a_barrel_roll.mixins.json could not be read. If this is a development environment you can ignore this message
+[03:37:08] [main/WARN]: Reference map 'do_a_barrel_roll.refmap.json' for do_a_barrel_roll.compat.modmenu.mixins.json could not be read. If this is a development environment you can ignore this message
+[03:37:08] [main/WARN]: Reference map 'forgeconfigapiport.common.refmap.json' for forgeconfigapiport.common.mixins.json could not be read. If this is a development environment you can ignore this message
+[03:37:08] [main/WARN]: Mod 'supplementaries' attempted to override option 'mixins.block.moving_block_shapes', which doesn't exist, ignoring
+[03:37:08] [main/INFO]: Option 'mixin.entity.collisions.fluid' requires 'mixin.util.block_tracking=true' but found 'false'. Setting 'mixin.entity.collisions.fluid=false'.
+[03:37:08] [main/INFO]: Option 'mixin.experimental.entity.block_caching.block_support' requires 'mixin.util.block_tracking=true' but found 'false'. Setting 'mixin.experimental.entity.block_caching.block_support=false'.
+[03:37:08] [main/INFO]: Option 'mixin.experimental.entity.block_caching.fluid_pushing' requires 'mixin.util.block_tracking=true' but found 'false'. Setting 'mixin.experimental.entity.block_caching.fluid_pushing=false'.
+[03:37:08] [main/INFO]: Option 'mixin.experimental.entity.block_caching.block_touching' requires 'mixin.util.block_tracking=true' but found 'false'. Setting 'mixin.experimental.entity.block_caching.block_touching=false'.
+[03:37:08] [main/INFO]: Option 'mixin.experimental.entity.block_caching.suffocation' requires 'mixin.util.block_tracking=true' but found 'false'. Setting 'mixin.experimental.entity.block_caching.suffocation=false'.
+[03:37:08] [main/INFO]: Option 'mixin.experimental.entity.block_caching' requires 'mixin.util.block_tracking=true' but found 'false'. Setting 'mixin.experimental.entity.block_caching=false'.
+[03:37:08] [main/INFO]: Loaded configuration file for Lithium: 150 options available, 2 override(s) found
+[6.465s][info][gc] GC(14) Pause Young (Concurrent Start) (Metadata GC Threshold) 539M->257M(808M) 17.638ms
+[6.465s][info][gc] GC(15) Concurrent Mark Cycle
+[6.609s][info][gc] GC(15) Pause Remark 276M->274M(808M) 6.281ms
+[03:37:08] [main/INFO]: Loaded configuration file for ModernFix 5.25.1+mc1.21.1: 65 options available, 1 override(s) found
+[03:37:08] [main/WARN]: Option 'mixin.perf.dynamic_dfu' overriden (by mods [litematica]) to 'false'
+[03:37:08] [main/INFO]: Applying Nashorn fix
+[03:37:08] [main/INFO]: Configuring Minecraft's max.bg.threads option with 1 threads
+[03:37:08] [main/INFO]: Loaded configuration file for Sodium: 43 options available, 1 override(s) found
+[6.664s][info][gc] GC(15) Pause Cleanup 280M->280M(808M) 1.236ms
+[6.666s][info][gc] GC(15) Concurrent Mark Cycle 201.534ms
+[03:37:08] [main/WARN]: Reference map 'tiny_config-common-common-refmap.json' for tiny_config.mixins.json could not be read. If this is a development environment you can ignore this message
+[03:37:08] [main/WARN]: Error loading class: vectorwing/farmersdelight/client/renderer/HangingCanvasSignRenderer (java.lang.ClassNotFoundException: vectorwing/farmersdelight/client/renderer/HangingCanvasSignRenderer)
+[03:37:08] [main/WARN]: Error loading class: vectorwing/farmersdelight/client/renderer/CanvasSignRenderer (java.lang.ClassNotFoundException: vectorwing/farmersdelight/client/renderer/CanvasSignRenderer)
+[03:37:08] [main/WARN]: Error loading class: juuxel/adorn/block/variant/BlockVariantSets (java.lang.ClassNotFoundException: juuxel/adorn/block/variant/BlockVariantSets)
+[03:37:08] [main/WARN]: @Mixin target juuxel.adorn.block.variant.BlockVariantSets was not found mixins.cobblemon-common.json:invoker.AdornRegisterInvoker from mod cobblemon
+[03:37:08] [main/INFO]: Force-disabling mixin 'block.moving_block_shapes.PistonMovingBlockEntityMixin' as rule 'mixin.block.moving_block_shapes' (added by mods [supplementaries]) disables it and children
+[03:37:08] [main/INFO]: Force-disabling mixin 'block.moving_block_shapes.VoxelShapeMixin' as rule 'mixin.block.moving_block_shapes' (added by mods [supplementaries]) disables it and children
+[03:37:08] [main/INFO]: Force-enabling mixin 'compat.worldedit.LevelChunkMixin' as rule 'mixin.compat.worldedit' (added by mods [lithium]) enables it
+[03:37:08] [main/WARN]: Error loading class: xyz/nucleoid/server/translations/impl/language/SystemDelegatedLanguage (java.lang.ClassNotFoundException: xyz/nucleoid/server/translations/impl/language/SystemDelegatedLanguage)
+[7.240s][info][gc] GC(16) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 677M->308M(808M) 43.886ms
+[03:37:09] [main/WARN]: Force-disabling mixin 'features.render.world.sky.FogRendererMixin' as rule 'mixin.features.render.world.sky' (added by mods [iris]) disables it and children
+[03:37:09] [main/WARN]: Force-disabling mixin 'features.render.world.sky.ClientLevelMixin' as rule 'mixin.features.render.world.sky' (added by mods [iris]) disables it and children
+[03:37:09] [main/WARN]: Force-disabling mixin 'features.render.world.sky.LevelRendererMixin' as rule 'mixin.features.render.world.sky' (added by mods [iris]) disables it and children
+[03:37:09] [main/WARN]: Error loading class: vectorwing/farmersdelight/common/block/TomatoVineBlock (java.lang.ClassNotFoundException: vectorwing/farmersdelight/common/block/TomatoVineBlock)
+[03:37:09] [main/WARN]: Error loading class: me/jellysquid/mods/sodium/client/render/chunk/compile/pipeline/FluidRenderer (java.lang.ClassNotFoundException: me/jellysquid/mods/sodium/client/render/chunk/compile/pipeline/FluidRenderer)
+[03:37:09] [main/INFO]: Searching for graphics cards...
+[03:37:09] [main/WARN]: Could not find any graphics adapters! Probably the device is not on a bus we can probe, or there are no devices supporting 3D acceleration.
+[03:37:09] [main/WARN]: Unable to determine desktop session type because the environment variable XDG_SESSION_TYPE is not set! Your user session may not be configured correctly.
+[03:37:09] [main/INFO]: Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.4).
+[8.531s][info][gc] GC(17) Pause Young (Mixed) (G1 Evacuation Pause) 704M->346M(808M) 37.351ms
+[03:37:10] [Datafixer Bootstrap/INFO]: 226 Datafixer optimizations took 253 milliseconds
+[9.134s][info][gc] GC(18) Pause Young (Concurrent Start) (Metadata GC Threshold) 422M->353M(808M) 20.267ms
+[9.134s][info][gc] GC(19) Concurrent Mark Cycle
+[9.319s][info][gc] GC(19) Pause Remark 396M->282M(808M) 13.828ms
+[9.373s][info][gc] GC(19) Pause Cleanup 290M->290M(808M) 1.181ms
+[9.374s][info][gc] GC(19) Concurrent Mark Cycle 240.025ms
+[03:37:11] [main/WARN]: Method overwrite conflict for method_21740 in modernfix-common.mixins.json:perf.remove_biome_temperature_cache.BiomeMixin from mod modernfix, previously written by net.caffeinemc.mods.lithium.mixin.world.temperature_cache.BiomeMixin. Skipping method.
+[10.288s][info][gc] GC(20) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 597M->258M(808M) 19.790ms
+[11.214s][info][gc] GC(21) Pause Young (Mixed) (Metadata GC Threshold) 525M->263M(808M) 19.526ms
+[11.248s][info][gc] GC(22) Pause Young (Concurrent Start) (Metadata GC Threshold) 268M->263M(808M) 16.000ms
+[11.248s][info][gc] GC(23) Concurrent Mark Cycle
+[11.440s][info][gc] GC(23) Pause Remark 290M->290M(808M) 11.390ms
+[11.511s][info][gc] GC(23) Pause Cleanup 298M->298M(808M) 0.147ms
+[11.511s][info][gc] GC(23) Concurrent Mark Cycle 263.388ms
+[03:37:13] [main/INFO]: Vanilla bootstrap took 2635 milliseconds
+[03:37:13] [Render thread/WARN]: @Inject(@At("INVOKE")) Shift.BY=2 on travelersbackpack.mixins.json:AbstractContainerScreenMixin from mod travelersbackpack::handler$ged000$travelersbackpack$mouseClicked exceeds the maximum allowed value: 0. Increase the value of maxShiftBy to suppress this warning.
+[03:37:13] [Render thread/INFO]: Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, name=PROD]
+[03:37:13] [Render thread/INFO]: Setting user: Player400
+[03:37:13] [Render thread/INFO]: Setting up compat modules for Accessories!
+[03:37:14] [Render thread/INFO]: Registered Trinkets Reloaded Listeners
+[03:37:14] [Render thread/INFO]: Loaded config amendments-common.json
+[03:37:14] [Render thread/INFO]: Loaded config amendments-client.json
+[03:37:14] [Render thread/INFO]: Loaded config moonlight-client.json
+[03:37:14] [Render thread/ERROR]: No data fixer registered for cobbledollars:cobble_merchant
+[03:37:14] [Cicada thread 0/INFO]: [cicada] Meow
+[03:37:14] [Cicada thread 0/INFO]: [do_a_barrel_roll] Mrrp!
+[03:37:14] [Render thread/INFO]: Booting LaxPermissionValidator, permissions will be checked using Minecrafts permission level system, see https://minecraft.wiki/w/Permission_level
+[03:37:14] [Render thread/INFO]: Launching Cobblemon 1.8.0 
+[03:37:14] [Render thread/INFO]: Booting FabricPermissionValidator, permissions will be checked using fabric-permissions-api, see https://github.com/lucko/fabric-permissions-api
+[03:37:14] [Render thread/ERROR]: No data fixer registered for cobblemon:pokemon
+[03:37:14] [Render thread/ERROR]: No data fixer registered for cobblemon:empty_pokeball
+[03:37:14] [Render thread/ERROR]: No data fixer registered for cobblemon:boat
+[03:37:14] [Render thread/ERROR]: No data fixer registered for cobblemon:chest_boat
+[03:37:14] [Render thread/ERROR]: No data fixer registered for cobblemon:poke_bobber
+[03:37:14] [Render thread/ERROR]: No data fixer registered for cobblemon:generic_bedrock
+[03:37:14] [Render thread/ERROR]: No data fixer registered for cobblemon:npc
+[13.010s][info][gc] GC(24) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 729M->296M(808M) 24.233ms
+[03:37:15] [Render thread/INFO]: Starting the Best Spawner...
+[03:37:15] [Render thread/INFO]: Loaded 7 spawning condition types.
+[03:37:15] [Render thread/INFO]: Loaded 6 spawnable position types.
+[03:37:15] [Render thread/INFO]: Loaded 4 spawn detail types.
+[03:37:15] [Cobblemon Showdown/INFO]: Starting showdown service...
+[03:37:15] [Cobblemon Showdown/INFO]: MegaShowdown config not found, creating default.
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/data/moves.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/sim/battle-actions.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/sim/battle.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/sim/pokemon.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/data/abilities.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/sim/side.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/data/conditions.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/index.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/data/mods/cobblemon/items.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/data/mods/cobblemon/conditions.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/data/mods/cobblemon/typechart.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/data/mods/cobblemon/moves.js
+[03:37:15] [Cobblemon Showdown/INFO]: Loaded fallback file: ./showdown/data/mods/cobblemon/abilities.js
+[03:37:15] [Cobblemon Showdown/INFO]: All files are ready!
+[14.040s][info][gc] GC(25) Pause Young (Mixed) (Metadata GC Threshold) 479M->290M(808M) 26.942ms
+[14.065s][info][gc] GC(26) Pause Young (Concurrent Start) (Metadata GC Threshold) 294M->290M(808M) 14.604ms
+[14.065s][info][gc] GC(27) Concurrent Mark Cycle
+[14.253s][info][gc] GC(27) Pause Remark 326M->326M(808M) 9.310ms
+[14.337s][info][gc] GC(27) Pause Cleanup 345M->345M(808M) 0.130ms
+[14.339s][info][gc] GC(27) Concurrent Mark Cycle 273.463ms
+[03:37:16] [Cobblemon Showdown/INFO]: Showdown has been started!
+[03:37:16] [Render thread/INFO]: Note: Cobblemon data registries are only loaded once per server instance as Pokémon species are not safe to reload.
+[03:37:16] [Render thread/INFO]: Registered the mega_showdown:mega_showdown/custom_status registry
+[03:37:16] [Render thread/INFO]: Registered the mega_showdown:mega_showdown/showdown/moves registry
+[03:37:16] [Render thread/INFO]: Registered the mega_showdown:mega_showdown/showdown/ability registry
+[03:37:16] [Render thread/INFO]: Registered the mega_showdown:mega_showdown/showdown/conditions registry
+[03:37:16] [Render thread/INFO]: Registered the mega_showdown:mega_showdown/showdown/held_items registry
+[03:37:16] [Render thread/INFO]: Registered the mega_showdown:mega_showdown/showdown/typecharts registry
+[03:37:16] [Render thread/INFO]: Registered the mega_showdown:mega_showdown/showdown/scripts registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:molang registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:species_features registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:global_species_features registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:species_feature_assignments registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:action_effects registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:moves registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:moveset_builders registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:abilities registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:behaviours registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:marks registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:species registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:species_additions registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:pokeballs registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:properties_tab_completion registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:party_pools registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:party_compositions registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:spawn_detail_presets registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:spawn_rules registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:mechanics registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:bag_items registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:held_items registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:dialogues registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:natural_materials registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:fossils registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:npc_preset registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:npc registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:dex_entries registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:dex_entry_additions registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:dexes registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:dex_additions registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:cosmetic_items registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:callbacks registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:unlockable_pc_box_wallpapers registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:starters registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:spawn_pool_world registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:pokerods registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:berries registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:habitat_pools registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:seasonings registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:pokemon_interactions registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:spawn_bait_effects registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:ride_settings registry
+[03:37:16] [Render thread/INFO]: Registered the cobblemon:technical_machines registry
+[03:37:17] [Render thread/INFO]: Registered the cobblenav:biome_platforms registry
+[03:37:17] [Render thread/INFO]: Registering cobblenav data store types!
+[03:37:17] [Render thread/INFO]: Registering items
+[03:37:17] [Render thread/INFO]: Registering data components
+[03:37:17] [Render thread/INFO]: Initializing Copper-Age-Backport on Fabric
+[03:37:17] [Render thread/INFO]: Registering sounds for Copper-Age-Backport
+[03:37:17] [Render thread/INFO]: Registering Copper Armor Material for Copper-Age-Backport
+[03:37:17] [Render thread/INFO]: Registering memory module types for Copper-Age-Backport
+[03:37:17] [Render thread/INFO]: Registering particles for Copper-Age-Backport
+[03:37:17] [Render thread/INFO]: Registering blocks for Copper-Age-Backport
+[03:37:17] [Render thread/INFO]: Registering block entities for Copper-Age-Backport
+[03:37:17] [Render thread/INFO]: Registering entities for Copper-Age-Backport
+[03:37:17] [Render thread/ERROR]: No data fixer registered for copper_golem
+[03:37:17] [Render thread/INFO]: Registering items for Copper-Age-Backport
+[03:37:17] [Render thread/INFO]: ModCompat: Initializing 0 compatibility modules...
+[03:37:17] [Render thread/INFO]: ModCompat: Initialization complete. 0 chest handlers, 0 container handlers registered.
+[03:37:17] [Render thread/INFO]: Copper-Age-Backport initialized successfully!
+[03:37:17] [Render thread/INFO]: Fired 1 registration callbacks
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_aircraft:gyrodyne
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_aircraft:biplane
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_aircraft:airship
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_aircraft:cargo_airship
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_aircraft:warship
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_aircraft:quadrocopter
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_aircraft:bullet
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_aircraft:tiny_tnt
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_machinery:tunnel_digger
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_machinery:bamboo_bee
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_machinery:redstone_sheep
+[03:37:17] [Render thread/ERROR]: No data fixer registered for immersive_machinery:copperfin
+[03:37:17] [Render thread/INFO]: Registering C2S receiver with id mega_showdown:mega_evo
+[03:37:17] [Render thread/INFO]: Registering C2S receiver with id mega_showdown:primal_evo
+[03:37:17] [Render thread/INFO]: Registering C2S receiver with id mega_showdown:crown
+[03:37:17] [Render thread/INFO]: Registering C2S receiver with id mega_showdown:ultra_burst
+[03:37:17] [Render thread/INFO]: Registering C2S receiver with id mega_showdown:secret_sword_move_swap
+[03:37:17] [Render thread/INFO]: Loaded config moonlight-common.json
+[03:37:17] [Render thread/INFO]: Origin Client initializing
+[03:37:17] [Render thread/INFO]: Blodhgarm: Did you know it took four switcheroos to implement MatrixStackTransformer in the correct package?
+[03:37:17] [Render thread/INFO]: Constructing common components for puzzleslib:main
+[03:37:17] [Render thread/ERROR]: No data fixer registered for trainer
+[03:37:17] [Render thread/ERROR]: No data fixer registered for trainer_association
+[03:37:17] [Render thread/INFO]: Registering C2S receiver with id rctmod:client_action
+[03:37:17] [Render thread/INFO]: Loaded config simplyswords:general in 11ms
+[03:37:18] [Render thread/INFO]: Loaded config simplyswords:gem_powers in 1ms
+[16.247s][info][gc] GC(28) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 742M->314M(808M) 21.027ms
+[03:37:18] [Render thread/INFO]: Loaded config simplyswords:status_effects in 0ms
+[03:37:18] [Render thread/INFO]: Loaded config simplyswords:weapon_attributes in 1ms
+[03:37:18] [Render thread/INFO]: Loaded config simplyswords:unique_effects in 0ms
+[03:37:18] [Render thread/ERROR]: No data fixer registered for battlestandard
+[03:37:18] [Render thread/ERROR]: No data fixer registered for battlestandarddark
+[03:37:18] [Render thread/ERROR]: No data fixer registered for simplyswords:simplybeeentity
+[03:37:18] [Render thread/ERROR]: No data fixer registered for simplyswords:simplyaxolotlentity
+[03:37:18] [Render thread/ERROR]: No data fixer registered for simplyswords:thrown_sword
+[03:37:18] [Render thread/ERROR]: No data fixer registered for simplyswords:frostfall_entity
+[03:37:18] [Render thread/ERROR]: No data fixer registered for simplyswords:livyatan_entity
+[03:37:18] [Render thread/ERROR]: No data fixer registered for simplyswords:spear_entity
+[03:37:18] [Render thread/ERROR]: No data fixer registered for simplyswords:runic_entity
+[03:37:18] [Render thread/INFO]: [STDOUT]: /home/runner/work/originclient/originclient/src/mods/versions/1.21.1/run-prod/config
+[03:37:18] [Render thread/WARN]: @Inject(@At("INVOKE")) Shift.BY=2 on accessories_compat_layer-trinkets.mixins.json:client.LivingEntityRendererMixin from mod accessories_compat_layer::handler$zei000$accessories_compat_layer$tclayer$toggleOnEntityAccessoriesToCosmeticLookup exceeds the maximum allowed value: 0. Increase the value of maxShiftBy to suppress this warning.
+[03:37:18] [Render thread/INFO]: Loaded config simplytooltips:config in 0ms
+[03:37:18] [Render thread/INFO]: SimplyTooltips config loaded: simplytooltips:config
+[03:37:18] [Render thread/INFO]: Loaded config supplementaries-common.json
+[03:37:18] [Render thread/INFO]: Loaded config supplementaries-client.json
+[03:37:18] [Render thread/INFO]: Registered synced data key tacz:shoot_cool_down for minecraft:living_entity
+[03:37:18] [Render thread/INFO]: Registered synced data key tacz:melee_cool_down for minecraft:living_entity
+[03:37:18] [Render thread/INFO]: Registered synced data key tacz:reload_state for minecraft:living_entity
+[03:37:18] [Render thread/INFO]: Registered synced data key tacz:aiming_progress for minecraft:living_entity
+[03:37:18] [Render thread/INFO]: Registered synced data key tacz:draw_cool_down for minecraft:living_entity
+[03:37:18] [Render thread/INFO]: Registered synced data key tacz:is_aiming for minecraft:living_entity
+[03:37:18] [Render thread/INFO]: Registered synced data key tacz:sprint_time for minecraft:living_entity
+[03:37:18] [Render thread/INFO]: Registered synced data key tacz:is_bolting for minecraft:living_entity
+[03:37:18] [Render thread/INFO]: Registered synced data key tacz:throwable_using for minecraft:living_entity
+[03:37:18] [Render thread/ERROR]: No data fixer registered for target_minecart
+[03:37:19] [Render thread/INFO]: Initializing Torchmaster for platform Fabric
+[03:37:19] [Render thread/INFO]: Debug Logging Enabled: false
+[03:37:19] [Render thread/ERROR]: No data fixer registered for 
+[03:37:19] [Render thread/INFO]: Registered the FluidEffect with Unique ID of minecraft:water for block.minecraft.water (Fluid Amount Required: 81000) with the ID 0
+[03:37:19] [Render thread/INFO]: Registered the FluidEffect with Unique ID of minecraft:lava for block.minecraft.lava (Fluid Amount Required: 81000) with the ID 1
+[03:37:19] [Render thread/INFO]: Registered the FluidEffect with Unique ID of travelersbackpack:potion for block.travelersbackpack.potion_still (Fluid Amount Required: 27000) with the ID 2
+[03:37:19] [Render thread/INFO]: Registered the FluidEffect with Unique ID of minecraft:milk for block.minecraft.air (Fluid Amount Required: 81000) with the ID 3
+[03:37:19] [Render thread/ERROR]: No data fixer registered for vinery:mule
+[03:37:19] [Render thread/ERROR]: No data fixer registered for vinery:wandering_winemaker
+[03:37:19] [Render thread/ERROR]: No data fixer registered for vinery:chair
+[03:37:19] [Render thread/INFO]: [voicechat] Compatibility version 20
+[03:37:19] [Render thread/INFO]: [voicechat] Loading plugins
+[03:37:19] [Render thread/INFO]: [voicechat] Loaded 0 plugin(s)
+[03:37:19] [Render thread/INFO]: [voicechat] Initializing plugins
+[03:37:19] [Render thread/INFO]: [voicechat] Initialized 0 plugin(s)
+[03:37:19] [Render thread/INFO]: Got request to register class com.sk89q.worldedit.fabric.FabricPlatform with WorldEdit [com.sk89q.worldedit.extension.platform.PlatformManager@2ad5bda1]
+[03:37:19] [Render thread/INFO]: WorldEdit for Fabric (version 7.3.8+6939-7d32b45) is loaded
+[17.939s][info][gc] GC(29) Pause Young (Mixed) (G1 Evacuation Pause) 742M->335M(808M) 33.408ms
+[03:37:19] [Render thread/INFO]: Registering S2C receiver with id architectury:spawn_entity_packet
+[03:37:19] [Render thread/INFO]: [BoxLib]: Initialized BoxLib v14.2.2
+[03:37:19] [Render thread/INFO]: Initializing Cobblemon client
+[03:37:19] [Render thread/INFO]: Registering Pokémon renderer
+[03:37:19] [Render thread/INFO]: Registering PokéBall renderer
+[03:37:19] [Render thread/INFO]: Registering Boat renderer
+[03:37:19] [Render thread/INFO]: Registering Boat with Chest renderer
+[03:37:19] [Render thread/INFO]: Registering Generic Bedrock renderer
+[03:37:19] [Render thread/INFO]: Registering Generic Bedrock Entity renderer
+[03:37:19] [Render thread/INFO]: Registering PokeRod Bobber renderer
+[03:37:19] [Render thread/INFO]: Registering NPC renderer
+[03:37:19] [Render thread/INFO]: Registering custom BuiltinItemRenderers
+[03:37:19] [Render thread/INFO]: [CoordinatesDisplay]: Initializing CoordinatesDisplay v13.1.0
+[03:37:20] [Render thread/WARN]: [BoxLib]: Could not find file coordinatesdisplay.json so creating it
+[03:37:20] [Render thread/INFO]: [BoxLib]: Successfully saved config for class ModConfig
+[03:37:20] [Render thread/INFO]: [Indigo] Different rendering plugin detected; not applying Indigo.
+[03:37:20] [Render thread/INFO]: Loaded config fzzy_config:keybinds in 1ms
+[03:37:20] [Render thread/INFO]: Sending ConfigManager...
+[03:37:20] [Render thread/INFO]: Sending ConfigManager took 1.059 milliseconds
+[03:37:20] [Render thread/INFO]: Let there be Lighty
+[03:37:20] [Render thread/WARN]: No Lighty config found at /home/runner/work/originclient/originclient/src/mods/versions/1.21.1/run-prod/config/lighty/base.config, using defaults.
+[03:37:20] [Render thread/INFO]: Registering S2C receiver with id mega_showdown:interaction_wheel_packet
+[03:37:20] [Render thread/INFO]: Registering S2C receiver with id mega_showdown:config_sync
+[03:37:20] [Render thread/INFO]: Registering S2C receiver with id mega_showdown:battle_state
+[03:37:20] [Render thread/INFO]: Registering S2C receiver with id mega_showdown:effectiveness_sync
+[03:37:20] [Render thread/INFO]: Checking mod updates...
+[03:37:20] [ModMenu/Update Checker/Fabric Loader/INFO]: Update available for 'fabricloader@0.19.3'
+[03:37:20] [Render thread/ERROR]: No data fixer registered for falling_lantern
+[03:37:20] [Render thread/ERROR]: No data fixer registered for dispenser_minecart
+[03:37:20] [Render thread/ERROR]: No data fixer registered for falling_urn
+[03:37:20] [Render thread/ERROR]: No data fixer registered for falling_ash
+[03:37:20] [Render thread/ERROR]: No data fixer registered for falling_sack
+[03:37:20] [Render thread/ERROR]: No data fixer registered for brick_projectile
+[03:37:20] [Render thread/ERROR]: No data fixer registered for slimeball_projectile
+[03:37:20] [Render thread/ERROR]: No data fixer registered for bomb
+[03:37:20] [Render thread/ERROR]: No data fixer registered for cannonball
+[03:37:20] [Render thread/ERROR]: No data fixer registered for rope_arrow
+[03:37:20] [Render thread/ERROR]: No data fixer registered for slingshot_projectile
+[03:37:20] [Render thread/INFO]: Initialized block sets in 20ms
+[03:37:20] [Render thread/INFO]: Initialized color sets in 28ms
+[03:37:20] [Render thread/INFO]: Finished mod setup in: [0, 0, 0, 0, 1, 7, 3, 0] ms
+[03:37:20] [Render thread/INFO]: Origin: registering scalable core shaders (MSDF text + icon/rounded SDF)…
+[03:37:20] [Render thread/WARN]: Origin: another mod already owns worldedit:cui; Origin's WorldEdit CUI stays off
+[03:37:20] [Render thread/INFO]: Constructing client components for puzzleslib:main
+[03:37:20] [Render thread/INFO]: Registering S2C receiver with id rctmod:player_state
+[03:37:20] [Render thread/INFO]: Registering S2C receiver with id rctmod:trainer_manager
+[03:37:20] [Render thread/INFO]: Registering S2C receiver with id rctmod:file_download
+[03:37:20] [Render thread/INFO]: Registering S2C receiver with id rctmod:target_trainer
+[19.252s][info][gc] GC(30) Pause Young (Concurrent Start) (Metadata GC Threshold) 729M->353M(814M) 39.473ms
+[19.252s][info][gc] GC(31) Concurrent Mark Cycle
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'terralith@2.5.8', (-> 2.6.2)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'xercapaint@1.21.1-1.0.1', (-> 1.21.1-2.0.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'simplytooltips@0.1.3', (-> 0.1.5)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'cardinal-components@6.1.2', (-> 6.1.3)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'supplementaries@1.21-3.1.7', (-> 1.21.1-4.0.2)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'cobblenav@2.4.1', (-> 2.4.2)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'balm@21.0.45', (-> 21.0.66+fabric-1.21.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'simplyswords@1.63.0-1.21.1', (-> 1.70.2-1.21.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'tim_core@1.8.0-fabric-1.32.0', (-> 1.8.2-fabric-1.34.0)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'tectonic@3.0.16', (-> 3.0.28-fabric-21.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'vinery@1.5.3', (-> 1.5.6)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'moonlight@1.21-2.28.3', (-> 1.21.1-3.7.2)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'malilib@0.21.8', (-> 0.21.10)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'waystones@21.1.19', (-> 21.1.46+fabric-1.21.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'mega_showdown@1.0.2+1.8+1.21.1-release', (-> 1.3.1+1.8.2+1.21.1-release)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'torchmaster@21.1.9', (-> 21.1.13-release)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'herbalbrews@1.1.3', (-> 1.1.4)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'cicada@0.13.0+1.21-1.21.1', (-> 0.14.3+1.21-1.21.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'immersive_aircraft@1.2.4+1.21.1', (-> 1.7.0+1.21.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'litematica@0.19.58', (-> 0.19.61)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'architectury@13.0.8', (-> 13.0.11+fabric)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'mcwfurnitures@3.3.0', (-> 3.4.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'immersive_machinery@0.2.0+1.21.1', (-> 0.2.3+1.21.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'cobbreeding@2.3.0', (-> 2.4.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'cobblemon@1.8.0+1.21.1', (-> 1.8.2)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'bettercombat@2.3.2+1.21.1', (-> 2.4.0+1.21.1-fabric)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'travelersbackpack@10.1.22', (-> 1.21.1-10.1.39)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'forgeconfigapiport@21.1.3', (-> v21.1.6-1.21.1-Fabric)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'lithostitched@1.5.0', (-> 1.8.1-fabric-21.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'smallships@2.0.0-b2.1', (-> 2.0.2-fabric-1.21.1)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'amendments@1.21-1.2.24', (-> 1.21-2.1.11)
+[03:37:21] [Worker-Main-1/INFO]: Update available for 'puzzleslib@21.1.38', (-> 21.1.64)
+[03:37:21] [Render thread/INFO]: [voicechat] Initializing Opus
+[03:37:21] [Render thread/INFO]: [voicechat] Successfully initialized Opus
+[03:37:21] [Render thread/INFO]: [voicechat] Initializing RNNoise
+[03:37:21] [Render thread/INFO]: [voicechat] Successfully initialized RNNoise
+[03:37:21] [Render thread/INFO]: [voicechat] Initializing Speex
+[03:37:21] [Render thread/INFO]: [voicechat] Successfully initialized Speex
+[03:37:21] [Render thread/INFO]: [voicechat] Initializing LAME
+[03:37:21] [Render thread/INFO]: [voicechat] Successfully initialized LAME
+[03:37:21] [Render thread/INFO]: [voicechat] Using Cloth Config GUI
+[03:37:21] [Render thread/ERROR]: Registry 'moonlight:world_saved_data_type' was empty after loading
+[19.550s][info][gc] GC(31) Pause Remark 405M->405M(814M) 11.339ms
+[19.692s][info][gc] GC(31) Pause Cleanup 434M->434M(814M) 0.138ms
+[19.692s][info][gc] GC(31) Concurrent Mark Cycle 440.118ms
+[03:37:21] [Render thread/INFO]: Backend library: LWJGL version 3.3.3-snapshot
+[03:37:21] [ForkJoinPool.commonPool-worker-1/WARN]: [Iris Update Check] This version doesn't have an update index, skipping.
+[03:37:23] [Render thread/INFO]: OpenGL Vendor: Mesa
+[03:37:23] [Render thread/INFO]: OpenGL Renderer: llvmpipe (LLVM 20.1.2, 256 bits)
+[03:37:23] [Render thread/INFO]: OpenGL Version: 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.4
+[03:37:23] [Render thread/INFO]: Initializing ImmediatelyFast 1.6.11+1.21.1 on llvmpipe (LLVM 20.1.2, 256 bits) (Mesa) with OpenGL 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.4
+[03:37:23] [Render thread/INFO]: Found Iris 1.8.8+mc1.21.1. Enabling compatibility.
+[03:37:23] [Render thread/INFO]: Debug functionality is disabled.
+[03:37:23] [Render thread/INFO]: OpenGL 4.5 detected, enabling DSA.
+[03:37:23] [Render thread/INFO]: Shaders are disabled because no valid shaderpack is selected
+[03:37:23] [Render thread/INFO]: Merging 3 images using mode MIN_AREA_NO_UPSCALE
+[03:37:23] [Render thread/INFO]: Exporting resource pack /assets/tacz/custom/tacz_default_gun to /home/runner/work/originclient/originclient/src/mods/versions/1.21.1/run-prod/tacz/tacz_default_gun
+[03:37:23] [Render thread/INFO]: Start scanning for gun packs in /home/runner/work/originclient/originclient/src/mods/versions/1.21.1/run-prod/tacz
+[03:37:23] [Render thread/INFO]: - tacz_default_gun, Main namespace: tacz
+[03:37:23] [Render thread/INFO]: Found 1 possible gunpack(s) and added them to resource set.
+[03:37:23] [Render thread/WARN]: Removed resource pack balm from options because it is no longer compatible
+[03:37:23] [Render thread/WARN]: Removed resource pack do_a_barrel_roll from options because it is no longer compatible
+[03:37:23] [Render thread/WARN]: Removed resource pack jei from options because it is no longer compatible
+[03:37:23] [Render thread/WARN]: Removed resource pack modernfix from options because it is no longer compatible
+[03:37:23] [Render thread/WARN]: Removed resource pack tacz from options because it is no longer compatible
+[03:37:23] [Render thread/WARN]: Removed resource pack torchmaster from options because it is no longer compatible
+[03:37:23] [Render thread/WARN]: Removed resource pack waystones from options because it is no longer compatible
+[03:37:23] [Render thread/WARN]: Removed resource pack worldedit from options because it is no longer compatible
+[03:37:23] [Render thread/WARN]: Removed resource pack xercapaint from options because it is no longer compatible
+[03:37:23] [Render thread/INFO]: Block minecraft:water_cauldron had its color provider replaced with net.mehvahdjukaar.amendments.AmendmentsClient$$Lambda/0x00007fc3c5e31010@1bcd74d1 and will not use per-vertex coloring
+[03:37:24] [Render thread/INFO]: Hardware information:
+[03:37:24] [Render thread/INFO]: CPU: 4x AMD EPYC 9V45 96-Core Processor
+[03:37:24] [Render thread/INFO]: GPU: llvmpipe (LLVM 20.1.2, 256 bits) (Supports OpenGL 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.4)
+[03:37:24] [Render thread/INFO]: OS: Linux (6.17.0-1022-azure)
+[03:37:24] [Render thread/INFO]: Reloading ResourceManager: vanilla, tacz_resources, fabric, accessories, accessories_compat_layer, amendments, balm, bettercombat, cardinal-components, cardinal-components-base, cardinal-components-block, cardinal-components-chunk, cardinal-components-entity, cardinal-components-item, cardinal-components-level, cardinal-components-scoreboard, cardinal-components-world, cicada, cloth-config, cobbledollars, cobblemon, cobblenav, cobbreeding, combat_roll, continuity, coordinatesdisplay, copperagebackport, cubes-without-borders, do_a_barrel_roll, easy_item_list, enhancedblockentities, fabric-api, fabric-api-base, fabric-api-lookup-api-v1, fabric-biome-api-v1, fabric-block-api-v1, fabric-block-view-api-v2, fabric-blockrenderlayer-v1, fabric-client-tags-api-v1, fabric-command-api-v1, fabric-command-api-v2, fabric-commands-v0, fabric-content-registries-v0, fabric-convention-tags-v1, fabric-convention-tags-v2, fabric-crash-report-info-v1, fabric-data-attachment-api-v1, fabric-data-generation-api-v1, fabric-dimensions-v1, fabric-entity-events-v1, fabric-events-interaction-v0, fabric-game-rule-api-v1, fabric-item-api-v1, fabric-item-group-api-v1, fabric-key-binding-api-v1, fabric-keybindings-v0, fabric-language-kotlin, fabric-lifecycle-events-v1, fabric-loot-api-v2, fabric-loot-api-v3, fabric-message-api-v1, fabric-model-loading-api-v1, fabric-networking-api-v1, fabric-object-builder-api-v1, fabric-particles-v1, fabric-recipe-api-v1, fabric-registry-sync-v0, fabric-renderer-api-v1, fabric-renderer-indigo, fabric-renderer-registries-v1, fabric-rendering-data-attachment-v1, fabric-rendering-fluids-v1, fabric-rendering-v0, fabric-rendering-v1, fabric-resource-conditions-api-v1, fabric-resource-loader-v0, fabric-screen-api-v1, fabric-screen-handler-api-v1, fabric-sound-api-v1, fabric-tag-api-v1, fabric-transfer-api-v1, fabric-transitive-access-wideners-v1, fabricloader, forgeconfigapiport, freecam, fzzy_config, held-item-info, herbalbrews, immediatelyfast, immersive_aircraft, immersive_machinery, iris, jei, keybindfixplus, lighty, litematica, lithium, malilib, mcwfurnitures, mega_showdown, modernfix, modmenu, moonlight, org_apache_commons_commons-math3, originclient, owo, playeranimator, rctapi, rctmod, simplyswords, simplytooltips, smallships, sodium, supplementaries, tacz, tectonic, tim_core, torchmaster, travelersbackpack, trinkets, vinery, voicechat, waystones, worldedit, xercapaint, cobbreeding:pasturefix, cobblemon:regionbiasforms, cobblemon:gyaradosjump, moonlight:merged_pack
+[03:37:24] [Worker-ResourceReload-0/INFO]: Starting Legacy Runtime Resource Generation for pack type CLIENT_RESOURCES with generators from mods [supplementaries, amendments]: [net.mehvahdjukaar.supplementaries.dynamicpack.ClientDynamicResourcesGenerator@37b1b7b5, net.mehvahdjukaar.amendments.client.ClientResourceGenerator@5da715fc]
+[03:37:24] [Worker-ResourceReload-0/INFO]: Generating runtime assets for pack supplementaries:generated_pack (supplementaries)
+[03:37:24] [Worker-ResourceReload-0/INFO]: Generated runtime CLIENT_RESOURCES for pack supplementaries:generated_pack (supplementaries) in: 43 ms (multithreaded)
+[03:37:24] [Worker-ResourceReload-0/INFO]: Generating runtime assets for pack amendments:generated_pack (amendments)
+[22.695s][info][gc] GC(32) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 735M->367M(814M) 41.822ms
+[03:37:24] [Worker-ResourceReload-0/INFO]: Generated runtime CLIENT_RESOURCES for pack amendments:generated_pack (amendments) in: 90 ms (multithreaded)
+[03:37:24] [Worker-ResourceReload-0/INFO]: Finished Legacy Runtime Resources Generation for 3 packs in a total of 134 ms
+[03:37:24] [Render thread/INFO]: [OriginFrameLog] on: frames over 20.0 ms, reload steps over 16.0 ms, from 3000 ms before the reload finishes until the title's entrance ends (uptime 22.740 s)
+[03:37:24] [Worker-ResourceReload-0/INFO]: Resource cache state for CLIENT_RESOURCES: needs regeneration
+[03:37:24] [Worker-ResourceReload-0/INFO]: Starting runtime resource generation for pack type CLIENT_RESOURCES with generators [moonlight:dynamic_resources]
+[03:37:24] [Worker-ResourceReload-0/INFO]: Regenerating Dynamic CLIENT_RESOURCES Resources Provider [moonlight:dynamic_resources], requested by strategy REGEN_ON_EVERY_RELOAD
+[03:37:24] [Worker-ResourceReload-0/INFO]: Generated runtime CLIENT_RESOURCES for pack moonlight:dynamic_resources in 4.159 ms
+[03:37:24] [Worker-ResourceReload-0/INFO]: Finished runtime resources generation for 1 packs in a total of 14.16 ms 
+[03:37:24] [Render thread/INFO]: Seeded new instance from bundled default-mods-config.json
+[03:37:25] [Render thread/INFO]: Loaded 37 custom rendering entries
+[03:37:25] [Render thread/INFO]: Loaded 8 custom layer data
+[03:37:25] [Render thread/INFO]: Loaded 19 custom tera map
+[03:37:25] [Worker-ResourceReload-0/INFO]: Found unifont_all_no_pua-15.1.05.hex, loading
+[23.967s][info][gc] GC(33) Pause Young (Mixed) (G1 Evacuation Pause) 743M->402M(814M) 35.774ms
+[03:37:25] [Worker-ResourceReload-0/INFO]: Found unifont_jp_patch-15.1.05.hex, loading
+[24.186s][info][gc] GC(34) Pause Young (Concurrent Start) (G1 Humongous Allocation) 604M->416M(814M) 30.726ms
+[24.192s][info][gc] GC(35) Concurrent Mark Cycle
+[24.578s][info][gc] GC(36) Pause Young (Normal) (G1 Evacuation Pause) 750M->424M(814M) 14.050ms
+[03:37:26] [Worker-ResourceReload-2/WARN]: Unable to load model: 'supplementaries:block/books/tome' referenced from: supplementaries:block/books/tome: java.io.FileNotFoundException: supplementaries:models/block/books/tome.json
+[03:37:26] [Worker-ResourceReload-1/WARN]: Texture cobblemon:block/disc_shelf/technical_machine with size 6x2 limits mip level from 4 to 1
+[03:37:26] [Worker-ResourceReload-1/WARN]: minecraft:textures/atlas/blocks.png: dropping miplevel from 4 to 1, because of minimum power of two: 2
+[25.105s][info][gc] GC(35) Pause Remark 671M->671M(814M) 22.361ms
+[25.404s][info][gc] GC(37) Pause Young (Normal) (G1 Evacuation Pause) 754M->441M(814M) 23.911ms
+[25.528s][info][gc] GC(35) Pause Cleanup 527M->527M(814M) 1.524ms
+[25.529s][info][gc] GC(35) Concurrent Mark Cycle 1337.296ms
+[25.849s][info][gc] GC(38) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 751M->665M(1014M) 126.119ms
+[26.208s][info][gc] GC(39) Pause Young (Mixed) (G1 Evacuation Pause) 839M->776M(1014M) 87.688ms
+[26.432s][info][gc] GC(40) Pause Young (Concurrent Start) (G1 Evacuation Pause) 880M->786M(1808M) 26.629ms
+[26.432s][info][gc] GC(41) Concurrent Mark Cycle
+[03:37:28] [Worker-ResourceReload-2/WARN]: Exception loading blockstate definition: 'torchmaster:invisible_light' in resourcepack: 'torchmaster': Neither 'variants' nor 'multipart' found
+[03:37:28] [Worker-ResourceReload-2/WARN]: Exception loading blockstate definition: 'torchmaster:blockstates/invisible_light.json' missing model for variant: 'torchmaster:invisible_light#'
+[03:37:28] [Worker-ResourceReload-2/WARN]: Unable to load model: 'minecraft:track_arrow' referenced from: cobblenav:item/track_arrow: java.io.FileNotFoundException: minecraft:models/track_arrow.json
+[28.015s][info][gc] GC(41) Pause Remark 1300M->1300M(1808M) 18.574ms
+[28.648s][info][gc] GC(42) Pause Young (Normal) (G1 Evacuation Pause) 1442M->861M(1808M) 67.644ms
+[28.777s][info][gc] GC(41) Pause Cleanup 906M->906M(1808M) 0.837ms
+[28.784s][info][gc] GC(41) Concurrent Mark Cycle 2352.029ms
+[03:37:31] [Worker-ResourceReload-2/WARN]: Missing textures in model supplementaries:globe#inventory:
+    minecraft:textures/atlas/blocks.png:supplementaries:item/globes/globe_arzinist
+    minecraft:textures/atlas/blocks.png:supplementaries:item/globes/globe_drong
+    minecraft:textures/atlas/blocks.png:supplementaries:item/globes/globe_ganpan14o
+    minecraft:textures/atlas/blocks.png:supplementaries:item/globes/globe_jet
+    minecraft:textures/atlas/blocks.png:supplementaries:item/globes/globe_jinou
+    minecraft:textures/atlas/blocks.png:supplementaries:item/globes/globe_leftchaotix
+    minecraft:textures/atlas/blocks.png:supplementaries:item/globes/globe_looxond
+    minecraft:textures/atlas/blocks.png:supplementaries:item/globes/globe_mantic0re
+    minecraft:textures/atlas/blocks.png:supplementaries:item/globes/globe_novaxentret
+[03:37:31] [Render thread/INFO]: [OriginFrameLog] mark render-thread reload work begins (minecraft:languages, class_4014) t=? ms uptime 29.740 s
+[03:37:31] [Render thread/INFO]: [OriginFrameLog] mark mark-settle (render-thread reload work) t=? ms uptime 29.835 s
+[03:37:31] [Render thread/WARN]: Missing sound for event: minecraft:item.goat_horn.play
+[03:37:31] [Render thread/WARN]: Missing sound for event: minecraft:entity.goat.screaming.horn_break
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+[03:37:31] [Render thread/ERROR]: Error starting SoundSystem. Turning off sounds & music
+java.lang.IllegalStateException: Failed to open OpenAL device
+	at knot/net.minecraft.class_4225.method_38501(class_4225.java:302) ~[client-intermediary.jar:?]
+	at knot/net.minecraft.class_4225.method_19661(class_4225.java:154) ~[client-intermediary.jar:?]
+	at knot/net.minecraft.class_1140.method_4846(class_1140.java:116) ~[client-intermediary.jar:?]
+	at knot/net.minecraft.class_1140.method_4837(class_1140.java:106) ~[client-intermediary.jar:?]
+	at knot/net.minecraft.class_1144.method_18182(class_1144.java:128) ~[client-intermediary.jar:?]
+	at knot/net.minecraft.class_1144.method_18788(class_1144.java:42) ~[client-intermediary.jar:?]
+	at knot/net.minecraft.class_4080.method_18790(class_4080.java:13) ~[client-intermediary.jar:?]
+	at java.base/java.util.concurrent.CompletableFuture$UniAccept.tryFire(CompletableFuture.java:718) ~[?:?]
+	at java.base/java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482) ~[?:?]
+	at knot/net.minecraft.class_4014.mdb6e749$originclient$lambda$originclient$watchApplySteps$0$1(class_4014.java:1544) ~[client-intermediary.jar:?]
+	at knot/net.minecraft.class_4014.method_18365(class_4014.java:69) ~[client-intermediary.jar:?]
+	at knot/net.minecraft.class_1255.method_18859(class_1255.java:162) [client-intermediary.jar:?]
+	at knot/net.minecraft.class_4093.method_18859(class_4093.java:23) [client-intermediary.jar:?]
+	at knot/net.minecraft.class_1255.method_16075(class_1255.java:136) [client-intermediary.jar:?]
+	at knot/net.minecraft.class_1255.handler$emp000$originclient$budgetReloadTasks(class_1255.java:556) [client-intermediary.jar:?]
+	at knot/net.minecraft.class_1255.method_5383(class_1255.java) [client-intermediary.jar:?]
+	at knot/net.minecraft.class_310.method_1523(class_310.java:1240) [client-intermediary.jar:?]
+	at knot/net.minecraft.class_310.method_1514(class_310.java:882) [client-intermediary.jar:?]
+	at knot/net.minecraft.client.main.Main.main(Main.java:256) [client-intermediary.jar:?]
+	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514) [fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72) [fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23) [fabric-loader-0.19.3.jar:?]
+[03:37:31] [Render thread/INFO]: Created: 2048x2048x1 minecraft:textures/atlas/blocks.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 256x256x4 minecraft:textures/atlas/signs.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 512x512x4 minecraft:textures/atlas/banner_patterns.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 512x512x4 minecraft:textures/atlas/shield_patterns.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 2048x1024x4 minecraft:textures/atlas/armor_trims.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 128x128x4 minecraft:textures/atlas/decorated_pot.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 512x256x4 minecraft:textures/atlas/chest.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 512x256x4 minecraft:textures/atlas/beds.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 512x256x4 minecraft:textures/atlas/shulker_boxes.png-atlas
+[03:37:32] [Render thread/WARN]: Method overwrite conflict for getChildren in accessories-common.mixins.json:client.ModelPartAccessor from mod accessories, previously written by com.cobblemon.mod.common.mixin.client.ModelPartMixin. Skipping method.
+[03:37:32] [Render thread/INFO]: [STDOUT]: Simply Swords: Adding axolotl shoulder feature to client
+[03:37:32] [Render thread/INFO]: [STDOUT]: Simply Swords: Adding axolotl shoulder feature to client
+[03:37:32] [Render thread/INFO]: Created: 4096x2048x0 minecraft:textures/atlas/particles.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 256x256x0 minecraft:textures/atlas/mob_effects.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 256x256x0 minecraft:textures/atlas/map_decorations.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas
+[03:37:32] [Render thread/WARN]: Shader cobblemon:particle_add could not find sampler named Sampler2 in the specified shader program.
+[03:37:32] [Render thread/WARN]: Shader cobblemon:particle_cutout could not find sampler named Sampler2 in the specified shader program.
+[03:37:32] [Render thread/WARN]: Shader rendertype_entity_cutout could not find uniform named IViewRotMat in the specified shader program.
+[03:37:32] [Render thread/WARN]: Shader rendertype_entity_translucent could not find uniform named IViewRotMat in the specified shader program.
+[03:37:32] [Render thread/WARN]: Shader rendertype_entity_translucent_emissive could not find sampler named Sampler2 in the specified shader program.
+[03:37:32] [Render thread/WARN]: Shader moonlight:text_alpha_color could not find uniform named FogShape in the specified shader program.
+[03:37:32] [Render thread/WARN]: Shader supplementaries:static_noise could not find sampler named Sampler1 in the specified shader program.
+[03:37:32] [Render thread/INFO]: Origin: MSDF text shader compiled + loaded OK.
+[03:37:32] [Render thread/INFO]: Origin: icon SDF shader compiled + loaded OK.
+[03:37:32] [Render thread/INFO]: Origin: rounded-box SDF shader compiled + loaded OK.
+[03:37:32] [Render thread/INFO]: Origin: fullscreen color-grade shader compiled + loaded OK.
+[03:37:32] [Render thread/INFO]: Created: 256x256x0 jei:textures/atlas/gui.png-atlas
+[03:37:32] [Render thread/INFO]: Created: 128x128x0 cobblemon:textures/atlas/berries.png-atlas
+[03:37:32] [Render thread/INFO]: Loading assets...
+[03:37:32] [Render thread/INFO]: Loading particle effects...
+[31.321s][info][gc] GC(43) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 1509M->954M(1808M) 88.556ms
+[03:37:33] [Render thread/INFO]: Loaded 1448 particle effects
+[03:37:33] [Render thread/INFO]: Loading animations...
+[31.923s][info][gc] GC(44) Pause Young (Mixed) (G1 Evacuation Pause) 1514M->994M(1808M) 68.335ms
+[32.234s][info][gc] GC(45) Pause Young (Concurrent Start) (G1 Evacuation Pause) 1556M->1046M(1808M) 62.384ms
+[32.234s][info][gc] GC(46) Concurrent Mark Cycle
+[32.545s][info][gc] GC(47) Pause Young (Normal) (G1 Evacuation Pause) 1590M->1097M(1808M) 56.836ms
+[32.851s][info][gc] GC(48) Pause Young (Normal) (G1 Evacuation Pause) 1619M->1142M(1808M) 53.966ms
+[33.135s][info][gc] GC(49) Pause Young (Normal) (G1 Evacuation Pause) 1640M->1189M(2246M) 55.854ms
+[33.303s][info][gc] GC(46) Pause Remark 1532M->1524M(2246M) 16.508ms
+[33.567s][info][gc] GC(50) Pause Young (Normal) (G1 Evacuation Pause) 1999M->1255M(2246M) 75.106ms
+[33.718s][info][gc] GC(46) Pause Cleanup 1646M->1646M(2246M) 0.280ms
+[33.720s][info][gc] GC(46) Concurrent Mark Cycle 1486.812ms
+[33.963s][info][gc] GC(51) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 2019M->1330M(2246M) 96.959ms
+[34.296s][info][gc] GC(52) Pause Young (Mixed) (G1 Evacuation Pause) 2046M->1383M(2246M) 81.058ms
+[34.610s][info][gc] GC(53) Pause Young (Concurrent Start) (G1 Evacuation Pause) 2067M->1447M(2246M) 71.801ms
+[34.610s][info][gc] GC(54) Concurrent Mark Cycle
+[03:37:36] [Render thread/INFO]: Loaded 11479 animations from 1250 animation groups
+[03:37:36] [Render thread/INFO]: Loading varying Bedrock assets...
+[35.238s][info][gc] GC(55) Pause Young (Normal) (G1 Evacuation Pause) 2087M->1572M(2732M) 109.781ms
+[03:37:37] [Render thread/INFO]: Loaded 1485 models.
+[03:37:37] [Render thread/INFO]: Loaded 1312 posers.
+[03:37:37] [Render thread/INFO]: Loaded 4497 variations.
+[03:37:37] [Render thread/INFO]: Loaded 72 berry models
+[03:37:37] [Render thread/INFO]: Loaded 6 misc models
+[03:37:37] [Render thread/INFO]: Loaded assets
+[03:37:37] [Render thread/INFO]: Loaded 5 biome platform render data
+[03:37:37] [Render thread/INFO]: Loaded 1 dimension plates
+[03:37:37] [Render thread/INFO]: Loaded 1 clouds
+[03:37:37] [Render thread/INFO]: Data pack initialized: rctmod
+[03:37:37] [Render thread/INFO]: Loaded 0 particle definitions
+[03:37:37] [Render thread/INFO]: [SimplyTooltips] Loaded 32 theme(s)
+[03:37:37] [Render thread/INFO]: [SimplyTooltips] Loaded 108 item theme(s), 108 item badge override(s), 27 tag entries
+[36.395s][info][gc] GC(54) Pause Remark 2111M->2111M(2732M) 21.180ms
+[36.922s][info][gc] GC(56) Pause Young (Normal) (G1 Evacuation Pause) 2444M->1681M(2732M) 93.165ms
+[37.037s][info][gc] GC(54) Pause Cleanup 1823M->1823M(2732M) 0.313ms
+[37.040s][info][gc] GC(54) Concurrent Mark Cycle 2429.608ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] mark reload-done (bar full) uptime 37.684 s
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-7813.9 ms frame=90.5 ms phase=LOAD tasks=48.6 render=3.1 swap=8.0 title=0.0 gc=0.0 ms/0 reload=[minecraft:sounds:48.5] scene+98.9 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-7723.4 ms frame=185.2 ms phase=LOAD tasks=159.9 render=1.5 swap=5.4 title=0.0 gc=0.0 ms/0 reload=[minecraft:fonts:159.4] scene+136.5 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-7538.2 ms frame=140.6 ms phase=LOAD tasks=105.5 render=1.1 swap=6.6 title=0.0 gc=0.0 ms/0 reload=[minecraft:models:104.4] scene+152.4 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-7397.6 ms frame=88.8 ms phase=LOAD tasks=49.3 render=1.5 swap=8.4 title=0.0 gc=0.0 ms/0 reload=[class_5599:49.2] scene+108.8 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-7308.8 ms frame=67.2 ms phase=LOAD tasks=34.0 render=4.5 swap=7.3 title=0.0 gc=0.0 ms/0 reload=[class_824:33.9] scene+91.9 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-7241.6 ms frame=44.1 ms phase=LOAD tasks=12.8 render=1.2 swap=6.7 title=0.0 gc=0.0 ms/0 reload=[] scene+45.9 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-7197.5 ms frame=153.1 ms phase=LOAD tasks=120.0 render=1.3 swap=6.4 title=0.0 gc=0.0 ms/0 reload=[class_898:117.4] scene+151.3 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-7044.4 ms frame=45.7 ms phase=LOAD tasks=8.4 render=3.5 swap=5.4 title=0.0 gc=0.0 ms/0 reload=[] scene+43.7 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-6998.7 ms frame=366.3 ms phase=LOAD tasks=302.1 render=45.3 swap=4.3 title=0.0 gc=0.0 ms/0 reload=[Shader Loader:299.5] scene+204.6 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-6632.4 ms frame=47.9 ms phase=LOAD tasks=16.4 render=1.9 swap=6.1 title=0.0 gc=0.0 ms/0 reload=[minecraft:private/class_761:16.3] scene+81.8 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-6584.5 ms frame=63.5 ms phase=LOAD tasks=33.7 render=6.1 swap=6.0 title=0.0 gc=0.0 ms/0 reload=[immersive_aircraft:objects_bbmodel:32.1] scene+83.4 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-6520.9 ms frame=4520.4 ms phase=LOAD tasks=4464.3 render=2.3 swap=12.4 title=0.0 gc=821.0 ms/11 reload=[cobblemon:atlases:4458.0] scene+121.4 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-2000.5 ms frame=68.4 ms phase=LOAD tasks=25.3 render=3.8 swap=1.1 title=0.0 gc=0.0 ms/0 reload=[continuity:render_util:25.2] scene+88.1 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-1932.0 ms frame=50.1 ms phase=LOAD tasks=17.3 render=3.8 swap=8.1 title=0.0 gc=0.0 ms/0 reload=[] scene+58.1 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-1881.9 ms frame=107.5 ms phase=LOAD tasks=60.8 render=1.6 swap=6.7 title=0.0 gc=0.0 ms/0 reload=[playeranimator:animation:58.4] scene+92.3 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-1774.5 ms frame=55.3 ms phase=LOAD tasks=12.3 render=1.5 swap=4.8 title=0.0 gc=0.0 ms/0 reload=[] scene+59.2 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-1719.2 ms frame=87.3 ms phase=LOAD tasks=20.5 render=1.5 swap=15.4 title=0.0 gc=0.0 ms/0 reload=[] scene+63.7 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-1631.9 ms frame=1372.8 ms phase=LOAD tasks=1348.9 render=2.8 swap=4.8 title=0.0 gc=93.0 ms/1 reload=[tacz:bedrockmodelloader:1341.6] scene+129.4 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-259.1 ms frame=120.5 ms phase=LOAD tasks=95.4 render=1.6 swap=4.9 title=0.0 gc=0.0 ms/0 reload=[tacz:bedrockanimationloader:95.3] scene+118.5 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] trace t=-259.1 frame=120.5 scene+118.5 phase=LOAD
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-138.7 ms frame=103.0 ms phase=LOAD tasks=64.2 render=1.4 swap=4.7 title=0.0 gc=0.0 ms/0 reload=[tacz:script_manager:64.0] scene+90.3 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] trace t=-138.7 frame=103.0 scene+90.3 phase=LOAD
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=-35.7 ms frame=35.7 ms phase=LOAD tasks=8.6 render=1.8 swap=4.4 title=0.0 gc=0.0 ms/0 reload=[] scene+45.3 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] trace t=-35.7 frame=35.7 scene+45.3 phase=LOAD
+[03:37:39] [Render thread/INFO]: Creating pipeline for dimension minecraft:overworld
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=0.0 ms frame=66.2 ms phase=DONE tasks=3.8 render=35.3 swap=5.4 title=0.0 gc=0.0 ms/0 reload=[onFinish:29.7,screen.init:0.6] scene+64.2 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] trace t=0.0 frame=66.2 scene+64.2 phase=DONE
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] mark hold-start t=67.5 ms uptime 37.747 s
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=66.2 ms frame=282.6 ms phase=HOLD tasks=0.0 render=257.2 swap=9.0 title=253.1 (title frame 1) gc=0.0 ms/0 reload=[] scene+282.4 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] trace t=66.2 frame=282.6 scene+282.4 phase=HOLD
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=348.8 ms frame=62.3 ms phase=HOLD tasks=1.1 render=6.2 swap=6.2 title=4.9 (title frame 2) gc=0.0 ms/0 reload=[] scene+36.2 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] trace t=348.8 frame=62.3 scene+36.2 phase=HOLD
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] slow t=411.2 ms frame=58.0 ms phase=HOLD tasks=0.0 render=4.5 swap=4.5 title=3.6 (title frame 3) gc=0.0 ms/0 reload=[] scene+59.2 ms
+[03:37:39] [Render thread/INFO]: [OriginFrameLog] trace t=411.2 frame=58.0 scene+59.2 phase=HOLD
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=469.2 ms frame=63.3 ms phase=HOLD tasks=0.0 render=5.5 swap=7.2 title=3.2 gc=0.0 ms/0 reload=[] scene+58.4 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=469.2 frame=63.3 scene+58.4 phase=HOLD
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=532.5 ms frame=89.2 ms phase=HOLD tasks=0.0 render=12.4 swap=10.3 title=7.5 gc=0.0 ms/0 reload=[] scene+71.1 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=532.5 frame=89.2 scene+71.1 phase=HOLD
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=621.7 ms frame=66.0 ms phase=HOLD tasks=0.0 render=4.8 swap=6.0 title=3.4 gc=0.0 ms/0 reload=[] scene+81.8 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=621.7 frame=66.0 scene+81.8 phase=HOLD
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] mark dissolve-start t=693.0 ms uptime 38.372 s
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] mark settled after 6 frames, limit 88.2 ms t=694.2 ms uptime 38.374 s
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=687.7 ms frame=76.1 ms phase=DISSOLVE tasks=0.0 render=5.8 swap=6.8 title=2.8 gc=0.0 ms/0 reload=[] scene+65.4 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=687.7 frame=76.1 scene+65.4 phase=DISSOLVE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=763.9 ms frame=72.8 ms phase=DISSOLVE tasks=0.0 render=3.5 swap=4.6 title=2.1 gc=0.0 ms/0 reload=[] scene+75.3 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=763.9 frame=72.8 scene+75.3 phase=DISSOLVE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=836.7 ms frame=57.1 ms phase=DISSOLVE tasks=0.0 render=3.7 swap=4.6 title=2.8 gc=0.0 ms/0 reload=[] scene+72.7 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=836.7 frame=57.1 scene+72.7 phase=DISSOLVE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=893.8 ms frame=59.3 ms phase=DISSOLVE tasks=0.0 render=3.7 swap=5.5 title=2.8 gc=0.0 ms/0 reload=[] scene+57.3 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=893.8 frame=59.3 scene+57.3 phase=DISSOLVE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=953.1 ms frame=59.9 ms phase=DISSOLVE tasks=0.0 render=5.8 swap=6.6 title=4.2 gc=0.0 ms/0 reload=[] scene+60.9 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=953.1 frame=59.9 scene+60.9 phase=DISSOLVE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=1013.1 ms frame=56.6 ms phase=DISSOLVE tasks=0.0 render=4.9 swap=5.0 title=3.6 gc=0.0 ms/0 reload=[] scene+59.5 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=1013.1 frame=56.6 scene+59.5 phase=DISSOLVE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=1069.7 ms frame=65.3 ms phase=DISSOLVE tasks=0.0 render=6.3 swap=4.4 title=1.9 gc=0.0 ms/0 reload=[] scene+57.5 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=1069.7 frame=65.3 scene+57.5 phase=DISSOLVE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=1134.9 ms frame=61.6 ms phase=DISSOLVE tasks=0.0 render=2.8 swap=4.0 title=1.9 gc=0.0 ms/0 reload=[] scene+62.2 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=1134.9 frame=61.6 scene+62.2 phase=DISSOLVE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=1196.5 ms frame=61.8 ms phase=DISSOLVE tasks=0.0 render=5.3 swap=4.5 title=4.1 gc=0.0 ms/0 reload=[] scene+65.9 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=1196.5 frame=61.8 scene+65.9 phase=DISSOLVE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=1258.4 ms frame=46.9 ms phase=DISSOLVE tasks=0.0 render=5.4 swap=4.4 title=2.0 gc=0.0 ms/0 reload=[] scene+56.8 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=1258.4 frame=46.9 scene+56.8 phase=DISSOLVE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] mark overlay-gone t=1305.6 ms uptime 38.985 s
+[03:37:40] [Render thread/WARN]: Game took 38.985 seconds to start
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=1305.2 ms frame=50.2 ms phase=TITLE tasks=0.0 render=5.4 swap=1.9 title=3.2 gc=0.0 ms/0 reload=[] scene+52.1 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=1305.2 frame=50.2 scene+52.1 phase=TITLE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=1355.4 ms frame=44.6 ms phase=TITLE tasks=0.0 render=2.3 swap=4.9 title=2.1 gc=0.0 ms/0 reload=[] scene+44.8 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=1355.4 frame=44.6 scene+44.8 phase=TITLE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=1400.0 ms frame=48.4 ms phase=TITLE tasks=0.0 render=3.0 swap=5.8 title=1.8 gc=0.0 ms/0 reload=[] scene+45.2 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=1400.0 frame=48.4 scene+45.2 phase=TITLE
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] slow t=1448.4 ms frame=45.5 ms phase=TITLE tasks=0.0 render=3.3 swap=4.6 title=3.0 gc=0.0 ms/0 reload=[] scene+48.9 ms
+[03:37:40] [Render thread/INFO]: [OriginFrameLog] trace t=1448.4 frame=45.5 scene+48.9 phase=TITLE
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] slow t=1493.9 ms frame=44.4 ms phase=TITLE tasks=0.0 render=2.3 swap=1.8 title=2.0 gc=0.0 ms/0 reload=[] scene+44.4 ms
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] trace t=1493.9 frame=44.4 scene+44.4 phase=TITLE
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] slow t=1538.3 ms frame=48.4 ms phase=TITLE tasks=0.0 render=3.9 swap=4.1 title=3.5 gc=0.0 ms/0 reload=[] scene+45.4 ms
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] trace t=1538.3 frame=48.4 scene+45.4 phase=TITLE
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] slow t=1586.7 ms frame=44.6 ms phase=TITLE tasks=0.0 render=3.3 swap=4.6 title=3.0 gc=0.0 ms/0 reload=[] scene+48.5 ms
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] trace t=1586.7 frame=44.6 scene+48.5 phase=TITLE
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] slow t=1631.3 ms frame=51.6 ms phase=TITLE tasks=0.0 render=3.2 swap=7.1 title=2.0 gc=0.0 ms/0 reload=[] scene+44.5 ms
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] trace t=1631.3 frame=51.6 scene+44.5 phase=TITLE
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] slow t=1682.9 ms frame=44.6 ms phase=TITLE tasks=0.0 render=2.2 swap=4.6 title=1.9 gc=0.0 ms/0 reload=[] scene+50.4 ms
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] trace t=1682.9 frame=44.6 scene+50.4 phase=TITLE
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] slow t=1727.5 ms frame=47.0 ms phase=TITLE tasks=0.0 render=4.2 swap=4.4 title=4.0 gc=0.0 ms/0 reload=[] scene+46.8 ms
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] trace t=1727.5 frame=47.0 scene+46.8 phase=TITLE
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] slow t=1774.5 ms frame=48.3 ms phase=TITLE tasks=0.0 render=2.3 swap=4.5 title=2.1 gc=0.0 ms/0 reload=[] scene+49.1 ms
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] trace t=1774.5 frame=48.3 scene+49.1 phase=TITLE
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] slow t=1822.8 ms frame=50.7 ms phase=TITLE tasks=0.0 render=3.4 swap=2.9 title=3.1 gc=0.0 ms/0 reload=[] scene+45.8 ms
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] trace t=1822.8 frame=50.7 scene+45.8 phase=TITLE
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] slow t=1873.4 ms frame=49.8 ms phase=TITLE tasks=0.0 render=3.0 swap=5.2 title=2.7 gc=0.0 ms/0 reload=[] scene+52.0 ms
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] trace t=1873.4 frame=49.8 scene+52.0 phase=TITLE
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] slow t=1923.2 ms frame=44.3 ms phase=TITLE tasks=0.0 render=2.3 swap=4.9 title=2.0 gc=0.0 ms/0 reload=[] scene+46.8 ms
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] trace t=1923.2 frame=44.3 scene+46.8 phase=TITLE
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] mark entrance-end t=1967.8 ms uptime 39.647 s
+[03:37:41] [Render thread/INFO]: [OriginFrameLog] summary lead+handoff: frames=40 max=1372.8 ms over33=40 over20=40 median=58.0 ms | from bar-full: frames=31 max=282.6 ms over33=31 over20=31 median=56.6 ms | visible (dissolve+entrance): frames=24 max=76.1 ms over33=24 over20=24 median=50.2 ms max/median=1.5 | worst=t=-1631.9 LOAD [tacz:bedrockmodelloader:1341.6] | gc in window=93.0 ms/1 | hold=625.5 ms | bar-full->entrance-end=1967.5 ms
+[03:37:45] [Render thread/INFO]: [dev-shots] captured title_1920x1080_s0.png
+[03:37:45] [Render thread/INFO]: [dev-shots] done — 1 shots in /home/runner/work/_temp/shots
+[03:37:45] [Render thread/INFO]: Stopping!
+
+BUILD SUCCESSFUL in 2m 13s
+9 actionable tasks: 9 executed

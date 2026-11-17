@@ -1,0 +1,316 @@
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-9.5.1-bin.zip
+.............10%.............20%..............30%.............40%.............50%..............60%.............70%..............80%.............90%.............100%
+
+Welcome to Gradle 9.5.1!
+
+Here are the highlights of this release:
+ - Task provenance in reports and failure messages
+ - Type-safe accessors for precompiled Kotlin Settings plugins
+
+For more details see https://docs.gradle.org/9.5.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.17.21
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Using of the official minecraft mappings is at your own risk!
+Please make sure to read and understand the following license:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# (c) 2020 Microsoft Corporation. These mappings are provided "as-is" and you bear the risk of using them. You may copy and use the mappings for development purposes, but you may not redistribute the mappings complete and unmodified. Microsoft makes no warranties, express or implied, with respect to the mappings provided here.  Use and modification of this document or the source code (in any form) of Minecraft: Java Edition is governed by the Minecraft End User License Agreement available at https://account.mojang.com/documents/minecraft_eula.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:remapping sources
+
+> Task :compileJava
+> Task :processResources
+> Task :classes
+> Task :generateLog4jConfig
+> Task :generateRemapClasspath
+> Task :generateDLIConfig
+> Task :configureLaunch
+> Task :downloadAssets
+> Task :extractNatives
+> Task :configureClientLaunch
+
+> Task :runClient
+[0.002s][info][gc] Using G1
+[0.187s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 17M->9M(252M) 2.042ms
+[0.263s][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 19M->17M(252M) 4.112ms
+[0.292s][info][gc] GC(2) Pause Young (Normal) (G1 Evacuation Pause) 27M->27M(252M) 6.040ms
+[0.425s][info][gc] GC(3) Pause Young (Normal) (G1 Evacuation Pause) 45M->38M(252M) 6.729ms
+[0.689s][info][gc] GC(4) Pause Young (Normal) (G1 Evacuation Pause) 62M->42M(252M) 3.088ms
+[06:11:58] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 1.17.1 with Fabric Loader 0.19.3
+[06:11:58] [main/INFO] (FabricLoader) Loading 54 mods:
+	- fabric 0.46.1+1.17
+	- fabric-api-base 0.4.0+cf39a74318
+	- fabric-api-lookup-api-v1 1.5.0+e821752d18
+	- fabric-biome-api-v1 3.2.2+cf39a74318
+	- fabric-blockrenderlayer-v1 1.1.6+cf39a74318
+	- fabric-command-api-v1 1.1.4+cf39a74318
+	- fabric-commands-v0 0.2.3+cf39a74318
+	- fabric-containers-v0 0.1.13+cf39a74318
+	- fabric-content-registries-v0 0.4.1+3447790d18
+	- fabric-crash-report-info-v1 0.1.6+cf39a74318
+	- fabric-data-generation-api-v1 1.1.2+4a20890318
+	- fabric-dimensions-v1 2.0.15+b556f28c18
+	- fabric-entity-events-v1 1.4.1+377137cc18
+	- fabric-events-interaction-v0 0.4.12+e99fbe1218
+	- fabric-events-lifecycle-v0 0.2.4+cf39a74318
+	- fabric-game-rule-api-v1 1.0.8+cf39a74318
+	- fabric-gametest-api-v1 1.0.5+234bdc2e18
+	- fabric-item-api-v1 1.3.0+6617390918
+	- fabric-item-groups-v0 0.3.2+cf39a74318
+	- fabric-key-binding-api-v1 1.0.6+2a2bb57318
+	- fabric-keybindings-v0 0.2.4+cf39a74318
+	- fabric-lifecycle-events-v1 1.4.6+0392f3a618
+	- fabric-loot-tables-v1 1.0.5+cf39a74318
+	- fabric-mining-level-api-v1 1.0.3+cf39a74318
+	- fabric-mining-levels-v0 0.1.7+cf39a74318
+	- fabric-models-v0 0.3.1+cf39a74318
+	- fabric-networking-api-v1 1.0.14+cf39a74318
+	- fabric-networking-blockentity-v0 0.2.12+cf39a74318
+	- fabric-networking-v0 0.3.3+cf39a74318
+	- fabric-object-builder-api-v1 1.11.1+f907116918
+	- fabric-object-builders-v0 0.7.8+cf39a74318
+	- fabric-particles-v1 0.2.5+cf39a74318
+	- fabric-registry-sync-v0 0.8.0+ea29b33318
+	- fabric-renderer-api-v1 0.4.6+ce16ae5918
+	- fabric-renderer-indigo 0.4.10+ce16ae5918
+	- fabric-renderer-registries-v1 3.2.6+cf39a74318
+	- fabric-rendering-data-attachment-v1 0.1.6+cf39a74318
+	- fabric-rendering-fluids-v1 0.2.1+cf39a74318
+	- fabric-rendering-v0 1.1.7+cf39a74318
+	- fabric-rendering-v1 1.10.1+377137cc18
+	- fabric-resource-conditions-api-v1 1.0.1+591a0f2118
+	- fabric-resource-loader-v0 0.4.10+f09604ce18
+	- fabric-screen-api-v1 1.0.5+cf39a74318
+	- fabric-screen-handler-api-v1 1.1.9+cf39a74318
+	- fabric-structure-api-v1 1.2.0+48a9ad8918
+	- fabric-tag-extensions-v0 1.2.3+cf39a74318
+	- fabric-textures-v0 1.0.7+cf39a74318
+	- fabric-tool-attribute-api-v1 1.3.3+3b96517518
+	- fabric-transfer-api-v1 1.5.4+cf39a74318
+	- fabricloader 0.19.3
+	- java 21
+	- minecraft 1.17.1
+	- mixinextras 0.5.4
+	- originclient 0.4.2
+[06:11:58] [main/INFO] (FabricLoader/Mixin) SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.3+mixin.0.8.7/41c4a3984a80f4679e759fb9f495587acc5cdac7/sponge-mixin-0.17.3+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[06:11:58] [main/INFO] (FabricLoader/Mixin) Loaded Fabric development mappings for mixin remapper!
+[06:11:58] [main/INFO] (FabricLoader/Mixin) Compatibility level set to JAVA_16
+[1.549s][info][gc] GC(5) Pause Young (Normal) (G1 Evacuation Pause) 188M->59M(480M) 15.829ms
+[06:11:59] [main/WARN] (FabricLoader/Mixin) Error loading class: net/coderbot/iris/shaderpack/PackShadowDirectives (java.lang.ClassNotFoundException: net/coderbot/iris/shaderpack/PackShadowDirectives)
+[06:11:59] [main/WARN] (FabricLoader/Mixin) Error loading class: net/coderbot/iris/gui/screen/ShaderPackScreen (java.lang.ClassNotFoundException: net/coderbot/iris/gui/screen/ShaderPackScreen)
+[06:11:59] [main/INFO] (FabricLoader/MixinExtras|Service) Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.4).
+[1.749s][info][gc] GC(6) Pause Young (Concurrent Start) (Metadata GC Threshold) 131M->66M(480M) 9.616ms
+[1.750s][info][gc] GC(7) Concurrent Mark Cycle
+[1.867s][info][gc] GC(7) Pause Remark 78M->78M(228M) 6.213ms
+[1.890s][info][gc] GC(7) Pause Cleanup 79M->79M(228M) 0.106ms
+[1.891s][info][gc] GC(7) Concurrent Mark Cycle 141.518ms
+[06:11:59] [main/WARN] (FileUtil) Configuration conflict: there is more than one oshi.properties file on the classpath
+[06:11:59] [main/WARN] (FileUtil) Configuration conflict: there is more than one oshi.architecture.properties file on the classpath
+[2.916s][info][gc] GC(8) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 208M->80M(228M) 5.718ms
+[3.157s][info][gc] GC(9) Pause Young (Mixed) (G1 Evacuation Pause) 186M->90M(228M) 11.287ms
+[3.320s][info][gc] GC(10) Pause Young (Normal) (G1 Evacuation Pause) 190M->103M(228M) 27.734ms
+[3.528s][info][gc] GC(11) Pause Young (Normal) (G1 Evacuation Pause) 195M->113M(228M) 14.456ms
+[3.744s][info][gc] GC(12) Pause Young (Concurrent Start) (Metadata GC Threshold) 166M->117M(228M) 8.151ms
+[3.744s][info][gc] GC(13) Concurrent Mark Cycle
+[3.851s][info][gc] GC(13) Pause Remark 140M->140M(228M) 5.048ms
+[3.899s][info][gc] GC(13) Pause Cleanup 153M->153M(228M) 0.088ms
+[3.899s][info][gc] GC(13) Concurrent Mark Cycle 154.647ms
+[4.042s][info][gc] GC(14) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 201M->134M(228M) 13.586ms
+[4.274s][info][gc] GC(15) Pause Young (Mixed) (G1 Evacuation Pause) 202M->141M(456M) 24.000ms
+[4.654s][info][gc] GC(16) Pause Young (Normal) (G1 Evacuation Pause) 339M->162M(456M) 23.361ms
+[4.890s][info][gc] GC(17) Pause Young (Normal) (G1 Evacuation Pause) 366M->191M(456M) 37.225ms
+[5.053s][info][gc] GC(18) Pause Young (Normal) (G1 Evacuation Pause) 375M->203M(456M) 25.983ms
+[5.200s][info][gc] GC(19) Pause Young (Normal) (G1 Evacuation Pause) 389M->208M(912M) 16.439ms
+[06:12:02] [Render thread/INFO] (Minecraft) Environment: authHost='https://authserver.mojang.com', accountsHost='https://api.mojang.com', sessionHost='https://sessionserver.mojang.com', servicesHost='https://api.minecraftservices.com', name='PROD'
+[5.443s][info][gc] GC(20) Pause Young (Normal) (G1 Evacuation Pause) 738M->221M(912M) 15.555ms
+[5.738s][info][gc] GC(21) Pause Young (Normal) (G1 Evacuation Pause) 739M->227M(912M) 17.556ms
+[06:12:03] [Render thread/INFO] (Minecraft) Setting user: Player294
+[5.927s][info][gc] GC(22) Pause Young (Normal) (G1 Evacuation Pause) 739M->234M(912M) 22.588ms
+[6.100s][info][gc] GC(23) Pause Young (Normal) (G1 Evacuation Pause) 738M->237M(1340M) 20.491ms
+[06:12:03] [Render thread/WARN] (FabricLoader/Mixin) @Inject(@At("INVOKE")) Shift.BY=3 on fabric-lifecycle-events-v1.mixins.json:client.WorldChunkMixin from mod fabric-lifecycle-events-v1::handler$zhp000$fabric-lifecycle-events-v1$onLoadBlockEntity exceeds the maximum allowed value: 0. Increase the value of maxShiftBy to suppress this warning.
+[06:12:03] [Render thread/INFO] (originclient) Origin Client initializing
+[06:12:03] [Render thread/INFO] (originclient) Origin: scalable core shaders (MSDF text + icon/rounded SDF + grade) compile on first draw.
+[06:12:03] [Render thread/INFO] (Indigo) [Indigo] Registering Indigo renderer!
+[6.416s][info][gc] GC(24) Pause Young (Normal) (G1 Evacuation Pause) 1011M->245M(1340M) 24.714ms
+[6.620s][info][gc] GC(25) Pause Young (Concurrent Start) (Metadata GC Threshold) 502M->248M(1340M) 21.611ms
+[6.620s][info][gc] GC(26) Concurrent Mark Cycle
+[06:12:04] [Render thread/INFO] (Minecraft) Backend library: LWJGL version 3.3.2-snapshot
+[7.118s][info][gc] GC(27) Pause Young (Normal) (G1 Evacuation Pause) 1010M->252M(1340M) 24.867ms
+[7.157s][info][gc] GC(26) Pause Remark 344M->342M(848M) 10.141ms
+[7.240s][info][gc] GC(28) Pause Young (Normal) (G1 Evacuation Pause) 712M->251M(1478M) 21.151ms
+[7.298s][info][gc] GC(26) Pause Cleanup 701M->701M(1478M) 0.141ms
+[7.302s][info][gc] GC(26) Concurrent Mark Cycle 681.167ms
+[7.412s][info][gc] GC(29) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 1107M->252M(1478M) 16.222ms
+[7.622s][info][gc] GC(30) Pause Young (Mixed) (G1 Evacuation Pause) 1108M->249M(1478M) 13.657ms
+[7.751s][info][gc] GC(31) Pause Young (Normal) (G1 Evacuation Pause) 1105M->248M(1478M) 12.583ms
+[7.943s][info][gc] GC(32) Pause Young (Normal) (G1 Evacuation Pause) 1104M->249M(1478M) 13.422ms
+[8.109s][info][gc] GC(33) Pause Young (Normal) (G1 Evacuation Pause) 1105M->249M(1716M) 13.577ms
+[8.286s][info][gc] GC(34) Pause Young (Normal) (G1 Evacuation Pause) 1247M->247M(1716M) 12.638ms
+[06:12:05] [Render thread/INFO] (Minecraft) [STDERR]: [LWJGL] [ThreadLocalUtil] Unsupported JNI version detected, this may result in a crash. Please inform LWJGL developers.
+[8.552s][info][gc] GC(35) Pause Young (Normal) (G1 Evacuation Pause) 1247M->248M(1716M) 17.698ms
+[8.756s][info][gc] GC(36) Pause Young (Normal) (G1 Evacuation Pause) 1246M->248M(1716M) 15.087ms
+[9.054s][info][gc] GC(37) Pause Young (Normal) (G1 Evacuation Pause) 1246M->249M(1808M) 13.391ms
+[06:12:06] [Render thread/INFO] (originclient) Seeded new instance from bundled default-mods-config.json
+[9.349s][info][gc] GC(38) Pause Young (Normal) (G1 Evacuation Pause) 1309M->253M(1808M) 15.112ms
+[06:12:07] [Render thread/INFO] (Minecraft) Narrator library successfully loaded
+[9.713s][info][gc] GC(39) Pause Young (Normal) (G1 Evacuation Pause) 1317M->255M(1808M) 10.066ms
+[06:12:07] [Render thread/INFO] (Minecraft) Reloading ResourceManager: Default, Fabric Mods (Fabric Tool Attribute API (v1), Fabric Rendering (v0), Fabric Particles (v1), Fabric Object Builders (v0), Fabric Rendering Data Attachment (v1), Fabric Key Bindings (v0), Fabric Item API (v1), Fabric Data Generation API (v1), Fabric Textures (v0), Fabric Rendering Fluids (v1), Fabric Resource Loader (v0), Fabric Key Binding API (v1), Fabric API, Fabric Item Groups (v0), Fabric Content Registries (v0), Fabric Tag Extensions (v0), Fabric Object Builder API (v1), Fabric Renderer API (v1), Fabric Resource Conditions API (v1), Fabric Entity Events (v1), Fabric Screen API (v1), Fabric Loot Tables (v1), Fabric Biome API (v1), Fabric Commands (v0), Fabric Renderer Registries (v1), Fabric Containers (v0), Fabric Mining Level API (v1), Fabric Registry Sync (v0), Fabric Events Lifecycle (v0), Fabric Loader, Fabric Screen Handler API (v1), Fabric Rendering (v1), Fabric Transfer API (v1), Fabric Mining Levels (v0), Fabric Networking Block Entity (v0), Fabric Game Rule API (v1), Fabric Game Test API (v1), Fabric Events Interaction (v0), Fabric API Base, Fabric API Lookup API (v1), Fabric Lifecycle Events (v1), Origin Client, Fabric Dimensions API (v1), Fabric Command API (v1), Fabric Crash Report Info (v1), Fabric Renderer - Indigo, Fabric Models (v0), Fabric Networking (v0), Fabric Networking API (v1), Fabric Structure API (v1), Fabric BlockRenderLayer Registration (v1))
+[9.949s][info][gc] GC(40) Pause Young (Normal) (G1 Evacuation Pause) 1319M->254M(1808M) 9.091ms
+[06:12:07] [Render thread/INFO] (originclient) [OriginFrameLog] on: frames over 20.0 ms, reload steps over 16.0 ms, from 3000 ms before the reload finishes until the title's entrance ends (uptime 10.136 s)
+[06:12:07] [Realms Notification Availability checker #1/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
+[10.454s][info][gc] GC(41) Pause Young (Normal) (G1 Evacuation Pause) 1324M->261M(1808M) 9.420ms
+[10.834s][info][gc] GC(42) Pause Young (Normal) (G1 Evacuation Pause) 1327M->262M(1808M) 11.606ms
+[11.247s][info][gc] GC(43) Pause Young (Normal) (G1 Evacuation Pause) 1332M->270M(1808M) 10.570ms
+[11.775s][info][gc] GC(44) Pause Young (Normal) (G1 Evacuation Pause) 1332M->277M(1808M) 20.590ms
+[12.313s][info][gc] GC(45) Pause Young (Normal) (G1 Evacuation Pause) 1333M->277M(1808M) 8.643ms
+[06:12:09] [Render thread/INFO] (originclient) [OriginFrameLog] mark render-thread reload work begins (minecraft:languages, SimpleReloadInstance) t=? ms uptime 12.372 s
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+[06:12:10] [Render thread/ERROR] (Minecraft) Error starting SoundSystem. Turning off sounds & music
+java.lang.IllegalStateException: Failed to open OpenAL device
+	at com.mojang.blaze3d.audio.Library.tryOpenDevice(Library.java:211) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at com.mojang.blaze3d.audio.Library.init(Library.java:136) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.client.sounds.SoundEngine.loadLibrary(SoundEngine.java:99) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.client.sounds.SoundEngine.reload(SoundEngine.java:90) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.client.sounds.SoundManager.apply(SoundManager.java:116) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.client.sounds.SoundManager.apply(SoundManager.java:39) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.server.packs.resources.SimplePreparableReloadListener.method_18790(SimplePreparableReloadListener.java:13) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at java.util.concurrent.CompletableFuture$UniAccept.tryFire(CompletableFuture.java:718) ~[?:?]
+	at java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482) ~[?:?]
+	at net.minecraft.server.packs.resources.SimpleReloadInstance.md27112a$originclient$lambda$originclient$watchApplySteps$0$1(SimpleReloadInstance.java:545) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.server.packs.resources.SimpleReloadInstance.method_18365(SimpleReloadInstance.java:71) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.util.thread.BlockableEventLoop.execute(BlockableEventLoop.java:101) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.server.packs.resources.SimpleReloadInstance.method_18367(SimpleReloadInstance.java:70) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.server.packs.resources.SimpleReloadInstance.md27112a$originclient$lambda$originclient$watchApplySteps$1$0(SimpleReloadInstance.java:537) ~[minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at java.util.concurrent.CompletableFuture$UniCompletion.claim(CompletableFuture.java:572) ~[?:?]
+	at java.util.concurrent.CompletableFuture$UniAccept.tryFire(CompletableFuture.java:714) ~[?:?]
+	at java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[?:?]
+	at java.util.concurrent.CompletableFuture.postFire(CompletableFuture.java:614) ~[?:?]
+	at java.util.concurrent.CompletableFuture$UniAccept.tryFire(CompletableFuture.java:726) ~[?:?]
+	at java.util.concurrent.CompletableFuture$Completion.run(CompletableFuture.java:482) ~[?:?]
+	at com.mojang.blaze3d.systems.RenderSystem.replayQueue(RenderSystem.java:179) [minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at com.mojang.blaze3d.systems.RenderSystem.flipFrame(RenderSystem.java:166) [minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at com.mojang.blaze3d.platform.Window.updateDisplay(Window.java:310) [minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.client.Minecraft.runTick(Minecraft.java:1137) [minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.client.Minecraft.run(Minecraft.java:728) [minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.minecraft.client.main.Main.main(Main.java:217) [minecraft-merged-c8eed0b5f8-1.17.1-loom.mappings.1_17_1.layered+hash.2198-v2.jar:?]
+	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514) [fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72) [fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23) [fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86) [dev-launch-injector-0.2.1+build.8.jar:?]
+[12.768s][info][gc] GC(46) Pause Young (Normal) (G1 Evacuation Pause) 1333M->279M(1808M) 15.253ms
+[06:12:10] [Render thread/INFO] (Minecraft) Created: 1024x1024x4 minecraft:textures/atlas/blocks.png-atlas
+[06:12:10] [Render thread/INFO] (Minecraft) Created: 256x128x4 minecraft:textures/atlas/signs.png-atlas
+[06:12:10] [Render thread/INFO] (Minecraft) Created: 1024x512x4 minecraft:textures/atlas/banner_patterns.png-atlas
+[06:12:10] [Render thread/INFO] (Minecraft) Created: 1024x512x4 minecraft:textures/atlas/shield_patterns.png-atlas
+[06:12:10] [Render thread/INFO] (Minecraft) Created: 256x256x4 minecraft:textures/atlas/chest.png-atlas
+[06:12:10] [Render thread/INFO] (Minecraft) Created: 512x256x4 minecraft:textures/atlas/beds.png-atlas
+[06:12:10] [Render thread/INFO] (Minecraft) Created: 512x256x4 minecraft:textures/atlas/shulker_boxes.png-atlas
+[12.990s][info][gc] GC(47) Pause Young (Normal) (G1 Evacuation Pause) 1333M->279M(1808M) 11.677ms
+[13.377s][info][gc] GC(48) Pause Young (Normal) (G1 Evacuation Pause) 1333M->311M(1808M) 29.483ms
+[13.743s][info][gc] GC(49) Pause Young (Normal) (G1 Evacuation Pause) 1333M->314M(1808M) 21.775ms
+[14.005s][info][gc] GC(50) Pause Young (Normal) (G1 Evacuation Pause) 1332M->313M(1808M) 20.976ms
+[06:12:11] [Render thread/INFO] (Minecraft) Created: 256x256x0 minecraft:textures/atlas/particles.png-atlas
+[06:12:11] [Render thread/INFO] (Minecraft) Created: 256x256x0 minecraft:textures/atlas/paintings.png-atlas
+[06:12:11] [Render thread/INFO] (Minecraft) Created: 256x128x0 minecraft:textures/atlas/mob_effects.png-atlas
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] mark reload-done (bar full) uptime 14.152 s
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2945.7 ms frame=268.3 ms phase=LOAD tasks=0.0 render=206.6 swap=15.5 title=0.0 gc=11.0 ms/1 reload=[] scene+26.6 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2677.4 ms frame=70.4 ms phase=LOAD tasks=0.0 render=14.2 swap=13.9 title=0.0 gc=0.0 ms/0 reload=[] scene+63.8 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2607.1 ms frame=55.0 ms phase=LOAD tasks=0.0 render=9.1 swap=10.2 title=0.0 gc=0.0 ms/0 reload=[] scene+69.2 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2552.1 ms frame=57.0 ms phase=LOAD tasks=0.0 render=10.9 swap=10.7 title=0.0 gc=0.0 ms/0 reload=[] scene+68.3 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2495.1 ms frame=73.0 ms phase=LOAD tasks=0.0 render=23.7 swap=13.4 title=0.0 gc=0.0 ms/0 reload=[] scene+72.0 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2422.1 ms frame=57.6 ms phase=LOAD tasks=0.0 render=9.7 swap=8.8 title=0.0 gc=21.0 ms/1 reload=[] scene+78.4 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2364.5 ms frame=70.5 ms phase=LOAD tasks=0.0 render=4.9 swap=12.4 title=0.0 gc=0.0 ms/0 reload=[] scene+75.2 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2294.0 ms frame=61.5 ms phase=LOAD tasks=0.0 render=12.3 swap=10.4 title=0.0 gc=0.0 ms/0 reload=[] scene+84.2 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2232.5 ms frame=71.0 ms phase=LOAD tasks=0.0 render=12.9 swap=11.6 title=0.0 gc=0.0 ms/0 reload=[] scene+83.3 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2161.5 ms frame=79.7 ms phase=LOAD tasks=0.0 render=13.3 swap=13.1 title=0.0 gc=0.0 ms/0 reload=[] scene+90.3 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2081.7 ms frame=71.6 ms phase=LOAD tasks=0.0 render=13.7 swap=12.5 title=0.0 gc=0.0 ms/0 reload=[] scene+86.6 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-2010.1 ms frame=87.0 ms phase=LOAD tasks=0.0 render=9.7 swap=20.3 title=0.0 gc=0.0 ms/0 reload=[] scene+75.4 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1923.1 ms frame=77.9 ms phase=LOAD tasks=0.0 render=2.4 swap=13.4 title=0.0 gc=0.0 ms/0 reload=[] scene+86.6 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1845.2 ms frame=68.4 ms phase=LOAD tasks=9.5 render=6.9 swap=8.4 title=0.0 gc=8.0 ms/1 reload=[] scene+87.7 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=-1776.8 ms frame=1776.8 ms phase=LOAD tasks=34.6 render=6.5 swap=1703.6 title=0.0 gc=99.0 ms/5 reload=[minecraft:languages:33.5,SearchRegistry:170.9,minecraft:private/levelrenderer:261.6,minecraft:private/blockrenderdispatcher:262.4,GameRenderer:614.0,minecraft:private/itemrenderer:617.3,EntityRenderDispatcher:696.6,BlockEntityWithoutLevelRenderer:698.2,BlockEntityRenderDispatcher:709.7,EntityModelSet:796.9,minecraft:models:1272.9,FoliageColorReloadListener:1273.0,GrassColorReloadListener:1273.5,minecraft:fonts:1570.1,SplashManager:1570.1,minecraft:sounds:1633.9] scene+92.6 ms
+[14.336s][info][gc] GC(51) Pause Young (Normal) (G1 Evacuation Pause) 1333M->302M(1808M) 16.650ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=0.0 ms frame=169.5 ms phase=DONE tasks=0.2 render=123.1 swap=13.0 title=0.0 gc=0.0 ms/0 reload=[onFinish:0.4,screen.init:1.9] scene+73.7 ms
+[06:12:11] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=0.0 frame=169.5 scene+73.7 phase=DONE
+[06:12:12] [Render thread/WARN] (originclient) Origin: SDF is ON but the rounded-box shader did NOT load — using the software rounded-rect fallback. Check the log above for a shader compile error.
+[14.643s][info][gc] GC(52) Pause Young (Normal) (G1 Evacuation Pause) 1334M->302M(1808M) 35.112ms
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] mark dissolve-start t=524.1 ms uptime 14.673 s
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=169.5 ms frame=397.4 ms phase=DISSOLVE tasks=0.0 render=335.8 swap=10.3 title=331.4 (title frame 1) gc=52.0 ms/2 reload=[] scene+456.9 ms
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=169.5 frame=397.4 scene+456.9 phase=DISSOLVE
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=566.9 ms frame=89.0 ms phase=DISSOLVE tasks=0.3 render=9.8 swap=9.0 title=4.3 (title frame 2) gc=0.0 ms/0 reload=[] scene+55.6 ms
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=566.9 frame=89.0 scene+55.6 phase=DISSOLVE
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=655.9 ms frame=100.6 ms phase=DISSOLVE tasks=0.0 render=6.3 swap=10.2 title=4.9 (title frame 3) gc=0.0 ms/0 reload=[] scene+83.1 ms
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=655.9 frame=100.6 scene+83.1 phase=DISSOLVE
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=756.5 ms frame=107.0 ms phase=DISSOLVE tasks=0.0 render=6.8 swap=9.0 title=2.8 gc=0.0 ms/0 reload=[] scene+100.9 ms
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=756.5 frame=107.0 scene+100.9 phase=DISSOLVE
+[15.072s][info][gc] GC(53) Pause Young (Normal) (G1 Evacuation Pause) 1334M->302M(1808M) 30.731ms
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=863.5 ms frame=98.5 ms phase=DISSOLVE tasks=0.0 render=7.0 swap=6.7 title=3.9 gc=31.0 ms/1 reload=[] scene+109.8 ms
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=863.5 frame=98.5 scene+109.8 phase=DISSOLVE
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=961.9 ms frame=106.6 ms phase=DISSOLVE tasks=0.0 render=12.5 swap=8.9 title=6.6 gc=0.0 ms/0 reload=[] scene+101.6 ms
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=961.9 frame=106.6 scene+101.6 phase=DISSOLVE
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=1068.5 ms frame=120.1 ms phase=DISSOLVE tasks=0.0 render=18.4 swap=13.1 title=12.4 gc=0.0 ms/0 reload=[] scene+109.6 ms
+[06:12:12] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1068.5 frame=120.1 scene+109.6 phase=DISSOLVE
+[06:12:12] [Render thread/INFO] (originclient) Origin: MSDF text shader compiled + loaded OK.
+[06:12:12] [Render thread/INFO] (originclient) Origin: icon SDF shader compiled + loaded OK.
+[06:12:12] [Render thread/INFO] (originclient) Origin: rounded-box SDF shader compiled + loaded OK.
+[06:12:12] [Render thread/INFO] (originclient) Origin: fullscreen color-grade shader compiled + loaded OK.
+[15.403s][info][gc] GC(54) Pause Young (Normal) (G1 Evacuation Pause) 1336M->302M(1898M) 22.865ms
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=1188.6 ms frame=199.3 ms phase=DISSOLVE tasks=0.0 render=93.8 swap=10.9 title=93.7 gc=22.0 ms/1 reload=[] scene+110.3 ms
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1188.6 frame=199.3 scene+110.3 phase=DISSOLVE
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] mark overlay-gone t=1388.5 ms uptime 15.537 s
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=1387.9 ms frame=111.6 ms phase=TITLE tasks=0.0 render=7.3 swap=10.4 title=6.9 gc=0.0 ms/0 reload=[] scene+200.0 ms
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1387.9 frame=111.6 scene+200.0 phase=TITLE
+[15.749s][info][gc] GC(55) Pause Young (Normal) (G1 Evacuation Pause) 1390M->302M(1898M) 22.018ms
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=1499.6 ms frame=115.4 ms phase=TITLE tasks=0.0 render=6.2 swap=9.5 title=6.0 gc=22.0 ms/1 reload=[] scene+109.0 ms
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1499.6 frame=115.4 scene+109.0 phase=TITLE
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=1615.0 ms frame=134.0 ms phase=TITLE tasks=0.0 render=12.0 swap=11.4 title=9.1 gc=0.0 ms/0 reload=[] scene+122.2 ms
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1615.0 frame=134.0 scene+122.2 phase=TITLE
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] slow t=1748.9 ms frame=98.0 ms phase=TITLE tasks=0.0 render=6.0 swap=9.9 title=5.9 gc=0.0 ms/0 reload=[] scene+128.1 ms
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] trace t=1748.9 frame=98.0 scene+128.1 phase=TITLE
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] mark entrance-end t=1847.5 ms uptime 15.996 s
+[06:12:13] [Render thread/INFO] (originclient) [OriginFrameLog] summary lead+handoff: frames=28 max=1776.8 ms over33=28 over20=28 median=98.0 ms | from bar-full: frames=13 max=397.4 ms over33=13 over20=13 median=111.6 ms | visible (dissolve+entrance): frames=12 max=397.4 ms over33=12 over20=12 median=111.6 ms max/median=3.6 | worst=t=-1776.8 LOAD [minecraft:languages:33.5,SearchRegistry:170.9,minecraft:private/levelrenderer:261.6,minecraft:private/blockrenderdispatcher:262.4,GameRenderer:614.0,minecraft:private/itemrenderer:617.3,EntityRenderDispatcher:696.6,BlockEntityWithoutLevelRenderer:698.2,BlockEntityRenderDispatcher:709.7,EntityModelSet:796.9,minecraft:models:1272.9,FoliageColorReloadListener:1273.0,GrassColorReloadListener:1273.5,minecraft:fonts:1570.1,SplashManager:1570.1,minecraft:sounds:1633.9] | gc in window=266.0 ms/13 | hold=- ms | bar-full->entrance-end=1846.9 ms
+[16.183s][info][gc] GC(56) Pause Young (Normal) (G1 Evacuation Pause) 1390M->303M(1898M) 24.116ms
+[16.506s][info][gc] GC(57) Pause Young (Normal) (G1 Evacuation Pause) 1395M->303M(1898M) 15.193ms
+[16.951s][info][gc] GC(58) Pause Young (Normal) (G1 Evacuation Pause) 1395M->303M(1898M) 29.359ms
+[17.231s][info][gc] GC(59) Pause Young (Normal) (G1 Evacuation Pause) 1397M->303M(1898M) 20.734ms
+[17.621s][info][gc] GC(60) Pause Young (Normal) (G1 Evacuation Pause) 1401M->304M(1898M) 27.591ms
+[17.932s][info][gc] GC(61) Pause Young (Normal) (G1 Evacuation Pause) 1402M->304M(1898M) 15.193ms
+[18.243s][info][gc] GC(62) Pause Young (Normal) (G1 Evacuation Pause) 1402M->305M(1898M) 20.392ms
+[18.642s][info][gc] GC(63) Pause Young (Normal) (G1 Evacuation Pause) 1405M->305M(1898M) 14.898ms
+[18.975s][info][gc] GC(64) Pause Young (Normal) (G1 Evacuation Pause) 1435M->305M(1898M) 6.963ms
+[19.385s][info][gc] GC(65) Pause Young (Normal) (G1 Evacuation Pause) 1439M->305M(1898M) 6.886ms
+[19.810s][info][gc] GC(66) Pause Young (Normal) (G1 Evacuation Pause) 1439M->306M(1898M) 6.346ms
+[06:12:17] [Render thread/INFO] (originclient) [dev-shots] captured title_1920x1080_s0.png
+[20.148s][info][gc] GC(67) Pause Young (Normal) (G1 Evacuation Pause) 1440M->306M(1898M) 7.712ms
+[06:12:17] [Render thread/INFO] (originclient) [dev-shots] done — 1 shots in /home/runner/work/_temp/shots
+[06:12:17] [Render thread/INFO] (Minecraft) Stopping!
+
+BUILD SUCCESSFUL in 1m 36s
+8 actionable tasks: 8 executed

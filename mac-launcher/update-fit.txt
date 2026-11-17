@@ -1,0 +1,14 @@
+15e-topbar-1440x900-update: topbar=1440 brand=131 tabs=304 actions=354 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True chip=90x36 theme=UpdateChip visible=True
+15e-topbar-1280x800-update: topbar=1280 brand=131 tabs=304 actions=354 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True chip=90x36 theme=UpdateChip visible=True
+15e-topbar-1180x740-update: topbar=1180 brand=131 tabs=304 actions=354 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True chip=90x36 theme=UpdateChip visible=True
+15-topbar-1044: topbar=1044 brand=131 tabs=304 actions=260 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True
+15b-topbar-1044-update: topbar=1044 brand=131 tabs=304 actions=299 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True chip=35x36 theme=Chrome visible=True
+15c-topbar-960: topbar=960 brand=44 tabs=304 actions=260 labelExtra=43 labelsHidden=False tabShift=0 wordmark=False
+15d-topbar-960-update: topbar=960 brand=44 tabs=304 actions=299 labelExtra=43 labelsHidden=False tabShift=-7 wordmark=False chip=35x36 theme=Chrome visible=True
+16l-bar-960-long-name-update: topbar=960 brand=44 tabs=304 actions=410 labelExtra=43 labelsHidden=False tabShift=-118 wordmark=False chip=35x36 theme=Chrome visible=True pill=218x36 head=24x24 name=154 storeLabel=True wordmark=False topbar=960 brand=44 tabs=304 actions=410 labelExtra=43 labelsHidden=False tabShift=-118 wordmark=False
+15u-chip-updating-1180: topbar=1180 brand=131 tabs=304 actions=370 labelExtra=43 labelsHidden=False tabShift=0 wordmark=True chip=106x36 theme=UpdateChip visible=True
+15u-chip-failed-retry-1180: topbar=1180 brand=131 tabs=304 actions=422 labelExtra=43 labelsHidden=False tabShift=-20 wordmark=True chip=158x36 theme=UpdateChip visible=True
+15u-chip-move-to-applications-1180: topbar=1180 brand=131 tabs=304 actions=427 labelExtra=43 labelsHidden=False tabShift=-25 wordmark=True chip=163x36 theme=UpdateChip visible=True
+15u-chip-updating-960: topbar=960 brand=44 tabs=304 actions=366 labelExtra=43 labelsHidden=False tabShift=-74 wordmark=False chip=102x36 theme=Chrome visible=True
+15u-chip-failed-retry-960: topbar=960 brand=44 tabs=304 actions=418 labelExtra=43 labelsHidden=False tabShift=-126 wordmark=False chip=154x36 theme=Chrome visible=True
+15u-chip-move-to-applications-960: topbar=960 brand=44 tabs=304 actions=423 labelExtra=43 labelsHidden=False tabShift=-131 wordmark=False chip=159x36 theme=Chrome visible=True

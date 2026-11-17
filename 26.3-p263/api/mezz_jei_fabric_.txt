@@ -1,0 +1,580 @@
+Compiled from "JustEnoughItems.java"
+public class mezz.jei.fabric.JustEnoughItems implements net.fabricmc.api.ModInitializer {
+  private static final org.apache.logging.log4j.Logger LOGGER;
+  public mezz.jei.fabric.JustEnoughItems();
+  public void onInitialize();
+  private static net.minecraft.world.item.crafting.RecipeSerializer lambda$onInitialize$1(net.minecraft.world.item.crafting.RecipeSerializer);
+  private static net.minecraft.world.item.crafting.RecipeSerializer lambda$onInitialize$0(net.minecraft.world.item.crafting.RecipeSerializer);
+  static {};
+}
+Compiled from "JustEnoughItemsClient.java"
+public class mezz.jei.fabric.JustEnoughItemsClient implements net.fabricmc.api.ClientModInitializer {
+  public mezz.jei.fabric.JustEnoughItemsClient();
+  public void onInitializeClient();
+  public net.minecraft.server.packs.resources.ResourceManagerReloadListener createReloadListener();
+  private static void lambda$createReloadListener$0(net.minecraft.server.packs.resources.ResourceManager);
+  private static void lambda$createReloadListener$1(net.minecraft.server.packs.resources.ResourceManager, mezz.jei.gui.startup.ResourceReloadHandler);
+  private void lambda$onInitializeClient$3(mezz.jei.fabric.startup.ClientLifecycleHandler, net.minecraft.server.packs.resources.ReloadableResourceManager, net.minecraft.client.renderer.texture.TextureManager);
+  private static void lambda$onInitializeClient$5(net.minecraft.client.Minecraft);
+  private void lambda$onInitializeClient$4(mezz.jei.fabric.startup.ClientLifecycleHandler, net.minecraft.client.Minecraft);
+  private static void lambda$onInitializeClient$0(mezz.jei.fabric.startup.ClientLifecycleHandler, net.minecraft.client.Minecraft, net.fabricmc.fabric.api.recipe.v1.sync.SynchronizedRecipes);
+  private static void lambda$onInitializeClient$1(net.fabricmc.fabric.api.recipe.v1.sync.SynchronizedRecipes, net.minecraft.data.worldgen.BootstrapContext);
+  private static void lambda$onInitializeClient$2(net.minecraft.data.worldgen.BootstrapContext, net.minecraft.world.item.crafting.RecipeHolder);
+}
+Compiled from "JeiChatEventHandler.java"
+public final class mezz.jei.fabric.chat.JeiChatEventHandler {
+  private mezz.jei.fabric.chat.JeiChatEventHandler();
+  public static void register();
+  private static boolean lambda$register$0(net.minecraft.network.chat.Component, net.minecraft.network.chat.PlayerChatMessage, com.mojang.authlib.GameProfile, net.minecraft.network.chat.ChatType$Bound, java.time.Instant);
+}
+Compiled from "JeiInternalShowCommand.java"
+public final class mezz.jei.fabric.chat.JeiInternalShowCommand {
+  private mezz.jei.fabric.chat.JeiInternalShowCommand();
+  public static void register();
+  private static void lambda$register$0(com.mojang.brigadier.CommandDispatcher, net.minecraft.commands.CommandBuildContext);
+  private static int lambda$register$1(com.mojang.brigadier.context.CommandContext) throws com.mojang.brigadier.exceptions.CommandSyntaxException;
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.chat.package-info {
+}
+Compiled from "ServerConfig.java"
+public final class mezz.jei.fabric.config.ServerConfig {
+  private mezz.jei.fabric.config.ServerConfig();
+  public static mezz.jei.common.config.IServerConfig register();
+  private static void lambda$register$1(mezz.jei.common.config.ServerConfig, net.minecraft.server.MinecraftServer);
+  private static void lambda$register$0(mezz.jei.common.config.ServerConfig, java.nio.file.Path, net.minecraft.server.MinecraftServer);
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.config.package-info {
+}
+Compiled from "JeiCharTypedEvents.java"
+public class mezz.jei.fabric.events.JeiCharTypedEvents {
+  public static final net.fabricmc.fabric.api.event.Event<mezz.jei.fabric.events.JeiCharTypedEvents$BeforeCharTyped> BEFORE_CHAR_TYPED;
+  public static final net.fabricmc.fabric.api.event.Event<mezz.jei.fabric.events.JeiCharTypedEvents$AfterCharTyped> AFTER_CHAR_TYPED;
+  public mezz.jei.fabric.events.JeiCharTypedEvents();
+  private static net.fabricmc.fabric.api.event.Event<mezz.jei.fabric.events.JeiCharTypedEvents$BeforeCharTyped> createBeforeCharTypedEvent();
+  private static mezz.jei.fabric.events.JeiCharTypedEvents$BeforeCharTyped createBeforeCharTypedInvoker(mezz.jei.fabric.events.JeiCharTypedEvents$BeforeCharTyped[]);
+  private static net.fabricmc.fabric.api.event.Event<mezz.jei.fabric.events.JeiCharTypedEvents$AfterCharTyped> createAfterCharTypedEvent();
+  private static mezz.jei.fabric.events.JeiCharTypedEvents$AfterCharTyped createAfterCharTypedInvoker(mezz.jei.fabric.events.JeiCharTypedEvents$AfterCharTyped[]);
+  private static boolean lambda$createAfterCharTypedInvoker$0(mezz.jei.fabric.events.JeiCharTypedEvents$AfterCharTyped[], long, net.minecraft.client.input.CharacterEvent);
+  private static boolean lambda$createBeforeCharTypedInvoker$0(mezz.jei.fabric.events.JeiCharTypedEvents$BeforeCharTyped[], long, net.minecraft.client.input.CharacterEvent);
+  static {};
+}
+Compiled from "JeiCharTypedEvents.java"
+public interface mezz.jei.fabric.events.JeiCharTypedEvents$AfterCharTyped {
+  public abstract boolean afterCharTyped(long, net.minecraft.client.input.CharacterEvent);
+}
+Compiled from "JeiCharTypedEvents.java"
+public interface mezz.jei.fabric.events.JeiCharTypedEvents$BeforeCharTyped {
+  public abstract boolean beforeCharTyped(long, net.minecraft.client.input.CharacterEvent);
+}
+Compiled from "JeiLifecycleEvents.java"
+public class mezz.jei.fabric.events.JeiLifecycleEvents {
+  public static final net.fabricmc.fabric.api.event.Event<java.lang.Runnable> GAME_STOP;
+  public static final net.fabricmc.fabric.api.event.Event<java.lang.Runnable> AFTER_RECIPES_UPDATED;
+  public static final net.fabricmc.fabric.api.event.Event<mezz.jei.fabric.events.JeiLifecycleEvents$RegisterResourceReloadListener> REGISTER_RESOURCE_RELOAD_LISTENER;
+  public mezz.jei.fabric.events.JeiLifecycleEvents();
+  private static net.fabricmc.fabric.api.event.Event<java.lang.Runnable> createRunnableEvent();
+  private static java.lang.Runnable createRunnableInvoker(java.lang.Runnable[]);
+  private static net.fabricmc.fabric.api.event.Event<mezz.jei.fabric.events.JeiLifecycleEvents$RegisterResourceReloadListener> createResourceReloadListenerEvent();
+  private static mezz.jei.fabric.events.JeiLifecycleEvents$RegisterResourceReloadListener createResourceReloadListenerInvoker(mezz.jei.fabric.events.JeiLifecycleEvents$RegisterResourceReloadListener[]);
+  private static void lambda$createResourceReloadListenerInvoker$0(mezz.jei.fabric.events.JeiLifecycleEvents$RegisterResourceReloadListener[], net.minecraft.server.packs.resources.ReloadableResourceManager, net.minecraft.client.renderer.texture.TextureManager);
+  private static void lambda$createRunnableInvoker$0(java.lang.Runnable[]);
+  static {};
+}
+Compiled from "JeiLifecycleEvents.java"
+public interface mezz.jei.fabric.events.JeiLifecycleEvents$RegisterResourceReloadListener {
+  public abstract void registerResourceReloadListener(net.minecraft.server.packs.resources.ReloadableResourceManager, net.minecraft.client.renderer.texture.TextureManager);
+}
+Compiled from "JeiScreenEvents.java"
+public class mezz.jei.fabric.events.JeiScreenEvents {
+  public static final net.fabricmc.fabric.api.event.Event<mezz.jei.fabric.events.JeiScreenEvents$AllowDeferredTooltip> ALLOW_DEFERRED_TOOLTIP;
+  public static final net.fabricmc.fabric.api.event.Event<mezz.jei.fabric.events.JeiScreenEvents$DrawForeground> DRAW_FOREGROUND;
+  public static final net.fabricmc.fabric.api.event.Event<mezz.jei.fabric.events.JeiScreenEvents$DrawBackground> DRAW_BACKGROUND;
+  public mezz.jei.fabric.events.JeiScreenEvents();
+  private static net.fabricmc.fabric.api.event.Event<mezz.jei.fabric.events.JeiScreenEvents$DrawForeground> createDrawForegroundEvent();
+  private static mezz.jei.fabric.events.JeiScreenEvents$DrawForeground createDrawForegroundInvoker(mezz.jei.fabric.events.JeiScreenEvents$DrawForeground[]);
+  private static net.fabricmc.fabric.api.event.Event<mezz.jei.fabric.events.JeiScreenEvents$DrawBackground> createDrawBackgroundEvent();
+  private static mezz.jei.fabric.events.JeiScreenEvents$DrawBackground createDrawBackgroundInvoker(mezz.jei.fabric.events.JeiScreenEvents$DrawBackground[]);
+  private static void lambda$createDrawBackgroundInvoker$0(mezz.jei.fabric.events.JeiScreenEvents$DrawBackground[], net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor);
+  private static void lambda$createDrawForegroundInvoker$0(mezz.jei.fabric.events.JeiScreenEvents$DrawForeground[], net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int);
+  private static mezz.jei.fabric.events.JeiScreenEvents$AllowDeferredTooltip lambda$static$0(mezz.jei.fabric.events.JeiScreenEvents$AllowDeferredTooltip[]);
+  private static boolean lambda$static$1(mezz.jei.fabric.events.JeiScreenEvents$AllowDeferredTooltip[], net.minecraft.client.gui.GuiGraphicsExtractor);
+  static {};
+}
+Compiled from "JeiScreenEvents.java"
+public interface mezz.jei.fabric.events.JeiScreenEvents$AllowDeferredTooltip {
+  public abstract boolean allow(net.minecraft.client.gui.GuiGraphicsExtractor);
+}
+Compiled from "JeiScreenEvents.java"
+public interface mezz.jei.fabric.events.JeiScreenEvents$DrawBackground {
+  public abstract void drawBackground(net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor);
+}
+Compiled from "JeiScreenEvents.java"
+public interface mezz.jei.fabric.events.JeiScreenEvents$DrawForeground {
+  public abstract void drawForeground(net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int);
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.events.package-info {
+}
+Compiled from "JeiFluidIngredient.java"
+public final class mezz.jei.fabric.ingredients.fluid.JeiFluidIngredient implements mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient {
+  private final net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant fluid;
+  private final long amount;
+  public mezz.jei.fabric.ingredients.fluid.JeiFluidIngredient(net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant, long);
+  public net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant getFluidVariant();
+  public long getAmount();
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.ingredients.fluid.package-info {
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.ingredients.package-info {
+}
+Compiled from "ContextAwareKeyMapping.java"
+public interface mezz.jei.fabric.input.ContextAwareKeyMapping {
+  public abstract boolean isContextActive();
+  public abstract boolean isActiveAndMatches(com.mojang.blaze3d.platform.InputConstants$Key);
+}
+Compiled from "FabricJeiKeyMapping.java"
+public class mezz.jei.fabric.input.FabricJeiKeyMapping<T extends net.minecraft.client.KeyMapping & mezz.jei.fabric.input.ContextAwareKeyMapping> implements mezz.jei.common.input.keys.IJeiKeyMappingInternal {
+  protected final T mapping;
+  public mezz.jei.fabric.input.FabricJeiKeyMapping(T);
+  public net.minecraft.client.KeyMapping getKeyMapping();
+  public boolean isActiveAndMatches(com.mojang.blaze3d.platform.InputConstants$Key);
+  public boolean isUnbound();
+  public net.minecraft.network.chat.Component getTranslatedKeyMessage();
+  public boolean isDown();
+  private com.mojang.blaze3d.platform.InputConstants$Key getBoundKey();
+  public mezz.jei.common.input.keys.IJeiKeyMappingInternal register(java.util.function.Consumer<net.minecraft.client.KeyMapping>);
+}
+Compiled from "FabricJeiKeyMappingBuilder.java"
+public class mezz.jei.fabric.input.FabricJeiKeyMappingBuilder extends mezz.jei.common.input.keys.AbstractJeiKeyMappingBuilder {
+  protected final net.minecraft.client.KeyMapping$Category category;
+  protected final java.lang.String description;
+  protected mezz.jei.common.input.keys.JeiKeyConflictContext context;
+  private mezz.jei.common.input.keys.JeiKeyModifier modifier;
+  public mezz.jei.fabric.input.FabricJeiKeyMappingBuilder(net.minecraft.client.KeyMapping$Category, java.lang.String);
+  public mezz.jei.common.input.keys.IJeiKeyMappingBuilder setContext(mezz.jei.common.input.keys.JeiKeyConflictContext);
+  public mezz.jei.common.input.keys.IJeiKeyMappingBuilder setModifier(mezz.jei.common.input.keys.JeiKeyModifier);
+  protected mezz.jei.common.input.keys.IJeiKeyMappingInternal buildMouse(int);
+  public mezz.jei.common.input.keys.IJeiKeyMappingInternal buildKeyboardKey(int);
+  private boolean hasUnsupportedModifier();
+}
+Compiled from "FabricJeiKeyMappingCategoryBuilder.java"
+public class mezz.jei.fabric.input.FabricJeiKeyMappingCategoryBuilder implements mezz.jei.common.input.keys.IJeiKeyMappingCategoryBuilder {
+  private final net.minecraft.client.KeyMapping$Category category;
+  public mezz.jei.fabric.input.FabricJeiKeyMappingCategoryBuilder(net.minecraft.client.KeyMapping$Category);
+  public mezz.jei.common.input.keys.IJeiKeyMappingBuilder createMapping(java.lang.String);
+}
+Compiled from "FabricKeyMapping.java"
+public class mezz.jei.fabric.input.FabricKeyMapping extends net.minecraft.client.KeyMapping implements mezz.jei.fabric.input.ContextAwareKeyMapping {
+  protected com.mojang.blaze3d.platform.InputConstants$Key realKey;
+  protected final mezz.jei.common.input.keys.JeiKeyConflictContext context;
+  public mezz.jei.fabric.input.FabricKeyMapping(java.lang.String, com.mojang.blaze3d.platform.InputConstants$Type, int, net.minecraft.client.KeyMapping$Category, mezz.jei.common.input.keys.JeiKeyConflictContext);
+  public void setKey(com.mojang.blaze3d.platform.InputConstants$Key);
+  public boolean same(net.minecraft.client.KeyMapping);
+  public boolean isUnbound();
+  public boolean matches(net.minecraft.client.input.KeyEvent);
+  public boolean matchesMouse(net.minecraft.client.input.MouseButtonEvent);
+  public net.minecraft.network.chat.Component getTranslatedKeyMessage();
+  public boolean isDefault();
+  public java.lang.String saveString();
+  public boolean isContextActive();
+  public boolean isActiveAndMatches(com.mojang.blaze3d.platform.InputConstants$Key);
+  public com.mojang.blaze3d.platform.InputConstants$Key getRealKey();
+  private void hideFromMinecraftClickDispatch();
+}
+Compiled from "KeyboardHandlerExtension.java"
+public interface mezz.jei.fabric.input.KeyboardHandlerExtension {
+  public abstract void jei$setConsumeNextCharTyped(boolean);
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.input.package-info {
+}
+Compiled from "AbstractContainerScreenMixin.java"
+public class mezz.jei.fabric.mixin.AbstractContainerScreenMixin {
+  public mezz.jei.fabric.mixin.AbstractContainerScreenMixin();
+  private void drawForeground(net.minecraft.client.gui.GuiGraphicsExtractor, int, int, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  private static void runWithIdentityPose(net.minecraft.client.gui.GuiGraphicsExtractor, java.lang.Runnable);
+  private static void lambda$drawForeground$0(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int);
+}
+Compiled from "ClientPacketListenerRecipeUpdateMixin.java"
+public class mezz.jei.fabric.mixin.ClientPacketListenerRecipeUpdateMixin {
+  public mezz.jei.fabric.mixin.ClientPacketListenerRecipeUpdateMixin();
+  public void handleUpdateRecipes(net.minecraft.network.protocol.game.ClientboundUpdateRecipesPacket, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+}
+Compiled from "EffectsInInventoryMixin.java"
+public abstract class mezz.jei.fabric.mixin.EffectsInInventoryMixin {
+  private net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen;
+  public mezz.jei.fabric.mixin.EffectsInInventoryMixin();
+  public int modifyEffectWidth(int);
+  private java.lang.Boolean lambda$modifyEffectWidth$0(mezz.jei.gui.overlay.IngredientListOverlay);
+}
+Compiled from "GuiGraphicsExtractorMixin.java"
+public class mezz.jei.fabric.mixin.GuiGraphicsExtractorMixin {
+  public mezz.jei.fabric.mixin.GuiGraphicsExtractorMixin();
+  private void jei$setTooltipForNextFrameInternal(net.minecraft.client.gui.Font, java.util.List<net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent>, int, int, net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner, net.minecraft.resources.Identifier, boolean, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  private void jei$componentHoverEffect(net.minecraft.client.gui.Font, net.minecraft.network.chat.Style, int, int, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+}
+Compiled from "KeyboardHandlerMixin.java"
+public class mezz.jei.fabric.mixin.KeyboardHandlerMixin implements mezz.jei.fabric.input.KeyboardHandlerExtension {
+  private boolean consumeNextCharTyped;
+  public mezz.jei.fabric.mixin.KeyboardHandlerMixin();
+  public void jei$setConsumeNextCharTyped(boolean);
+  private void beforeCharTypedEvent(long, net.minecraft.client.input.CharacterEvent, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  private void afterCharTypedEvent(long, net.minecraft.client.input.CharacterEvent, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  private static net.minecraft.client.gui.components.events.GuiEventListener redirectPreeditToFocusedSearchField(net.minecraft.client.gui.components.events.GuiEventListener);
+  private static void beforeCharTypedEventInternal(long, net.minecraft.client.input.CharacterEvent, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  private static void afterCharTypedEventInternal(long, net.minecraft.client.input.CharacterEvent, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+}
+Compiled from "MinecraftMixin.java"
+public class mezz.jei.fabric.mixin.MinecraftMixin {
+  private net.minecraft.server.packs.resources.ReloadableResourceManager resourceManager;
+  private net.minecraft.client.renderer.texture.TextureManager textureManager;
+  public mezz.jei.fabric.mixin.MinecraftMixin();
+  public void beforeInitialResourceReload(net.minecraft.client.main.GameConfig, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  public void updateLevelInEngines(net.minecraft.client.multiplayer.ClientLevel, boolean, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+}
+Compiled from "ScreenMixin.java"
+public class mezz.jei.fabric.mixin.ScreenMixin {
+  public mezz.jei.fabric.mixin.ScreenMixin();
+  private void drawBackground(net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  private void drawForeground(net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  private static void runWithIdentityPose(net.minecraft.client.gui.GuiGraphicsExtractor, java.lang.Runnable);
+  private static void lambda$drawForeground$0(net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int);
+  private static void lambda$drawBackground$0(net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor);
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.mixin.package-info {
+}
+Compiled from "ClientNetworkHandler.java"
+public final class mezz.jei.fabric.network.ClientNetworkHandler {
+  private mezz.jei.fabric.network.ClientNetworkHandler();
+  public static void registerClientPacketHandler(mezz.jei.common.network.IConnectionToServer);
+  private static <T extends mezz.jei.common.network.packets.PlayToClientPacket<T>> net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking$PlayPayloadHandler<T> wrapClientHandler(mezz.jei.common.network.IConnectionToServer, java.util.function.BiConsumer<T, mezz.jei.common.network.ClientPacketContext>);
+  private static void lambda$wrapClientHandler$0(mezz.jei.common.network.IConnectionToServer, java.util.function.BiConsumer, mezz.jei.common.network.packets.PlayToClientPacket, net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking$Context);
+}
+Compiled from "ConnectionToClient.java"
+public class mezz.jei.fabric.network.ConnectionToClient implements mezz.jei.common.network.IConnectionToClient {
+  public mezz.jei.fabric.network.ConnectionToClient();
+  public <T extends mezz.jei.common.network.packets.PlayToClientPacket<T>> void sendPacketToClient(T, net.minecraft.server.level.ServerPlayer);
+}
+Compiled from "ConnectionToServer.java"
+public final class mezz.jei.fabric.network.ConnectionToServer implements mezz.jei.common.network.IConnectionToServer {
+  private static final java.lang.String FABRIC_SERVER_BRAND;
+  public mezz.jei.fabric.network.ConnectionToServer();
+  public boolean isJeiOnServer();
+  public boolean isSameModLoader();
+  public boolean canSendPacket(net.minecraft.network.protocol.common.custom.CustomPacketPayload$Type<?>);
+  public <T extends mezz.jei.common.network.packets.PlayToServerPacket<T>> void sendPacketToServer(T);
+  public void onRuntimeStopped();
+}
+Compiled from "ServerNetworkHandler.java"
+public final class mezz.jei.fabric.network.ServerNetworkHandler {
+  private mezz.jei.fabric.network.ServerNetworkHandler();
+  public static void registerServerPacketHandlers(mezz.jei.common.network.IConnectionToClient, mezz.jei.common.config.IServerConfig);
+  private static <T extends mezz.jei.common.network.packets.PlayToServerPacket<T>> net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking$PlayPayloadHandler<T> wrapServerHandler(mezz.jei.common.network.IConnectionToClient, mezz.jei.common.config.IServerConfig, java.util.function.BiConsumer<T, mezz.jei.common.network.ServerPacketContext>);
+  private static void lambda$wrapServerHandler$0(mezz.jei.common.config.IServerConfig, mezz.jei.common.network.IConnectionToClient, java.util.function.BiConsumer, mezz.jei.common.network.packets.PlayToServerPacket, net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking$Context);
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.network.package-info {
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.package-info {
+}
+Compiled from "BrewingHelper.java"
+public class mezz.jei.fabric.platform.BrewingHelper implements mezz.jei.common.platform.IPlatformBrewingHelper {
+  public mezz.jei.fabric.platform.BrewingHelper();
+  public java.util.List<mezz.jei.api.recipe.vanilla.IJeiBrewingRecipe> getBrewingRecipes(mezz.jei.api.runtime.IIngredientManager, mezz.jei.api.recipe.vanilla.IVanillaRecipeFactory, java.util.Collection<net.minecraft.world.item.crafting.RecipeHolder<net.minecraft.world.item.crafting.BrewingRecipe>>, net.minecraft.util.context.ContextMap, mezz.jei.common.recipes.BrewingExtensionHelper);
+}
+Compiled from "ConfigHelper.java"
+public class mezz.jei.fabric.platform.ConfigHelper implements mezz.jei.common.platform.IPlatformConfigHelper {
+  private static final org.apache.logging.log4j.Logger LOGGER;
+  private static final java.lang.String MOD_MENU_MOD_ID;
+  private static final java.lang.String MEZZ_CONFIG_GUI_MOD_ID;
+  public mezz.jei.fabric.platform.ConfigHelper();
+  public java.nio.file.Path getModConfigDir();
+  public java.util.Optional<net.minecraft.client.gui.screens.Screen> getConfigScreen(java.lang.String, net.minecraft.client.gui.screens.Screen);
+  private static java.util.Optional<net.minecraft.client.gui.screens.Screen> getModMenuConfigScreen(java.lang.String, net.minecraft.client.gui.screens.Screen);
+  static {};
+}
+Compiled from "FluidHelper.java"
+public class mezz.jei.fabric.platform.FluidHelper implements mezz.jei.common.platform.IPlatformFluidHelperInternal<mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient> {
+  private static final com.mojang.serialization.Codec<mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient> NORMALIZED_CODEC;
+  public mezz.jei.fabric.platform.FluidHelper();
+  public mezz.jei.api.ingredients.IIngredientTypeWithSubtypes<net.minecraft.world.level.material.Fluid, mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient> getFluidIngredientType();
+  public java.util.Optional<net.minecraft.client.renderer.texture.TextureAtlasSprite> getStillFluidSprite(mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient);
+  public net.minecraft.network.chat.Component getDisplayName(mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient);
+  public int getColorTint(mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient);
+  public java.util.List<net.minecraft.network.chat.Component> getTooltip(mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient, net.minecraft.world.entity.player.Player, net.minecraft.world.item.Item$TooltipContext, net.minecraft.world.item.TooltipFlag);
+  public long getAmount(mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient);
+  public boolean isEmpty(mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient);
+  public net.minecraft.core.component.DataComponentPatch getComponentsPatch(mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient);
+  public long bucketVolume();
+  public mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient create(net.minecraft.core.Holder<net.minecraft.world.level.material.Fluid>, long, net.minecraft.core.component.DataComponentPatch);
+  public mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient create(net.minecraft.core.Holder<net.minecraft.world.level.material.Fluid>, long);
+  public mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient copy(mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient);
+  public mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient normalize(mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient);
+  public java.util.Optional<mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient> getContainedFluid(mezz.jei.api.ingredients.ITypedIngredient<?>);
+  public mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient copyWithAmount(mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient, long);
+  public com.mojang.serialization.Codec<mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient> getCodec();
+  public java.util.Optional<net.minecraft.world.item.crafting.display.DisplayContentsFactory<mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient>> getDisplayContentsFactoryForStacks();
+  public java.lang.Object normalize(java.lang.Object);
+  public java.lang.Object copyWithAmount(java.lang.Object, long);
+  public java.lang.Object copy(java.lang.Object);
+  public java.util.List getTooltip(java.lang.Object, net.minecraft.world.entity.player.Player, net.minecraft.world.item.Item$TooltipContext, net.minecraft.world.item.TooltipFlag);
+  public net.minecraft.core.component.DataComponentPatch getComponentsPatch(java.lang.Object);
+  public boolean isEmpty(java.lang.Object);
+  public long getAmount(java.lang.Object);
+  public int getColorTint(java.lang.Object);
+  public net.minecraft.network.chat.Component getDisplayName(java.lang.Object);
+  public java.util.Optional getStillFluidSprite(java.lang.Object);
+  public java.lang.Object create(net.minecraft.core.Holder, long);
+  public java.lang.Object create(net.minecraft.core.Holder, long, net.minecraft.core.component.DataComponentPatch);
+  private static mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient lambda$getContainedFluid$1(net.fabricmc.fabric.api.transfer.v1.storage.StorageView);
+  private static net.fabricmc.fabric.api.transfer.v1.storage.Storage lambda$getContainedFluid$0(net.fabricmc.fabric.api.transfer.v1.context.ContainerItemContext);
+  private static com.mojang.serialization.Codec lambda$static$0();
+  private static mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient lambda$static$1(net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant);
+  static {};
+}
+Compiled from "IngredientHelper.java"
+public class mezz.jei.fabric.platform.IngredientHelper implements mezz.jei.common.platform.IPlatformIngredientHelper {
+  public mezz.jei.fabric.platform.IngredientHelper();
+  public float getCompostValue(net.minecraft.world.item.ItemStack);
+  public net.minecraft.core.HolderSet<net.minecraft.world.item.Item> getSupportedItems(net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment>);
+}
+Compiled from "InputHelper.java"
+public class mezz.jei.fabric.platform.InputHelper implements mezz.jei.common.platform.IPlatformInputHelper {
+  public mezz.jei.fabric.platform.InputHelper();
+  public boolean isActiveAndMatches(net.minecraft.client.KeyMapping, mezz.jei.common.input.UserInput);
+  public mezz.jei.common.input.keys.IJeiKeyMappingCategoryBuilder createKeyMappingCategoryBuilder(net.minecraft.client.KeyMapping$Category);
+  public net.minecraft.world.item.TooltipFlag getSearchTooltipFlag(net.minecraft.world.item.TooltipFlag);
+  private static boolean lambda$isActiveAndMatches$0(net.minecraft.client.KeyMapping, net.minecraft.client.input.MouseButtonEvent, boolean);
+}
+Compiled from "InputHelper.java"
+final class mezz.jei.fabric.platform.InputHelper$SearchTooltipFlag extends java.lang.Record implements net.minecraft.world.item.TooltipFlag,net.fabricmc.fabric.api.item.v1.FabricTooltipFlag {
+  private final boolean advanced;
+  private final boolean creative;
+  private mezz.jei.fabric.platform.InputHelper$SearchTooltipFlag(boolean, boolean);
+  public boolean isAdvanced();
+  public boolean isCreative();
+  public boolean shouldDisplayAllInformation();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public boolean advanced();
+  public boolean creative();
+}
+Compiled from "ItemStackHelper.java"
+public class mezz.jei.fabric.platform.ItemStackHelper implements mezz.jei.common.platform.IPlatformItemStackHelper {
+  public mezz.jei.fabric.platform.ItemStackHelper();
+  public mezz.jei.common.platform.IPlatformItemStackHelper$FuelProperties getFuelProperties(net.minecraft.world.item.ItemStack, net.minecraft.world.item.crafting.RecipeType<?>);
+  private static net.minecraft.world.level.storage.loot.LootContext createFuelContext(net.minecraft.world.item.crafting.RecipeType<?>);
+  private static net.minecraft.world.level.block.state.BlockState getFurnaceBlockState(net.minecraft.world.item.crafting.RecipeType<?>);
+  public java.util.Optional<java.lang.String> getCreatorModId(net.minecraft.world.item.ItemStack);
+  public java.util.List<net.minecraft.network.chat.Component> gatherTooltipLines(net.minecraft.world.item.ItemStack, net.minecraft.world.item.Item$TooltipContext, net.minecraft.world.entity.player.Player, net.minecraft.world.item.TooltipFlag);
+  public boolean canEnchant(net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment>, net.minecraft.world.item.ItemStack);
+}
+Compiled from "ModHelper.java"
+public class mezz.jei.fabric.platform.ModHelper implements mezz.jei.common.platform.IPlatformModHelper {
+  private final java.util.Map<java.lang.String, java.lang.String> cache;
+  private final java.util.Map<java.lang.String, java.util.List<byte[]>> modIconCache;
+  public mezz.jei.fabric.platform.ModHelper();
+  public java.lang.String getModNameForModId(java.lang.String);
+  private java.lang.String computeModNameForModId(java.lang.String);
+  public java.util.List<byte[]> getModIconByteCandidates(java.lang.String);
+  private java.util.List<byte[]> computeModIconBytes(java.lang.String);
+  private static java.util.Optional<byte[]> readAllBytes(java.nio.file.Path);
+  public boolean isInDev();
+  private static java.util.Optional lambda$computeModIconBytes$0(net.fabricmc.loader.api.ModContainer);
+  private static java.lang.String lambda$computeModNameForModId$0(java.lang.String);
+}
+Compiled from "PlatformHelper.java"
+public class mezz.jei.fabric.platform.PlatformHelper implements mezz.jei.common.platform.IPlatformHelper {
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.ItemStackHelper> itemStackHelper;
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.FluidHelper> fluidHelper;
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.RenderHelper> renderHelper;
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.RecipeHelper> recipeHelper;
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.BrewingHelper> brewingHelper;
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.ConfigHelper> configHelper;
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.InputHelper> inputHelper;
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.ScreenHelper> screenHelper;
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.IngredientHelper> ingredientHelper;
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.ModHelper> modHelper;
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.WorldHelper> worldHelper;
+  private final java.util.function.Supplier<mezz.jei.fabric.platform.TestHelper> testHelper;
+  public mezz.jei.fabric.platform.PlatformHelper();
+  public mezz.jei.fabric.platform.ItemStackHelper getItemStackHelper();
+  public mezz.jei.common.platform.IPlatformFluidHelperInternal<?> getFluidHelper();
+  public mezz.jei.fabric.platform.RenderHelper getRenderHelper();
+  public mezz.jei.fabric.platform.RecipeHelper getRecipeHelper();
+  public mezz.jei.fabric.platform.BrewingHelper getBrewingHelper();
+  public mezz.jei.fabric.platform.ConfigHelper getConfigHelper();
+  public mezz.jei.fabric.platform.InputHelper getInputHelper();
+  public mezz.jei.fabric.platform.ScreenHelper getScreenHelper();
+  public mezz.jei.fabric.platform.IngredientHelper getIngredientHelper();
+  public mezz.jei.fabric.platform.ModHelper getModHelper();
+  public mezz.jei.fabric.platform.WorldHelper getWorldHelper();
+  public mezz.jei.fabric.platform.TestHelper getTestHelper();
+  public mezz.jei.common.platform.ITestHelper getTestHelper();
+  public mezz.jei.common.platform.IPlatformWorldHelper getWorldHelper();
+  public mezz.jei.common.platform.IPlatformModHelper getModHelper();
+  public mezz.jei.common.platform.IPlatformIngredientHelper getIngredientHelper();
+  public mezz.jei.common.platform.IPlatformScreenHelper getScreenHelper();
+  public mezz.jei.common.platform.IPlatformInputHelper getInputHelper();
+  public mezz.jei.common.platform.IPlatformConfigHelper getConfigHelper();
+  public mezz.jei.common.platform.IPlatformBrewingHelper getBrewingHelper();
+  public mezz.jei.common.platform.IPlatformRecipeHelper getRecipeHelper();
+  public mezz.jei.common.platform.IPlatformRenderHelper getRenderHelper();
+  public mezz.jei.common.platform.IPlatformItemStackHelper getItemStackHelper();
+}
+Compiled from "RecipeHelper.java"
+public class mezz.jei.fabric.platform.RecipeHelper implements mezz.jei.common.platform.IPlatformRecipeHelper {
+  public mezz.jei.fabric.platform.RecipeHelper();
+  public net.minecraft.world.item.crafting.Ingredient getBase(net.minecraft.world.item.crafting.SmithingRecipe);
+  public mezz.jei.common.platform.IPlatformRecipeHelper$FireworkRocketRecipeData getFireworkRocketRecipeData(net.minecraft.world.item.crafting.FireworkRocketRecipe);
+  public mezz.jei.common.platform.IPlatformRecipeHelper$FireworkStarRecipeData getFireworkStarRecipeData(net.minecraft.world.item.crafting.FireworkStarRecipe);
+  public mezz.jei.common.platform.IPlatformRecipeHelper$FireworkStarFadeRecipeData getFireworkStarFadeRecipeData(net.minecraft.world.item.crafting.FireworkStarFadeRecipe);
+  public java.util.Optional<net.minecraft.world.item.crafting.Ingredient> getAddition(net.minecraft.world.item.crafting.SmithingRecipe);
+  public java.util.Optional<net.minecraft.world.item.crafting.Ingredient> getTemplate(net.minecraft.world.item.crafting.SmithingRecipe);
+  public mezz.jei.common.platform.IPlatformRecipeHelper$ShieldDecorationRecipeData getShieldDecorationRecipeData(net.minecraft.world.item.crafting.ShieldDecorationRecipe);
+  public net.minecraft.world.item.ItemStack getGrindstoneResult(net.minecraft.world.inventory.GrindstoneMenu, net.minecraft.world.item.ItemStack, net.minecraft.world.item.ItemStack);
+  public java.lang.String[] shrinkShapedRecipePattern(java.util.List<java.lang.String>);
+  public boolean isItemEnchantable(net.minecraft.world.item.ItemStack, net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment>);
+}
+Compiled from "RenderHelper.java"
+public class mezz.jei.fabric.platform.RenderHelper implements mezz.jei.common.platform.IPlatformRenderHelper {
+  public mezz.jei.fabric.platform.RenderHelper();
+  public net.minecraft.client.gui.Font getFontRenderer(net.minecraft.client.Minecraft, net.minecraft.world.item.ItemStack);
+  public boolean shouldRender(net.minecraft.world.effect.MobEffectInstance);
+  public net.minecraft.client.renderer.texture.TextureAtlasSprite getTextureAtlasSprite(net.minecraft.world.level.block.state.BlockState);
+  public void blitSprite(net.minecraft.client.gui.GuiGraphicsExtractor, com.mojang.renderpearl.api.pipeline.RenderPipeline, net.minecraft.client.renderer.texture.TextureAtlasSprite, int, int, int, int, int, int, int, int);
+  public void blitNineSlicedSprite(net.minecraft.client.gui.GuiGraphicsExtractor, com.mojang.renderpearl.api.pipeline.RenderPipeline, net.minecraft.client.renderer.texture.TextureAtlasSprite, net.minecraft.client.resources.metadata.gui.GuiSpriteScaling$NineSlice, int, int, int, int);
+  public void blitTiledSprite(net.minecraft.client.gui.GuiGraphicsExtractor, com.mojang.renderpearl.api.pipeline.RenderPipeline, net.minecraft.client.renderer.texture.TextureAtlasSprite, net.minecraft.client.resources.metadata.gui.GuiSpriteScaling$Tile, int, int, int, int, int);
+  public java.util.Optional<com.mojang.blaze3d.platform.NativeImage> getMainImage(net.minecraft.client.renderer.texture.TextureAtlasSprite);
+  public void renderTooltip(net.minecraft.client.gui.GuiGraphicsExtractor, java.util.List<com.mojang.datafixers.util.Either<net.minecraft.network.chat.FormattedText, net.minecraft.world.inventory.tooltip.TooltipComponent>>, int, int, net.minecraft.client.gui.Font, net.minecraft.world.item.ItemStack);
+  public void renderTooltip(net.minecraft.client.gui.GuiGraphicsExtractor, java.util.List<com.mojang.datafixers.util.Either<net.minecraft.network.chat.FormattedText, net.minecraft.world.inventory.tooltip.TooltipComponent>>, int, int, net.minecraft.client.gui.Font, net.minecraft.world.item.ItemStack, net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner);
+  private java.util.List<net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent> createClientTooltipComponents(java.util.List<com.mojang.datafixers.util.Either<net.minecraft.network.chat.FormattedText, net.minecraft.world.inventory.tooltip.TooltipComponent>>, net.minecraft.client.gui.Font);
+  public net.minecraft.network.chat.Component getName(net.minecraft.tags.TagKey<?>);
+  private net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent createClientTooltipComponent(net.minecraft.world.inventory.tooltip.TooltipComponent);
+  private java.util.stream.Stream lambda$createClientTooltipComponents$0(net.minecraft.client.gui.Font, com.mojang.datafixers.util.Either);
+  private java.util.stream.Stream lambda$createClientTooltipComponents$2(net.minecraft.world.inventory.tooltip.TooltipComponent);
+  private static java.util.stream.Stream lambda$createClientTooltipComponents$1(net.minecraft.client.gui.Font, net.minecraft.network.chat.FormattedText);
+}
+Compiled from "ScreenHelper.java"
+public class mezz.jei.fabric.platform.ScreenHelper implements mezz.jei.common.platform.IPlatformScreenHelper {
+  public mezz.jei.fabric.platform.ScreenHelper();
+  public java.util.Optional<net.minecraft.world.inventory.Slot> getHoveredSlot(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
+  public int getLeftPos(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
+  public int getTopPos(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
+  public int getImageWidth(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
+  public int getImageHeight(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>);
+  public net.minecraft.resources.Identifier getSlotHighlightBackSprite();
+  public net.minecraft.resources.Identifier getSlotHighlightFrontSprite();
+  public mezz.jei.common.util.ImmutableRect2i getBookArea(net.minecraft.client.gui.screens.recipebook.RecipeBookComponent<?>);
+  public mezz.jei.common.util.ImmutableRect2i getToastsArea();
+  public java.util.List<net.minecraft.client.gui.screens.recipebook.RecipeBookTabButton> getTabButtons(net.minecraft.client.gui.screens.recipebook.RecipeBookComponent<?>);
+  public <T extends net.minecraft.world.inventory.RecipeBookMenu> net.minecraft.client.gui.screens.recipebook.RecipeBookComponent<?> getRecipeBookComponent(net.minecraft.client.gui.screens.inventory.AbstractRecipeBookScreen<T>);
+  public boolean canLoseFocus(net.minecraft.client.gui.components.EditBox);
+}
+Compiled from "TestHelper.java"
+public class mezz.jei.fabric.platform.TestHelper implements mezz.jei.common.platform.ITestHelper {
+  public mezz.jei.fabric.platform.TestHelper();
+  public java.lang.Throwable getReason(net.minecraft.gametest.framework.UnknownGameTestException);
+}
+Compiled from "WorldHelper.java"
+public class mezz.jei.fabric.platform.WorldHelper implements mezz.jei.common.platform.IPlatformWorldHelper {
+  public mezz.jei.fabric.platform.WorldHelper();
+  public java.util.Optional<java.lang.String> getLevelId(net.minecraft.server.MinecraftServer);
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.platform.package-info {
+}
+Compiled from "FabricGuiPlugin.java"
+public class mezz.jei.fabric.plugins.fabric.FabricGuiPlugin implements mezz.jei.api.IModPlugin {
+  private static final org.apache.logging.log4j.Logger LOGGER;
+  private static mezz.jei.api.runtime.IJeiRuntime runtime;
+  private static mezz.jei.gui.startup.ResourceReloadHandler resourceReloadHandler;
+  private final mezz.jei.gui.config.JeiGuiSortingConfigData sortingConfigData;
+  private mezz.jei.api.runtime.IJeiFeatures jeiFeatures;
+  private final mezz.jei.fabric.startup.EventRegistration eventRegistration;
+  public mezz.jei.fabric.plugins.fabric.FabricGuiPlugin();
+  public net.minecraft.resources.Identifier getPluginUid();
+  public void configureJei(mezz.jei.api.runtime.IJeiFeatures);
+  public void registerRuntime(mezz.jei.api.registration.IRuntimeRegistration);
+  public void onRuntimeAvailable(mezz.jei.api.runtime.IJeiRuntime);
+  public void onRuntimeUnavailable();
+  public static java.util.Optional<mezz.jei.api.runtime.IJeiRuntime> getRuntime();
+  public static java.util.Optional<mezz.jei.gui.startup.ResourceReloadHandler> getResourceReloadHandler();
+  private boolean isJeiGuiEnabled();
+  static {};
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.plugins.fabric.package-info {
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.plugins.package-info {
+}
+Compiled from "ClientLifecycleHandler.java"
+public class mezz.jei.fabric.startup.ClientLifecycleHandler {
+  private static final org.apache.logging.log4j.Logger LOGGER;
+  private final mezz.jei.library.startup.JeiStarter jeiStarter;
+  private boolean running;
+  private boolean receivedRecipeSync;
+  public mezz.jei.fabric.startup.ClientLifecycleHandler(mezz.jei.library.config.JeiConfigData);
+  public void registerEvents();
+  public void onRecipesSynchronized(net.minecraft.world.item.crafting.RecipeMap);
+  public net.minecraft.server.packs.resources.ResourceManagerReloadListener getReloadListener();
+  public void restartJei();
+  private void startJei();
+  private void stopJei();
+  private void lambda$getReloadListener$0(net.minecraft.server.packs.resources.ResourceManager);
+  private void lambda$registerEvents$2();
+  private void lambda$registerEvents$1(net.minecraft.client.Minecraft, net.minecraft.client.gui.screens.Screen, int, int);
+  private void lambda$registerEvents$0();
+  static {};
+}
+Compiled from "EventRegistration.java"
+public class mezz.jei.fabric.startup.EventRegistration {
+  private mezz.jei.gui.input.ClientInputHandler clientInputHandler;
+  private mezz.jei.gui.events.GuiEventHandler guiEventHandler;
+  private boolean registered;
+  public mezz.jei.fabric.startup.EventRegistration();
+  public void setEventHandlers(mezz.jei.gui.startup.JeiEventHandlers);
+  private void registerEvents();
+  private void registerScreenEvents(net.minecraft.client.gui.screens.Screen);
+  private void beforeExtract(net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float);
+  private boolean allowDeferredTooltip(net.minecraft.client.gui.GuiGraphicsExtractor);
+  private boolean allowMouseClick(net.minecraft.client.gui.screens.Screen, net.minecraft.client.input.MouseButtonEvent);
+  private boolean allowMouseRelease(net.minecraft.client.gui.screens.Screen, net.minecraft.client.input.MouseButtonEvent);
+  private boolean allowKeyPress(net.minecraft.client.gui.screens.Screen, net.minecraft.client.input.KeyEvent);
+  private boolean allowMouseScroll(net.minecraft.client.gui.screens.Screen, double, double, double, double);
+  private boolean allowMouseDrag(net.minecraft.client.gui.screens.Screen, net.minecraft.client.input.MouseButtonEvent, double, double);
+  private void afterTick(net.minecraft.client.gui.screens.Screen);
+  private boolean beforeCharTyped(long, net.minecraft.client.input.CharacterEvent);
+  private void afterInit(net.minecraft.client.Minecraft, net.minecraft.client.gui.screens.Screen, int, int);
+  private void drawForeground(net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int);
+  private void drawBackground(net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor);
+  public void clear();
+  private static mezz.jei.fabric.input.KeyboardHandlerExtension getKeyboardHandlerExtension();
+  private static boolean hasJeiKeyboardFocus();
+  private static java.lang.Boolean lambda$hasJeiKeyboardFocus$0(mezz.jei.api.runtime.IJeiRuntime);
+  private java.lang.Boolean lambda$allowMouseRelease$0(net.minecraft.client.gui.screens.Screen, mezz.jei.common.input.UserInput);
+  private java.lang.Boolean lambda$allowMouseClick$0(net.minecraft.client.gui.screens.Screen, mezz.jei.common.input.UserInput);
+  private void lambda$registerScreenEvents$0(net.minecraft.client.gui.screens.Screen);
+  private void lambda$registerEvents$0(net.minecraft.client.Minecraft, net.minecraft.client.gui.screens.Screen, int, int);
+}
+Compiled from "FabricPluginFinder.java"
+public final class mezz.jei.fabric.startup.FabricPluginFinder {
+  private static final org.apache.logging.log4j.Logger LOGGER;
+  private mezz.jei.fabric.startup.FabricPluginFinder();
+  public static java.util.List<mezz.jei.api.IModPlugin> getModPlugins();
+  private static <T> java.util.List<T> getInstances(java.lang.String, java.lang.Class<T>);
+  private static java.lang.String getModName(net.fabricmc.loader.api.entrypoint.EntrypointContainer<?>);
+  private static void lambda$getInstances$0(net.fabricmc.loader.api.entrypoint.EntrypointContainer, java.util.function.Consumer);
+  static {};
+}
+Compiled from "package-info.java"
+interface mezz.jei.fabric.startup.package-info {
+}

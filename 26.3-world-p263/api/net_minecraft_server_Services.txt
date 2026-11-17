@@ -1,0 +1,21 @@
+Compiled from "Services.java"
+public final class net.minecraft.server.Services extends java.lang.Record {
+  private final com.mojang.authlib.minecraft.SessionService sessionService;
+  private final com.mojang.authlib.services.ServicesKeySet servicesKeySet;
+  private final com.mojang.authlib.GameProfileRepository profileRepository;
+  private final net.minecraft.server.players.UserNameToIdResolver nameToIdCache;
+  private final net.minecraft.server.players.ProfileResolver profileResolver;
+  private static final java.lang.String USERID_CACHE_FILE;
+  public net.minecraft.server.Services(com.mojang.authlib.minecraft.SessionService, com.mojang.authlib.services.ServicesKeySet, com.mojang.authlib.GameProfileRepository, net.minecraft.server.players.UserNameToIdResolver, net.minecraft.server.players.ProfileResolver);
+  public static net.minecraft.server.Services create(com.mojang.authlib.services.MinecraftServicesDiscoveryService, java.io.File);
+  public net.minecraft.util.SignatureValidator profileKeySignatureValidator();
+  public boolean canValidateProfileKeys();
+  public final java.lang.String toString();
+  public final int hashCode();
+  public final boolean equals(java.lang.Object);
+  public com.mojang.authlib.minecraft.SessionService sessionService();
+  public com.mojang.authlib.services.ServicesKeySet servicesKeySet();
+  public com.mojang.authlib.GameProfileRepository profileRepository();
+  public net.minecraft.server.players.UserNameToIdResolver nameToIdCache();
+  public net.minecraft.server.players.ProfileResolver profileResolver();
+}

@@ -1,0 +1,38 @@
+Compiled from "LoadingOverlay.java"
+public class net.minecraft.client.gui.screens.LoadingOverlay extends net.minecraft.client.gui.screens.Overlay {
+  public static final net.minecraft.resources.Identifier MOJANG_STUDIOS_LOGO_LOCATION;
+  private static final int LOGO_BACKGROUND_COLOR;
+  private static final int LOGO_BACKGROUND_COLOR_DARK;
+  private static final java.util.function.IntSupplier BRAND_BACKGROUND;
+  private static final int LOGO_SCALE;
+  private static final float LOGO_QUARTER_FLOAT;
+  private static final int LOGO_QUARTER;
+  private static final int LOGO_HALF;
+  private static final float LOGO_OVERLAP;
+  private static final float SMOOTHING;
+  public static final long FADE_OUT_TIME;
+  public static final long FADE_IN_TIME;
+  private final net.minecraft.client.Minecraft minecraft;
+  private final net.minecraft.server.packs.resources.ReloadInstance reload;
+  private final java.util.function.Consumer<java.util.Optional<java.lang.Throwable>> onFinish;
+  private final boolean fadeIn;
+  private float currentProgress;
+  private long fadeOutStart;
+  private long fadeInStart;
+  public net.minecraft.client.gui.screens.LoadingOverlay(net.minecraft.client.Minecraft, net.minecraft.server.packs.resources.ReloadInstance, java.util.function.Consumer<java.util.Optional<java.lang.Throwable>>, boolean);
+  public static void registerTextures(net.minecraft.client.renderer.texture.TextureManager);
+  private static int replaceAlpha(int, int);
+  public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float);
+  public void tick();
+  private boolean isReadyToFadeOut();
+  private void extractProgressBar(net.minecraft.client.gui.GuiGraphicsExtractor, int, int, int, int, float);
+  public boolean isPauseScreen();
+  private static int lambda$static$0();
+  static {};
+}
+Compiled from "LoadingOverlay.java"
+class net.minecraft.client.gui.screens.LoadingOverlay$LogoTexture extends net.minecraft.client.renderer.texture.ReloadableTexture {
+  public net.minecraft.client.gui.screens.LoadingOverlay$LogoTexture();
+  public net.minecraft.client.renderer.texture.TextureContents loadContents(net.minecraft.server.packs.resources.ResourceManager) throws java.io.IOException;
+}
+Picked up JAVA_TOOL_OPTIONS:  -Dmixin.debug.verbose=true

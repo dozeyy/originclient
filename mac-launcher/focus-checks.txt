@@ -1,0 +1,8 @@
+28l-mods-focus-open-folder: mods: Open folder: focused=True focusVisible=True frame=margin=-4,-4,-4,-4 thickness=2,2,2,2 at=887, 292 Open this mods folder
+28m-mods-focus-remove: mods: first row's button: focused=True focusVisible=True frame=margin=-4,-4,-4,-4 thickness=2,2,2,2 at=967, 347 Remove Xaero's World Map
+28n-profiles-focus-card: profiles: a card's Use button: focused=True focusVisible=True frame=margin=-4,-4,-4,-4 thickness=2,2,2,2 at=49, 353 Use no profile
+28o-profiles-focus-new: profiles: New profile card: focused=True focusVisible=True frame=margin=-4,-4,-4,-4 thickness=2,2,2,2 at=690, 414 New profile
+29-minl-mods-focus-open-folder: mods: Open folder: focused=True focusVisible=True frame=margin=-4,-4,-4,-4 thickness=2,2,2,2 at=823, 292 Open this mods folder
+29-minm-mods-focus-remove: mods: first row's button: focused=True focusVisible=True frame=margin=-4,-4,-4,-4 thickness=2,2,2,2 at=903, 347 Remove Xaero's World Map
+29-minn-profiles-focus-card: profiles: a card's Use button: focused=True focusVisible=True frame=margin=-4,-4,-4,-4 thickness=2,2,2,2 at=49, 337 Use no profile
+29-mino-profiles-focus-new: profiles: New profile card: focused=True focusVisible=True frame=margin=-4,-4,-4,-4 thickness=2,2,2,2 at=648, 390 New profile

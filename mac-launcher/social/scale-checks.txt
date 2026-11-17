@@ -1,0 +1,9 @@
+100 % 1180x740: window 1180x740 DIP, render scaling 1
+100 % 980x600: window 980x600 DIP, render scaling 1
+100 % 1600x1000: window 1600x1000 DIP, render scaling 1
+125 % 1180x740: window 1180x740 DIP, render scaling 1.25
+125 % 980x600: window 980x600 DIP, render scaling 1.25
+125 % 1600x1000: window 1600x1000 DIP, render scaling 1.25
+150 % 1180x740: window 1180x740 DIP, render scaling 1.5
+150 % 980x600: window 980x600 DIP, render scaling 1.5
+150 % 1600x1000: window 1600x1000 DIP, render scaling 1.5

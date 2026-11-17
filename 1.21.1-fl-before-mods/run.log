@@ -1,0 +1,90 @@
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-9.5.1-bin.zip
+.............10%.............20%..............30%.............40%.............50%..............60%.............70%..............80%.............90%.............100%
+
+Welcome to Gradle 9.5.1!
+
+Here are the highlights of this release:
+ - Task provenance in reports and failure messages
+ - Type-safe accessors for precompiled Kotlin Settings plugins
+
+For more details see https://docs.gradle.org/9.5.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.17.21
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Using of the official minecraft mappings is at your own risk!
+Please make sure to read and understand the following license:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# (c) 2020 Microsoft Corporation. These mappings are provided "as-is" and you bear the risk of using them. You may copy and use the mappings for development purposes, but you may not redistribute the mappings complete and unmodified. Microsoft makes no warranties, express or implied, with respect to the mappings provided here.  Use and modification of this document or the source code (in any form) of Minecraft: Java Edition is governed by the Minecraft End User License Agreement available at https://account.mojang.com/documents/minecraft_eula.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Cannot remap lambda$updateBlockEntityTicker$6 because it does not exist in any of the targets [net/minecraft/class_2818]
+Cannot remap lambda$updateBlockEntityTicker$6 because it does not exist in any of the targets [net/minecraft/class_2818]
+Cannot remap lambda$init$2 because it does not exist in any of the targets [net/minecraft/class_429]
+Cannot remap lambda$getTickets$7 because it does not exist in any of the targets [net/minecraft/class_3204]
+Cannot remap getRenderLayers because it does not exist in any of the targets [net/minecraft/class_4696]
+Cannot remap getHeldItem because it does not exist in any of the targets [net/minecraft/class_3727]
+Cannot remap lambda$create$5 because it does not exist in any of the targets [net/minecraft/class_4246]
+Cannot remap lambda$create$8 because it does not exist in any of the targets [net/minecraft/class_4246]
+Cannot remap iterateVisibleBlockEntities because it does not exist in any of the targets [net/minecraft/class_761]
+
+> Task :compileJava
+> Task :processResources
+> Task :classes
+> Task :compileClientJava
+> Task :processClientResources
+> Task :clientClasses
+> Task :generateLog4jConfig
+> Task :generateRemapClasspath
+> Task :generateDLIConfig
+> Task :configureLaunch
+> Task :downloadAssets
+> Task :configureClientLaunch
+
+> Task :runClient
+[0.002s][info][gc] Using G1
+[0.309s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 19M->13M(252M) 2.989ms
+[0.483s][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 23M->17M(252M) 6.600ms
+[0.542s][info][gc] GC(2) Pause Young (Normal) (G1 Evacuation Pause) 29M->29M(252M) 9.554ms
+[0.618s][info][gc] GC(3) Pause Young (Normal) (G1 Evacuation Pause) 49M->49M(252M) 13.784ms
+[0.852s][info][gc] GC(4) Pause Young (Normal) (G1 Evacuation Pause) 71M->56M(252M) 4.873ms
+[01:42:46] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 1.21.1 with Fabric Loader 0.19.3
+[1.495s][info][gc] GC(5) Pause Young (Normal) (GCLocker Initiated GC) 88M->64M(504M) 6.391ms
+[01:42:47] [main/WARN] (FabricLoader/Resolution) Mod resolution failed
+[01:42:47] [main/INFO] (FabricLoader/Resolution) Immediate reason: [HARD_DEP_NO_CANDIDATE indium 1.0.35+mc1.21 {depends sodium @ [0.5.11]}, NEG_HARD_DEP supplementaries 1.21.1-4.0.2 {breaks sodium @ [<0.8.12-beta.1]}, ROOT_FORCELOAD indium, ROOT_FORCELOAD_SINGLE supplementaries 1.21.1-4.0.2]
+[01:42:47] [main/INFO] (FabricLoader/Resolution) Reason: [NEG_HARD_DEP supplementaries 1.21.1-4.0.2 {breaks sodium @ [<0.8.12-beta.1]}]
+[01:42:47] [main/INFO] (FabricLoader/Resolution) Fix: add [], remove [], replace [[supplementaries 1.21.1-4.0.2] -> add:supplementaries 1 ([(-∞,∞)])]
+[01:42:47] [main/ERROR] (FabricLoader) Incompatible mods found!
+net.fabricmc.loader.impl.FormattedException: Some of your mods are incompatible with the game or each other!
+A potential solution has been determined, this may resolve your problem:
+	 - Replace mod 'Supplementaries' (supplementaries) 1.21.1-4.0.2 with any version that is compatible with:
+		 - sodium 0.6.13+mc1.21.1
+More details:
+	 - Mod 'Supplementaries' (supplementaries) 1.21.1-4.0.2 is incompatible with any version before 0.8.12-beta.1 of mod 'Sodium' (sodium), yet a conflicting version is present: 0.6.13+mc1.21.1!
+	at net.fabricmc.loader.impl.FormattedException.ofLocalized(FormattedException.java:51) ~[fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.FabricLoaderImpl.load(FabricLoaderImpl.java:202) ~[fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.launch.knot.Knot.init(Knot.java:142) ~[fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:66) [fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23) [fabric-loader-0.19.3.jar:?]
+	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86) [dev-launch-injector-0.2.1+build.8.jar:?]
+
+> Task :runClient FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':runClient' (registered by plugin 'fabric-loom').
+> Process 'command 'xvfb-run'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m 23s
+9 actionable tasks: 9 executed

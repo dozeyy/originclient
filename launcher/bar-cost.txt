@@ -1,0 +1,4 @@
+Home 1044x740, 20 renders with the bar surface, 20 without (CPU rasteriser, ms per render)
+with surface:    median 34.97  best 34.39
+without surface: median 35.97  best 34.21
+difference of medians: -0.99 ms

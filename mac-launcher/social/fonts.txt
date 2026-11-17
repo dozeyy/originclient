@@ -1,0 +1,5 @@
+Inter 400: Inter weight=400 simulations=None
+Inter 500: Inter Medium weight=500 simulations=None
+Inter 600: Inter SemiBold weight=600 simulations=None
+Inter 700: Inter weight=700 simulations=None
+Inter 800: Inter ExtraBold weight=800 simulations=None
