@@ -32,3 +32,22 @@
   JDK 21); Gradle 9.5.1 + `fabric-loom-remap` 1.17-SNAPSHOT; unit tests run again (`gradlew test`),
   including `SodiumCompatCoverageTest`, which proves every Sodium member Iris links against exists in
   the stand-in and that no Iris mixin target does.
+
+## 2026-11-16 composite/final (step 2)
+
+Root causes (CI probe run 44002823904, MakeUp Ultra Fast 9.6 on): the pack never loaded at startup
+("No shader pack active" with `enableShaders=true`), because upstream strips Iris's
+`MixinRenderSystem`, the only caller of Iris's render-system init; and the old composite path ran from
+`Renderer.endRenderPass` (every pass end, re-entrant) with a pipeline handle of 0, so nothing drew.
+
+- `RenderSystemIrisInitMixin`: replays Iris's init sequence at `RenderSystem.initRenderer` RETURN.
+- `GameRendererCompositeMixin` + `origin/composite/CompositeRunner`: the deferred + composite + final
+  chain runs once per frame after `renderLevel`, with a re-entry guard, on real RGBA16F colortex
+  MAIN/ALT images, through VulkanMod pipelines and render passes. The world image is copied (by a draw:
+  swapchain images are not TRANSFER_SRC) into the scene buffer, the first draw buffer of
+  `gbuffers_terrain`/`gbuffers_textured` (colortex0 when none), until gbuffers run on Vulkan.
+- Multiple draw buffers: VulkanMod pipelines have one colour attachment, so output k > 0 draws with a
+  one-output fragment variant (`FragOutputVariant`, `VulkanModProgramBridge.outputVariant`).
+- `RendererMixin`: the old `onExecutePasses` call is removed.
+- Unit tests: `CompositeRoutingTest` (Iris ping-pong + flip directives), `SamplerNamesTest`,
+  `FragOutputVariantTest`.

@@ -210,6 +210,73 @@ public final class VulkanModProgramBridge {
             return failLink(program.getName(), "missing GLSL source");
         }
 
+        GraphicsPipeline pipeline = buildPipeline(program, -1);
+        if (pipeline == null) {
+            return false;
+        }
+        LINKED.put(id, pipeline);
+
+        if (!registerWithGlProgram(id, pipeline)) {
+            LINKED.remove(id);
+            pipeline.scheduleCleanUp();
+            return failLink(program.getName(), "could not register VkGlProgram " + id);
+        }
+
+        CONSECUTIVE_FAILURES.set(0);
+        program.advanceLifecycle(ShaderLifecycleState.PIPELINE_CREATED);
+        StageDiagnostics.pass("Program linking", program.getName()
+                + " -> VkGlProgram " + id + " (" + pipeline.getImageDescriptors().size()
+                + " images, " + pipeline.getBuffers().size() + " UBOs)");
+        return true;
+    }
+
+    /** Origin: the vertex format each built pipeline was linked with (composite quads are built from it). */
+    private static final Map<GraphicsPipeline, VertexFormat> PIPELINE_FORMATS =
+            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+    /** Origin: one-output variants, keyed by virtual program id and kept output location. */
+    private static final Map<Long, GraphicsPipeline> OUTPUT_VARIANTS = new ConcurrentHashMap<>();
+
+    /** Origin: the vertex format {@code pipeline} was linked with, or {@code null}. */
+    public static VertexFormat formatOf(GraphicsPipeline pipeline) {
+        return pipeline == null ? null : PIPELINE_FORMATS.get(pipeline);
+    }
+
+    /**
+     * Origin: the linked program rebuilt so only fragment output {@code keepOutput} is written (at
+     * location 0). Built once per program and output, never registered as a GL program.
+     *
+     * @return the variant, or {@code null} when it cannot be built (logged once by failLink)
+     */
+    public static GraphicsPipeline outputVariant(VulkairisProgram program, int keepOutput) {
+        if (program == null || keepOutput < 0) {
+            return null;
+        }
+        long key = ((long) program.getVirtualProgramId() << 8) | keepOutput;
+        GraphicsPipeline cached = OUTPUT_VARIANTS.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        GraphicsPipeline built = buildPipeline(program, keepOutput);
+        if (built != null) {
+            OUTPUT_VARIANTS.put(key, built);
+        }
+        return built;
+    }
+
+    private static GraphicsPipeline failLinkNull(String name, String reason) {
+        failLink(name, reason);
+        return null;
+    }
+
+    private static GraphicsPipeline failLinkNull(String name, String reason, Throwable cause) {
+        failLink(name, reason, cause);
+        return null;
+    }
+
+    /** Builds (does not register) a VulkanMod pipeline for {@code program}; {@code keepOutput} -1 = all outputs. */
+    private static GraphicsPipeline buildPipeline(VulkairisProgram program, int keepOutput) {
+        VulkairisShader vert0 = program.getVertexShader();
+        VulkairisShader frag0 = program.getFragmentShader();
         try {
             // Union-first driver path (plan §4 gap B-1): the base GLSL comes from the canonical
             // program-together translation (one shared VulkairisUniformBlock over both stages),
@@ -222,7 +289,7 @@ public final class VulkanModProgramBridge {
             String vertSrc = base.vertGlsl();
             String fragSrc = base.fragGlsl();
             if (vertSrc == null || fragSrc == null) {
-                return failLink(program.getName(), "missing GLSL source");
+                return failLinkNull(program.getName(), "missing GLSL source");
             }
 
             // The VulkanMod path needs explicit dense bindings: its descriptor array is sized
@@ -242,7 +309,7 @@ public final class VulkanModProgramBridge {
                     ShaderTranslator.remapDescriptorBindings(fragSrc, bindings), bindings);
 
             if (!areBindingsDense(vertRemapped, fragRemapped, bindings.size())) {
-                return failLink(program.getName(),
+                return failLinkNull(program.getName(),
                         "descriptor bindings are not dense 0.." + Math.max(0, bindings.size() - 1)
                                 + " after remap (injected block binding " + ShaderTranslator.UNIFORM_BLOCK_BINDING
                                 + "); refusing to let VulkanMod throw IndexOutOfBoundsException");
@@ -301,7 +368,7 @@ public final class VulkanModProgramBridge {
                 vertexFormat = chooseVertexFormat(requiredInputs);
             }
             if (vertexFormat == null) {
-                return failLink(program.getName(),
+                return failLinkNull(program.getName(),
                         "no DefaultVertexFormat covers vertex inputs " + requiredInputs
                                 + "; refusing to build a pipeline whose SPIR-V would lack locations");
             }
@@ -313,7 +380,7 @@ public final class VulkanModProgramBridge {
                 }
             }
             if (!uncovered.isEmpty()) {
-                return failLink(program.getName(),
+                return failLinkNull(program.getName(),
                         "vertex inputs " + uncovered + " are not covered by the chosen format "
                                 + vertexFormat.getElementAttributeNames());
             }
@@ -326,11 +393,15 @@ public final class VulkanModProgramBridge {
 
             Pipeline.Builder builder = Pipeline.builder(vertexFormat, program.getName());
             builder.setShaderSrc(SPIRVUtils.ShaderKind.VERTEX_SHADER, vertFinal);
+            // Origin: a one-output variant for multi-target composite passes (FragOutputVariant).
+            if (keepOutput >= 0) {
+                fragFinal = com.vulkairis.origin.composite.FragOutputVariant.keepOnly(fragFinal, keepOutput);
+            }
             builder.setShaderSrc(SPIRVUtils.ShaderKind.FRAGMENT_SHADER, fragFinal);
 
             PipelineConfig config = buildDescriptorConfig(vert, frag, bindings, vertSrc, fragSrc, vertRemapped, fragRemapped);
             if (config == null) {
-                return failLink(program.getName(),
+                return failLinkNull(program.getName(),
                         "could not build a config entry for every descriptor binding; refusing to leave a"
                                 + " gap that VulkanMod would index out of range");
             }
@@ -357,26 +428,14 @@ public final class VulkanModProgramBridge {
             GraphicsPipeline pipeline;
             try {
                 pipeline = builder.createGraphicsPipeline();
+                PIPELINE_FORMATS.put(pipeline, vertexFormat);
             } catch (Throwable t) {
                 dumpFailedSource(program.getName(), vertFinal, fragFinal);
                 throw t;
             }
-            LINKED.put(id, pipeline);
-
-            if (!registerWithGlProgram(id, pipeline)) {
-                LINKED.remove(id);
-                pipeline.scheduleCleanUp();
-                return failLink(program.getName(), "could not register VkGlProgram " + id);
-            }
-
-            CONSECUTIVE_FAILURES.set(0);
-            program.advanceLifecycle(ShaderLifecycleState.PIPELINE_CREATED);
-            StageDiagnostics.pass("Program linking", program.getName()
-                    + " -> VkGlProgram " + id + " (" + pipeline.getImageDescriptors().size()
-                    + " images, " + pipeline.getBuffers().size() + " UBOs)");
-            return true;
+            return pipeline;
         } catch (Throwable t) {
-            return failLink(program.getName(), t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName(), t);
+            return failLinkNull(program.getName(), t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName(), t);
         }
     }
 
@@ -1270,6 +1329,10 @@ public final class VulkanModProgramBridge {
     }
 
     public static void cleanUp() {
+        for (GraphicsPipeline variant : OUTPUT_VARIANTS.values()) {
+            variant.scheduleCleanUp();
+        }
+        OUTPUT_VARIANTS.clear();
         for (GraphicsPipeline pipeline : LINKED.values()) {
             try {
                 pipeline.scheduleCleanUp();

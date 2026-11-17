@@ -87,12 +87,10 @@ public class RendererMixin {
                         case FLAT, UV, LIGHTMAP, DEPTH, NO_POST ->
                                 StandaloneVulkanTest.executeVisualizerDraw(mode, cmdBuffer);
                         case OFF, NORMAL -> {
-                            // No controlled override. When a shader pack is active and the coordinator
-                            // has an executable graph, run the composite/final chain regardless of the
-                            // debug mode toggle (auto-engagement).
-                            if (com.vulkairis.rendering.exec.VulkairisFrameCoordinator.isActive()) {
-                                com.vulkairis.rendering.exec.VulkairisFrameCoordinator.onExecutePasses(cmdBuffer);
-                            }
+                            // Origin (step 2): the composite/final chain no longer runs here. This hook
+                            // fires on EVERY render-pass end (several per frame, menus included) and the
+                            // old graph drew with pipeline handle 0. The chain now runs once per frame
+                            // after the world render (GameRendererCompositeMixin -> CompositeRunner).
                         }
                     }
                 });
