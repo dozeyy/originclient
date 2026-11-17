@@ -8,7 +8,7 @@
 #   vk-noiris     VulkanMod + disableModIds=sodium,immediatelyfast,iris (Origin's nested Iris needs Sodium)
 #   vk-vulkairis  VulkanMod + VulkaIris (upstream QKLglGuI) + disableModIds=sodium,immediatelyfast
 # Each row: title marker ([origin-smoke], env ORIGIN_SMOKE), then OriginDevWorld's in-world step
-# (env ORIGIN_SMOKE_WORLD: flat world, HUD + Mod Menu shots via Screenshot.grab, Save and Quit), plus
+# (run 1: env ORIGIN_SMOKE_WORLD; run 2: the design shot set + ORIGIN_INWORLD), plus
 # X11 root grabs of the Xvfb display (independent of the game's screenshot path).
 name: vulkan-probe
 
@@ -38,8 +38,9 @@ jobs:
         include:
           - { case: gl, vulkan: "false", disable: "", vulkairis: "false" }
           - { case: vk, vulkan: "true", disable: "sodium,immediatelyfast", vulkairis: "false" }
-          - { case: vk-noiris, vulkan: "true", disable: "sodium,immediatelyfast,iris", vulkairis: "false" }
-          - { case: vk-vulkairis, vulkan: "true", disable: "sodium,immediatelyfast", vulkairis: "true" }
+          # vk-noiris (same result as vk: Origin's nested Iris drops out on its own once Sodium is disabled) and
+          # vk-vulkairis (crashes at CrashReport.preload, NoClassDefFoundError sodium.api VertexSerializer) were
+          # answered by run 43999565300 and are not re-run.
     env:
       OUT: ${{ github.workspace }}/probe-out
     steps:
@@ -89,7 +90,11 @@ jobs:
           MESA_GL_VERSION_OVERRIDE: "4.6"
           MESA_GLSL_VERSION_OVERRIDE: "460"
           ORIGIN_SMOKE: "1"
-          ORIGIN_SMOKE_WORLD: ${{ github.workspace }}/probe-out
+          # Run 2: the design set (title + Origin's own screens via Screenshot.grab), then the in-world step
+          # (ORIGIN_INWORLD). Run 1 used ORIGIN_SMOKE_WORLD, which leaves the title after one frame: no title shot.
+          ORIGIN_SHOTS: ${{ github.workspace }}/probe-out
+          ORIGIN_SHOTS_SET: design
+          ORIGIN_INWORLD: "1"
           DISABLE: ${{ matrix.disable }}
         run: |
           chmod +x gradlew
@@ -114,7 +119,7 @@ jobs:
             now=$(( $(date +%s) - t0 ))
             if [ -z "$tgame" ] && grep -q "Loading Minecraft" run.log; then tgame=$now; nextgrab=$((now + 20)); fi
             if [ -z "$ttitle" ] && grep -q "\[origin-smoke\] title screen reached" run.log; then
-              ttitle=$now; sleep 4; grab x11_title
+              ttitle=$now; sleep 1; grab x11_title
             fi
             if [ -z "$tworld" ] && grep -q "\[origin-smoke\] in-world: HUD up" run.log; then tworld=$now; grab x11_world; fi
             # Periodic grabs while the game runs (max 30): proof of what is on the display, even with no title.
