@@ -23,6 +23,7 @@ public final class FwvTestMod implements ClientModInitializer {
 	/** Ticks to wait for Flywheel to pick a backend before reporting it can't visualize. */
 	private static final int PATIENCE_TICKS = 200;
 
+	private final ProofShots proofShots = new ProofShots();
 	private Level done;
 	private Level waiting;
 	private int waited;
@@ -39,6 +40,7 @@ public final class FwvTestMod implements ClientModInitializer {
 		}
 		if (level == done) {
 			count(mc);
+			proofShots.tick(mc);
 			return;
 		}
 		if (level != waiting) {
