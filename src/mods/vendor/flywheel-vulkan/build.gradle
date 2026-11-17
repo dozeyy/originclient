@@ -52,6 +52,14 @@ dependencies {
 	compileOnly 'org.lwjgl:lwjgl-vma:3.3.3'
 
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+	// GlslRetargetTest compiles the retargeted real Flywheel GLSL to SPIR-V with the same shaderc
+	// build VulkanMod nests (3.3.3), so a retarget that shaderc rejects fails here, not in game.
+	testImplementation 'org.lwjgl:lwjgl:3.3.3'
+	testImplementation 'org.lwjgl:lwjgl-shaderc:3.3.3'
+	['natives-windows', 'natives-linux'].each { n ->
+		testRuntimeOnly "org.lwjgl:lwjgl:3.3.3:${n}"
+		testRuntimeOnly "org.lwjgl:lwjgl-shaderc:3.3.3:${n}"
+	}
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
@@ -110,6 +118,12 @@ java {
 
 test {
 	useJUnitPlatform()
+	// The pinned Flywheel jar: tests read its real GLSL (assets/flywheel/flywheel/**).
+	def fw = project.configurations.detachedConfiguration(project.dependencies.create(flywheelCoord))
+	fw.transitive = false
+	inputs.files(fw)
+	doFirst { systemProperty 'flywheel.jar', fw.singleFile.absolutePath }
+	systemProperty 'flywheelvulkan.resources', file('src/main/resources').absolutePath
 	testLogging { events 'failed'; exceptionFormat 'full' }
 }
 
