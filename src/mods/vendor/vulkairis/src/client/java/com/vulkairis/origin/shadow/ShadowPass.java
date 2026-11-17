@@ -121,17 +121,19 @@ public final class ShadowPass {
             renderer.endRenderPass(cmd);
             ShadowMap.ensure(shadow.getResolution());
             ShadowMap.beginAndClear(cmd, renderer);
-            if (pipeline != null) {
-                Matrix4f mv = new Matrix4f(MODEL_VIEW);
-                Matrix4f proj = new Matrix4f(PROJECTION);
-                active = true;
-                try {
+            active = true;
+            try {
+                if (pipeline != null) {
+                    Matrix4f mv = new Matrix4f(MODEL_VIEW);
+                    Matrix4f proj = new Matrix4f(PROJECTION);
                     for (TerrainRenderType caster : CASTERS) {
                         wr.renderSectionLayer(caster, camX, camY, camZ, mv, proj);
                     }
-                } finally {
-                    active = false;
                 }
+                // Origin (step 9): geometry other mods draw themselves (Flywheel instances) casts too.
+                com.vulkairis.origin.api.ForeignPackPrograms.drawShadowCasters();
+            } finally {
+                active = false;
             }
             ShadowMap.end(cmd, renderer);
             mainPass.rebindMainTarget();

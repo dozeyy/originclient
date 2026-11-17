@@ -62,6 +62,25 @@ class TerrainVertexAdapterTest {
     @Test
     void sourceWithoutMainIsRefused() {
         assertNull(TerrainVertexAdapter.adapt("#version 450 core\nin vec4 a;\n"));
+        assertNull(TerrainVertexAdapter.adaptForeign("#version 450 core\nin vec4 a;\n"));
+    }
+
+    @Test
+    void foreignStreamHasNoVertexInputsAndCallsTheFeedFirst() {
+        String out = TerrainVertexAdapter.adaptForeign(PACK);
+        // The caller owns every vertex input: nothing of VulkanMod's chunk format, no push block.
+        assertEquals(0, count(out, ") in "), out);
+        assertFalse(out.contains("vulkairis_vmPosition"), out);
+        assertFalse(out.contains("push_constant"), out);
+        // Declared once (prototype), called once, before any attribute is filled.
+        assertEquals(1, count(out, "void " + TerrainVertexAdapter.FEED_SIGNATURE + ";"), out);
+        int feed = out.indexOf("vulkairis_feed(vulkairis_tPos,");
+        int fill = out.indexOf("vulkairis_Vertex = vec4(vulkairis_tPos, 1.0);");
+        int call = out.indexOf("vulkairis_packMain();");
+        assertTrue(feed > 0 && feed < fill && fill < call, out);
+        // The terrain-only alpha override (normal in the colour alpha) does not apply to a foreign stream.
+        assertFalse(out.contains("vulkairis_tColor.a = 1.0;"), out);
+        assertTrue(out.contains("gl_Position.z = (gl_Position.z + gl_Position.w) * 0.5;"), out);
     }
 
     private static int count(String s, String needle) {

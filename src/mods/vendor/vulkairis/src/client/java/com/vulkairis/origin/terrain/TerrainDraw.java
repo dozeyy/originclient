@@ -55,7 +55,7 @@ public final class TerrainDraw {
     /** Called with the pack pipeline the terrain getter is about to hand VulkanMod. */
     public static void prepare(GraphicsPipeline gp) {
         PACK_PIPELINES.add(gp);
-        Map<String, double[]> values = overrides();
+        Map<String, double[]> values = matrixOverrides();
         VulkanModProgramBridge.uploadUniforms(gp, values);
         if (ANNOUNCED.add(gp.name)) {
             LOGGER.info("[Vulkairis/Terrain] pack terrain pipeline in use: {} (uniforms nothing supplies, read as 0: {})",
@@ -97,6 +97,20 @@ public final class TerrainDraw {
         }
     }
 
+    /**
+     * Origin (step 9): the image a pack sampler means outside a chunk draw (for foreign draws): the
+     * shadow map, a colortex's last post-chain image or a pack custom texture; {@code null} for the
+     * atlas, the lightmap (the caller's own) and anything unknown (the caller binds white).
+     */
+    public static VulkanImage packImage(String name, boolean compare) {
+        VulkanImage shadow = ShadowMap.forSampler(name, compare);
+        if (shadow != null) {
+            return shadow;
+        }
+        ProgramSet set = IrisPassSource.currentSet();
+        return set == null ? null : packTexture(set, name);
+    }
+
     /** A pack custom texture, or for a colortex/gaux sampler the post chain's last image of it. */
     private static VulkanImage packTexture(ProgramSet set, String name) {
         SamplerNames.Target t = SamplerNames.resolve(name);
@@ -111,23 +125,28 @@ public final class TerrainDraw {
      * (TerrainVertexAdapter adds ModelOffset), so the model-view is Iris's gbufferModelView (the camera
      * rotation) and the projection Iris's OpenGL-depth gbufferProjection. Texture unit 1 is Iris's
      * lightmap matrix (coordinate / 256 + 8 / 256).
+     *
+     * <p>Origin (step 9): public for foreign draws (camera-relative too), and allocation-free: the map
+     * and its arrays are reused, so a caller reads them before the next call.</p>
      */
-    private static Map<String, double[]> overrides() {
+    public static Map<String, double[]> matrixOverrides() {
         // Inside the shadow pass the fixed-function matrices are the sun's (Iris does the same).
         boolean shadowPass = ShadowPass.isActive();
         double[] mv = shadowPass ? ShadowPass.modelView() : IrisUniformValues.lookup("gbufferModelView");
         double[] proj = shadowPass ? ShadowPass.projection() : IrisUniformValues.lookup("gbufferProjection");
-        OVERRIDES.clear();
         if (mv == null || mv.length < 16 || proj == null || proj.length < 16) {
+            OVERRIDES.clear();
             return OVERRIDES;
         }
-        double[] mvp = new double[16];
-        new Matrix4d().set(proj).mul(new Matrix4d().set(mv)).get(mvp);
-        double[] normal = new double[16];
-        new Matrix4d().set(mv).invert().transpose().get(normal);
+        // Same keys every call: put() replaces values in place, so the map allocates nothing per draw.
+        double[] mvp = MVP;
+        MAT_A.set(proj).mul(MAT_B.set(mv)).get(mvp);
+        double[] normal = NORMAL;
+        MAT_A.set(mv).invert().transpose().get(normal);
 
         int units = LegacyGlsl.TEXTURE_MATRIX_UNITS;
-        double[] textures = new double[16 * units];
+        double[] textures = TEXTURES;
+        java.util.Arrays.fill(textures, 0.0);
         for (int u = 0; u < units; u++) {
             textures[u * 16] = textures[u * 16 + 5] = textures[u * 16 + 10] = textures[u * 16 + 15] = 1.0;
         }
@@ -146,4 +165,10 @@ public final class TerrainDraw {
         OVERRIDES.put("iris_NormalMat", normal);
         return OVERRIDES;
     }
+
+    private static final Matrix4d MAT_A = new Matrix4d();
+    private static final Matrix4d MAT_B = new Matrix4d();
+    private static final double[] MVP = new double[16];
+    private static final double[] NORMAL = new double[16];
+    private static final double[] TEXTURES = new double[16 * LegacyGlsl.TEXTURE_MATRIX_UNITS];
 }

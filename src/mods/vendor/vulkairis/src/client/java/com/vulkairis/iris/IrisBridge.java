@@ -160,6 +160,8 @@ public class IrisBridge {
             // so build + link the terrain-family programs ourselves from the discovered catalog
             // and register them with VulkanModProgramBridge so the terrain gate can open.
             try {
+                // Origin (step 9): a new pack (or reload) makes every foreign-prepared program stale.
+                com.vulkairis.origin.api.ForeignPackPrograms.reset();
                 for (ShaderPackProgram program : discovered.getGraphicsPrograms()) {
                     if (!(program instanceof ShaderPackProgram.Graphics g) || g.source() == null) {
                         continue;
@@ -173,7 +175,9 @@ public class IrisBridge {
                             break;
                         }
                     }
-                    if (!terrain) {
+                    // Origin (step 9): gbuffers_block is registered (never linked) for foreign draws.
+                    boolean foreignOnly = !terrain && com.vulkairis.origin.api.ForeignPackPrograms.wants(name);
+                    if (!terrain && !foreignOnly) {
                         continue;
                     }
                     String vSrc = g.source().getVertexSource().orElse(null);
@@ -187,6 +191,10 @@ public class IrisBridge {
                             name + "_frag", 35632, null, fSrc);
                     int progId = com.vulkairis.translation.VulkanShaderRegistry.registerProgram(
                             name, java.util.List.of(vId, fId));
+                    com.vulkairis.origin.api.ForeignPackPrograms.noteProgram(name, progId);
+                    if (foreignOnly) {
+                        continue;
+                    }
                     com.vulkairis.translation.VulkairisProgram vp =
                             com.vulkairis.translation.VulkanShaderRegistry.getProgram(progId);
                     if (vp != null && com.vulkairis.config.ConfigManager.getConfig().isIrisPipelineLink()) {

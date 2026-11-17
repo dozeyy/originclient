@@ -53,6 +53,64 @@ public final class TerrainVertexAdapter {
 
     /** {@code null} when the source has no {@code main} (nothing to wrap). */
     public static String adapt(String vertexSource) {
+        return wrap(vertexSource, INPUTS, VULKANMOD_DECODE);
+    }
+
+    /**
+     * Origin (step 9): the same wrap for a vertex stream Vulkairis does not own (Flywheel's instanced
+     * meshes under {@code flywheel-vulkan}). Instead of decoding VulkanMod's chunk format, the new
+     * {@code main} calls {@link #FEED_SIGNATURE}, which the caller defines ahead of this source:
+     * camera-relative position, texture coordinate, raw lightmap coordinate (0..255, as chunks carry
+     * it), RGBA colour and world-space normal. The pack then runs exactly as it does for terrain.
+     *
+     * @return {@code null} when the source has no {@code main}
+     */
+    public static String adaptForeign(String vertexSource) {
+        return wrap(vertexSource, "void " + FEED_SIGNATURE + ";\n", FEED_DECODE);
+    }
+
+    /** What a foreign caller defines (see {@link #adaptForeign}). */
+    public static final String FEED_SIGNATURE = "vulkairis_feed(out vec3 pos, out vec2 uv, out vec2 light,"
+            + " out vec4 color, out vec3 normal)";
+
+    /** VulkanMod's compressed terrain vertex into the five values every attribute is built from. */
+    private static final String VULKANMOD_DECODE = ""
+            + "    vec3 vulkairis_section = vec3(bitfieldExtract(ivec3(gl_InstanceIndex) >> ivec3(0, 16, 8), 0, 8));\n"
+            + "    vec3 vulkairis_tPos = fma(vec3(vulkairis_vmPosition.xyz), vec3(1.0 / 2048.0),"
+            + " vulkairis_ModelOffset + vulkairis_section);\n"
+            + "    vec2 vulkairis_tUv = vec2(vulkairis_vmUV0) * (1.0 / 32768.0);\n"
+            + "    uint vulkairis_tLm = uint(vulkairis_vmPosition.w) & 0xFFFFu;\n"
+            + "    vec2 vulkairis_tLight = vec2(float(vulkairis_tLm & 0xFFu), float(vulkairis_tLm >> 8));\n"
+            + "    vec4 vulkairis_tColor = unpackUnorm4x8(vulkairis_vmColor);\n"
+            // Origin (2026-11-17): the quad normal rides in the colour alpha (TerrainNormals).
+            + "    uint vulkairis_nb = vulkairis_vmColor >> 24u;\n"
+            + "    vec3 vulkairis_tNormal = vec3(0.0, 1.0, 0.0);\n"
+            + "    if (vulkairis_nb != 255u) {\n"
+            + "        vec2 vulkairis_np = vec2(float(vulkairis_nb & 15u), float(vulkairis_nb >> 4u))"
+            + " * (2.0 / 14.0) - 1.0;\n"
+            + "        vec3 vulkairis_n = vec3(vulkairis_np, 1.0 - abs(vulkairis_np.x) - abs(vulkairis_np.y));\n"
+            + "        float vulkairis_nt = max(-vulkairis_n.z, 0.0);\n"
+            + "        vulkairis_n.xy += vec2(vulkairis_n.x >= 0.0 ? -vulkairis_nt : vulkairis_nt,"
+            + " vulkairis_n.y >= 0.0 ? -vulkairis_nt : vulkairis_nt);\n"
+            + "        vulkairis_tNormal = normalize(vulkairis_n);\n"
+            + "    }\n"
+            + "    vulkairis_tColor.a = 1.0;\n";
+
+    /** A foreign stream: the caller's feed fills the same five values. */
+    private static final String FEED_DECODE = ""
+            + "    vec3 vulkairis_tPos;\n"
+            + "    vec2 vulkairis_tUv;\n"
+            + "    vec2 vulkairis_tLight;\n"
+            + "    vec4 vulkairis_tColor;\n"
+            + "    vec3 vulkairis_tNormal;\n"
+            + "    vulkairis_feed(vulkairis_tPos, vulkairis_tUv, vulkairis_tLight, vulkairis_tColor, vulkairis_tNormal);\n";
+
+    /**
+     * Turns every pack {@code in} into a global, renames the pack's {@code main}, then appends
+     * {@code header} and a new {@code main} that runs {@code decode} (which defines the five
+     * {@code vulkairis_t*} values), fills the globals, runs the pack and fixes the depth range.
+     */
+    private static String wrap(String vertexSource, String header, String decode) {
         if (vertexSource == null) {
             return null;
         }
@@ -79,29 +137,9 @@ public final class TerrainVertexAdapter {
         out.append(vertexSource, last, vertexSource.length());
         String body = MAIN.matcher(out).replaceFirst("void vulkairis_packMain()");
 
-        StringBuilder tail = new StringBuilder("\n// Origin: VulkanMod compressed terrain -> pack attributes.\n");
-        tail.append(INPUTS);
-        tail.append("void main() {\n")
-                .append("    vec3 vulkairis_section = vec3(bitfieldExtract(ivec3(gl_InstanceIndex) >> ivec3(0, 16, 8), 0, 8));\n")
-                .append("    vec3 vulkairis_tPos = fma(vec3(vulkairis_vmPosition.xyz), vec3(1.0 / 2048.0),"
-                        + " vulkairis_ModelOffset + vulkairis_section);\n")
-                .append("    vec2 vulkairis_tUv = vec2(vulkairis_vmUV0) * (1.0 / 32768.0);\n")
-                .append("    uint vulkairis_tLm = uint(vulkairis_vmPosition.w) & 0xFFFFu;\n")
-                .append("    vec2 vulkairis_tLight = vec2(float(vulkairis_tLm & 0xFFu), float(vulkairis_tLm >> 8));\n")
-                .append("    vec4 vulkairis_tColor = unpackUnorm4x8(vulkairis_vmColor);\n")
-                // Origin (2026-11-17): the quad normal rides in the colour alpha (TerrainNormals).
-                .append("    uint vulkairis_nb = vulkairis_vmColor >> 24u;\n")
-                .append("    vec3 vulkairis_tNormal = vec3(0.0, 1.0, 0.0);\n")
-                .append("    if (vulkairis_nb != 255u) {\n")
-                .append("        vec2 vulkairis_np = vec2(float(vulkairis_nb & 15u), float(vulkairis_nb >> 4u))"
-                        + " * (2.0 / 14.0) - 1.0;\n")
-                .append("        vec3 vulkairis_n = vec3(vulkairis_np, 1.0 - abs(vulkairis_np.x) - abs(vulkairis_np.y));\n")
-                .append("        float vulkairis_nt = max(-vulkairis_n.z, 0.0);\n")
-                .append("        vulkairis_n.xy += vec2(vulkairis_n.x >= 0.0 ? -vulkairis_nt : vulkairis_nt,"
-                        + " vulkairis_n.y >= 0.0 ? -vulkairis_nt : vulkairis_nt);\n")
-                .append("        vulkairis_tNormal = normalize(vulkairis_n);\n")
-                .append("    }\n")
-                .append("    vulkairis_tColor.a = 1.0;\n");
+        StringBuilder tail = new StringBuilder("\n// Origin: vertex stream -> pack attributes.\n");
+        tail.append(header);
+        tail.append("void main() {\n").append(decode);
         for (Attribute a : attributes) {
             tail.append("    ").append(a.name()).append(" = ").append(cast(a.type(), valueFor(a.name()))).append(";\n");
         }

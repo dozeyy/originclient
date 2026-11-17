@@ -215,3 +215,19 @@ Found on Will's RX 9070 XT with MakeUp (link FAILs, flat/near-black terrain, whi
   in the post chain here.
 - Still open: gbuffers-stage custom textures are not mapped; entities/hand keep vanilla shading; snow tops
   read slightly greyer than GL and the sun glow is weaker.
+
+### 2026-11-17 pack programs for other mods' draws (step 9)
+- `origin/api/ForeignPackPrograms` (new): a small reflection-friendly seam (JDK + VulkanMod types only,
+  `API_VERSION = 1`) that hands another mod's draw (flywheel-vulkan's instanced Create/Trainworks meshes)
+  the pack's final GLSL for a role (`block`: gbuffers_block, else gbuffers_terrain; `shadow`: shadow)
+  with every descriptor in the caller's descriptor set, fills its uniform buffers and resolves its pack
+  samplers. Shadow casters register a callback that runs inside the shadow pass. A program that can't be
+  prepared returns null (logged once per pack) and never counts toward the link-failure breaker.
+- `bridge/VulkanModProgramBridge.prepareForeign/writeForeignUniforms`: buildPipeline's translation up to
+  the final GLSL (union bindings, varying locations, 0.1 alpha cutout) without touching the device.
+- `origin/terrain/TerrainVertexAdapter.adaptForeign`: the same pack-attribute wrap, fed by the caller's
+  `vulkairis_feed(...)` instead of VulkanMod's compressed chunk vertex. `origin/foreign/ForeignGlsl.moveToSet`
+  moves descriptors into the caller's set.
+- `iris/IrisBridge`: gbuffers_block is registered (not linked) for foreign draws; `origin/shadow/ShadowPass`
+  calls the foreign casters with the shadow map bound (also when the pack has no terrain shadow program).
+- `origin/terrain/TerrainDraw.matrixOverrides` (public, allocation-free) and `packImage`.

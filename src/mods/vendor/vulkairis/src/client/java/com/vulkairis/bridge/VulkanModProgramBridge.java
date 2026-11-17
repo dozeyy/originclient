@@ -266,9 +266,17 @@ public final class VulkanModProgramBridge {
 
     private static void recordBlockLayout(GraphicsPipeline pipeline, Map<String, Integer> bindings,
                                           VulkairisShader vert, VulkairisShader frag) {
+        BlockLayout layout = blockLayout(bindings, vert, frag);
+        if (layout != null) {
+            PIPELINE_BLOCKS.put(pipeline, layout);
+        }
+    }
+
+    /** The injected block's dense binding and reflected members, or {@code null} when it has none. */
+    private static BlockLayout blockLayout(Map<String, Integer> bindings, VulkairisShader vert, VulkairisShader frag) {
         Integer binding = bindings.get(ShaderTranslator.UNIFORM_BLOCK_NAME);
         if (binding == null) {
-            return;
+            return null;
         }
         ShaderReflection.UniformBlock best = null;
         for (VulkairisShader shader : List.of(vert, frag)) {
@@ -282,9 +290,7 @@ public final class VulkanModProgramBridge {
                 }
             }
         }
-        if (best != null) {
-            PIPELINE_BLOCKS.put(pipeline, new BlockLayout(binding, java.util.List.copyOf(best.members())));
-        }
+        return best == null ? null : new BlockLayout(binding, java.util.List.copyOf(best.members()));
     }
 
     /** Origin: the vertex format {@code pipeline} was linked with, or {@code null}. */
@@ -530,6 +536,112 @@ public final class VulkanModProgramBridge {
         } catch (Throwable t) {
             return failLinkNull(program.getName(), t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName(), t);
         }
+    }
+
+    /**
+     * Origin (step 9): a pack program prepared for a vertex stream someone else draws
+     * ({@code com.vulkairis.origin.api.ForeignPackPrograms}). Final GLSL only: the caller compiles and
+     * builds its own pipeline. Every descriptor sits in one set; the UBO and sampler arrays are
+     * parallel (binding, size) and (binding, name, compare).
+     */
+    public record ForeignProgram(String name, String vertex, String fragment,
+                                 int[] uboBindings, int[] uboSizes,
+                                 int[] samplerBindings, String[] samplerNames, boolean[] samplerCompare,
+                                 BlockLayout block) {
+    }
+
+    /**
+     * Origin (step 9): the same translation {@link #buildPipeline} does for terrain, up to the final
+     * GLSL, but with {@code TerrainVertexAdapter.adaptForeign} (the caller feeds the vertex) and every
+     * descriptor moved to {@code descriptorSet}. Never touches the device and never counts as a link
+     * failure: a pack that can't be prepared just leaves the caller on its own unshaded path.
+     *
+     * @return the prepared program, or {@code null} (logged by the caller)
+     * @throws IllegalStateException with the reason when a step refuses
+     */
+    public static ForeignProgram prepareForeign(String name, int virtualProgramId, int descriptorSet) {
+        VulkairisProgram program = VulkanShaderRegistry.getProgram(virtualProgramId);
+        DriverSources base = LINKED_SOURCES.get(virtualProgramId);
+        if (base == null) {
+            if (program == null) {
+                throw new IllegalStateException("no registered program " + virtualProgramId);
+            }
+            base = resolveDriverSources(program);
+        }
+        VulkairisShader vert = base.vert() != null ? base.vert() : program == null ? null : program.getVertexShader();
+        VulkairisShader frag = base.frag() != null ? base.frag() : program == null ? null : program.getFragmentShader();
+        String vertSrc = base.vertGlsl();
+        String fragSrc = base.fragGlsl();
+        if (vert == null || frag == null || vertSrc == null || fragSrc == null) {
+            throw new IllegalStateException("missing shader or GLSL source");
+        }
+        Map<String, Integer> bindings = ShaderTranslator.buildUnifiedBindingMap(vertSrc, fragSrc);
+        String vertRemapped = ShaderTranslator.ensureDescriptorBindings(
+                ShaderTranslator.remapDescriptorBindings(vertSrc, bindings), bindings);
+        String fragRemapped = ShaderTranslator.ensureDescriptorBindings(
+                ShaderTranslator.remapDescriptorBindings(fragSrc, bindings), bindings);
+        if (!areBindingsDense(vertRemapped, fragRemapped, bindings.size())) {
+            throw new IllegalStateException("descriptor bindings are not dense after remap");
+        }
+        Map<String, Integer> varyingLocations = buildVaryingLocations(vertRemapped, fragRemapped);
+        String vertFinal = com.vulkairis.origin.terrain.TerrainVertexAdapter.adaptForeign(
+                ShaderTranslator.injectLayoutLocations(vertRemapped, true, Map.of(), varyingLocations));
+        if (vertFinal == null) {
+            throw new IllegalStateException("vertex shader has no main()");
+        }
+        // Iris draws block entities and shadow casters with the 0.1 alpha cutout; the pack source has none.
+        String fragFinal = com.vulkairis.origin.terrain.TerrainFragmentAdapter.alphaTest(
+                ShaderTranslator.injectLayoutLocations(fragRemapped, false, Map.of(), varyingLocations),
+                com.vulkairis.origin.terrain.TerrainFragmentAdapter.CUTOUT_REFERENCE);
+        PipelineConfig config = buildDescriptorConfig(vert, frag, bindings, vertSrc, fragSrc, vertRemapped, fragRemapped);
+        if (config == null) {
+            throw new IllegalStateException("no descriptor config for every binding");
+        }
+        java.util.Set<String> compare = com.vulkairis.origin.shadow.ShadowSamplers.compareSamplerNames(vertFinal, fragFinal);
+        int[] uboBindings = new int[config.ubs.size()];
+        int[] uboSizes = new int[config.ubs.size()];
+        for (int i = 0; i < uboBindings.length; i++) {
+            uboBindings[i] = config.ubs.get(i).binding;
+            uboSizes[i] = Math.max(config.ubs.get(i).size, 16);
+        }
+        int n = config.imageDescriptors.size();
+        int[] samplerBindings = new int[n];
+        String[] samplerNames = new String[n];
+        boolean[] samplerCompare = new boolean[n];
+        for (int i = 0; i < n; i++) {
+            PipelineConfig.ImageDescriptorInfo d = config.imageDescriptors.get(i);
+            samplerBindings[i] = d.binding();
+            samplerNames[i] = d.name();
+            samplerCompare[i] = compare.contains(d.name());
+        }
+        BlockLayout block = blockLayout(bindings, vert, frag);
+        if (Boolean.getBoolean("vulkairis.dumpTerrain")) {
+            dumpFailedSource(name + ".foreign", vertFinal, fragFinal);
+        }
+        return new ForeignProgram(name,
+                com.vulkairis.origin.foreign.ForeignGlsl.moveToSet(vertFinal, descriptorSet),
+                com.vulkairis.origin.foreign.ForeignGlsl.moveToSet(fragFinal, descriptorSet),
+                uboBindings, uboSizes, samplerBindings, samplerNames, samplerCompare, block);
+    }
+
+    /**
+     * Origin (step 9): fills one uniform buffer of a {@link ForeignProgram} for this draw: the
+     * injected block member by member from Iris's values with {@code overrides} first, any other
+     * block with upstream's fixed payload. {@code buf} is the caller's mapped memory (little endian).
+     */
+    public static void writeForeignUniforms(ForeignProgram program, int binding, java.nio.ByteBuffer buf, int size,
+                                            Map<String, double[]> overrides) {
+        org.lwjgl.system.MemoryUtil.memSet(org.lwjgl.system.MemoryUtil.memAddress0(buf), 0, size);
+        buf.clear();
+        if (program.block() != null && program.block().binding() == binding) {
+            fillBlock(buf, size, program.block(), overrides);
+        } else {
+            try {
+                UniformBridge.getInstance().writeOfGlobals(buf);
+            } catch (Throwable ignored) {
+            }
+        }
+        buf.clear();
     }
 
     /**
@@ -1413,6 +1525,7 @@ public final class VulkanModProgramBridge {
     public static void clearTerrainRegistrations() {
         TERRAIN_PROGRAM_IDS.clear();
         com.vulkairis.origin.terrain.TerrainDraw.reset(); // Origin (step 5): forget the old pack's pipelines
+        com.vulkairis.origin.api.ForeignPackPrograms.reset(); // Origin (step 9)
     }
 
     public static void unlink(int virtualProgramId) {
@@ -1450,6 +1563,7 @@ public final class VulkanModProgramBridge {
     public static void cleanUp() {
         com.vulkairis.origin.terrain.TerrainDraw.reset(); // Origin (step 5)
         com.vulkairis.origin.shadow.ShadowPass.reset(); // Origin (step 6): new pack, new shadow resolution
+        com.vulkairis.origin.api.ForeignPackPrograms.reset(); // Origin (step 9): prepared programs are stale
         COMPARE_SAMPLERS.clear();
         for (GraphicsPipeline variant : OUTPUT_VARIANTS.values()) {
             variant.scheduleCleanUp();
