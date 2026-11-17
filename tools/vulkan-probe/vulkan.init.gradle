@@ -15,5 +15,11 @@ allprojects {
 			println "vulkan-probe: prodClient gets -Dfabric.debug.disableModIds=" + ids
 		}
 		t.jvmArgs.add('-Dvulkairis.composite.probe=true')
+		// -DprobeClassLog=<file>: the JVM's class-load log, to prove which classes a boot touched
+		// (step 4e: no Sodium compat class from Flywheel/Create once nothing claims the sodium id).
+		def classLog = System.getProperty('probeClassLog')
+		if (classLog) {
+			t.jvmArgs.add('-Xlog:class+load=info:file=' + classLog)
+		}
 	}
 }
