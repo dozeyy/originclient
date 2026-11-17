@@ -76,6 +76,16 @@ public final class VulkanGateTest {
 				"LevelRendererCullFrustumMixin"}) {
 			check("off".equals(vk.get("mixin " + m)), "Vulkan: mixin " + m + " is '" + vk.get("mixin " + m) + "', want off");
 		}
+		// If the gate data ever fails to read, every hook goes off EXCEPT the opengl group and the features that need
+		// only it: those were unconditional before Vulkan mode, so they stay on with normal graphics, off on Vulkan.
+		for (String id : new String[] {"opengl", "colorsaturation", "motionblur"}) {
+			check(CompatGates.failedFallback(live, id, false), "data failed, OpenGL: " + id + " should stay on");
+			check(!CompatGates.failedFallback(live, id, true), "data failed, Vulkan: " + id + " should be off");
+		}
+		for (String id : new String[] {"iris", "sodium", "jei", "smartTerrainUpdates"}) {
+			check(!CompatGates.failedFallback(live, id, false), "data failed: " + id + " should be off");
+		}
+
 		Map<String, String> noVk = new LinkedHashMap<>(vulkanMods);
 		noVk.remove("vulkanmod");
 		Map<String, String> jeiBase = CompatGates.decide(live, lookup(noVk));

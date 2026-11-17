@@ -59,6 +59,18 @@ public static class VulkanMode
     };
 
     /// <summary>
+    /// VulkanMod's mod id. A Vulkan game loads Origin's pinned VulkanMod (VulkaIris depends on that exact version), so a
+    /// player's own VulkanMod jar is left out of mods-vulkan (<see cref="IsVulkanMod"/>): two copies of one id stop the
+    /// loader, and the boot fallback would then quietly turn Vulkan off. Normal-graphics launches keep the player's jar.
+    /// </summary>
+    public const string VulkanModId = "vulkanmod";
+
+    /// <summary>True for a player's jar that is VulkanMod (its own id, or one that provides it).</summary>
+    public static bool IsVulkanMod(ModInfo mod) =>
+        !mod.ReadFailed && (string.Equals(mod.Id, VulkanModId, StringComparison.OrdinalIgnoreCase)
+            || mod.Provides.Contains(VulkanModId, StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>
     /// Origin's bundled Vulkan jars (OriginPaths.BundledVulkanDir), one file per pattern. Every pattern must match for
     /// Vulkan graphics to be available.
     /// </summary>
@@ -130,14 +142,17 @@ public static class VulkanMode
     /// <summary>
     /// What mods-vulkan holds, as file name -> source path: every .jar the normal launch loads
     /// (<paramref name="baseJars"/>, full paths) plus the renderer's jars (<paramref name="rendererJars"/>, full
-    /// paths). A renderer jar wins over a base jar of the same name. Disabled files (.jar.disabled) and anything that
-    /// is not a jar stay out.
+    /// paths). A renderer jar wins over a base jar of the same name. Disabled files (.jar.disabled), anything that
+    /// is not a jar, and <paramref name="leaveOut"/> (the player's own VulkanMod jars, full paths) stay out.
     /// </summary>
-    public static Dictionary<string, string> FolderPlan(IEnumerable<string> baseJars, IEnumerable<string> rendererJars)
+    public static Dictionary<string, string> FolderPlan(IEnumerable<string> baseJars, IEnumerable<string> rendererJars,
+        IEnumerable<string>? leaveOut = null)
     {
+        var skip = new HashSet<string>(leaveOut ?? [], StringComparer.OrdinalIgnoreCase);
         var plan = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var path in baseJars)
         {
+            if (skip.Contains(path)) continue;
             var name = Path.GetFileName(path);
             if (name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) plan[name] = path;
         }

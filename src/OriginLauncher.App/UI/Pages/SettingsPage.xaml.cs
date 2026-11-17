@@ -407,7 +407,15 @@ public partial class SettingsPage : UserControl
     {
         if (_isLoading || _vulkanApplying) return;
         _settings.VulkanRenderer = false;
-        SettingsStore.TryUpdate(s => s.VulkanRenderer = false);
+        if (!SettingsStore.TryUpdate(s => s.VulkanRenderer = false))
+        {
+            // The write failed, so disk still says on: show on, like _Checked does the other way round.
+            _settings.VulkanRenderer = true;
+            _vulkanApplying = true;
+            VulkanToggle.IsChecked = true;
+            _vulkanApplying = false;
+            return;
+        }
         // Blocked and now off: it can't come back on until the mods change.
         if (_vulkanState == VulkanState.Blocked) VulkanToggle.IsEnabled = false;
     }

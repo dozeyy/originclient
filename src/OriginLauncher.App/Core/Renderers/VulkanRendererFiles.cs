@@ -57,9 +57,19 @@ public static class VulkanRendererFiles
     /// Origin's 1.21.1 jar carries Sodium and Iris by design and is handled by the disableModIds switch instead.
     /// Off the UI thread: it opens every jar (top-level metadata only, no nested jars).
     /// </summary>
-    public static IReadOnlyList<VulkanBlocker> ScanBlockers(IEnumerable<string> jars, Func<string, bool> isOrigins)
+    public static IReadOnlyList<VulkanBlocker> ScanBlockers(IEnumerable<string> jars, Func<string, bool> isOrigins) =>
+        Scan(jars, isOrigins).Blockers;
+
+    /// <summary>
+    /// One pass over the player's jars for a Vulkan launch: the blockers (<see cref="ScanBlockers"/>) and the player's
+    /// own VulkanMod jars (full paths), which mods-vulkan leaves out because Origin's pinned VulkanMod is the one that
+    /// loads (VulkanMode.IsVulkanMod).
+    /// </summary>
+    public static (IReadOnlyList<VulkanBlocker> Blockers, IReadOnlyList<string> OwnVulkanMod) Scan(
+        IEnumerable<string> jars, Func<string, bool> isOrigins)
     {
         var mods = new List<ModInfo>();
+        var ownVulkanMod = new List<string>();
         foreach (var path in jars)
         {
             if (!path.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) continue;
@@ -67,14 +77,16 @@ public static class VulkanRendererFiles
             {
                 if (isOrigins(path)) continue;
                 using var stream = File.OpenRead(path);
-                mods.Add(ModMetadataReader.Read(stream, Path.GetFileName(path), readNested: false));
+                var mod = ModMetadataReader.Read(stream, Path.GetFileName(path), readNested: false);
+                mods.Add(mod);
+                if (VulkanMode.IsVulkanMod(mod)) ownVulkanMod.Add(path);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // Locked or gone: nothing to judge, the launch's own checks see it.
             }
         }
-        return VulkanMode.Blockers(mods);
+        return (VulkanMode.Blockers(mods), ownVulkanMod);
     }
 
     /// <summary>The .jar files directly in <paramref name="folder"/>, or none when it isn't there.</summary>

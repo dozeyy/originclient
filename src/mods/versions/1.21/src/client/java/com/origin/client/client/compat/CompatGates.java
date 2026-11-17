@@ -88,6 +88,14 @@ public final class CompatGates {
 
 	/** Built-in condition id: true while VulkanMod (Origin's opt-in Vulkan graphics) is loaded. */
 	public static final String VULKANMOD = "vulkanmod";
+	/**
+	 * The group of vanilla-target hooks that only work on OpenGL (1.21.1: the after-shaders overlay pass, the
+	 * cull-frustum fingerprint, Color Saturation, Motion Blur). Its one need is {@code vulkanmod absent}, which
+	 * needs no data to decide, so when the data fails to read it falls back to "on unless VulkanMod is loaded"
+	 * instead of off: before Vulkan mode these hooks applied unconditionally, and a read failure must not take
+	 * them away on normal graphics (nor turn them on under Vulkan). See {@link #failedFallback}.
+	 */
+	public static final String OPENGL = "opengl";
 	/** The range word of a need that is met only while its mod is NOT loaded ({@code vulkanmod absent}). */
 	static final String ABSENT = "absent";
 
@@ -187,7 +195,7 @@ public final class CompatGates {
 			init();
 		}
 		if (failed) {
-			return false;
+			return failedFallback(id, FEATURES, vulkan());
 		}
 		Feature f = FEATURES.get(id);
 		if (f != null) {
@@ -206,6 +214,9 @@ public final class CompatGates {
 			init();
 		}
 		if (failed) {
+			if (opengl(id, FEATURES)) {
+				return vulkan() ? "Off with Vulkan graphics" : null;
+			}
 			return FEATURES.containsKey(id) || GROUPS.containsKey(id) ? "Off: Origin could not check this" : null;
 		}
 		Feature f = FEATURES.get(id);
@@ -270,7 +281,39 @@ public final class CompatGates {
 		if (g == null) {
 			return true;
 		}
-		return !failed && g.on;
+		return failed ? failedFallback(g.id, FEATURES, vulkan()) : g.on;
+	}
+
+	/**
+	 * What id decides when the data failed to read: every hook off (the safe direction), except the
+	 * {@link #OPENGL} group and features that need only it, which stay "on unless VulkanMod is loaded".
+	 */
+	private static boolean failedFallback(String id, Map<String, Feature> features, boolean vulkan) {
+		return opengl(id, features) && !vulkan;
+	}
+
+	/** True for the OPENGL group and for a feature whose every alternative is just that group. */
+	private static boolean opengl(String id, Map<String, Feature> features) {
+		if (OPENGL.equals(id)) {
+			return true;
+		}
+		Feature f = features.get(id);
+		if (f == null || f.alternatives.isEmpty()) {
+			return false;
+		}
+		for (List<String> alt : f.alternatives) {
+			if (alt.size() != 1 || !OPENGL.equals(alt.get(0))) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** Test seam for {@link #failedFallback}: the decision for {@code id} if reading {@code data} had failed. */
+	static boolean failedFallback(String data, String id, boolean vulkan) throws Exception {
+		Map<String, Feature> features = new LinkedHashMap<>();
+		parse(new BufferedReader(new java.io.StringReader(data)), new LinkedHashMap<>(), features, new LinkedHashMap<>());
+		return failedFallback(id, features, vulkan);
 	}
 
 	// ---- data ------------------------------------------------------------------------------------

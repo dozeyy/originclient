@@ -7,6 +7,8 @@ import java.util.Map;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
+import com.origin.flywheelvulkan.mixin.AttachmentInfoAccessor;
+import com.origin.flywheelvulkan.mixin.RenderPassAccessor;
 import com.origin.flywheelvulkan.shader.VkLayout;
 import com.origin.flywheelvulkan.vk.Retirement;
 
@@ -15,12 +17,13 @@ import dev.engine_room.flywheel.api.material.Material;
 import dev.engine_room.flywheel.api.material.Transparency;
 import dev.engine_room.flywheel.api.material.WriteMask;
 import net.vulkanmod.vulkan.Vulkan;
+import net.vulkanmod.vulkan.framebuffer.RenderPass;
 
 import static org.lwjgl.vulkan.VK10.*;
 
 /**
  * The shared descriptor set layout + pipeline layout ({@link VkLayout}), and one VkPipeline per
- * (render pass, program, fixed-function state). The fixed-function part mirrors Flywheel's
+ * (render-pass attachment formats, program, fixed-function state). The fixed-function part mirrors Flywheel's
  * MaterialRenderState.setup (MIT, Jozufozu): cull, depth test, blend, write mask. Polygon offset
  * is the one dynamic piece (VulkanMod's pipelines declare DEPTH_BIAS dynamic too).
  */
@@ -31,7 +34,18 @@ final class VkPipelines {
 		}
 	}
 
-	private record PipelineKey(long renderPass, VkShaders.ProgramKey program, StateKey state) {
+	/*
+	 * Keyed on the pass's attachment formats, never its raw handle. VulkanMod 0.6.7 destroys and
+	 * rebuilds its main render passes on every resize (Renderer.recreateSwapChain ->
+	 * DefaultMainPass.onResize -> createResources -> RenderPass.cleanUp + createRenderPasses; javap
+	 * on vulkanmod-2eqroDKD.jar, 2026-11-17), and VkGlFramebuffer.create does the same for GL
+	 * framebuffers. A handle key leaked a full pipeline set per resize, and a recycled handle
+	 * with a different format would have bound a pipeline built for the wrong attachments.
+	 * Vulkan's render-pass compatibility rule makes this key safe: a pipeline may be used with
+	 * any pass whose attachments have the same formats and sample counts (VulkanMod is always
+	 * single-sampled), and the pass handed to vkCreateGraphicsPipelines need not outlive the call.
+	 */
+	private record PipelineKey(RenderPassFormats pass, VkShaders.ProgramKey program, StateKey state) {
 	}
 
 	final long setLayout;
@@ -62,14 +76,23 @@ final class VkPipelines {
 		}
 	}
 
-	long get(long renderPass, VkShaders.ProgramKey program, VkShaders.Modules modules, StateKey state) {
-		PipelineKey key = new PipelineKey(renderPass, program, state);
+	long get(RenderPass renderPass, VkShaders.ProgramKey program, VkShaders.Modules modules, StateKey state) {
+		PipelineKey key = new PipelineKey(formats(renderPass), program, state);
 		Long p = pipelines.get(key);
 		if (p == null) {
-			p = create(renderPass, modules, state);
+			p = create(renderPass.getId(), modules, state);
 			pipelines.put(key, p);
 		}
 		return p;
+	}
+
+	private static RenderPassFormats formats(RenderPass renderPass) {
+		RenderPassAccessor pass = (RenderPassAccessor) renderPass;
+		return RenderPassFormats.of(format(pass.origin$colorAttachment()), format(pass.origin$depthAttachment()));
+	}
+
+	private static Integer format(RenderPass.AttachmentInfo info) {
+		return info == null ? null : ((AttachmentInfoAccessor) info).origin$format();
 	}
 
 	/** Pipelines may still be in a frame the GPU hasn't finished, so they go through retirement. */

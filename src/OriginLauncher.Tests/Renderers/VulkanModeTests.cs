@@ -141,6 +141,23 @@ public sealed class VulkanModeTests : IDisposable
     }
 
     [Fact]
+    public void A_players_own_VulkanMod_is_left_out_so_Origins_pinned_one_loads()
+    {
+        // Two vulkanmod copies stop the loader (VulkaIris needs Origin's exact pin), so the player's jar stays out of
+        // mods-vulkan; it is not a blocker, and the rest of their mods still load.
+        var own = JarFromFixture("own-vulkanmod", "VulkanMod_1.21-0.5.5.jar");
+        var lithium = JarFromFixture("clean-lithium", "lithium.jar");
+        var (blockers, ownVulkanMod) = VulkanRendererFiles.Scan([own, lithium], _ => false);
+        Assert.Empty(blockers);
+        Assert.Equal([own], ownVulkanMod);
+
+        var pinned = Touch(P("renderers", "vulkan", "VulkanMod-0.6.7+1.21.1.jar"));
+        var plan = VulkanMode.FolderPlan([own, lithium], [pinned], ownVulkanMod);
+        Assert.Equal(["lithium.jar", "VulkanMod-0.6.7+1.21.1.jar"], plan.Keys.OrderBy(n => n, StringComparer.OrdinalIgnoreCase));
+        Assert.Equal(pinned, plan["VulkanMod-0.6.7+1.21.1.jar"]);
+    }
+
+    [Fact]
     public void The_plan_builds_mods_vulkan_from_hard_links_without_touching_the_sources()
     {
         var baseJar = Touch(P("instance", "mods", "lithium.jar"), "lithium");

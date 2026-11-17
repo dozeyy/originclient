@@ -5,9 +5,11 @@
   "plugin": "com.origin.flywheelvulkan.mixin.FlywheelVulkanMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "AttachmentInfoAccessor",
     "FlwDebugInfoMixin",
     "NoiseTexturesMixin",
     "PonderStencilMixin",
+    "RenderPassAccessor",
     "VulkanRendererAccessor"
   ],
   "injectors": {

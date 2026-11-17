@@ -454,7 +454,7 @@ public sealed class VersionManager
         {
             var baseJars = VulkanRendererFiles.JarsIn(baseFolder).ToList();
             // A mod of the player's that only works with OpenGL (Will, 2026-11-16): normal graphics, and Home names it.
-            var blockers = VulkanRendererFiles.ScanBlockers(baseJars, ModManager.IsManagedFile);
+            var (blockers, ownVulkanMod) = VulkanRendererFiles.Scan(baseJars, ModManager.IsManagedFile);
             if (blockers.Count > 0)
             {
                 AppendCompatLog(version, "Vulkan graphics kept off by: "
@@ -480,7 +480,12 @@ public sealed class VersionManager
             if (irisOverride.Changed) AppendCompatLog(version, "Vulkan: Iris's sodium dependency dropped in " + IrisDependencyOverride.FileName);
             // Hard links where the volume allows (instant, no extra disk), else copies; never a jar rewritten in place.
             var folder = Path.Combine(gameDir, VulkanMode.LaunchFolderName);
-            LaunchModFolder.Sync(folder, VulkanMode.FolderPlan(baseJars, files.Jars!), static _ => true);
+            // The player's own VulkanMod stays out: Origin's pinned copy is the one VulkaIris needs, and two copies of
+            // one id stop the loader (then the boot fallback would quietly turn Vulkan off).
+            if (ownVulkanMod.Count > 0)
+                AppendCompatLog(version, "Vulkan: Origin's VulkanMod used instead of "
+                    + string.Join(", ", ownVulkanMod.Select(Path.GetFileName)));
+            LaunchModFolder.Sync(folder, VulkanMode.FolderPlan(baseJars, files.Jars!, ownVulkanMod), static _ => true);
             return (folder, null);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

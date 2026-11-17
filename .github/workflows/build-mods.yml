@@ -203,8 +203,10 @@ jobs:
             [ -f "$dir/gradlew" ] || continue
             name=$(basename "$dir")
             ok=0
+            # Unit tests run here (no -x test): these jars ship to players, and their tests are the only check on
+            # the shader translation and draw-path logic before a release bundles them.
             for attempt in 1 2 3; do
-              if (cd "$dir" && sh ./gradlew build --no-daemon -x test \
+              if (cd "$dir" && sh ./gradlew build --no-daemon \
                     -Dorg.gradle.internal.repository.max.retries=6 \
                     -Dorg.gradle.internal.repository.initial.backoff=1500 > gradle.log 2>&1); then ok=1; break; fi
               tail -n 40 "$dir/gradle.log"

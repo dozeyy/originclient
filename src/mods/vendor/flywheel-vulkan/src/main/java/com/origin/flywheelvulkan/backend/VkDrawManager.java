@@ -212,7 +212,7 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		}
 		upload(light);
 		cullAndWrite(ctx, renderOrigin, environments);
-		record(renderPass.getId(), environments);
+		record(renderPass, environments);
 	}
 
 	/** First call with a new RenderContext starts this manager's work in VulkanMod's current frame slot. */
@@ -342,7 +342,7 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 
 	// ---------------------------------------------------------------- recording
 
-	private void record(long renderPass, EnvironmentStorage environments) {
+	private void record(RenderPass renderPass, EnvironmentStorage environments) {
 		for (VkDraw d : draws) {
 			if (shaders.prepare(d.material())) {
 				pipelines.retireAll(retirement, slotIndex);
@@ -399,11 +399,11 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 		if (!loggedFirstDraw && drawCount > 0) {
 			loggedFirstDraw = true;
 			FlywheelVulkanClient.LOGGER.info("[flywheel-vulkan] origin:vulkan first frame drawn: {} draws, {} instances, {} pipelines, render pass {}",
-					drawCount, instanceCount, pipelines.size(), Long.toHexString(renderPass));
+					drawCount, instanceCount, pipelines.size(), Long.toHexString(renderPass.getId()));
 		}
 	}
 
-	private long pipeline(long renderPass, InstanceType<?> type, ContextShader context, Material material) {
+	private long pipeline(RenderPass renderPass, InstanceType<?> type, ContextShader context, Material material) {
 		VkShaders.ProgramKey program = VkShaders.ProgramKey.of(type, context, material);
 		return pipelines.get(renderPass, program, shaders.get(program), VkPipelines.StateKey.of(material));
 	}
@@ -627,7 +627,7 @@ public final class VkDrawManager extends DrawManager<VkInstancer<?>> {
 							if (diffuse == null) {
 								continue;
 							}
-							long pipeline = pipeline(renderPass.getId(), type, ContextShader.CRUMBLING, crumblingMaterial);
+							long pipeline = pipeline(renderPass, type, ContextShader.CRUMBLING, crumblingMaterial);
 							long set = descriptorSet(slot.crumbling.buffer, diffuse, breaking);
 							if (pipeline != boundPipeline) {
 								vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
